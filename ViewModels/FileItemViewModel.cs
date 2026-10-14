@@ -14,6 +14,7 @@ public class FileItemViewModel : INotifyPropertyChanged
     public string FullPath { get; set; } = "";
     public bool IsDirectory { get; set; }
     public DateTime DateModified { get; set; }
+    public DateTime DateCreated { get; set; }
     public string TypeName { get; set; } = "";
     public long Size { get; set; }   // -1 for directories
 

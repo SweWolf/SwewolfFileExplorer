@@ -21,7 +21,8 @@ public partial class MainWindow : Window
         {
             [NameColumn] = (SortColumn.Name,         "Name"),
             [DateColumn] = (SortColumn.DateModified, "Date Modified"),
-            [TypeColumn] = (SortColumn.Type,         "Type"),
+            [CreatedColumn] = (SortColumn.DateCreated, "Date Created"),
+            [TypeColumn] =(SortColumn.Type,         "Type"),
             [SizeColumn] = (SortColumn.Size,         "Size")
         };
         ApplySort(SortColumn.Name, ascending: true);

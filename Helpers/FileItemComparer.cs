@@ -4,7 +4,7 @@ using MyFileExplorer.ViewModels;
 
 namespace MyFileExplorer.Helpers;
 
-public enum SortColumn { Name, DateModified, Type, Size }
+public enum SortColumn { Name, DateModified, DateCreated, Type, Size }
 
 /// <summary>
 /// Sorts the file list like Windows Explorer: folders always stay above files,
@@ -31,7 +31,8 @@ public class FileItemComparer : IComparer
         int result = _column switch
         {
             SortColumn.DateModified => a.DateModified.CompareTo(b.DateModified),
-            SortColumn.Type         => StrCmpLogicalW(a.TypeName, b.TypeName),
+            SortColumn.DateCreated  => a.DateCreated.CompareTo(b.DateCreated),
+            SortColumn.Type       => StrCmpLogicalW(a.TypeName, b.TypeName),
             SortColumn.Size         => a.IsDirectory ? 0 : a.Size.CompareTo(b.Size),
             _                       => StrCmpLogicalW(a.Name, b.Name)
         };

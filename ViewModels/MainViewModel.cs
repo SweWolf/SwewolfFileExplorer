@@ -207,6 +207,7 @@ public class MainViewModel : INotifyPropertyChanged
                         FullPath     = dir.FullName,
                         IsDirectory  = true,
                         DateModified = dir.LastWriteTime,
+                        DateCreated  = dir.CreationTime,
                         TypeName     = "File folder",
                         Size         = -1
                     };
@@ -227,6 +228,7 @@ public class MainViewModel : INotifyPropertyChanged
                         FullPath     = file.FullName,
                         IsDirectory  = false,
                         DateModified = file.LastWriteTime,
+                        DateCreated  = file.CreationTime,
                         TypeName     = IconHelper.GetFileType(file.FullName),
                         Size         = file.Length
                     };

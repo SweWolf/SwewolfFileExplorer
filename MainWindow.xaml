@@ -180,6 +180,10 @@
                                         DisplayMemberBinding="{Binding DateModified,
                                             StringFormat='MM/dd/yyyy  HH:mm'}"/>
 
+                        <GridViewColumn Header="Date Created" Width="150" x:Name="CreatedColumn"
+                                        DisplayMemberBinding="{Binding DateCreated,
+                                            StringFormat='MM/dd/yyyy  HH:mm'}"/>
+
                         <GridViewColumn Header="Type" Width="130" x:Name="TypeColumn"
                                         DisplayMemberBinding="{Binding TypeName}"/>
 
