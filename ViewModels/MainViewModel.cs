@@ -404,6 +404,19 @@ public class MainViewModel : INotifyPropertyChanged
             try
             {
                 var name = Path.GetFileName(src);
+
+                if (Directory.Exists(src) && IsSameOrSubPath(src, _currentPath))
+                {
+                    MessageBox.Show(
+                        $"Cannot {(_clipboardIsCut ? "move" : "copy")} '{name}' into itself or one of its subfolders.",
+                        "Paste", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    continue;
+                }
+
+                // Cutting an item and pasting it where it already is changes nothing.
+                if (_clipboardIsCut && IsSamePath(Path.GetDirectoryName(src), _currentPath))
+                    continue;
+
                 var dest = GetUniqueDestPath(_currentPath, name!);
 
                 if (Directory.Exists(src))
@@ -431,6 +444,22 @@ public class MainViewModel : INotifyPropertyChanged
         }
 
         Refresh();
+    }
+
+    private static string NormalizePath(string path) =>
+        Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    private static bool IsSamePath(string? a, string? b) =>
+        a != null && b != null &&
+        string.Equals(NormalizePath(a), NormalizePath(b), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>True if <paramref name="path"/> is the folder <paramref name="folder"/> or lies inside it.</summary>
+    private static bool IsSameOrSubPath(string folder, string path)
+    {
+        var f = NormalizePath(folder);
+        var p = NormalizePath(path);
+        return p.Equals(f, StringComparison.OrdinalIgnoreCase) ||
+               p.StartsWith(f + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetUniqueDestPath(string destDir, string name)
