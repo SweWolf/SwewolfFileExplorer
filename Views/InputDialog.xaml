@@ -4,6 +4,10 @@
         Title="Input"
         Width="380" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
         ResizeMode="NoResize"
         ShowInTaskbar="False">
 

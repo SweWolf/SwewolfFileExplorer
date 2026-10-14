@@ -45,6 +45,7 @@ MyFileExplorer/
 - **Column layout**: right-click a column header for a checklist of columns and "More..." (Choose Details dialog: order, show/hide, width). Hidden columns are kept in `MainWindow`'s `_layout` list and removed from the GridView. The layout is saved on every change and on close in `%AppData%\SweWolfSoftware\MyFileExplorer\columns.json` (`ColumnLayoutStore`).
 - **Tree follows the folder**: every navigation (list, address bar, back/up) expands the tab's tree to the folder and selects its node (`SelectInTree`). A node selected this way is remembered in `_programmaticSelection`, so the window does not treat it as a click and navigate again.
 - **Folders in the list**: hidden by default (they are in the tree); the "Folders" toggle button in the toolbar shows them. `SharedState.ShowFolders`, saved in `settings.json` (`AppSettingsStore`) next to `columns.json`. `FolderTabViewModel.Refresh()` also re-reads the current folder's tree node, so new, renamed or deleted folders show in the tree.
+- **Font size**: Ctrl + mouse wheel over the list or over the tree changes that control's font size (8-40 pt, default 13), separately. The new size is flashed in the title bar for 2.5 s and saved in `settings.json` (`ListFontSize`, `TreeFontSize`). Always save through `SharedState.Settings`, so one setting never overwrites another.
 - **Navigation history**: two `Stack<string>` fields (`_backHistory`, `_forwardHistory`) inside `MainViewModel`.
 
 ## Keyboard Shortcuts

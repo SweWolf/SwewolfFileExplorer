@@ -8,6 +8,10 @@
         Height="640" Width="1024"
         MinHeight="400" MinWidth="600"
         WindowStartupLocation="CenterScreen"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
         PreviewKeyDown="Window_PreviewKeyDown">
 
     <Window.Resources>
@@ -190,7 +194,8 @@
                       ItemsSource="{Binding TreeItems}"
                       BorderThickness="0,0,1,0"
                       BorderBrush="#DDDDDD"
-                      FontSize="13"
+                      FontSize="{Binding TreeFontSize}"
+                      PreviewMouseWheel="Tree_PreviewMouseWheel"
                       SelectedItemChanged="NavigationTree_SelectedItemChanged">
 
                 <TreeView.Resources>
@@ -225,7 +230,8 @@
                       x:Name="FileListView"
                       ItemsSource="{Binding CurrentItems}"
                       SelectionMode="Extended"
-                      FontSize="13"
+                      FontSize="{Binding ListFontSize}"
+                      PreviewMouseWheel="List_PreviewMouseWheel"
                       BorderThickness="0"
                       SelectionChanged="FileListView_SelectionChanged"
                       GridViewColumnHeader.Click="FileListView_HeaderClick"

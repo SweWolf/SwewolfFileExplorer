@@ -7,7 +7,14 @@ namespace MyFileExplorer.ViewModels;
 public class SharedState
 {
     /// <summary>Whether the file list shows folders (off by default; they are in the tree).</summary>
-    public bool ShowFolders { get; set; } = AppSettingsStore.Load().ShowFolders;
+    public bool ShowFolders
+    {
+        get => Settings.ShowFolders;
+        set => Settings.ShowFolders = value;
+    }
+
+    /// <summary>The saved settings (folders shown, font sizes); save them again after a change.</summary>
+    public AppSettings Settings { get; } = AppSettingsStore.Load();
 
     // The clipboard is local to the app, not the system clipboard.
     public List<string>? ClipboardPaths { get; set; }

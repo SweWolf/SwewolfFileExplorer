@@ -38,6 +38,12 @@ public partial class MainWindow : Window
         ApplySort(VM.SortColumn, VM.SortAscending);
 
         Closing += (_, _) => SaveColumnLayout();
+
+        _titleTimer.Tick += (_, _) =>
+        {
+            _titleTimer.Stop();
+            Title = BaseTitle;
+        };
     }
 
     private void OnFolderCreated(FileItemViewModel folder)
@@ -251,6 +257,41 @@ public partial class MainWindow : Window
     }
 
     // ── Navigation tree ───────────────────────────────────────────────────────
+
+    // ── Font size (Ctrl + mouse wheel, separate for the list and the tree) ────
+
+    private const string BaseTitle = "My File Explorer";
+    private readonly System.Windows.Threading.DispatcherTimer _titleTimer = new() { Interval = TimeSpan.FromSeconds(2.5) };
+    private int _wheelDelta;
+
+    private void List_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        ChangeFontSize(e, () => VM.ListFontSize, v => VM.ListFontSize = v, "List");
+
+    private void Tree_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+        ChangeFontSize(e, () => VM.TreeFontSize, v => VM.TreeFontSize = v, "Tree");
+
+    private void ChangeFontSize(MouseWheelEventArgs e, Func<double> get, Action<double> set, string what)
+    {
+        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) return;
+        e.Handled = true;   // no scrolling while Ctrl is held
+
+        // One step per wheel notch (120); a touchpad sends many small amounts, so add them up.
+        _wheelDelta += e.Delta;
+        int steps = _wheelDelta / 120;
+        if (steps == 0) return;
+        _wheelDelta -= steps * 120;
+
+        set(get() + steps);
+        FlashTitle($"{BaseTitle} - {what} font size: {get():0.#} pt");
+    }
+
+    /// <summary>Shows a short message in the title bar for a couple of seconds.</summary>
+    private void FlashTitle(string text)
+    {
+        Title = text;
+        _titleTimer.Stop();
+        _titleTimer.Start();
+    }
 
     // ── Tabs ──────────────────────────────────────────────────────────────────
 

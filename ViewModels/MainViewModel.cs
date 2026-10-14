@@ -175,12 +175,40 @@ public class MainViewModel : INotifyPropertyChanged
         {
             if (_shared.ShowFolders == value) return;
             _shared.ShowFolders = value;
-            AppSettingsStore.Save(new AppSettings { ShowFolders = value });
+            AppSettingsStore.Save(_shared.Settings);
 
             foreach (var tab in Tabs) tab.Refresh();
             OnPropertyChanged();
         }
     }
+
+    public double ListFontSize
+    {
+        get => _shared.Settings.ListFontSize;
+        set
+        {
+            value = ClampFontSize(value);
+            if (_shared.Settings.ListFontSize == value) return;
+            _shared.Settings.ListFontSize = value;
+            AppSettingsStore.Save(_shared.Settings);
+            OnPropertyChanged();
+        }
+    }
+
+    public double TreeFontSize
+    {
+        get => _shared.Settings.TreeFontSize;
+        set
+        {
+            value = ClampFontSize(value);
+            if (_shared.Settings.TreeFontSize == value) return;
+            _shared.Settings.TreeFontSize = value;
+            AppSettingsStore.Save(_shared.Settings);
+            OnPropertyChanged();
+        }
+    }
+
+    private static double ClampFontSize(double size) => AppSettingsStore.ClampFontSize(size);
 
     public bool ConsumeProgrammaticTreeSelection(TreeItemViewModel node) =>
         _activeTab.ConsumeProgrammaticTreeSelection(node);
