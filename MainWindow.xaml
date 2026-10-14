@@ -148,6 +148,7 @@
 
                 <ListView.InputBindings>
                     <KeyBinding Key="Delete"  Command="{Binding DeleteCommand}"/>
+                    <KeyBinding Key="Delete" Modifiers="Shift" Command="{Binding PermanentDeleteCommand}"/>
                     <KeyBinding Key="Back"    Command="{Binding UpCommand}"/>
                     <KeyBinding Key="C" Modifiers="Ctrl" Command="{Binding CopyCommand}"/>
                     <KeyBinding Key="X" Modifiers="Ctrl" Command="{Binding CutCommand}"/>

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using Microsoft.VisualBasic.FileIO;
 using MyFileExplorer.Commands;
 using MyFileExplorer.Helpers;
 
@@ -57,6 +58,7 @@ public class MainViewModel : INotifyPropertyChanged
     public RelayCommand RefreshCommand   { get; }
     public RelayCommand NavigateCommand  { get; }
     public RelayCommand DeleteCommand    { get; }
+    public RelayCommand PermanentDeleteCommand { get; }
     public RelayCommand NewFolderCommand { get; }
     public RelayCommand CopyCommand      { get; }
     public RelayCommand CutCommand       { get; }
@@ -72,6 +74,7 @@ public class MainViewModel : INotifyPropertyChanged
         RefreshCommand   = new RelayCommand(_ => Refresh());
         NavigateCommand  = new RelayCommand(_ => Navigate(CurrentPath));
         DeleteCommand    = new RelayCommand(_ => DeleteSelected(), _ => _selectedItems.Count > 0);
+        PermanentDeleteCommand = new RelayCommand(_ => DeleteSelected(permanent: true), _ => _selectedItems.Count > 0);
         NewFolderCommand = new RelayCommand(_ => CreateNewFolder());
         CopyCommand      = new RelayCommand(_ => CopySelected(),  _ => _selectedItems.Count > 0);
         CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0);
@@ -267,26 +270,39 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    public void DeleteSelected()
+    public void DeleteSelected(bool permanent = false)
     {
         var items = _selectedItems.ToList();
         if (items.Count == 0) return;
 
         var names  = items.Count == 1 ? $"'{items[0].Name}'" : $"{items.Count} items";
-        var result = MessageBox.Show(
-            $"Are you sure you want to delete {names}?",
-            "Confirm Delete",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+        var result = permanent
+            ? MessageBox.Show(
+                $"Are you sure you want to permanently delete {names}?\nThis cannot be undone.",
+                "Confirm Permanent Delete",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No)
+            : MessageBox.Show(
+                $"Are you sure you want to move {names} to the Recycle Bin?",
+                "Confirm Delete",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
 
         if (result != MessageBoxResult.Yes) return;
+
+        var recycle = permanent ? RecycleOption.DeletePermanently : RecycleOption.SendToRecycleBin;
 
         foreach (var item in items)
         {
             try
             {
-                if (item.IsDirectory) Directory.Delete(item.FullPath, recursive: true);
-                else                  File.Delete(item.FullPath);
+                // UIOption.OnlyErrorDialogs: no progress dialog, but a failed recycle
+                // (e.g. a network drive with no Recycle Bin) is reported, not silently permanent.
+                if (item.IsDirectory)
+                    FileSystem.DeleteDirectory(item.FullPath, UIOption.OnlyErrorDialogs, recycle);
+                else
+                    FileSystem.DeleteFile(item.FullPath, UIOption.OnlyErrorDialogs, recycle);
             }
             catch (Exception ex)
             {
@@ -303,10 +319,27 @@ public class MainViewModel : INotifyPropertyChanged
         newName = newName.Trim();
         if (string.IsNullOrEmpty(newName) || newName == item.Name) return;
 
+
+        if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            MessageBox.Show("A file name cannot contain any control characters or any of the following characters:\n\\ / : * ? \" < > |",
+                "Rename", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         try
         {
             var dir     = Path.GetDirectoryName(item.FullPath)!;
             var newPath = Path.Combine(dir, newName);
+
+            // A change of case only (a.txt -> A.txt) points at the same item: allow it.
+            bool sameItem = string.Equals(newPath, item.FullPath, StringComparison.OrdinalIgnoreCase);
+            if (!sameItem && (File.Exists(newPath) || Directory.Exists(newPath)))
+            {
+                MessageBox.Show($"'{newName}' already exists in this folder. Choose a different name.",
+                    "Rename", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             if (item.IsDirectory) Directory.Move(item.FullPath, newPath);
             else                  File.Move(item.FullPath, newPath);
@@ -441,6 +474,7 @@ public class MainViewModel : INotifyPropertyChanged
         };
 
         DeleteCommand.RaiseCanExecuteChanged();
+        PermanentDeleteCommand.RaiseCanExecuteChanged();
         CopyCommand.RaiseCanExecuteChanged();
         CutCommand.RaiseCanExecuteChanged();
     }
