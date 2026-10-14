@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+        VM.FolderCreated += OnFolderCreated;
 
         _columns = new()
         {
@@ -26,6 +27,13 @@ public partial class MainWindow : Window
             [SizeColumn] = (SortColumn.Size,         "Size")
         };
         ApplySort(SortColumn.Name, ascending: true);
+    }
+
+    private void OnFolderCreated(FileItemViewModel folder)
+    {
+        FileListView.SelectedItem = folder;
+        FileListView.ScrollIntoView(folder);
+        ShowRenameDialog(folder);
     }
 
     // ── Sorting ───────────────────────────────────────────────────────────────

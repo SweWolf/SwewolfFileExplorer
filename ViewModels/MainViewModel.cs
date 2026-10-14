@@ -50,6 +50,9 @@ public class MainViewModel : INotifyPropertyChanged
         set { _selectedItem = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Raised after a new folder was created and the list refreshed.</summary>
+    public event Action<FileItemViewModel>? FolderCreated;
+
     // ── Commands ─────────────────────────────────────────────────────────────
 
     public RelayCommand BackCommand      { get; }
@@ -369,10 +372,10 @@ public class MainViewModel : INotifyPropertyChanged
             Directory.CreateDirectory(path);
             Refresh();
 
-            // Select and rename the new folder
+            // The window selects the new folder and asks for its name.
             var newItem = CurrentItems.FirstOrDefault(x => x.FullPath == path);
             if (newItem != null)
-                SelectedItem = newItem;
+                FolderCreated?.Invoke(newItem);
         }
         catch (Exception ex)
         {
