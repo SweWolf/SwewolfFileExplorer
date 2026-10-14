@@ -18,6 +18,12 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new MainViewModel();
         VM.FolderCreated += OnFolderCreated;
+        VM.SortChanged   += () => ApplySort(VM.SortColumn, VM.SortAscending);
+        VM.LastTabClosed += Close;
+
+        // Swapping the tab's tree can select its nodes, which must not navigate the tab.
+        VM.ActiveTabChanging += () => _switchingTab = true;
+        VM.ActiveTabChanged  += OnActiveTabChanged;
 
         _layout.AddRange(new[]
         {
@@ -29,7 +35,7 @@ public partial class MainWindow : Window
         });
 
         LoadColumnLayout();
-        ApplySort(SortColumn.Name, ascending: true);
+        ApplySort(VM.SortColumn, VM.SortAscending);
 
         Closing += (_, _) => SaveColumnLayout();
     }
@@ -54,7 +60,7 @@ public partial class MainWindow : Window
 
         // A second click on the same column reverses the order.
         bool ascending = info.Key != _sortColumn || !_sortAscending;
-        ApplySort(info.Key, ascending);
+        VM.SetSort(info.Key, ascending);   // remembered for this folder; comes back as SortChanged
     }
 
     private void ApplySort(SortColumn key, bool ascending)
@@ -243,9 +249,67 @@ public partial class MainWindow : Window
 
     // ── Navigation tree ───────────────────────────────────────────────────────
 
+    // ── Tabs ──────────────────────────────────────────────────────────────────
+
+    private bool _switchingTab;
+
+    private void OnActiveTabChanged()
+    {
+        // The list now shows the new tab's items, in a new view: give it the tab's sort order.
+        ApplySort(VM.SortColumn, VM.SortAscending);
+
+        // The tree creates its nodes later; keep ignoring their selection until it is idle.
+        Dispatcher.BeginInvoke(() => _switchingTab = false, System.Windows.Threading.DispatcherPriority.ContextIdle);
+    }
+
+    private void TabStrip_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        // Middle-click closes a tab, as in a browser.
+        if (e.ChangedButton != MouseButton.Middle) return;
+        if (FindItemUnder<FolderTabViewModel>(e.OriginalSource) is { } tab)
+        {
+            VM.CloseTabCommand.Execute(tab);
+            e.Handled = true;
+        }
+    }
+
+    private void FileListView_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        // Middle-click on a folder opens it in a new tab, behind the current one.
+        if (e.ChangedButton != MouseButton.Middle) return;
+        if (FindItemUnder<FileItemViewModel>(e.OriginalSource) is { IsDirectory: true } folder)
+        {
+            VM.OpenNewTab(folder.FullPath, activate: false);
+            e.Handled = true;
+        }
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        // Ctrl+Tab: the list would take it for moving the focus out of it.
+        if (e.Key == Key.Tab && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? VM.PreviousTabCommand : VM.NextTabCommand).Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>The data item of the list or tab row the mouse is over, or null.</summary>
+    private static T? FindItemUnder<T>(object source) where T : class
+    {
+        for (var d = source as DependencyObject; d != null; d = VisualTreeHelper.GetParent(d))
+        {
+            if (d is ListBoxItem { DataContext: T item }) return item;   // ListViewItem is a ListBoxItem
+        }
+        return null;
+    }
+
+    // ── Navigation tree ───────────────────────────────────────────────────────
+
     private void NavigationTree_SelectedItemChanged(object sender,
         RoutedPropertyChangedEventArgs<object> e)
     {
+        if (_switchingTab) return;
         if (e.NewValue is TreeItemViewModel item && !string.IsNullOrEmpty(item.FullPath))
             VM.Navigate(item.FullPath);
     }
@@ -303,6 +367,7 @@ public partial class MainWindow : Window
             {
                 "Open"       => hasSelection,
                 "Send to"    => hasSelection,
+                "Open in New Tab" => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true },
                 "Cut"        => hasSelection,
                 "Copy"       => hasSelection,
                 "Paste"      => canPaste,
@@ -381,6 +446,12 @@ public partial class MainWindow : Window
     {
         if (FileListView.SelectedItem is FileItemViewModel item)
             VM.OpenItem(item);
+    }
+
+    private void CtxOpenInNewTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileListView.SelectedItem is FileItemViewModel { IsDirectory: true } folder)
+            VM.OpenNewTab(folder.FullPath, activate: false);
     }
 
     private void CtxCut_Click(object sender, RoutedEventArgs e)     => VM.CutCommand.Execute(null);
