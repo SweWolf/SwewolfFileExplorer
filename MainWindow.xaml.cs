@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using MyFileExplorer.Helpers;
 using MyFileExplorer.ViewModels;
 using MyFileExplorer.Views;
@@ -18,15 +19,19 @@ public partial class MainWindow : Window
         DataContext = new MainViewModel();
         VM.FolderCreated += OnFolderCreated;
 
-        _columns = new()
+        _layout.AddRange(new[]
         {
-            [NameColumn] = (SortColumn.Name,         "Name"),
-            [DateColumn] = (SortColumn.DateModified, "Date Modified"),
-            [CreatedColumn] = (SortColumn.DateCreated, "Date Created"),
-            [TypeColumn] =(SortColumn.Type,         "Type"),
-            [SizeColumn] = (SortColumn.Size,         "Size")
-        };
+            new ColumnInfo(SortColumn.Name,         "Name",          NameColumn),
+            new ColumnInfo(SortColumn.DateModified, "Date Modified", DateColumn),
+            new ColumnInfo(SortColumn.DateCreated,  "Date Created",  CreatedColumn),
+            new ColumnInfo(SortColumn.Type,         "Type",          TypeColumn),
+            new ColumnInfo(SortColumn.Size,         "Size",          SizeColumn)
+        });
+
+        LoadColumnLayout();
         ApplySort(SortColumn.Name, ascending: true);
+
+        Closing += (_, _) => SaveColumnLayout();
     }
 
     private void OnFolderCreated(FileItemViewModel folder)
@@ -38,14 +43,14 @@ public partial class MainWindow : Window
 
     // ── Sorting ───────────────────────────────────────────────────────────────
 
-    private readonly Dictionary<GridViewColumn, (SortColumn Key, string Title)> _columns;
     private SortColumn _sortColumn;
     private bool _sortAscending;
 
     private void FileListView_HeaderClick(object sender, RoutedEventArgs e)
     {
         if (e.OriginalSource is not GridViewColumnHeader { Column: { } column }) return;
-        if (!_columns.TryGetValue(column, out var info)) return;
+        var info = _layout.FirstOrDefault(c => c.Column == column);
+        if (info == null) return;
 
         // A second click on the same column reverses the order.
         bool ascending = info.Key != _sortColumn || !_sortAscending;
@@ -61,12 +66,179 @@ public partial class MainWindow : Window
         if (CollectionViewSource.GetDefaultView(FileListView.ItemsSource) is ListCollectionView view)
             view.CustomSort = new FileItemComparer(key, ascending);
 
-        foreach (var (column, info) in _columns)
+        foreach (var info in _layout)
         {
-            column.Header = info.Key == key
+            info.Column.Header = info.Key == key
                 ? $"{info.Title} {(ascending ? "▲" : "▼")}"
                 : info.Title;
         }
+    }
+
+    // ── Column layout (which columns are shown, in what order) ────────────────
+
+    private class ColumnInfo
+    {
+        public SortColumn Key { get; }
+        public string Title { get; }
+        public GridViewColumn Column { get; }
+        public bool Visible { get; set; } = true;
+        public double Width { get; set; }
+
+        public ColumnInfo(SortColumn key, string title, GridViewColumn column)
+        {
+            Key    = key;
+            Title  = title;
+            Column = column;
+            Width  = column.Width;
+        }
+    }
+
+    /// <summary>All columns in display order; hidden ones are kept here but are not in the GridView.</summary>
+    private readonly List<ColumnInfo> _layout = new();
+
+    private GridView ListGrid => (GridView)FileListView.View;
+
+    private void LoadColumnLayout()
+    {
+        var saved = ColumnLayoutStore.Load();
+        if (saved != null)
+        {
+            // Saved order first; a column the file does not know (a newer version) goes last.
+            var ordered = new List<ColumnInfo>();
+            foreach (var state in saved)
+            {
+                var info = _layout.FirstOrDefault(c => c.Key.ToString() == state.Key);
+                if (info == null || ordered.Contains(info)) continue;
+
+                info.Visible = state.Visible || info.Key == SortColumn.Name;
+                if (state.Width >= 20) info.Width = state.Width;
+                ordered.Add(info);
+            }
+            ordered.AddRange(_layout.Except(ordered));
+
+            _layout.Clear();
+            _layout.AddRange(ordered);
+        }
+
+        ApplyColumns();
+    }
+
+    private void SaveColumnLayout()
+    {
+        SyncLayoutFromGrid();
+        ColumnLayoutStore.Save(_layout
+            .Select(c => new ColumnState { Key = c.Key.ToString(), Visible = c.Visible, Width = c.Width })
+            .ToList());
+    }
+
+    /// <summary>Takes over what the user did in the list itself: dragged a header, resized a column.</summary>
+    private void SyncLayoutFromGrid()
+    {
+        var shown = new List<ColumnInfo>();
+        foreach (var column in ListGrid.Columns)
+        {
+            var info = _layout.FirstOrDefault(c => c.Column == column);
+            if (info == null) continue;
+
+            double width = double.IsNaN(column.Width) ? column.ActualWidth : column.Width;
+            if (width >= 20) info.Width = width;
+            shown.Add(info);
+        }
+
+        var hidden = _layout.Where(c => !shown.Contains(c)).ToList();
+        _layout.Clear();
+        _layout.AddRange(shown);
+        _layout.AddRange(hidden);
+    }
+
+    /// <summary>Rebuilds the GridView's columns from the layout.</summary>
+    private void ApplyColumns()
+    {
+        ListGrid.Columns.Clear();
+        foreach (var info in _layout.Where(c => c.Visible))
+        {
+            info.Column.Width = info.Width;
+            ListGrid.Columns.Add(info.Column);
+        }
+        ApplySort(_sortColumn, _sortAscending);
+    }
+
+    /// <summary>A right-click on a column header shows the column menu, not the file menu.</summary>
+    private void FileListView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (e.CursorLeft < 0) return;   // opened with the keyboard
+
+        var hit = VisualTreeHelper.HitTest(FileListView, Mouse.GetPosition(FileListView));
+        for (DependencyObject? d = hit?.VisualHit; d != null && d != FileListView; d = VisualTreeHelper.GetParent(d))
+        {
+            if (d is not GridViewColumnHeader) continue;
+
+            e.Handled = true;
+            ShowColumnMenu();
+            return;
+        }
+    }
+
+    private void ShowColumnMenu()
+    {
+        SyncLayoutFromGrid();
+
+        var menu = new ContextMenu();
+        foreach (var info in _layout)
+        {
+            var item = new MenuItem
+            {
+                Header      = info.Title,
+                IsCheckable = true,
+                IsChecked   = info.Visible,
+                IsEnabled   = info.Key != SortColumn.Name   // Name is always shown
+            };
+            item.Click += (_, _) =>
+            {
+                info.Visible = item.IsChecked;
+                ApplyColumns();
+                SaveColumnLayout();
+            };
+            menu.Items.Add(item);
+        }
+
+        menu.Items.Add(new Separator());
+        var more = new MenuItem { Header = "More..." };
+        more.Click += (_, _) => ShowChooseDetails();
+        menu.Items.Add(more);
+
+        menu.PlacementTarget = FileListView;
+        menu.IsOpen = true;
+    }
+
+    private void ShowChooseDetails()
+    {
+        SyncLayoutFromGrid();
+
+        var dlg = new ChooseDetailsDialog(_layout.Select(c => new ColumnChoice
+        {
+            Key       = c.Key.ToString(),
+            Title     = c.Title,
+            IsVisible = c.Visible,
+            Width     = Math.Round(c.Width),
+            CanHide   = c.Key != SortColumn.Name
+        })) { Owner = this };
+
+        if (dlg.ShowDialog() != true) return;
+
+        var ordered = new List<ColumnInfo>();
+        foreach (var choice in dlg.Result)
+        {
+            var info = _layout.First(c => c.Key.ToString() == choice.Key);
+            info.Visible = choice.IsVisible || !choice.CanHide;
+            info.Width   = choice.Width;
+            ordered.Add(info);
+        }
+
+        _layout.Clear();
+        _layout.AddRange(ordered);
+        ApplyColumns();
+        SaveColumnLayout();
     }
 
     // ── Navigation tree ───────────────────────────────────────────────────────

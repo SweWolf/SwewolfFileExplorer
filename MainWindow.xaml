@@ -145,6 +145,7 @@
                       BorderThickness="0"
                       SelectionChanged="FileListView_SelectionChanged"
                       GridViewColumnHeader.Click="FileListView_HeaderClick"
+                      ContextMenuOpening="FileListView_ContextMenuOpening"
                       MouseDoubleClick="FileListView_MouseDoubleClick"
                       KeyDown="FileListView_KeyDown">
 

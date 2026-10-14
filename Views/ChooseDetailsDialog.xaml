@@ -1,0 +1,61 @@
+<Window x:Class="MyFileExplorer.Views.ChooseDetailsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Choose Details"
+        Width="400" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="10"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="6"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="12"/>
+            <ColumnDefinition Width="90"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="3" TextWrapping="Wrap"
+                   Text="Select the details you want to display in the file list."/>
+
+        <!-- Row 2: the list and the buttons beside it -->
+        <ListBox x:Name="DetailsList" Grid.Row="2" Grid.Column="0" Height="180"
+                 SelectionChanged="DetailsList_SelectionChanged"
+                 CheckBox.Checked="DetailsList_CheckChanged"
+                 CheckBox.Unchecked="DetailsList_CheckChanged">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox Content="{Binding Title}"
+                              IsChecked="{Binding IsVisible, Mode=TwoWay}"
+                              IsEnabled="{Binding CanHide}"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2" Grid.Column="2">
+            <Button x:Name="MoveUpButton"   Content="Move Up"   Padding="0,3" Margin="0,0,0,6" Click="MoveUp_Click"/>
+            <Button x:Name="MoveDownButton" Content="Move Down" Padding="0,3" Margin="0,0,0,6" Click="MoveDown_Click"/>
+            <Button x:Name="ShowButton"     Content="Show"      Padding="0,3" Margin="0,0,0,6" Click="Show_Click"/>
+            <Button x:Name="HideButton"     Content="Hide"      Padding="0,3" Click="Hide_Click"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="4" Grid.ColumnSpan="3" Orientation="Horizontal">
+            <TextBlock Text="Width of Selected Column (in pixels):" VerticalAlignment="Center"/>
+            <TextBox x:Name="WidthBox" Width="60" Margin="8,0,0,0" Padding="3"
+                     Text="{Binding SelectedItem.Width, ElementName=DetailsList, UpdateSourceTrigger=LostFocus}"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="6" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="OK" Width="80" Margin="0,0,6,0" IsDefault="True" Click="OkButton_Click"/>
+            <Button Content="Cancel" Width="80" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
