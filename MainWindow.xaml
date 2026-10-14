@@ -143,6 +143,7 @@
                       FontSize="13"
                       BorderThickness="0"
                       SelectionChanged="FileListView_SelectionChanged"
+                      GridViewColumnHeader.Click="FileListView_HeaderClick"
                       MouseDoubleClick="FileListView_MouseDoubleClick"
                       KeyDown="FileListView_KeyDown">
 
@@ -159,7 +160,7 @@
                     <GridView>
 
                         <!-- Name column: icon + text -->
-                        <GridViewColumn Header="Name" Width="300">
+                        <GridViewColumn Header="Name" Width="300" x:Name="NameColumn">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal">
@@ -175,14 +176,14 @@
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
 
-                        <GridViewColumn Header="Date Modified" Width="150"
+                        <GridViewColumn Header="Date Modified" Width="150" x:Name="DateColumn"
                                         DisplayMemberBinding="{Binding DateModified,
                                             StringFormat='MM/dd/yyyy  HH:mm'}"/>
 
-                        <GridViewColumn Header="Type" Width="130"
+                        <GridViewColumn Header="Type" Width="130" x:Name="TypeColumn"
                                         DisplayMemberBinding="{Binding TypeName}"/>
 
-                        <GridViewColumn Header="Size" Width="90"
+                        <GridViewColumn Header="Size" Width="90" x:Name="SizeColumn"
                                         DisplayMemberBinding="{Binding Size,
                                             Converter={StaticResource FileSizeConverter}}"/>
                     </GridView>

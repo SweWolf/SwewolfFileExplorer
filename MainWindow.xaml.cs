@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
+using MyFileExplorer.Helpers;
 using MyFileExplorer.ViewModels;
 using MyFileExplorer.Views;
 
@@ -14,6 +16,48 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+
+        _columns = new()
+        {
+            [NameColumn] = (SortColumn.Name,         "Name"),
+            [DateColumn] = (SortColumn.DateModified, "Date Modified"),
+            [TypeColumn] = (SortColumn.Type,         "Type"),
+            [SizeColumn] = (SortColumn.Size,         "Size")
+        };
+        ApplySort(SortColumn.Name, ascending: true);
+    }
+
+    // ── Sorting ───────────────────────────────────────────────────────────────
+
+    private readonly Dictionary<GridViewColumn, (SortColumn Key, string Title)> _columns;
+    private SortColumn _sortColumn;
+    private bool _sortAscending;
+
+    private void FileListView_HeaderClick(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource is not GridViewColumnHeader { Column: { } column }) return;
+        if (!_columns.TryGetValue(column, out var info)) return;
+
+        // A second click on the same column reverses the order.
+        bool ascending = info.Key != _sortColumn || !_sortAscending;
+        ApplySort(info.Key, ascending);
+    }
+
+    private void ApplySort(SortColumn key, bool ascending)
+    {
+        _sortColumn    = key;
+        _sortAscending = ascending;
+
+        // The view's sort survives navigation and refresh, and keeps the selection.
+        if (CollectionViewSource.GetDefaultView(FileListView.ItemsSource) is ListCollectionView view)
+            view.CustomSort = new FileItemComparer(key, ascending);
+
+        foreach (var (column, info) in _columns)
+        {
+            column.Header = info.Key == key
+                ? $"{info.Title} {(ascending ? "▲" : "▼")}"
+                : info.Title;
+        }
     }
 
     // ── Navigation tree ───────────────────────────────────────────────────────
