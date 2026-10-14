@@ -9,6 +9,11 @@
     <AssemblyName>MyFileExplorer</AssemblyName>
     <RootNamespace>MyFileExplorer</RootNamespace>
     <Platforms>x64</Platforms>
+    <ApplicationIcon>Resourses\fluent_file_explorer.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Resourses\fluent_file_explorer.ico" />
+  </ItemGroup>
 
 </Project>
