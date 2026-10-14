@@ -57,7 +57,9 @@ MyFileExplorer/
 | Delete | Delete selected item(s) |
 | Ctrl+C / X / V | Copy / Cut / Paste |
 | Ctrl+Shift+N | New folder |
-| Ctrl+T / Ctrl+W | New tab / Close tab |
+| Ctrl+T or Ctrl+N | New tab |
+| Ctrl+W or Ctrl+F4 | Close tab |
+| Ctrl+Shift+T | Reopen the last closed tab (up to 20, with its history and sort) |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / Previous tab |
 | Middle-click | On a tab: close it. On a folder: open it in a new tab |
 | Alt+Enter | Properties of the selected item(s), or of the current folder |

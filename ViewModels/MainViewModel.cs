@@ -26,6 +26,7 @@ public class MainViewModel : INotifyPropertyChanged
         CloseTabCommand    = new RelayCommand(p => CloseTab(p as FolderTabViewModel ?? ActiveTab));
         NextTabCommand     = new RelayCommand(_ => SwitchTab(+1), _ => Tabs.Count > 1);
         PreviousTabCommand = new RelayCommand(_ => SwitchTab(-1), _ => Tabs.Count > 1);
+        ReopenTabCommand   = new RelayCommand(_ => ReopenTab(),   _ => _closedTabs.Count > 0);
     }
 
     // ── Tabs ─────────────────────────────────────────────────────────────────
@@ -34,6 +35,11 @@ public class MainViewModel : INotifyPropertyChanged
     public RelayCommand CloseTabCommand    { get; }
     public RelayCommand NextTabCommand     { get; }
     public RelayCommand PreviousTabCommand { get; }
+    public RelayCommand ReopenTabCommand   { get; }
+
+    // Closed tabs are kept whole (history, sort, tree), most recent last, so Ctrl+Shift+T can bring one back.
+    private const int MaxClosedTabs = 20;
+    private readonly List<(FolderTabViewModel Tab, int Index)> _closedTabs = new();
 
     /// <summary>Raised just before and after another tab becomes the active one.</summary>
     public event Action? ActiveTabChanging;
@@ -101,8 +107,30 @@ public class MainViewModel : INotifyPropertyChanged
             ActiveTab = Tabs[index < Tabs.Count - 1 ? index + 1 : index - 1];
 
         Tabs.Remove(tab);
+
+        _closedTabs.Add((tab, index));
+        if (_closedTabs.Count > MaxClosedTabs) _closedTabs.RemoveAt(0);
+
         NextTabCommand.RaiseCanExecuteChanged();
         PreviousTabCommand.RaiseCanExecuteChanged();
+        ReopenTabCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>Brings back the most recently closed tab, where it was, and makes it active.</summary>
+    private void ReopenTab()
+    {
+        if (_closedTabs.Count == 0) return;
+
+        var (tab, index) = _closedTabs[^1];
+        _closedTabs.RemoveAt(_closedTabs.Count - 1);
+
+        Tabs.Insert(Math.Min(index, Tabs.Count), tab);
+        tab.RefreshCommand.Execute(null);   // the folder may have changed while the tab was closed
+        ActiveTab = tab;
+
+        NextTabCommand.RaiseCanExecuteChanged();
+        PreviousTabCommand.RaiseCanExecuteChanged();
+        ReopenTabCommand.RaiseCanExecuteChanged();
     }
 
     private void SwitchTab(int delta)
