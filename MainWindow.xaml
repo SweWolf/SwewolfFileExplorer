@@ -198,6 +198,7 @@
                 <ListView.ContextMenu>
                     <ContextMenu x:Name="FileContextMenu" Opened="ContextMenu_Opened">
                         <MenuItem Header="Open"       Click="CtxOpen_Click"/>
+                        <MenuItem Header="Send to"    x:Name="SendToMenu"/>
                         <Separator/>
                         <MenuItem Header="Cut"        Click="CtxCut_Click"       InputGestureText="Ctrl+X"/>
                         <MenuItem Header="Copy"       Click="CtxCopy_Click"      InputGestureText="Ctrl+C"/>

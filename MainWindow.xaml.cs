@@ -116,12 +116,16 @@ public partial class MainWindow : Window
         bool hasSelection = FileListView.SelectedItem != null;
         bool canPaste     = VM.PasteCommand.CanExecute(null);
 
+        // Read the SendTo folder each time, so new shortcuts show up at once.
+        FillSendToMenu(SendToMenu, hasSelection ? SendToHelper.GetEntries() : new());
+
         var menu = (ContextMenu)sender;
         foreach (var mi in menu.Items.OfType<MenuItem>())
         {
             mi.IsEnabled = mi.Header switch
             {
                 "Open"       => hasSelection,
+                "Send to"    => hasSelection,
                 "Cut"        => hasSelection,
                 "Copy"       => hasSelection,
                 "Paste"      => canPaste,
@@ -131,6 +135,49 @@ public partial class MainWindow : Window
                 _            => true
             };
         }
+    }
+
+    private void FillSendToMenu(MenuItem parent, List<SendToEntry> entries)
+    {
+        parent.Items.Clear();
+        foreach (var entry in entries)
+        {
+            var item = new MenuItem
+            {
+                Header = entry.Name.Replace("_", "__"),   // "_" would become an access key
+                Icon   = entry.Icon == null ? null : new Image { Source = entry.Icon, Width = 16, Height = 16 },
+                Tag    = entry.Path
+            };
+
+            if (entry.Children != null)
+                FillSendToMenu(item, entry.Children);
+            else
+                item.Click += SendToItem_Click;
+
+            parent.Items.Add(item);
+        }
+
+        // An empty submenu would otherwise open as a blank box.
+        if (parent.Items.Count == 0)
+            parent.Items.Add(new MenuItem { Header = "(empty)", IsEnabled = false });
+    }
+
+    private void SendToItem_Click(object sender, RoutedEventArgs e)
+    {
+        var target = (string)((MenuItem)sender).Tag;
+        var files  = FileListView.SelectedItems.Cast<FileItemViewModel>().Select(i => i.FullPath).ToList();
+
+        try
+        {
+            SendToHelper.SendTo(target, files);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot send to '{System.IO.Path.GetFileNameWithoutExtension(target)}': {ex.Message}",
+                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        VM.RefreshCommand.Execute(null);
     }
 
     private void CtxOpen_Click(object sender, RoutedEventArgs e)
