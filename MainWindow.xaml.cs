@@ -273,6 +273,69 @@ public partial class MainWindow : Window
         }
     }
 
+    // Drag a tab sideways to reorder; it moves along with the mouse.
+    private FolderTabViewModel? _dragTab;
+    private Point _dragStart;
+
+    private void TabStrip_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragTab = null;
+        if (IsOverButton(e.OriginalSource)) return;   // the close button is a click, not a drag
+
+        _dragTab   = FindItemUnder<FolderTabViewModel>(e.OriginalSource);
+        _dragStart = e.GetPosition(TabStrip);
+    }
+
+    private void TabStrip_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragTab == null || e.LeftButton != MouseButtonState.Pressed) return;
+
+        var pos = e.GetPosition(TabStrip);
+        if (Math.Abs(pos.X - _dragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(pos.Y - _dragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+
+        var tab = _dragTab;
+        _dragTab = null;
+        DragDrop.DoDragDrop(TabStrip, new DataObject(typeof(FolderTabViewModel), tab), DragDropEffects.Move);
+    }
+
+    private void TabStrip_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = DragDropEffects.None;
+        e.Handled = true;
+        if (e.Data.GetData(typeof(FolderTabViewModel)) is not FolderTabViewModel dragged) return;
+        e.Effects = DragDropEffects.Move;
+
+        if (FindItemUnder<FolderTabViewModel>(e.OriginalSource) is not { } target || target == dragged) return;
+        if (TabStrip.ItemContainerGenerator.ContainerFromItem(target) is not FrameworkElement targetBox ||
+            TabStrip.ItemContainerGenerator.ContainerFromItem(dragged) is not FrameworkElement draggedBox) return;
+
+        // Swap only when the mouse is over the spot the dragged tab would then occupy.
+        // Otherwise it would jump back and forth when the tabs differ in width.
+        double x      = e.GetPosition(TabStrip).X;
+        double left   = targetBox.TranslatePoint(new Point(0, 0), TabStrip).X;
+        double right  = left + targetBox.ActualWidth;
+        int    from   = VM.Tabs.IndexOf(dragged);
+        int    to     = VM.Tabs.IndexOf(target);
+        bool   movesRight = to > from;
+
+        double newLeft  = movesRight ? right - draggedBox.ActualWidth : left;
+        double newRight = newLeft + draggedBox.ActualWidth;
+        if (x < newLeft || x > newRight) return;
+
+        VM.Tabs.Move(from, to);
+    }
+
+    private static bool IsOverButton(object source)
+    {
+        for (var d = source as DependencyObject; d != null; d = VisualTreeHelper.GetParent(d))
+        {
+            if (d is System.Windows.Controls.Primitives.ButtonBase) return true;
+            if (d is ListBoxItem) break;
+        }
+        return false;
+    }
+
     private void FileListView_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
         // Middle-click on a folder opens it in a new tab, behind the current one.

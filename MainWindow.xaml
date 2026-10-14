@@ -39,7 +39,11 @@
                          BorderThickness="0" Background="Transparent"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                         PreviewMouseDown="TabStrip_PreviewMouseDown">
+                         AllowDrop="True"
+                         PreviewMouseDown="TabStrip_PreviewMouseDown"
+                         PreviewMouseLeftButtonDown="TabStrip_PreviewMouseLeftButtonDown"
+                         PreviewMouseMove="TabStrip_PreviewMouseMove"
+                         DragOver="TabStrip_DragOver">
 
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
