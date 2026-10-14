@@ -79,28 +79,12 @@ public static class SendToHelper
     {
         if (files.Count == 0) return;
 
-        var pidls = new List<IntPtr>();
         object? targetObj = null;
-        object? arrayObj  = null;
-        IntPtr  dataPtr   = IntPtr.Zero;
         IntPtr  dropPtr   = IntPtr.Zero;
-        IntPtr  targetItemPtr = IntPtr.Zero;
 
         try
         {
-            // The selected files as a shell data object (CF_HDROP and friends).
-            foreach (var file in files)
-            {
-                Check(SHParseDisplayName(System.IO.Path.GetFullPath(file), IntPtr.Zero, out var pidl, 0, out _));
-                pidls.Add(pidl);
-            }
-
-            Check(SHCreateShellItemArrayFromIDLists((uint)pidls.Count, pidls.ToArray(), out arrayObj));
-            var array = (IShellItemArray)arrayObj;
-            var bhidDataObject = BHID_DataObject;
-            var iidDataObject  = IID_IDataObject;
-            Check(array.BindToHandler(IntPtr.Zero, ref bhidDataObject, ref iidDataObject, out dataPtr));
-            var dataObject = (IDataObject)Marshal.GetObjectForIUnknown(dataPtr);
+            var dataObject = CreateDataObject(files);
 
             // The drop target of the Send To item.
             var iidShellItem = IID_IShellItem;
@@ -125,11 +109,41 @@ public static class SendToHelper
         }
         finally
         {
-            foreach (var pidl in pidls) Marshal.FreeCoTaskMem(pidl);
-            if (dataPtr != IntPtr.Zero) Marshal.Release(dataPtr);
             if (dropPtr != IntPtr.Zero) Marshal.Release(dropPtr);
             if (targetObj != null) Marshal.ReleaseComObject(targetObj);
-            if (arrayObj  != null) Marshal.ReleaseComObject(arrayObj);
+        }
+    }
+
+    /// <summary>
+    /// The files as a shell data object (CF_HDROP and friends). Also used by
+    /// <see cref="PropertiesHelper"/> for the properties of several items.
+    /// </summary>
+    internal static IDataObject CreateDataObject(IReadOnlyCollection<string> files)
+    {
+        var pidls = new List<IntPtr>();
+        object? arrayObj = null;
+        IntPtr  dataPtr  = IntPtr.Zero;
+
+        try
+        {
+            foreach (var file in files)
+            {
+                Check(SHParseDisplayName(System.IO.Path.GetFullPath(file), IntPtr.Zero, out var pidl, 0, out _));
+                pidls.Add(pidl);
+            }
+
+            Check(SHCreateShellItemArrayFromIDLists((uint)pidls.Count, pidls.ToArray(), out arrayObj));
+            var array = (IShellItemArray)arrayObj;
+            var bhidDataObject = BHID_DataObject;
+            var iidDataObject  = IID_IDataObject;
+            Check(array.BindToHandler(IntPtr.Zero, ref bhidDataObject, ref iidDataObject, out dataPtr));
+            return (IDataObject)Marshal.GetObjectForIUnknown(dataPtr);
+        }
+        finally
+        {
+            foreach (var pidl in pidls) Marshal.FreeCoTaskMem(pidl);
+            if (dataPtr != IntPtr.Zero) Marshal.Release(dataPtr);
+            if (arrayObj != null) Marshal.ReleaseComObject(arrayObj);
         }
     }
 

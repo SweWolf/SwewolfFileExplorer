@@ -56,6 +56,7 @@ MyFileExplorer/
 | Delete | Delete selected item(s) |
 | Ctrl+C / X / V | Copy / Cut / Paste |
 | Ctrl+Shift+N | New folder |
+| Alt+Enter | Properties of the selected item(s), or of the current folder |
 
 ## Extending the App
 

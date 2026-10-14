@@ -102,6 +102,11 @@ public partial class MainWindow : Window
             VM.OpenItem(openItem);
             e.Handled = true;
         }
+        else if (e.Key == Key.System && e.SystemKey == Key.Return)   // Alt+Enter
+        {
+            ShowProperties();
+            e.Handled = true;
+        }
         else if (e.Key == Key.F2 && FileListView.SelectedItem is FileItemViewModel renameItem)
         {
             ShowRenameDialog(renameItem);
@@ -179,6 +184,26 @@ public partial class MainWindow : Window
 
         VM.RefreshCommand.Execute(null);
     }
+
+    /// <summary>Properties of the selected items, or of the current folder if nothing is selected.</summary>
+    private void ShowProperties()
+    {
+        var paths = FileListView.SelectedItems.Cast<FileItemViewModel>().Select(i => i.FullPath).ToList();
+        if (paths.Count == 0 && !string.IsNullOrEmpty(VM.CurrentPath))
+            paths.Add(VM.CurrentPath);
+
+        try
+        {
+            PropertiesHelper.Show(paths);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot show properties: {ex.Message}", "Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void CtxProperties_Click(object sender, RoutedEventArgs e) => ShowProperties();
 
     private void CtxOpen_Click(object sender, RoutedEventArgs e)
     {

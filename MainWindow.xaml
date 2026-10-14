@@ -208,6 +208,8 @@
                         <MenuItem Header="Rename"     Click="CtxRename_Click"    InputGestureText="F2"/>
                         <Separator/>
                         <MenuItem Header="New Folder" Click="CtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"/>
+                        <Separator/>
+                        <MenuItem Header="Properties" Click="CtxProperties_Click" InputGestureText="Alt+Enter"/>
                     </ContextMenu>
                 </ListView.ContextMenu>
 
