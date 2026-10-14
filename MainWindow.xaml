@@ -148,6 +148,15 @@
 
                 <Separator/>
 
+                <ToggleButton IsChecked="{Binding ShowFolders}"
+                              ToolTip="Show Folders in the List"
+                              Padding="6,4">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4C2;" FontSize="12" Margin="0,0,4,0"/>
+                        <TextBlock Text="Folders" FontSize="12"/>
+                    </StackPanel>
+                </ToggleButton>
+
                 <Button Command="{Binding NewFolderCommand}"
                         ToolTip="New Folder (Ctrl+Shift+N)"
                         Padding="6,4">
@@ -201,6 +210,7 @@
                         <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
                         <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
                         <Setter Property="Padding"    Value="2,2"/>
+                        <EventSetter Event="Selected" Handler="TreeItem_Selected"/>
                     </Style>
                 </TreeView.ItemContainerStyle>
             </TreeView>

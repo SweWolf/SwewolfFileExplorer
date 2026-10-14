@@ -162,7 +162,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         TreeItems.Add(quickAccess);
 
         // This PC
-        var thisPC = new TreeItemViewModel("This PC", "", null, isVirtual: true);
+        var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true);
         thisPC.IsExpanded = true;
 
         foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
@@ -211,6 +211,84 @@ public class FolderTabViewModel : INotifyPropertyChanged
         ApplyFolderSort();
         LoadItems(path);
         UpdateNavState();
+        SelectInTree(path);
+    }
+
+    // ── Keeping the tree on the current folder ───────────────────────────────
+
+    private TreeItemViewModel? _thisPcNode;
+
+    /// <summary>
+    /// The node this tab selected by itself, so the window can tell that selection from a click.
+    /// Cleared by <see cref="ConsumeProgrammaticTreeSelection"/>.
+    /// </summary>
+    private TreeItemViewModel? _programmaticSelection;
+
+    /// <summary>True if the tree selected <paramref name="node"/> because of a navigation, not a click.</summary>
+    public bool ConsumeProgrammaticTreeSelection(TreeItemViewModel node)
+    {
+        var mine = _programmaticSelection;
+        _programmaticSelection = null;
+        return mine == node;
+    }
+
+    /// <summary>Expands the tree down to <paramref name="path"/> and selects its node, as Explorer does.</summary>
+    private void SelectInTree(string path)
+    {
+        // The node of this folder is already selected (e.g. a Quick Access shortcut was clicked).
+        var selected = FindSelectedNode(TreeItems);
+        if (selected != null && NodeIs(selected, path))
+            return;
+
+        var node = ResolveNode(path);
+        if (node == null || node.IsSelected) return;
+
+        _programmaticSelection = node;
+        node.IsSelected = true;
+    }
+
+    /// <summary>
+    /// The tree node of <paramref name="path"/> under This PC, expanding the nodes above it.
+    /// If the folder is not listed (no access), the deepest node found; null if not on a drive in the tree.
+    /// </summary>
+    private TreeItemViewModel? ResolveNode(string path)
+    {
+        var root = Path.GetPathRoot(Path.GetFullPath(path));
+        var node = _thisPcNode?.Children.FirstOrDefault(c => NodeIs(c, root!));
+        if (node == null) return null;   // e.g. a network path
+
+        var current = root!;
+        var segments = Path.GetRelativePath(root!, path).Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var segment in segments)
+        {
+            if (segment == ".") continue;
+            current = Path.Combine(current, segment);
+
+            node.IsExpanded = true;   // loads the children the first time
+            var next = node.Children.FirstOrDefault(c => NodeIs(c, current));
+            if (next == null) break;  // not listed (no access): stay on the deepest folder found
+            node = next;
+        }
+
+        return node;
+    }
+
+    /// <summary>True if the node is the folder <paramref name="path"/> (the dummy and virtual nodes have no path).</summary>
+    private static bool NodeIs(TreeItemViewModel node, string path) =>
+        !string.IsNullOrEmpty(node.FullPath) && IsSamePath(node.FullPath, path);
+
+    private static TreeItemViewModel? FindSelectedNode(IEnumerable<TreeItemViewModel> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            if (node.IsSelected) return node;
+            var inChild = FindSelectedNode(node.Children);
+            if (inChild != null) return inChild;
+        }
+        return null;
     }
 
     /// <summary>The folder's name, or the drive for a root such as C:\.</summary>
@@ -243,10 +321,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private bool CanGoUp() =>
         !string.IsNullOrEmpty(_currentPath) && Directory.GetParent(_currentPath) != null;
 
-    private void Refresh()
+    public void Refresh()
     {
-        if (!string.IsNullOrEmpty(_currentPath))
-            LoadItems(_currentPath);
+        if (string.IsNullOrEmpty(_currentPath)) return;
+
+        LoadItems(_currentPath);
+
+        // Folders may have come or gone: the tree is the only place they show when the list hides them.
+        var node = ResolveNode(_currentPath);
+        if (node != null && NodeIs(node, _currentPath))
+            node.Refresh();
     }
 
     // ── File listing ─────────────────────────────────────────────────────────
@@ -260,7 +344,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
             var dirInfo = new DirectoryInfo(path);
 
             // Folders first (sorted)
-            foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name))
+            var folders = _shared.ShowFolders
+                ? dirInfo.GetDirectories().OrderBy(d => d.Name)
+                : Enumerable.Empty<DirectoryInfo>();
+
+            foreach (var dir in folders)
             {
                 try
                 {
@@ -432,10 +520,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
             Directory.CreateDirectory(path);
             Refresh();
 
-            // The window selects the new folder and asks for its name.
-            var newItem = CurrentItems.FirstOrDefault(x => x.FullPath == path);
-            if (newItem != null)
-                FolderCreated?.Invoke(newItem);
+            // The window selects the new folder and asks for its name. With the folders hidden
+            // it is not in the list, but it can still be renamed.
+            var newItem = CurrentItems.FirstOrDefault(x => x.FullPath == path)
+                ?? new FileItemViewModel { Name = Path.GetFileName(path), FullPath = path, IsDirectory = true };
+            FolderCreated?.Invoke(newItem);
         }
         catch (Exception ex)
         {

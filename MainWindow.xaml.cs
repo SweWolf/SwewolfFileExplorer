@@ -42,8 +42,11 @@ public partial class MainWindow : Window
 
     private void OnFolderCreated(FileItemViewModel folder)
     {
-        FileListView.SelectedItem = folder;
-        FileListView.ScrollIntoView(folder);
+        if (VM.CurrentItems.Contains(folder))   // not there when the folders are hidden
+        {
+            FileListView.SelectedItem = folder;
+            FileListView.ScrollIntoView(folder);
+        }
         ShowRenameDialog(folder);
     }
 
@@ -373,8 +376,20 @@ public partial class MainWindow : Window
         RoutedPropertyChangedEventArgs<object> e)
     {
         if (_switchingTab) return;
-        if (e.NewValue is TreeItemViewModel item && !string.IsNullOrEmpty(item.FullPath))
+        if (e.NewValue is not TreeItemViewModel item) return;
+
+        // The tab selected this node itself, to follow a navigation: nothing to navigate to.
+        if (VM.ConsumeProgrammaticTreeSelection(item)) return;
+
+        if (!string.IsNullOrEmpty(item.FullPath))
             VM.Navigate(item.FullPath);
+    }
+
+    private void TreeItem_Selected(object sender, RoutedEventArgs e)
+    {
+        // Scroll the selected node into view (it bubbles up through the parent nodes: handle it once).
+        if (e.OriginalSource == sender)
+            ((TreeViewItem)sender).BringIntoView();
     }
 
     // ── File list ─────────────────────────────────────────────────────────────

@@ -6,6 +6,9 @@ namespace MyFileExplorer.ViewModels;
 /// <summary>What all tabs share: the cut/copy clipboard and the sort order chosen per folder.</summary>
 public class SharedState
 {
+    /// <summary>Whether the file list shows folders (off by default; they are in the tree).</summary>
+    public bool ShowFolders { get; set; } = AppSettingsStore.Load().ShowFolders;
+
     // The clipboard is local to the app, not the system clipboard.
     public List<string>? ClipboardPaths { get; set; }
     public bool ClipboardIsCut { get; set; }

@@ -19,6 +19,8 @@ public class TreeItemViewModel : INotifyPropertyChanged
     public ImageSource? Icon { get; }
     public ObservableCollection<TreeItemViewModel> Children { get; } = new();
 
+    public override string ToString() => Name;   // what accessibility tools read for the node
+
     public bool IsExpanded
     {
         get => _isExpanded;
@@ -57,6 +59,22 @@ public class TreeItemViewModel : INotifyPropertyChanged
     {
         try { return Directory.EnumerateDirectories(FullPath).Any(); }
         catch { return false; }
+    }
+
+    /// <summary>Reads the subfolders again (a folder was created, renamed or deleted).</summary>
+    public void Refresh()
+    {
+        if (string.IsNullOrEmpty(FullPath)) return;
+
+        if (_childrenLoaded)
+        {
+            LoadChildren();
+        }
+        else
+        {
+            Children.Clear();
+            InitializeLazyLoad();   // the expand arrow depends on whether there are subfolders
+        }
     }
 
     public void LoadChildren()

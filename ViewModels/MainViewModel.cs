@@ -167,6 +167,24 @@ public class MainViewModel : INotifyPropertyChanged
     public SortColumn SortColumn    => _activeTab.SortColumn;
     public bool       SortAscending => _activeTab.SortAscending;
 
+    /// <summary>Show folders in the file list. Changing it reloads the lists of all tabs and is remembered.</summary>
+    public bool ShowFolders
+    {
+        get => _shared.ShowFolders;
+        set
+        {
+            if (_shared.ShowFolders == value) return;
+            _shared.ShowFolders = value;
+            AppSettingsStore.Save(new AppSettings { ShowFolders = value });
+
+            foreach (var tab in Tabs) tab.Refresh();
+            OnPropertyChanged();
+        }
+    }
+
+    public bool ConsumeProgrammaticTreeSelection(TreeItemViewModel node) =>
+        _activeTab.ConsumeProgrammaticTreeSelection(node);
+
     public void SetSort(SortColumn column, bool ascending) => _activeTab.SetSort(column, ascending);
 
     /// <summary>Raised when the active tab's sort order changed.</summary>

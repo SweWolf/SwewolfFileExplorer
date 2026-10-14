@@ -9,7 +9,7 @@ dotnet build
 dotnet run
 ```
 
-Output: `bin\Debug\net10.0-windows\MyFileExplorer.exe`
+Output: `bin\x64\Debug\net10.0-windows\MyFileExplorer.exe` (rebuild it after every change, so the user can run it without Visual Studio)
 
 ## Project Structure
 
@@ -43,6 +43,8 @@ MyFileExplorer/
 - **Lazy tree loading**: `TreeItemViewModel` adds a dummy child on init so the expand arrow appears. On first expand, `LoadChildren()` replaces the dummy with real subdirectories.
 - **Clipboard state** is stored in `MainViewModel` (`_clipboardPaths`, `_clipboardIsCut`) — not the system clipboard — so it is local to the app.
 - **Column layout**: right-click a column header for a checklist of columns and "More..." (Choose Details dialog: order, show/hide, width). Hidden columns are kept in `MainWindow`'s `_layout` list and removed from the GridView. The layout is saved on every change and on close in `%AppData%\SweWolfSoftware\MyFileExplorer\columns.json` (`ColumnLayoutStore`).
+- **Tree follows the folder**: every navigation (list, address bar, back/up) expands the tab's tree to the folder and selects its node (`SelectInTree`). A node selected this way is remembered in `_programmaticSelection`, so the window does not treat it as a click and navigate again.
+- **Folders in the list**: hidden by default (they are in the tree); the "Folders" toggle button in the toolbar shows them. `SharedState.ShowFolders`, saved in `settings.json` (`AppSettingsStore`) next to `columns.json`. `FolderTabViewModel.Refresh()` also re-reads the current folder's tree node, so new, renamed or deleted folders show in the tree.
 - **Navigation history**: two `Stack<string>` fields (`_backHistory`, `_forwardHistory`) inside `MainViewModel`.
 
 ## Keyboard Shortcuts
