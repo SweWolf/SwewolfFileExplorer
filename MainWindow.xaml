@@ -15,6 +15,7 @@
     <!-- Window-level keyboard shortcuts -->
     <Window.InputBindings>
         <KeyBinding Key="F5"    Command="{Binding RefreshCommand}"/>
+        <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding NewFolderCommand}"/>
         <KeyBinding Key="Left"  Modifiers="Alt" Command="{Binding BackCommand}"/>
         <KeyBinding Key="Right" Modifiers="Alt" Command="{Binding ForwardCommand}"/>
     </Window.InputBindings>
@@ -74,7 +75,7 @@
                 <Separator/>
 
                 <Button Command="{Binding NewFolderCommand}"
-                        ToolTip="New Folder"
+                        ToolTip="New Folder (Ctrl+Shift+N)"
                         Padding="6,4">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#x1F4C1;" FontSize="12" Margin="0,0,4,0"/>
@@ -205,7 +206,7 @@
                         <MenuItem Header="Delete"     Click="CtxDelete_Click"    InputGestureText="Del"/>
                         <MenuItem Header="Rename"     Click="CtxRename_Click"    InputGestureText="F2"/>
                         <Separator/>
-                        <MenuItem Header="New Folder" Click="CtxNewFolder_Click"/>
+                        <MenuItem Header="New Folder" Click="CtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"/>
                     </ContextMenu>
                 </ListView.ContextMenu>
 
