@@ -168,6 +168,10 @@ public class MainViewModel : INotifyPropertyChanged
     public RelayCommand CopyCommand            => _activeTab.CopyCommand;
     public RelayCommand CutCommand             => _activeTab.CutCommand;
     public RelayCommand PasteCommand           => _activeTab.PasteCommand;
+    public RelayCommand ToggleHiddenCommand    => _activeTab.ToggleHiddenCommand;
+
+    public bool   HasHiddenItems => _activeTab.HasHiddenItems;
+    public string HiddenText     => _activeTab.HiddenText;
 
     public SortColumn SortColumn    => _activeTab.SortColumn;
     public bool       SortAscending => _activeTab.SortAscending;

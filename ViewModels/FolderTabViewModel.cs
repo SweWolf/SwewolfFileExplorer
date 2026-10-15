@@ -182,6 +182,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         CopyCommand      = new RelayCommand(_ => CopySelected(),  _ => _selectedItems.Count > 0);
         CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0);
         PasteCommand     = new RelayCommand(_ => Paste(),         _ => _shared.ClipboardPaths != null);
+        ToggleHiddenCommand = new RelayCommand(_ => ToggleHidden());
 
         InitializeTree();
         Navigate(startPath);
@@ -265,6 +266,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             _forwardHistory.Clear();
         }
 
+        _showHidden = false;   // hidden items are shown for one folder at a time
         CurrentPath = path;
         Title       = GetTabTitle(path);
         ApplyFolderSort();
@@ -396,9 +398,41 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     // ── File listing ─────────────────────────────────────────────────────────
 
+    // ── Hidden items ─────────────────────────────────────────────────────────
+
+    private const FileAttributes HiddenAttributes = FileAttributes.Hidden | FileAttributes.System;
+
+    private bool _showHidden;
+    private int  _hiddenCount;
+
+    /// <summary>True when the folder has hidden or system items (shown or not).</summary>
+    public bool HasHiddenItems => _hiddenCount > 0;
+
+    /// <summary>The line under the list: how many items are hidden, and what a click does.</summary>
+    public string HiddenText
+    {
+        get
+        {
+            string what = _hiddenCount == 1 ? "hidden item" : "hidden items";
+            return _showHidden
+                ? $"Showing {_hiddenCount} {what} (click to hide)"
+                : $"{_hiddenCount} {what} (click to show)";
+        }
+    }
+
+    /// <summary>Shows the hidden items of this folder, or hides them again. The next folder starts hidden again.</summary>
+    public RelayCommand ToggleHiddenCommand { get; private set; } = null!;
+
+    private void ToggleHidden()
+    {
+        _showHidden = !_showHidden;
+        LoadItems(_currentPath);
+    }
+
     private void LoadItems(string path)
     {
         CurrentItems.Clear();
+        _hiddenCount = 0;
 
         try
         {
@@ -413,11 +447,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 try
                 {
+                    bool hidden = (dir.Attributes & HiddenAttributes) != 0;
+                    if (hidden) _hiddenCount++;
+                    if (hidden && !_showHidden) continue;
+
                     var vm = new FileItemViewModel
                     {
                         Name         = dir.Name,
                         FullPath     = dir.FullName,
                         IsDirectory  = true,
+                        IsHidden     = hidden,
                         DateModified = dir.LastWriteTime,
                         DateCreated  = dir.CreationTime,
                         TypeName     = "File folder",
@@ -434,11 +473,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 try
                 {
+                    bool hidden = (file.Attributes & HiddenAttributes) != 0;
+                    if (hidden) _hiddenCount++;
+                    if (hidden && !_showHidden) continue;
+
                     var vm = new FileItemViewModel
                     {
                         Name         = file.Name,
                         FullPath     = file.FullName,
                         IsDirectory  = false,
+                        IsHidden     = hidden,
                         DateModified = file.LastWriteTime,
                         DateCreated  = file.CreationTime,
                         TypeName     = IconHelper.GetFileType(file.FullName),
@@ -460,6 +504,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
         {
             StatusText = $"Error: {ex.Message}";
         }
+
+        OnPropertyChanged(nameof(HasHiddenItems));
+        OnPropertyChanged(nameof(HiddenText));
     }
 
     // ── Item actions ─────────────────────────────────────────────────────────

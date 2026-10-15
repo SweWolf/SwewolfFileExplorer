@@ -1,9 +1,11 @@
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using MyFileExplorer.Converters;
 using MyFileExplorer.Helpers;
 using MyFileExplorer.ViewModels;
@@ -42,6 +44,9 @@ public partial class MainWindow : Window
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.ShowTree))
                 UpdateTreePane();
         };
+
+        // The info panel under the list follows the items (a folder was loaded, a sort order was applied).
+        ((INotifyCollectionChanged)FileListView.Items).CollectionChanged += (_, _) => QueueInfoUpdate();
 
         LoadColumnLayout();
         ApplySort(VM.SortColumn, VM.SortAscending);
@@ -96,6 +101,8 @@ public partial class MainWindow : Window
                 ? $"{info.Title} {(ascending ? "▲" : "▼")}"
                 : info.Title;
         }
+
+        QueueInfoUpdate();   // the position of the selected item changed
     }
 
     // ── Column layout (which columns are shown, in what order) ────────────────
@@ -538,6 +545,62 @@ public partial class MainWindow : Window
             .ToList();
 
         VM.UpdateSelectedItems(selected);
+        QueueInfoUpdate();
+    }
+
+    // ── Info panel (under the list) ───────────────────────────────────────────
+
+    private bool _infoUpdateQueued;
+    private int _thumbnailVersion;
+
+    /// <summary>Updates the panel once, after the current burst of changes (a folder loads item by item).</summary>
+    private void QueueInfoUpdate()
+    {
+        if (_infoUpdateQueued) return;
+        _infoUpdateQueued = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _infoUpdateQueued = false;
+            UpdateInfoPanel();
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>"File 14/17" (the place of the selected item in the list as shown) and the preview of a picture.</summary>
+    private void UpdateInfoPanel()
+    {
+        var selected = FileListView.SelectedItems;
+
+        if (selected.Count == 1 && selected[0] is FileItemViewModel item)
+        {
+            int position = FileListView.Items.IndexOf(item) + 1;   // in the order the list shows
+            PositionText.Text = $"{(item.IsDirectory ? "Folder" : "File")} {position}/{FileListView.Items.Count}";
+            ShowThumbnail(item);
+        }
+        else
+        {
+            PositionText.Text = selected.Count > 1 ? $"{selected.Count} items selected" : "";
+            ShowThumbnail(null);
+        }
+    }
+
+    private const int ThumbnailDecodeWidth = 320;   // twice the size shown, so it stays sharp on a high-DPI screen
+
+    private async void ShowThumbnail(FileItemViewModel? item)
+    {
+        int version = ++_thumbnailVersion;
+
+        if (item == null || item.IsDirectory || !ThumbnailLoader.IsImage(item.FullPath))
+        {
+            ThumbnailImage.Source = null;
+            return;
+        }
+
+        // Off the UI thread: a large photo takes a moment to decode, and the arrow keys must stay responsive.
+        string path = item.FullPath;
+        var bitmap = await Task.Run(() => ThumbnailLoader.Load(path, ThumbnailDecodeWidth));
+
+        if (version == _thumbnailVersion)   // not if another item was selected meanwhile
+            ThumbnailImage.Source = bitmap;
     }
 
     private void FileListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)

@@ -17,7 +17,7 @@ public class AppSettings
     public double ListFontSize { get; set; } = DefaultFontSize;
     public double TreeFontSize { get; set; } = DefaultFontSize;
 
-    /// <summary>The window color scheme: "Light", "Dark" or "System" (follow Windows).</summary>
+    /// <summary>The window color scheme: "Light", "Dark", "System" (follow Windows) or "Cyber" (light blue on black; working name).</summary>
     public string Style { get; set; } = "System";
 }
 
@@ -47,7 +47,7 @@ public static class AppSettingsStore
             // A hand-edited file could hold any number.
             settings.ListFontSize = ClampFontSize(settings.ListFontSize);
             settings.TreeFontSize = ClampFontSize(settings.TreeFontSize);
-            if (settings.Style is not ("Light" or "Dark" or "System")) settings.Style = "System";
+            if (settings.Style is not ("Light" or "Dark" or "System" or "Cyber")) settings.Style = "System";
             return settings;
         }
         catch

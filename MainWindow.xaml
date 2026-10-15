@@ -16,6 +16,7 @@
 
     <Window.Resources>
         <conv:FileSizeConverter x:Key="FileSizeConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
     </Window.Resources>
 
     <!-- Window-level keyboard shortcuts -->
@@ -113,6 +114,18 @@
         <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
             <ToolBar Band="0" BandIndex="0">
 
+                <ToolBar.Resources>
+                    <!-- The text of a toggle button that is on sits on the accent color: it needs its own contrast. -->
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                         Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ToolBar.Resources>
+
                 <Button Command="{Binding BackCommand}"
                         ToolTip="Back (Alt+Left)"
                         Padding="6,4">
@@ -202,9 +215,13 @@
                 <ColumnDefinition x:Name="SplitterColumn" Width="4"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
             <!-- Navigation tree: header (up, sort order, hide) above the tree -->
-            <DockPanel x:Name="TreePane" Grid.Column="0">
+            <DockPanel x:Name="TreePane" Grid.Column="0" Grid.RowSpan="2">
 
                 <Border DockPanel.Dock="Top" Background="{DynamicResource PaneBrush}"
                         BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,1" Padding="4,3">
@@ -277,13 +294,13 @@
                 </TreeView>
             </DockPanel>
 
-            <GridSplitter x:Name="TreeSplitter" Grid.Column="1"
+            <GridSplitter x:Name="TreeSplitter" Grid.Column="1" Grid.RowSpan="2"
                           Width="4"
                           HorizontalAlignment="Stretch"
                           Background="{DynamicResource SplitterBrush}"/>
 
             <!-- File list -->
-            <ListView Grid.Column="2"
+            <ListView Grid.Column="2" Grid.Row="0"
                       x:Name="FileListView"
                       ItemsSource="{Binding CurrentItems}"
                       SelectionMode="Extended"
@@ -314,6 +331,16 @@
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <!-- Hidden items (when shown) look faded, as in Explorer -->
+                                                    <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                                        <Setter Property="Opacity" Value="0.55"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
                                         <Image Source="{Binding Icon}"
                                                Width="16" Height="16"
                                                VerticalAlignment="Center"
@@ -364,6 +391,35 @@
                 </ListView.ContextMenu>
 
             </ListView>
+
+            <!-- Under the list: which item is selected, the hidden items, and a preview of a picture -->
+            <Border Grid.Column="2" Grid.Row="1" Height="116" Padding="10,8"
+                    Background="{DynamicResource PaneBrush}"
+                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" MinWidth="220"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock x:Name="PositionText" FontSize="12"/>
+
+                        <TextBlock FontSize="12" Margin="0,6,0,0"
+                                   Visibility="{Binding HasHiddenItems, Converter={StaticResource BoolToVisibility}}"
+                                   ToolTip="Show or hide the hidden and system items of this folder">
+                            <Hyperlink Command="{Binding ToggleHiddenCommand}">
+                                <Run Text="{Binding HiddenText, Mode=OneWay}"/>
+                            </Hyperlink>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <Image x:Name="ThumbnailImage" Grid.Column="1"
+                           Width="160" Height="100" Stretch="Uniform"
+                           HorizontalAlignment="Left" VerticalAlignment="Top"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Grid>
+            </Border>
         </Grid>
 
     </DockPanel>

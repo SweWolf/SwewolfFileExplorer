@@ -5,7 +5,7 @@ namespace MyFileExplorer.Views;
 
 public partial class SettingsWindow : Window
 {
-    private static readonly string[] Styles = { "Light", "Dark", "System" };
+    private static readonly string[] Styles = { "Light", "Dark", "System", "Cyber" };
 
     public SettingsWindow()
     {

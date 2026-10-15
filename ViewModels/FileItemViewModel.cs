@@ -18,6 +18,9 @@ public class FileItemViewModel : INotifyPropertyChanged
     public string TypeName { get; set; } = "";
     public long Size { get; set; }   // -1 for directories
 
+    /// <summary>A hidden or system item, shown (dimmed) only when the user asked for the hidden items.</summary>
+    public bool IsHidden { get; set; }
+
     public ImageSource? Icon
     {
         get => _icon;
