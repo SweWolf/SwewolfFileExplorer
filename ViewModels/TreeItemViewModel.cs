@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
-using MyFileExplorer.Helpers;
+using SweWolfFileExplorer.Helpers;
 
-namespace MyFileExplorer.ViewModels;
+namespace SweWolfFileExplorer.ViewModels;
 
 public class TreeItemViewModel : INotifyPropertyChanged
 {

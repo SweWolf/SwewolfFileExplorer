@@ -5,9 +5,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.VisualBasic.FileIO;
-using MyFileExplorer.Helpers;
+using SweWolfFileExplorer.Helpers;
 
-namespace MyFileExplorer.Views;
+namespace SweWolfFileExplorer.Views;
 
 /// <summary>
 /// The picture viewer: opens full screen on a black background, shows one picture of the list at a time.

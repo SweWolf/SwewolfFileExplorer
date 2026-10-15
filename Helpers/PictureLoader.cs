@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace MyFileExplorer.Helpers;
+namespace SweWolfFileExplorer.Helpers;
 
 /// <summary>A picture ready to show: the image (turned the right way up), and the frames if it is an animated GIF.</summary>
 public sealed class LoadedPicture

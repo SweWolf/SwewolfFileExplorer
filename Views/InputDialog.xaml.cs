@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace MyFileExplorer.Views;
+namespace SweWolfFileExplorer.Views;
 
 public partial class InputDialog : Window
 {

@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace MyFileExplorer.Helpers;
+namespace SweWolfFileExplorer.Helpers;
 
 /// <summary>One column of the file list as remembered between runs: which one, shown or not, how wide.</summary>
 public class ColumnState

@@ -2,9 +2,9 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
-using MyFileExplorer.Helpers;
+using SweWolfFileExplorer.Helpers;
 
-namespace MyFileExplorer.ViewModels;
+namespace SweWolfFileExplorer.ViewModels;
 
 public class FileItemViewModel : INotifyPropertyChanged
 {

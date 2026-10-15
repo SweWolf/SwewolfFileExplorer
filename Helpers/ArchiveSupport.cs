@@ -1,7 +1,7 @@
 using System.IO;
 using System.IO.Compression;
 
-namespace MyFileExplorer.Helpers;
+namespace SweWolfFileExplorer.Helpers;
 
 /// <summary>A folder or file inside an archive, as the list and the tree show it.</summary>
 public sealed record VirtualEntry(string Name, string FullPath, bool IsDirectory, long Size, DateTime Modified)
@@ -535,7 +535,7 @@ public static class ArchiveSupport
     private static readonly Dictionary<string, string> Extracted = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Folder for this run of the app. Removed when it ends (<see cref="CleanUpTemp"/>).</summary>
-    private static string TempRoot => Path.Combine(Path.GetTempPath(), "MyFileExplorer");
+    private static string TempRoot => Path.Combine(Path.GetTempPath(), "SweWolfFileExplorer");
     private static string TempFolder => Path.Combine(TempRoot, Environment.ProcessId.ToString());
 
     /// <summary>Unpacks a file of an archive to a temporary file, and returns where it is. The same file is unpacked once.</summary>
@@ -581,7 +581,7 @@ public static class ArchiveSupport
                 if (!int.TryParse(Path.GetFileName(folder), out int pid) || pid == Environment.ProcessId) continue;
 
                 bool running;
-                try { running = System.Diagnostics.Process.GetProcessById(pid).ProcessName.Equals("MyFileExplorer", StringComparison.OrdinalIgnoreCase); }
+                try { running = System.Diagnostics.Process.GetProcessById(pid).ProcessName.Equals("SweWolfFileExplorer", StringComparison.OrdinalIgnoreCase); }
                 catch { running = false; }
 
                 if (!running)

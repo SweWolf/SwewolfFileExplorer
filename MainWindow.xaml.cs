@@ -7,12 +7,12 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using MyFileExplorer.Converters;
-using MyFileExplorer.Helpers;
-using MyFileExplorer.ViewModels;
-using MyFileExplorer.Views;
+using SweWolfFileExplorer.Converters;
+using SweWolfFileExplorer.Helpers;
+using SweWolfFileExplorer.ViewModels;
+using SweWolfFileExplorer.Views;
 
-namespace MyFileExplorer;
+namespace SweWolfFileExplorer;
 
 public partial class MainWindow : Window
 {

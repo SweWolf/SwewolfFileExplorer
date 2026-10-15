@@ -1,7 +1,7 @@
 using System.IO;
-using MyFileExplorer.Helpers;
+using SweWolfFileExplorer.Helpers;
 
-namespace MyFileExplorer.ViewModels;
+namespace SweWolfFileExplorer.ViewModels;
 
 /// <summary>What all tabs share: the cut/copy clipboard and the sort order chosen per folder.</summary>
 public class SharedState

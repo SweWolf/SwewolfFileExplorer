@@ -1,8 +1,8 @@
 using System.IO;
 using System.Windows;
-using MyFileExplorer.Helpers;
+using SweWolfFileExplorer.Helpers;
 
-namespace MyFileExplorer.Views;
+namespace SweWolfFileExplorer.Views;
 
 /// <summary>Creates a shortcut to the running EXE on the desktop and/or in the Start menu.</summary>
 public partial class CreateShortcutWindow : Window

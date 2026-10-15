@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Windows.Data;
 
-namespace MyFileExplorer.Converters;
+namespace SweWolfFileExplorer.Converters;
 
 public class FileSizeConverter : IValueConverter
 {

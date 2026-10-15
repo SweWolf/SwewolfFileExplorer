@@ -4,9 +4,9 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
-using MyFileExplorer.Helpers;
+using SweWolfFileExplorer.Helpers;
 
-namespace MyFileExplorer.Views;
+namespace SweWolfFileExplorer.Views;
 
 public partial class AboutWindow : Window
 {
@@ -33,7 +33,7 @@ public partial class AboutWindow : Window
 
     private async void AboutWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        var result = await GitHubUpdateChecker.CheckAsync("SweWolf", "MyFileExplorer", _currentVersion);
+        var result = await GitHubUpdateChecker.CheckAsync("SweWolf", "SweWolfFileExplorer", _currentVersion);
         if (result == null || !IsLoaded) return; // network error or window already closed
 
         if (result.IsUpdateAvailable)

@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Runtime.InteropServices;
-using MyFileExplorer.ViewModels;
+using SweWolfFileExplorer.ViewModels;
 
-namespace MyFileExplorer.Helpers;
+namespace SweWolfFileExplorer.Helpers;
 
 /// <summary>The column the list is sorted by. None: not sorted, the items stay in the order they were read (the order inside a zip).</summary>
 public enum SortColumn { Name, DateModified, DateCreated, Type, Size, None }

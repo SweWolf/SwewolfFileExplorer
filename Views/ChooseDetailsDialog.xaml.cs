@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 
-namespace MyFileExplorer.Views;
+namespace SweWolfFileExplorer.Views;
 
 /// <summary>One row of the Choose Details dialog.</summary>
 public class ColumnChoice : INotifyPropertyChanged

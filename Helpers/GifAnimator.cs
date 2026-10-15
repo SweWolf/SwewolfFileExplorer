@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace MyFileExplorer.Helpers;
+namespace SweWolfFileExplorer.Helpers;
 
 /// <summary>One frame of an animated GIF: its pixels, where they go on the canvas, how long it stays, and what happens after it.</summary>
 public sealed record GifFrame(BitmapSource Source, Int32Rect Rect, int DelayMs, int Disposal);

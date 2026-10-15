@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace MyFileExplorer.Helpers;
+namespace SweWolfFileExplorer.Helpers;
 
 /// <summary>
 /// Shows the standard Windows "How do you want to open this file?" dialog (Explorer's Open with).

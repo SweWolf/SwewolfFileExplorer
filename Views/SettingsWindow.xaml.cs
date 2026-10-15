@@ -1,7 +1,7 @@
 using System.Windows;
-using MyFileExplorer.Helpers;
+using SweWolfFileExplorer.Helpers;
 
-namespace MyFileExplorer.Views;
+namespace SweWolfFileExplorer.Views;
 
 public partial class SettingsWindow : Window
 {

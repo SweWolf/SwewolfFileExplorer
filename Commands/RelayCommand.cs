@@ -1,6 +1,6 @@
 using System.Windows.Input;
 
-namespace MyFileExplorer.Commands;
+namespace SweWolfFileExplorer.Commands;
 
 public class RelayCommand : ICommand
 {
