@@ -492,6 +492,9 @@ public partial class MainWindow : Window
     private void MenuSettings_Click(object sender, RoutedEventArgs e) =>
         new SettingsWindow { Owner = this }.ShowDialog();
 
+    private void MenuAbout_Click(object sender, RoutedEventArgs e) =>
+        new AboutWindow { Owner = this }.ShowDialog();
+
     // ── Navigation tree ───────────────────────────────────────────────────────
 
     // Until the user can set the width of the tree pane: a fifth of the screen (the width it comes back to after being hidden too).

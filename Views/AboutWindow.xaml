@@ -1,0 +1,59 @@
+<Window x:Class="MyFileExplorer.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About SweWolf File Explorer"
+        SizeToContent="Height"
+        Width="440"
+        WindowStartupLocation="CenterOwner"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <!-- The header is a fixed banner in the colors of the sibling apps' About windows, in every style. -->
+        <SolidColorBrush x:Key="BannerBrush" Color="#0F3460"/>
+        <SolidColorBrush x:Key="BannerTextBrush" Color="White"/>
+        <SolidColorBrush x:Key="BannerSubTextBrush" Color="#A0C3E1"/>
+    </Window.Resources>
+
+    <StackPanel>
+        <Border Background="{StaticResource BannerBrush}" Padding="20,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Image x:Name="IconImage" Grid.Column="0" Width="52" Height="52" Margin="0,0,14,0" VerticalAlignment="Top"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <StackPanel Grid.Column="1">
+                    <TextBlock x:Name="AppNameText" FontSize="20" FontWeight="Bold"
+                               Foreground="{StaticResource BannerTextBrush}"/>
+                    <TextBlock x:Name="VersionText" Margin="0,4,0,0"
+                               Foreground="{StaticResource BannerSubTextBrush}"/>
+                    <TextBlock x:Name="UpdateStatusText" Margin="0,2,0,0" FontSize="11.5"
+                               Foreground="{StaticResource BannerSubTextBrush}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <StackPanel Margin="20,16,20,16">
+            <TextBlock TextWrapping="Wrap"
+                       Text="A file explorer for Windows with tabs, archives that open like folders, and a full-screen picture viewer."/>
+            <TextBlock Text="SweWolf Software" Margin="0,12,0,0" Opacity="0.65"/>
+            <TextBlock Margin="0,4,0,0">
+                <Hyperlink x:Name="GitHubLink" NavigateUri="https://github.com/SweWolf/MyFileExplorer"
+                           RequestNavigate="Link_RequestNavigate">https://github.com/SweWolf/MyFileExplorer</Hyperlink>
+            </TextBlock>
+
+            <TextBlock Text="Built with:" FontWeight="Bold" Margin="0,16,0,4"/>
+            <TextBlock Opacity="0.85">• .NET 10 / WPF</TextBlock>
+            <TextBlock Opacity="0.85">• 7-Zip (optional, to browse RAR and 7z archives)</TextBlock>
+
+            <Button Content="Close" Width="80" HorizontalAlignment="Right" Margin="0,16,0,0"
+                    IsDefault="True" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

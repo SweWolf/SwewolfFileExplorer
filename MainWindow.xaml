@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:MyFileExplorer.ViewModels"
         xmlns:conv="clr-namespace:MyFileExplorer.Converters"
-        Title="My File Explorer"
+        Title="SweWolf File Explorer"
         Icon="Resourses/fluent_file_explorer.ico"
         Height="640" Width="1024"
         MinHeight="400" MinWidth="600"
@@ -41,6 +41,9 @@
             <MenuItem Header="_Tools">
                 <MenuItem Header="_Create Shortcut..." Click="MenuCreateShortcut_Click"/>
                 <MenuItem Header="_Settings" Click="MenuSettings_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Click="MenuAbout_Click"/>
             </MenuItem>
         </Menu>
 
