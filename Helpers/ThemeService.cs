@@ -18,7 +18,9 @@ public static class ThemeService
         ["TabHoverBrush"]    = ("#E6E6E6", "#3A3A3A", "#1C1C1C"),
         ["TabSelectedBrush"] = ("#FFFFFF", "#1F1F1F", "#000000"),
         ["SplitterBrush"]    = ("#EEEEEE", "#333333", "#1C1C1C"),
-        ["OnAccentBrush"]    = ("#FFFFFF", "#000000", "#000000"),   // text on a pressed-in toggle button (the accent is dark in Light, light in Dark)
+        ["CloseHoverBrush"]   = ("#C42B1C", "#C42B1C", "#C42B1C"),   // a close button under the mouse: red in every style, as in Windows
+        ["ClosePressedBrush"] = ("#A52313", "#A52313", "#A52313"),
+        ["OnAccentBrush"]    =("#FFFFFF", "#000000", "#000000"),   // text on a pressed-in toggle button (the accent is dark in Light, light in Dark)
     };
 
     // Cyber: the Dark theme with black backgrounds and light blue text (as the colors of the old TeraTool).
