@@ -22,6 +22,9 @@ public class TreeItemViewModel : INotifyPropertyChanged
     /// <summary>A packed file (a zip): shown as a folder, after the real folders. What is in it is read from the file.</summary>
     public bool IsArchive { get; }
 
+    /// <summary>A hidden or system folder, in the tree only because the user asked for the hidden folders: shown faded.</summary>
+    public bool IsHidden { get; }
+
     public override string ToString() => Name;   // what accessibility tools read for the node
 
     public bool IsExpanded
@@ -47,6 +50,14 @@ public class TreeItemViewModel : INotifyPropertyChanged
 
     private readonly TreeSortLookup? _sortOf;
 
+    /// <summary>Tells if the hidden subfolders of a folder are shown. Handed down from the nodes to their children.</summary>
+    private readonly Func<string, bool>? _showHiddenOf;
+
+    private const FileAttributes HiddenAttributes = FileAttributes.Hidden | FileAttributes.System;
+
+    /// <summary>The hidden and system subfolders of this node are in the tree (the packed files too).</summary>
+    private bool ShowHidden => !ChildrenInArchive && (_showHiddenOf?.Invoke(FullPath) ?? false);
+
     // True if this node is a folder inside an archive. Its children are inside the archive too.
     private readonly bool _inArchive;
 
@@ -55,7 +66,8 @@ public class TreeItemViewModel : INotifyPropertyChanged
 
     // isVirtual = true for synthetic nodes (Quick Access, This PC) that manage their own children
     public TreeItemViewModel(string name, string fullPath, ImageSource? icon, bool isVirtual = false,
-                             TreeSortLookup? sortOf = null, bool isArchive = false, bool inArchive = false)
+                             TreeSortLookup? sortOf = null, bool isArchive = false, bool inArchive = false,
+                             Func<string, bool>? showHiddenOf = null, bool isHidden = false)
     {
         Name = name;
         FullPath = fullPath;
@@ -64,6 +76,8 @@ public class TreeItemViewModel : INotifyPropertyChanged
         _sortOf = sortOf;
         IsArchive = isArchive;
         _inArchive = inArchive;
+        _showHiddenOf = showHiddenOf;
+        IsHidden = isHidden;
     }
 
     /// <summary>Adds a dummy child so the expand arrow is visible before loading.</summary>
@@ -83,13 +97,38 @@ public class TreeItemViewModel : INotifyPropertyChanged
         {
             if (_inArchive) return ArchiveSupport.HasSubfolders(FullPath);
 
-            return Directory.EnumerateDirectories(FullPath).Any() || HasArchiveFiles(FullPath);
+            return VisibleFolders().Any() || VisibleArchiveFiles().Any();
         }
         catch { return false; }
     }
 
-    private static bool HasArchiveFiles(string folder) =>
-        EnumerateArchiveFiles(folder).Any();
+    private static bool IsHiddenPath(string path)
+    {
+        try { return (File.GetAttributes(path) & HiddenAttributes) != 0; }
+        catch { return false; }
+    }
+
+    /// <summary>The subfolders to list: not the hidden and system ones, unless they are asked for.</summary>
+    private IEnumerable<string> VisibleFolders() =>
+        Directory.EnumerateDirectories(FullPath).Where(d => ShowHidden || !IsHiddenPath(d));
+
+    private IEnumerable<string> VisibleArchiveFiles() =>
+        EnumerateArchiveFiles(FullPath).Where(f => ShowHidden || !IsHiddenPath(f));
+
+    /// <summary>How many hidden and system subfolders (and packed files) the real folder <paramref name="folder"/> has.</summary>
+    public static int CountHiddenIn(string folder)
+    {
+        try
+        {
+            if (!Directory.Exists(folder)) return 0;
+            return Directory.EnumerateDirectories(folder).Count(IsHiddenPath)
+                 + EnumerateArchiveFiles(folder).Count(IsHiddenPath);
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>True if <paramref name="path"/> is a real folder with the Hidden or System attribute.</summary>
+    public static bool IsHiddenFolder(string path) => Directory.Exists(path) && IsHiddenPath(path);
 
     /// <summary>The packed files of a folder. The patterns are applied by the file system, which is much faster than looking at every file.</summary>
     private static IEnumerable<string> EnumerateArchiveFiles(string folder) =>
@@ -130,38 +169,93 @@ public class TreeItemViewModel : INotifyPropertyChanged
 
     private void LoadFolderChildren()
     {
-        // All the folders first ...
-        foreach (var dir in SortFolders(Directory.GetDirectories(FullPath)))
+        foreach (var child in BuildFolderChildren())
+            Children.Add(child);
+    }
+
+    /// <summary>
+    /// The nodes of the subfolders, in order: all the folders first, then the packed files, which open like folders.
+    /// A node that is in <paramref name="reuse"/> is used again, so it keeps what is expanded below it.
+    /// </summary>
+    private List<TreeItemViewModel> BuildFolderChildren(Dictionary<string, TreeItemViewModel>? reuse = null)
+    {
+        var nodes = new List<TreeItemViewModel>();
+
+        foreach (var dir in SortFolders(VisibleFolders().ToList()))
         {
             try
             {
+                if (reuse != null && reuse.TryGetValue(dir, out var old)) { nodes.Add(old); continue; }
+
                 var item = new TreeItemViewModel(
                     Path.GetFileName(dir) ?? dir,
                     dir,
                     IconHelper.GetIcon(dir),
-                    sortOf: _sortOf);
+                    sortOf: _sortOf,
+                    showHiddenOf: _showHiddenOf,
+                    isHidden: IsHiddenPath(dir));
                 item.InitializeLazyLoad();
-                Children.Add(item);
+                nodes.Add(item);
             }
             catch { /* skip inaccessible */ }
         }
 
-        // ... then the packed files, with their extension: they open like folders.
-        foreach (var file in SortFolders(EnumerateArchiveFiles(FullPath)))
+        foreach (var file in SortFolders(VisibleArchiveFiles().ToList()))
         {
             try
             {
+                if (reuse != null && reuse.TryGetValue(file, out var old)) { nodes.Add(old); continue; }
+
                 var item = new TreeItemViewModel(
                     Path.GetFileName(file),
                     file,
                     IconHelper.GetIcon(file),
                     sortOf: _sortOf,
-                    isArchive: true);
+                    isArchive: true,
+                    showHiddenOf: _showHiddenOf,
+                    isHidden: IsHiddenPath(file));
                 item.InitializeLazyLoad();
-                Children.Add(item);
+                nodes.Add(item);
             }
             catch { /* skip inaccessible */ }
         }
+
+        return nodes;
+    }
+
+    /// <summary>
+    /// The hidden subfolders were shown or hidden: adds or removes their nodes in place,
+    /// so the nodes that stay keep their place, what is expanded below them, and the selection.
+    /// </summary>
+    public void SyncHidden()
+    {
+        if (string.IsNullOrEmpty(FullPath) || ChildrenInArchive) return;
+
+        if (!_childrenLoaded)
+        {
+            Children.Clear();
+            InitializeLazyLoad();   // the expand arrow depends on whether there is a folder to show
+            return;
+        }
+
+        try
+        {
+            var existing = Children.Where(c => !string.IsNullOrEmpty(c.FullPath)).ToDictionary(c => c.FullPath);
+            var wanted   = BuildFolderChildren(existing);
+
+            foreach (var gone in Children.Where(c => !wanted.Contains(c)).ToList())
+                Children.Remove(gone);
+
+            for (int i = 0; i < wanted.Count; i++)
+            {
+                if (i < Children.Count && ReferenceEquals(Children[i], wanted[i])) continue;
+
+                int at = Children.IndexOf(wanted[i]);
+                if (at >= 0) Children.Move(at, i);
+                else         Children.Insert(i, wanted[i]);
+            }
+        }
+        catch { }
     }
 
     private void LoadArchiveChildren()

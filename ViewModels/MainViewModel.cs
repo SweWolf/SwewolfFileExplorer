@@ -80,6 +80,8 @@ public class MainViewModel : INotifyPropertyChanged
         tab.FolderCreated  += item => { if (tab == _activeTab) FolderCreated?.Invoke(item); };
         // The tree sort order is shared: the other tabs' trees show the same folder in the same order.
         tab.TreeSortChanged += path => { foreach (var t in Tabs) t.ResortTree(path); };
+        // So is whether the tree shows the hidden folders of a folder.
+        tab.TreeHiddenChanged += path => { foreach (var t in Tabs) t.SyncTreeHidden(path); };
         Tabs.Add(tab);
         return tab;
     }
@@ -175,6 +177,10 @@ public class MainViewModel : INotifyPropertyChanged
 
     public bool   HasHiddenItems => _activeTab.HasHiddenItems;
     public string HiddenText     => _activeTab.HiddenText;
+
+    public RelayCommand ToggleTreeHiddenCommand => _activeTab.ToggleTreeHiddenCommand;
+    public bool   HasTreeHiddenFolders => _activeTab.HasTreeHiddenFolders;
+    public string TreeHiddenText       => _activeTab.TreeHiddenText;
 
     public SortColumn SortColumn    => _activeTab.SortColumn;
     public bool       SortAscending => _activeTab.SortAscending;

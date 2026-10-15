@@ -205,15 +205,6 @@
             </ToolBar>
         </ToolBarTray>
 
-        <!-- ── Status bar ──────────────────────────────────────────── -->
-        <StatusBar DockPanel.Dock="Bottom" MinHeight="24">
-            <StatusBarItem>
-                <!-- The status bar has no theme of its own: without this the text is black on the dark styles. -->
-                <TextBlock Text="{Binding StatusText}" FontSize="12"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-            </StatusBarItem>
-        </StatusBar>
-
         <!-- ── Main content: tree | splitter | list ────────────────── -->
         <Grid>
             <Grid.ColumnDefinitions>
@@ -224,10 +215,11 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- Navigation tree: header (up, sort order, hide) above the tree -->
-            <DockPanel x:Name="TreePane" Grid.Column="0" Grid.RowSpan="2">
+            <DockPanel x:Name="TreePane" Grid.Column="0" Grid.RowSpan="3">
 
                 <Border DockPanel.Dock="Top" Background="{DynamicResource PaneBrush}"
                         BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,1" Padding="4,3">
@@ -287,6 +279,19 @@
                     </Grid>
                 </Border>
 
+                <!-- Under the tree: the hidden subfolders of the current folder (docked before the tree, which fills the rest) -->
+                <Border DockPanel.Dock="Bottom" Padding="10,6"
+                        Background="{DynamicResource PaneBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
+                        Visibility="{Binding HasTreeHiddenFolders, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock FontSize="12"
+                               ToolTip="Show or hide the hidden and system subfolders of the current folder in the tree">
+                        <Hyperlink Command="{Binding ToggleTreeHiddenCommand}">
+                            <Run Text="{Binding TreeHiddenText, Mode=OneWay}"/>
+                        </Hyperlink>
+                    </TextBlock>
+                </Border>
+
                 <TreeView x:Name="NavigationTree"
                           ItemsSource="{Binding TreeItems}"
                           BorderThickness="0,0,1,0"
@@ -299,6 +304,16 @@
                         <HierarchicalDataTemplate DataType="{x:Type vm:TreeItemViewModel}"
                                                   ItemsSource="{Binding Children}">
                             <StackPanel Orientation="Horizontal" Margin="2,1">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Style.Triggers>
+                                            <!-- Hidden folders (when shown) look faded, as in the list -->
+                                            <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                                <Setter Property="Opacity" Value="0.55"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
                                 <Image Source="{Binding Icon}" Width="16" Height="16"
                                        VerticalAlignment="Center" Margin="0,0,5,0"
                                        RenderOptions.BitmapScalingMode="NearestNeighbor"/>
@@ -318,7 +333,7 @@
                 </TreeView>
             </DockPanel>
 
-            <GridSplitter x:Name="TreeSplitter" Grid.Column="1" Grid.RowSpan="2"
+            <GridSplitter x:Name="TreeSplitter" Grid.Column="1" Grid.RowSpan="3"
                           Width="4"
                           HorizontalAlignment="Stretch"
                           Background="{DynamicResource SplitterBrush}"/>
@@ -445,6 +460,15 @@
                            RenderOptions.BitmapScalingMode="HighQuality"/>
                 </Grid>
             </Border>
+
+            <!-- Status bar: under the list and the info panel, as what it says is about the list -->
+            <StatusBar Grid.Column="2" Grid.Row="2" MinHeight="24">
+                <StatusBarItem>
+                    <!-- The status bar has no theme of its own: without this the text is black on the dark styles. -->
+                    <TextBlock Text="{Binding StatusText}" FontSize="12"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                </StatusBarItem>
+            </StatusBar>
         </Grid>
 
     </DockPanel>

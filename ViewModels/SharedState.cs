@@ -40,6 +40,19 @@ public class SharedState
             ? s
             : (ArchiveSupport.IsInside(path) ? SortColumn.None : SortColumn.Name, true);
 
+    /// <summary>
+    /// The folders whose hidden and system subfolders the navigation tree shows, for this run.
+    /// A folder is in here until the user hides them again; the keys come from <see cref="Key"/>.
+    /// </summary>
+    public HashSet<string> TreeShownHidden { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True if the tree shows the hidden subfolders of <paramref name="path"/>.</summary>
+    public bool ShowsHiddenInTree(string path)
+    {
+        try { return TreeShownHidden.Contains(Key(path)); }
+        catch { return false; }   // not a path
+    }
+
     /// <summary>The key of a folder in <see cref="FolderSorts"/>: its full path without a trailing slash.</summary>
     public static string Key(string path) =>
         Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);

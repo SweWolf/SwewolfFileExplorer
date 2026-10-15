@@ -189,6 +189,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0 && !_inArchive);
         PasteCommand     = new RelayCommand(_ => Paste(),         _ => _shared.ClipboardPaths != null && !_inArchive);
         ToggleHiddenCommand = new RelayCommand(_ => ToggleHidden());
+        ToggleTreeHiddenCommand = new RelayCommand(_ => ToggleTreeHidden());
 
         InitializeTree();
         Navigate(startPath);
@@ -208,7 +209,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private void InitializeTree()
     {
         // Quick Access
-        var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort);
+        var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
         quickAccess.IsExpanded = true;
         AddQuickAccessItem(quickAccess, "Desktop",   Environment.SpecialFolder.Desktop);
         AddQuickAccessItem(quickAccess, "Documents", Environment.SpecialFolder.MyDocuments);
@@ -219,7 +220,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
         if (Directory.Exists(downloads))
         {
-            var item = new TreeItemViewModel("Downloads", downloads, IconHelper.GetIcon(downloads), sortOf: _shared.GetTreeSort);
+            var item = new TreeItemViewModel("Downloads", downloads, IconHelper.GetIcon(downloads), sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
             item.InitializeLazyLoad();
             quickAccess.Children.Add(item);
         }
@@ -227,14 +228,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
         TreeItems.Add(quickAccess);
 
         // This PC
-        var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true, sortOf: _shared.GetTreeSort);
+        var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
         thisPC.IsExpanded = true;
 
         foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
         {
             var label    = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? drive.Name : $"{drive.VolumeLabel} ({drive.Name.TrimEnd('\\')})";
             var driveItem = new TreeItemViewModel(label, drive.RootDirectory.FullName, IconHelper.GetIcon(drive.RootDirectory.FullName),
-                                                  sortOf: _shared.GetTreeSort);
+                                                  sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
             driveItem.InitializeLazyLoad();
             thisPC.Children.Add(driveItem);
         }
@@ -246,7 +247,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         var path = Environment.GetFolderPath(folder);
         if (!Directory.Exists(path)) return;
-        var item = new TreeItemViewModel(name, path, IconHelper.GetIcon(path), sortOf: _shared.GetTreeSort);
+        var item = new TreeItemViewModel(name, path, IconHelper.GetIcon(path), sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
         item.InitializeLazyLoad();
         parent.Children.Add(item);
     }
@@ -343,6 +344,17 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
             node.IsExpanded = true;   // loads the children the first time
             var next = node.Children.FirstOrDefault(c => NodeIs(c, current));
+
+            // A hidden folder (opened from the list, or typed in the address bar): the tree shows
+            // the hidden folders of its parent from now on, so the folder has a node.
+            if (next == null && TreeItemViewModel.IsHiddenFolder(current))
+            {
+                _shared.TreeShownHidden.Add(SharedState.Key(node.FullPath));
+                node.SyncHidden();   // at once: a new tab has no listener yet
+                TreeHiddenChanged?.Invoke(node.FullPath);
+                next = node.Children.FirstOrDefault(c => NodeIs(c, current));
+            }
+
             if (next == null) break;  // not listed (no access): stay on the deepest folder found
             node = next;
         }
@@ -441,6 +453,64 @@ public class FolderTabViewModel : INotifyPropertyChanged
         LoadItems(_currentPath);
     }
 
+    // ── Hidden folders in the tree ───────────────────────────────────────────
+
+    private int _treeHiddenCount;
+
+    /// <summary>True when the current folder has hidden or system subfolders (shown in the tree or not).</summary>
+    public bool HasTreeHiddenFolders => _treeHiddenCount > 0;
+
+    /// <summary>The line under the tree: how many subfolders of the current folder are hidden, and what a click does.</summary>
+    public string TreeHiddenText
+    {
+        get
+        {
+            string what = _treeHiddenCount == 1 ? "hidden folder" : "hidden folders";
+            return _shared.ShowsHiddenInTree(_currentPath)
+                ? $"Showing {_treeHiddenCount} {what} (click to hide)"
+                : $"{_treeHiddenCount} {what} (click to show)";
+        }
+    }
+
+    /// <summary>Shows the hidden subfolders of the current folder in the tree, or hides them again.</summary>
+    public RelayCommand ToggleTreeHiddenCommand { get; private set; } = null!;
+
+    /// <summary>Raised with the folder whose hidden subfolders are now shown or hidden in the tree.</summary>
+    public event Action<string>? TreeHiddenChanged;
+
+    private void ToggleTreeHidden()
+    {
+        if (!Directory.Exists(_currentPath)) return;
+
+        var key = SharedState.Key(_currentPath);
+        if (!_shared.TreeShownHidden.Remove(key)) _shared.TreeShownHidden.Add(key);
+
+        TreeHiddenChanged?.Invoke(_currentPath);   // every tab's tree, as the setting is shared
+    }
+
+    /// <summary>Adds or removes the nodes of the hidden subfolders of <paramref name="path"/> in this tab's tree.</summary>
+    public void SyncTreeHidden(string path)
+    {
+        SyncHiddenNodes(TreeItems, path);
+        OnPropertyChanged(nameof(TreeHiddenText));
+    }
+
+    private static void SyncHiddenNodes(IEnumerable<TreeItemViewModel> nodes, string path)
+    {
+        foreach (var node in nodes)
+        {
+            if (NodeIs(node, path)) node.SyncHidden();
+            SyncHiddenNodes(node.Children, path);
+        }
+    }
+
+    private void UpdateTreeHidden(string path)
+    {
+        _treeHiddenCount = TreeItemViewModel.CountHiddenIn(path);
+        OnPropertyChanged(nameof(HasTreeHiddenFolders));
+        OnPropertyChanged(nameof(TreeHiddenText));
+    }
+
     // ── Archives ─────────────────────────────────────────────────────────────
 
     // True while the folder shown is a packed file or a folder in one. The content is read-only:
@@ -504,6 +574,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         CurrentItems.Clear();
         _hiddenCount = 0;
+        UpdateTreeHidden(path);
 
         _inArchive = ArchiveSupport.IsInside(path);
         OnPropertyChanged(nameof(InArchive));
