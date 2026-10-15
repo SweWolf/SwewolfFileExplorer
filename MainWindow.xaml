@@ -8,6 +8,7 @@
         Height="640" Width="1024"
         MinHeight="400" MinWidth="600"
         WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="ClearType"
         UseLayoutRounding="True"
@@ -213,7 +214,7 @@
         <!-- ── Main content: tree | splitter | list ────────────────── -->
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="TreeColumn" Width="220" MinWidth="80"/>
+                <ColumnDefinition x:Name="TreeColumn" Width="308" MinWidth="80"/>
                 <ColumnDefinition x:Name="SplitterColumn" Width="4"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>

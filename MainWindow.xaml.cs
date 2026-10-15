@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        TreeColumn.Width = _treeWidth;
         DataContext = new MainViewModel();
         VM.FolderCreated += OnFolderCreated;
         VM.SortChanged   += () => ApplySort(VM.SortColumn, VM.SortAscending);
@@ -493,7 +494,9 @@ public partial class MainWindow : Window
 
     // ── Navigation tree ───────────────────────────────────────────────────────
 
-    private GridLength _treeWidth = new(220);
+    // Until the user can set the width of the tree pane: a fifth of the screen (the width it comes back to after being hidden too).
+    private const double TreeWidthFraction = 0.20;
+    private GridLength _treeWidth = new(Math.Round(SystemParameters.WorkArea.Width * TreeWidthFraction));
 
     /// <summary>Shows or hides the tree pane and its splitter; the width comes back as it was.</summary>
     private void UpdateTreePane()
