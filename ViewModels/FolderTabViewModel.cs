@@ -625,10 +625,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     public void EnsureTags()
     {
-        if (!_shared.TagColumnsVisible || _inArchive) return;   // not on the disk: the property system cannot read it
+        if (!_shared.TagColumnsVisible || _inArchive) return;   // not on the disk: the tags of a file in an archive are not read (yet)
 
         var pending = CurrentItems
-            .Where(i => !i.IsDirectory && !i.TagsRequested && ShellProperties.HasTags(i.FullPath))
+            .Where(i => !i.IsDirectory && !i.TagsRequested && AudioTagReader.HasTags(i.FullPath))
             .ToList();
         if (pending.Count == 0) return;
 
@@ -646,7 +646,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                     new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = token },
                     (item, _) =>
                     {
-                        var tags = ShellProperties.ReadAudioTags(item.FullPath);
+                        var tags = AudioTagReader.Read(item.FullPath);
                         if (tags != null) dispatcher.InvokeAsync(() => item.SetTags(tags));
                         return ValueTask.CompletedTask;
                     });

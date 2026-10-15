@@ -17,6 +17,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Tags of music files (Artist, Title, Track Number columns). The same package and version as FileInfoViewer. -->
+    <PackageReference Include="TagLibSharp" Version="2.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Resourses\fluent_file_explorer.ico" />
   </ItemGroup>
 
