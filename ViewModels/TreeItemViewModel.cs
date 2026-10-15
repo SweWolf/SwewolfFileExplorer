@@ -91,9 +91,9 @@ public class TreeItemViewModel : INotifyPropertyChanged
     private static bool HasArchiveFiles(string folder) =>
         EnumerateArchiveFiles(folder).Any();
 
-    /// <summary>The packed files of a folder. The pattern is applied by the file system, which is much faster than looking at every file.</summary>
+    /// <summary>The packed files of a folder. The patterns are applied by the file system, which is much faster than looking at every file.</summary>
     private static IEnumerable<string> EnumerateArchiveFiles(string folder) =>
-        Directory.EnumerateFiles(folder, "*.zip").Concat(Directory.EnumerateFiles(folder, "*.cbz"))
+        ArchiveSupport.FilePatterns.SelectMany(pattern => Directory.EnumerateFiles(folder, pattern))
             .Where(f => ArchiveSupport.IsArchiveName(f));   // "*.zip" also finds ".zipx"
 
     /// <summary>Reads the subfolders again (a folder was created, renamed or deleted).</summary>

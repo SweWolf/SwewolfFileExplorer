@@ -10,21 +10,31 @@ public sealed record VirtualEntry(string Name, string FullPath, bool IsDirectory
     public bool IsArchive => !IsDirectory && ArchiveSupport.IsArchiveName(Name);
 }
 
-/// <summary>An archive cannot be read: damaged, protected with a password, or an entry that is not there.</summary>
+/// <summary>An archive cannot be read: damaged, protected with a password, 7-Zip missing, or an entry that is not there.</summary>
 public sealed class ArchiveException : Exception
 {
     public ArchiveException(string message) : base(message) { }
 }
 
+/// <summary>An entry as an archive stores it. <see cref="StoredName"/> is what the format's reader needs to find it again.</summary>
+internal sealed record RawEntry(string Name, string FullName, bool IsDirectory, long Length, DateTime Modified,
+                                bool Encrypted = false, string? StoredName = null);
+
 /// <summary>
-/// Packed files (.zip and .cbz) as folders. An archive is read in place: nothing is unpacked to browse it.
+/// Packed files as folders. An archive is read in place: nothing is unpacked to browse it.
 /// A path into an archive is the path of the archive file followed by the path inside it, for example
-/// <c>D:\Photos\Trip.zip\Day 1\Beach.jpg</c>; a zip inside a zip works the same way
+/// <c>D:\Photos\Trip.zip\Day 1\Beach.jpg</c>; an archive inside an archive works the same way
 /// (<c>D:\Photos\All.zip\Trip.zip\Day 1</c>). Everything that is a path in the app can be one of these.
+/// Zip files (.zip, .cbz) are read with .NET; RAR and 7z files (.rar, .cbr, .7z) with 7-Zip, if it is installed.
 /// </summary>
 public static class ArchiveSupport
 {
-    private static readonly string[] Extensions = { ".zip", ".cbz" };
+    private static readonly string[] ZipExtensions = { ".zip", ".cbz" };
+    private static readonly string[] SevenZipExtensions = { ".rar", ".cbr", ".7z" };
+    private static readonly char[] Separators = { '\\', '/' };
+
+    /// <summary>The file name patterns of the archives, for a file system search (it applies them much faster than a loop does).</summary>
+    public static readonly string[] FilePatterns = { "*.zip", "*.cbz", "*.rar", "*.cbr", "*.7z" };
 
     /// <summary>
     /// How the names in a zip are read when the zip does not say they are UTF-8. Older tools (and Windows' own
@@ -45,22 +55,23 @@ public static class ArchiveSupport
             return System.Text.Encoding.UTF8;
         }
     }
-    private static readonly char[] Separators = { '\\', '/' };
 
-    public static bool IsArchiveName(string name) =>
-        Extensions.Contains(Path.GetExtension(name), StringComparer.OrdinalIgnoreCase);
+    private static bool HasExtension(string name, string[] extensions) =>
+        extensions.Contains(Path.GetExtension(name), StringComparer.OrdinalIgnoreCase);
+
+    public static bool IsArchiveName(string name) => HasExtension(name, ZipExtensions) || HasExtension(name, SevenZipExtensions);
 
     // ── Where a path points ──────────────────────────────────────────────────
 
     /// <summary>
-    /// The archive a path is in: the file on disk, then any zip inside it that has to be opened on the way
+    /// The archive a path is in: the file on disk, then any archive inside it that has to be opened on the way
     /// (the names of those entries), and the folder or file inside the last archive ("" is its top).
     /// </summary>
     private sealed record Location(string[] Chain, string Inner);
 
     /// <summary>
     /// Null if the path does not lead into an archive (or the archive cannot be read: see <paramref name="error"/>).
-    /// The path of a zip inside a zip is both the file and the top of the archive in it: by default it is the top
+    /// The path of an archive inside an archive is both the file and the top of the archive in it: by default it is the top
     /// (to browse it); with <paramref name="asEntry"/> it is the file (to read or copy it).
     /// </summary>
     private static Location? Locate(string path, out string? error, bool asEntry = false)
@@ -101,7 +112,7 @@ public static class ArchiveSupport
 
     private static Location LocateInside(List<string> chain, string inner, bool asEntry)
     {
-        // A zip inside the zip: the path goes on into it.
+        // An archive inside the archive: the path goes on into it.
         while (inner.Length > 0)
         {
             var index = GetIndex(chain.ToArray());
@@ -114,7 +125,7 @@ public static class ArchiveSupport
                 int next = inner.IndexOf('/', position);
                 int end  = next < 0 ? inner.Length : next;
                 if (IsArchiveName(inner[position..end]) && index.Files.TryGetValue(inner[..end], out var file)
-                    && (!asEntry || end < inner.Length))   // as a file entry, a zip at the very end is the file, not an archive to go into
+                    && (!asEntry || end < inner.Length))   // as a file entry, an archive at the very end is the file, not an archive to go into
                 {
                     nested = file.FullName;   // spelled as in the archive
                     remainderStart = Math.Min(end + 1, inner.Length);
@@ -156,9 +167,7 @@ public static class ArchiveSupport
 
     // ── Listing ──────────────────────────────────────────────────────────────
 
-    private sealed record RawEntry(string Name, string FullName, bool IsDirectory, long Length, DateTime Modified);
-
-    /// <summary>What is in a folder of an archive (folders, files, and zips inside the zip as files).</summary>
+    /// <summary>What is in a folder of an archive (folders, files, and archives inside the archive as files).</summary>
     public static List<VirtualEntry> List(string folderPath)
     {
         var location = Locate(folderPath, out var error)
@@ -222,11 +231,16 @@ public static class ArchiveSupport
     private static readonly object CacheLock = new();
     private static readonly Dictionary<string, (string Stamp, ArchiveIndex Index)> Cache = new();
 
+    private static string Stamp(string file)
+    {
+        var info = new FileInfo(file);
+        return $"{info.Length}/{info.LastWriteTimeUtc.Ticks}";
+    }
+
     private static ArchiveIndex GetIndex(string[] chain)
     {
-        var info = new FileInfo(chain[0]);
         string key   = string.Join("|", chain);
-        string stamp = $"{info.Length}/{info.LastWriteTimeUtc.Ticks}";
+        string stamp = Stamp(chain[0]);
 
         lock (CacheLock)
         {
@@ -249,34 +263,31 @@ public static class ArchiveSupport
         var index = new ArchiveIndex();
         index.Folders[""] = new List<RawEntry>();
 
-        using var opened = Open(chain);
-        foreach (var entry in opened.Zip.Entries)
+        using var reader = OpenReader(chain);
+        foreach (var entry in reader.ReadEntries())
         {
-            string name = entry.FullName.Replace('\\', '/');
-            bool isFolder = name.EndsWith('/');
-            name = name.Trim('/');
+            string name = entry.FullName.Replace('\\', '/').Trim('/');
             if (name.Length == 0) continue;
 
-            var modified = entry.LastWriteTime.LocalDateTime;
             var segments = name.Split('/');
 
-            // Zips often have no entry for a folder, only for the files in it: make the folders from the names.
+            // Archives often have no entry for a folder, only for the files in it: make the folders from the names.
             string parent = "";
-            int folderCount = isFolder ? segments.Length : segments.Length - 1;
+            int folderCount = entry.IsDirectory ? segments.Length : segments.Length - 1;
             for (int i = 0; i < folderCount; i++)
             {
                 string path = parent.Length == 0 ? segments[i] : parent + "/" + segments[i];
                 if (!index.Folders.ContainsKey(path))
                 {
                     index.Folders[path] = new List<RawEntry>();
-                    index.Folders[parent].Add(new RawEntry(segments[i], path, true, 0, modified));
+                    index.Folders[parent].Add(new RawEntry(segments[i], path, true, 0, entry.Modified));
                 }
                 parent = path;
             }
 
-            if (!isFolder)
+            if (!entry.IsDirectory)
             {
-                var file = new RawEntry(segments[^1], entry.FullName.Replace('\\', '/'), false, entry.Length, modified);
+                var file = new RawEntry(segments[^1], name, false, entry.Length, entry.Modified, entry.Encrypted, entry.StoredName);
                 if (index.Files.TryAdd(name, file))
                     index.Folders[parent].Add(file);
             }
@@ -299,68 +310,155 @@ public static class ArchiveSupport
         }
     }
 
-    // ── Opening ──────────────────────────────────────────────────────────────
+    // ── Readers: one for each way of reading an archive ──────────────────────
 
-    private sealed class OpenedArchive : IDisposable
+    /// <summary>Reads one archive: lists its entries, and writes the content of one entry to a stream.</summary>
+    private abstract class ArchiveReader : IDisposable
     {
-        private readonly List<IDisposable> _owners = new();
-        public ZipArchive Zip { get; set; } = null!;
-        public void Own(IDisposable item) => _owners.Add(item);
-        public void Dispose()
+        public abstract IEnumerable<RawEntry> ReadEntries();
+        public abstract void CopyTo(RawEntry entry, Stream destination);
+        public virtual void Dispose() { }
+    }
+
+    /// <summary>A zip, read with .NET.</summary>
+    private sealed class ZipReader : ArchiveReader
+    {
+        private readonly Stream _stream;
+        private readonly ZipArchive _zip;
+
+        public ZipReader(Stream stream, string displayName)
         {
-            for (int i = _owners.Count - 1; i >= 0; i--) _owners[i].Dispose();
+            _stream = stream;
+            try
+            {
+                _zip = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false, NameEncoding);
+            }
+            catch (InvalidDataException)
+            {
+                stream.Dispose();
+                throw new ArchiveException($"'{displayName}' is not a valid zip file, or it is damaged.");
+            }
+        }
+
+        public override IEnumerable<RawEntry> ReadEntries()
+        {
+            foreach (var entry in _zip.Entries)
+            {
+                string name = entry.FullName.Replace('\\', '/');
+                yield return new RawEntry("", name, name.EndsWith('/'), entry.Length,
+                    entry.LastWriteTime.LocalDateTime, entry.IsEncrypted, entry.FullName);
+            }
+        }
+
+        public override void CopyTo(RawEntry entry, Stream destination)
+        {
+            var zipEntry = _zip.GetEntry(entry.StoredName ?? entry.FullName)
+                ?? throw new ArchiveException($"'{Path.GetFileName(entry.FullName)}' is not in the archive.");
+
+            using var packed = zipEntry.Open();
+            packed.CopyTo(destination);
+        }
+
+        public override void Dispose()
+        {
+            _zip.Dispose();
+            _stream.Dispose();
         }
     }
 
-    /// <summary>Opens the last archive of the chain; a zip inside a zip is first read into memory.</summary>
-    private static OpenedArchive Open(string[] chain)
+    /// <summary>A RAR or 7z file, read with 7-Zip.</summary>
+    private sealed class SevenZipReader : ArchiveReader
     {
-        var opened = new OpenedArchive();
+        private readonly string _file;
+        public SevenZipReader(string file) => _file = file;
+
+        public override IEnumerable<RawEntry> ReadEntries() => SevenZipRunner.List(_file);
+
+        public override void CopyTo(RawEntry entry, Stream destination)
+        {
+            long copied = SevenZipRunner.Extract(_file, entry.StoredName ?? entry.FullName, destination);
+            if (copied == 0 && entry.Length > 0)
+                throw new ArchiveException($"'{Path.GetFileName(entry.FullName)}' could not be read from the archive.");
+        }
+    }
+
+    /// <summary>Opens the last archive of the chain; an archive inside an archive is first read into memory (a zip) or to a temporary file.</summary>
+    private static ArchiveReader OpenReader(string[] chain)
+    {
+        ArchiveReader reader = CreateFileReader(chain[0]);
         try
         {
-            var file = new FileStream(chain[0], FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            opened.Own(file);
-            var zip = new ZipArchive(file, ZipArchiveMode.Read, leaveOpen: false, NameEncoding);
-            opened.Own(zip);
-
             for (int i = 1; i < chain.Length; i++)
             {
-                var entry = zip.GetEntry(chain[i]) ?? throw new ArchiveException($"'{chain[i]}' is not in the archive.");
+                var parentChain = chain[..i];
+                if (!GetIndex(parentChain).Files.TryGetValue(chain[i], out var entry))
+                    throw new ArchiveException($"'{chain[i]}' is not in the archive.");
                 CheckReadable(entry);
 
-                var memory = new MemoryStream();
-                using (var packed = entry.Open())
-                    packed.CopyTo(memory);
-                memory.Position = 0;
+                ArchiveReader inner;
+                if (HasExtension(chain[i], ZipExtensions))
+                {
+                    var memory = new MemoryStream();
+                    reader.CopyTo(entry, memory);
+                    memory.Position = 0;
+                    inner = new ZipReader(memory, Path.GetFileName(chain[i]));
+                }
+                else
+                {
+                    inner = new SevenZipReader(NestedTempFile(chain[..(i + 1)], reader, entry));
+                }
 
-                opened.Own(memory);
-                zip = new ZipArchive(memory, ZipArchiveMode.Read, leaveOpen: false, NameEncoding);
-                opened.Own(zip);
+                reader.Dispose();   // the outer archive is not needed any more
+                reader = inner;
             }
-
-            opened.Zip = zip;
-            return opened;
-        }
-        catch (InvalidDataException)
-        {
-            opened.Dispose();
-            throw new ArchiveException($"'{Path.GetFileName(chain[^1])}' is not a valid zip file, or it is damaged.");
+            return reader;
         }
         catch
         {
-            opened.Dispose();
+            reader.Dispose();
             throw;
         }
     }
 
-    private static void CheckReadable(ZipArchiveEntry entry)
+    private static ArchiveReader CreateFileReader(string file)
     {
-        if (entry.IsEncrypted)
-            throw new ArchiveException($"'{entry.Name}' is protected with a password. Archives with a password are not supported yet.");
+        if (!HasExtension(file, ZipExtensions))
+            return new SevenZipReader(file);
+
+        return new ZipReader(new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete),
+                             Path.GetFileName(file));
     }
 
-    /// <summary>Calls <paramref name="read"/> with the entry of a file inside an archive.</summary>
-    private static T WithEntry<T>(string path, Func<ZipArchiveEntry, T> read)
+    private static void CheckReadable(RawEntry entry)
+    {
+        if (entry.Encrypted)
+            throw new ArchiveException($"'{Path.GetFileName(entry.FullName)}' is protected with a password. Archives with a password are not supported yet.");
+    }
+
+    // 7-Zip needs a file on the disk: an archive inside another one is unpacked once to the temporary folder.
+    private static readonly Dictionary<string, string> NestedTemp = new(StringComparer.OrdinalIgnoreCase);
+
+    private static string NestedTempFile(string[] chain, ArchiveReader outer, RawEntry entry)
+    {
+        string key = string.Join("|", chain) + "|" + Stamp(chain[0]);
+        lock (NestedTemp)
+        {
+            if (NestedTemp.TryGetValue(key, out var known) && File.Exists(known)) return known;
+
+            string folder = Path.Combine(TempFolder, "nested", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+
+            string target = Path.Combine(folder, SafeFileName(Path.GetFileName(entry.FullName)));
+            using (var file = File.Create(target))
+                outer.CopyTo(entry, file);
+
+            NestedTemp[key] = target;
+            return target;
+        }
+    }
+
+    /// <summary>Calls <paramref name="read"/> with the reader of the archive that holds a file, and the entry of that file.</summary>
+    private static T WithEntry<T>(string path, Func<ArchiveReader, RawEntry, T> read)
     {
         var location = Locate(path, out var error, asEntry: true)
             ?? throw new ArchiveException(error ?? $"'{path}' is not in an archive.");
@@ -369,21 +467,21 @@ public static class ArchiveSupport
         if (!index.Files.TryGetValue(location.Inner, out var file))
             throw new ArchiveException($"'{Path.GetFileName(path)}' is not in the archive.");
 
-        using var opened = Open(location.Chain);
-        var entry = opened.Zip.GetEntry(file.FullName) ?? throw new ArchiveException($"'{Path.GetFileName(path)}' is not in the archive.");
-        CheckReadable(entry);
-        return read(entry);
+        CheckReadable(file);
+        using var reader = OpenReader(location.Chain);
+        return read(reader, file);
     }
+
+    // ── Reading ──────────────────────────────────────────────────────────────
 
     /// <summary>The content of a file inside an archive, in memory. For pictures: do not use it for a big video.</summary>
     public static Stream OpenRead(string path) =>
-        WithEntry(path, entry =>
+        WithEntry(path, (reader, entry) =>
         {
             var memory = new MemoryStream((int)Math.Min(entry.Length, int.MaxValue / 2));
-            using (var packed = entry.Open())
-                packed.CopyTo(memory);
+            reader.CopyTo(entry, memory);
             memory.Position = 0;
-            return memory;
+            return (Stream)memory;
         });
 
     /// <summary>A file on disk, or a file inside an archive: for the code that only wants to read it.</summary>
@@ -402,13 +500,20 @@ public static class ArchiveSupport
 
         if (!isFolder)
         {
-            WithEntry(path, e =>
+            try
             {
-                using var packed = e.Open();
-                using var target = File.Create(destination);
-                packed.CopyTo(target);
-                return 0;
-            });
+                WithEntry(path, (reader, raw) =>
+                {
+                    using var target = File.Create(destination);
+                    reader.CopyTo(raw, target);
+                    return 0;
+                });
+            }
+            catch
+            {
+                try { File.Delete(destination); } catch { /* a half-written file is left */ }
+                throw;
+            }
             return;
         }
 
