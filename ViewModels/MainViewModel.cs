@@ -27,7 +27,10 @@ public class MainViewModel : INotifyPropertyChanged
         NextTabCommand     = new RelayCommand(_ => SwitchTab(+1), _ => Tabs.Count > 1);
         PreviousTabCommand = new RelayCommand(_ => SwitchTab(-1), _ => Tabs.Count > 1);
         ReopenTabCommand   = new RelayCommand(_ => ReopenTab(),   _ => _closedTabs.Count > 0);
+        ToggleTreeCommand  = new RelayCommand(_ => ShowTree = !ShowTree);
     }
+
+    public RelayCommand ToggleTreeCommand { get; }
 
     // ── Tabs ─────────────────────────────────────────────────────────────────
 
@@ -75,6 +78,8 @@ public class MainViewModel : INotifyPropertyChanged
         };
         tab.SortChanged    += () => { if (tab == _activeTab) SortChanged?.Invoke(); };
         tab.FolderCreated  += item => { if (tab == _activeTab) FolderCreated?.Invoke(item); };
+        // The tree sort order is shared: the other tabs' trees show the same folder in the same order.
+        tab.TreeSortChanged += path => { foreach (var t in Tabs) t.ResortTree(path); };
         Tabs.Add(tab);
         return tab;
     }
@@ -166,6 +171,34 @@ public class MainViewModel : INotifyPropertyChanged
 
     public SortColumn SortColumn    => _activeTab.SortColumn;
     public bool       SortAscending => _activeTab.SortAscending;
+
+    /// <summary>The "Sort By" choice of the tree header: 0 Name, 1 Date Created, 2 Date Modified.</summary>
+    public int TreeSortIndex
+    {
+        get => _activeTab.TreeSortIndex;
+        set => _activeTab.TreeSortIndex = value;
+    }
+
+    /// <summary>The direction of the tree sort: 0 ascending, 1 descending.</summary>
+    public int TreeSortDirectionIndex
+    {
+        get => _activeTab.TreeSortDirectionIndex;
+        set => _activeTab.TreeSortDirectionIndex = value;
+    }
+
+    private bool _showTree = true;
+
+    /// <summary>Whether the navigation tree pane is shown (the "x" in its header hides it, F8 toggles it).</summary>
+    public bool ShowTree
+    {
+        get => _showTree;
+        set
+        {
+            if (_showTree == value) return;
+            _showTree = value;
+            OnPropertyChanged();
+        }
+    }
 
     /// <summary>Show folders in the file list. Changing it reloads the lists of all tabs and is remembered.</summary>
     public bool ShowFolders

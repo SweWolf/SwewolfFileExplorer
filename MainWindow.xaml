@@ -29,6 +29,7 @@
         <KeyBinding Key="T" Modifiers="Ctrl+Shift" Command="{Binding ReopenTabCommand}"/>
         <KeyBinding Key="Left"  Modifiers="Alt" Command="{Binding BackCommand}"/>
         <KeyBinding Key="Right" Modifiers="Alt" Command="{Binding ForwardCommand}"/>
+        <KeyBinding Key="F8"    Command="{Binding ToggleTreeCommand}"/>
     </Window.InputBindings>
 
     <DockPanel>
@@ -152,6 +153,12 @@
 
                 <Separator/>
 
+                <ToggleButton IsChecked="{Binding ShowTree}"
+                              ToolTip="Show the Folder Tree (F8)"
+                              Padding="6,4">
+                    <TextBlock Text="Tree" FontSize="12"/>
+                </ToggleButton>
+
                 <ToggleButton IsChecked="{Binding ShowFolders}"
                               ToolTip="Show Folders in the List"
                               Padding="6,4">
@@ -183,44 +190,86 @@
         <!-- ── Main content: tree | splitter | list ────────────────── -->
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" MinWidth="80"/>
-                <ColumnDefinition Width="4"/>
+                <ColumnDefinition x:Name="TreeColumn" Width="220" MinWidth="80"/>
+                <ColumnDefinition x:Name="SplitterColumn" Width="4"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Navigation tree -->
-            <TreeView Grid.Column="0"
-                      x:Name="NavigationTree"
-                      ItemsSource="{Binding TreeItems}"
-                      BorderThickness="0,0,1,0"
-                      BorderBrush="#DDDDDD"
-                      FontSize="{Binding TreeFontSize}"
-                      PreviewMouseWheel="Tree_PreviewMouseWheel"
-                      SelectedItemChanged="NavigationTree_SelectedItemChanged">
+            <!-- Navigation tree: header (up, sort order, hide) above the tree -->
+            <DockPanel x:Name="TreePane" Grid.Column="0">
 
-                <TreeView.Resources>
-                    <HierarchicalDataTemplate DataType="{x:Type vm:TreeItemViewModel}"
-                                              ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal" Margin="2,1">
-                            <Image Source="{Binding Icon}" Width="16" Height="16"
-                                   VerticalAlignment="Center" Margin="0,0,5,0"
-                                   RenderOptions.BitmapScalingMode="NearestNeighbor"/>
-                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </HierarchicalDataTemplate>
-                </TreeView.Resources>
+                <Border DockPanel.Dock="Top" Background="#F3F3F3"
+                        BorderBrush="#DDDDDD" BorderThickness="0,0,1,1" Padding="4,3">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                <TreeView.ItemContainerStyle>
-                    <Style TargetType="TreeViewItem">
-                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                        <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
-                        <Setter Property="Padding"    Value="2,2"/>
-                        <EventSetter Event="Selected" Handler="TreeItem_Selected"/>
-                    </Style>
-                </TreeView.ItemContainerStyle>
-            </TreeView>
+                        <Button Grid.Column="0" Command="{Binding UpCommand}"
+                                ToolTip="Up one level (Backspace)"
+                                Padding="6,2" Margin="0,1,6,0" VerticalAlignment="Top">
+                            <TextBlock Text="&#x2191;" FontSize="13" FontFamily="Segoe UI"/>
+                        </Button>
 
-            <GridSplitter Grid.Column="1"
+                        <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Sort By" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <ComboBox Width="100" Margin="0,1,4,1" FontSize="12"
+                                      ToolTip="Sort the subfolders of the current folder by"
+                                      SelectedIndex="{Binding TreeSortIndex}">
+                                <ComboBoxItem Content="Name"/>
+                                <ComboBoxItem Content="Date Created"/>
+                                <ComboBoxItem Content="Date Modified"/>
+                            </ComboBox>
+                            <ComboBox Width="62" Margin="0,1,0,1" FontSize="12"
+                                      ToolTip="Sort direction of the subfolders"
+                                      SelectedIndex="{Binding TreeSortDirectionIndex}">
+                                <ComboBoxItem Content="Asc"/>
+                                <ComboBoxItem Content="Desc"/>
+                            </ComboBox>
+                        </WrapPanel>
+
+                        <Button Grid.Column="2" Command="{Binding ToggleTreeCommand}"
+                                ToolTip="Hide the Folder Tree (F8)"
+                                Padding="6,2" Margin="6,1,0,0" VerticalAlignment="Top">
+                            <TextBlock Text="&#x2715;" FontSize="11" FontFamily="Segoe UI"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <TreeView x:Name="NavigationTree"
+                          ItemsSource="{Binding TreeItems}"
+                          BorderThickness="0,0,1,0"
+                          BorderBrush="#DDDDDD"
+                          FontSize="{Binding TreeFontSize}"
+                          PreviewMouseWheel="Tree_PreviewMouseWheel"
+                          SelectedItemChanged="NavigationTree_SelectedItemChanged">
+
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type vm:TreeItemViewModel}"
+                                                  ItemsSource="{Binding Children}">
+                            <StackPanel Orientation="Horizontal" Margin="2,1">
+                                <Image Source="{Binding Icon}" Width="16" Height="16"
+                                       VerticalAlignment="Center" Margin="0,0,5,0"
+                                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </HierarchicalDataTemplate>
+                    </TreeView.Resources>
+
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                            <Setter Property="Padding"    Value="2,2"/>
+                            <EventSetter Event="Selected" Handler="TreeItem_Selected"/>
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+                </TreeView>
+            </DockPanel>
+
+            <GridSplitter x:Name="TreeSplitter" Grid.Column="1"
                           Width="4"
                           HorizontalAlignment="Stretch"
                           Background="#EEEEEE"/>

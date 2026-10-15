@@ -36,6 +36,13 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Size,         "Size",          SizeColumn)
         });
 
+        VM.PropertyChanged += (_, e) =>
+        {
+            // An empty name means "everything changed" (another tab became active).
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.ShowTree))
+                UpdateTreePane();
+        };
+
         LoadColumnLayout();
         ApplySort(VM.SortColumn, VM.SortAscending);
 
@@ -468,6 +475,31 @@ public partial class MainWindow : Window
     }
 
     // ── Navigation tree ───────────────────────────────────────────────────────
+
+    private GridLength _treeWidth = new(220);
+
+    /// <summary>Shows or hides the tree pane and its splitter; the width comes back as it was.</summary>
+    private void UpdateTreePane()
+    {
+        bool show = VM.ShowTree;
+        if (show == (TreePane.Visibility == Visibility.Visible)) return;
+
+        if (show)
+        {
+            TreeColumn.MinWidth = 80;
+            TreeColumn.Width    = _treeWidth;
+        }
+        else
+        {
+            _treeWidth = TreeColumn.Width;
+            TreeColumn.MinWidth = 0;
+            TreeColumn.Width    = new GridLength(0);
+            if (NavigationTree.IsKeyboardFocusWithin) FileListView.Focus();
+        }
+
+        SplitterColumn.Width = new GridLength(show ? 4 : 0);
+        TreePane.Visibility  = TreeSplitter.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void NavigationTree_SelectedItemChanged(object sender,
         RoutedPropertyChangedEventArgs<object> e)

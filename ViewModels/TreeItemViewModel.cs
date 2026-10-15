@@ -39,13 +39,20 @@ public class TreeItemViewModel : INotifyPropertyChanged
         set { _isSelected = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Tells how the subfolders of a folder are sorted. Handed down from the nodes to their children.</summary>
+    public delegate (SortColumn Column, bool Ascending) TreeSortLookup(string folderPath);
+
+    private readonly TreeSortLookup? _sortOf;
+
     // isVirtual = true for synthetic nodes (Quick Access, This PC) that manage their own children
-    public TreeItemViewModel(string name, string fullPath, ImageSource? icon, bool isVirtual = false)
+    public TreeItemViewModel(string name, string fullPath, ImageSource? icon, bool isVirtual = false,
+                             TreeSortLookup? sortOf = null)
     {
         Name = name;
         FullPath = fullPath;
         Icon = icon;
         _childrenLoaded = isVirtual;
+        _sortOf = sortOf;
     }
 
     /// <summary>Adds a dummy child so the expand arrow is visible before loading.</summary>
@@ -85,14 +92,15 @@ public class TreeItemViewModel : INotifyPropertyChanged
 
         try
         {
-            foreach (var dir in Directory.GetDirectories(FullPath).OrderBy(Path.GetFileName))
+            foreach (var dir in SortFolders(Directory.GetDirectories(FullPath)))
             {
                 try
                 {
                     var item = new TreeItemViewModel(
                         Path.GetFileName(dir) ?? dir,
                         dir,
-                        IconHelper.GetIcon(dir));
+                        IconHelper.GetIcon(dir),
+                        sortOf: _sortOf);
                     item.InitializeLazyLoad();
                     Children.Add(item);
                 }
@@ -100,6 +108,47 @@ public class TreeItemViewModel : INotifyPropertyChanged
             }
         }
         catch { }
+    }
+
+    /// <summary>Puts the folders in the order chosen for this folder (Name, ascending if none was chosen).</summary>
+    private IEnumerable<string> SortFolders(IEnumerable<string> folders)
+    {
+        var (column, ascending) = _sortOf?.Invoke(FullPath) ?? (SortColumn.Name, true);
+        var byName = Comparer<string>.Create(FileItemComparer.NaturalCompare);
+
+        if (column == SortColumn.Name)
+        {
+            return ascending
+                ? folders.OrderBy(f => Path.GetFileName(f), byName)
+                : folders.OrderByDescending(f => Path.GetFileName(f), byName);
+        }
+
+        // Read each date once; the comparer would ask for it again and again.
+        var dates = folders.ToDictionary(f => f, f => column == SortColumn.DateCreated
+            ? Directory.GetCreationTime(f)
+            : Directory.GetLastWriteTime(f));
+
+        // Ties are always broken by name, ascending, as in the file list.
+        return (ascending ? dates.Keys.OrderBy(f => dates[f]) : dates.Keys.OrderByDescending(f => dates[f]))
+            .ThenBy(f => Path.GetFileName(f), byName);
+    }
+
+    /// <summary>
+    /// Puts the loaded subfolders in the order now chosen for this folder, by moving the nodes,
+    /// so the expanded nodes below them stay expanded.
+    /// </summary>
+    public void Resort()
+    {
+        if (!_childrenLoaded || string.IsNullOrEmpty(FullPath)) return;
+
+        var byPath = Children.Where(c => !string.IsNullOrEmpty(c.FullPath)).ToDictionary(c => c.FullPath);
+        var sorted = SortFolders(byPath.Keys).Select(p => byPath[p]).ToList();
+
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            if (!ReferenceEquals(Children[i], sorted[i]))
+                Children.Move(Children.IndexOf(sorted[i]), i);
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

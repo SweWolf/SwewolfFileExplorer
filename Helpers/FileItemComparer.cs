@@ -43,6 +43,9 @@ public class FileItemComparer : IComparer
         return result != 0 ? result : StrCmpLogicalW(a.Name, b.Name);
     }
 
+    /// <summary>Compares two names the way the list does: "file2" before "file10".</summary>
+    public static int NaturalCompare(string? x, string? y) => StrCmpLogicalW(x ?? "", y ?? "");
+
     [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
     private static extern int StrCmpLogicalW(string x, string y);
 }

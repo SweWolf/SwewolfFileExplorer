@@ -81,6 +81,64 @@ public class FolderTabViewModel : INotifyPropertyChanged
         SortChanged?.Invoke();
     }
 
+    // ── Sort order of the navigation tree ────────────────────────────────────
+
+    // The order of the "Sort By" list in the tree header.
+    private static readonly SortColumn[] TreeSortColumns =
+        { SortColumn.Name, SortColumn.DateCreated, SortColumn.DateModified };
+
+    /// <summary>How the subfolders of the current folder are sorted in the tree.</summary>
+    private (SortColumn Column, bool Ascending) CurrentTreeSort =>
+        string.IsNullOrEmpty(_currentPath) ? (SortColumn.Name, true) : _shared.GetTreeSort(_currentPath);
+
+    /// <summary>The "Sort By" choice of the tree: 0 Name, 1 Date Created, 2 Date Modified.</summary>
+    public int TreeSortIndex
+    {
+        get => Math.Max(0, Array.IndexOf(TreeSortColumns, CurrentTreeSort.Column));
+        set
+        {
+            if (value >= 0 && value < TreeSortColumns.Length)
+                SetTreeSort(TreeSortColumns[value], CurrentTreeSort.Ascending);
+        }
+    }
+
+    /// <summary>The direction of the tree sort: 0 ascending, 1 descending.</summary>
+    public int TreeSortDirectionIndex
+    {
+        get => CurrentTreeSort.Ascending ? 0 : 1;
+        set
+        {
+            if (value >= 0)
+                SetTreeSort(CurrentTreeSort.Column, value == 0);
+        }
+    }
+
+    /// <summary>Raised with the folder whose subfolders were sorted in another order.</summary>
+    public event Action<string>? TreeSortChanged;
+
+    private void SetTreeSort(SortColumn column, bool ascending)
+    {
+        // The address bar can hold half a path while the user types: only a real folder is remembered.
+        if (!Directory.Exists(_currentPath) || CurrentTreeSort == (column, ascending)) return;
+
+        _shared.TreeSorts[SharedState.Key(_currentPath)] = (column, ascending);
+        OnPropertyChanged(nameof(TreeSortIndex));
+        OnPropertyChanged(nameof(TreeSortDirectionIndex));
+        TreeSortChanged?.Invoke(_currentPath);
+    }
+
+    /// <summary>Puts the loaded subfolders of <paramref name="path"/> in their (new) order.</summary>
+    public void ResortTree(string path) => ResortNodes(TreeItems, path);
+
+    private static void ResortNodes(IEnumerable<TreeItemViewModel> nodes, string path)
+    {
+        foreach (var node in nodes)
+        {
+            if (NodeIs(node, path)) node.Resort();
+            ResortNodes(node.Children, path);
+        }
+    }
+
     public string StatusText
     {
         get => _statusText;
@@ -143,7 +201,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private void InitializeTree()
     {
         // Quick Access
-        var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true);
+        var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort);
         quickAccess.IsExpanded = true;
         AddQuickAccessItem(quickAccess, "Desktop",   Environment.SpecialFolder.Desktop);
         AddQuickAccessItem(quickAccess, "Documents", Environment.SpecialFolder.MyDocuments);
@@ -154,7 +212,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
         if (Directory.Exists(downloads))
         {
-            var item = new TreeItemViewModel("Downloads", downloads, IconHelper.GetIcon(downloads));
+            var item = new TreeItemViewModel("Downloads", downloads, IconHelper.GetIcon(downloads), sortOf: _shared.GetTreeSort);
             item.InitializeLazyLoad();
             quickAccess.Children.Add(item);
         }
@@ -162,13 +220,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
         TreeItems.Add(quickAccess);
 
         // This PC
-        var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true);
+        var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true, sortOf: _shared.GetTreeSort);
         thisPC.IsExpanded = true;
 
         foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
         {
             var label    = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? drive.Name : $"{drive.VolumeLabel} ({drive.Name.TrimEnd('\\')})";
-            var driveItem = new TreeItemViewModel(label, drive.RootDirectory.FullName, IconHelper.GetIcon(drive.RootDirectory.FullName));
+            var driveItem = new TreeItemViewModel(label, drive.RootDirectory.FullName, IconHelper.GetIcon(drive.RootDirectory.FullName),
+                                                  sortOf: _shared.GetTreeSort);
             driveItem.InitializeLazyLoad();
             thisPC.Children.Add(driveItem);
         }
@@ -176,11 +235,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
         TreeItems.Add(thisPC);
     }
 
-    private static void AddQuickAccessItem(TreeItemViewModel parent, string name, Environment.SpecialFolder folder)
+    private void AddQuickAccessItem(TreeItemViewModel parent, string name, Environment.SpecialFolder folder)
     {
         var path = Environment.GetFolderPath(folder);
         if (!Directory.Exists(path)) return;
-        var item = new TreeItemViewModel(name, path, IconHelper.GetIcon(path));
+        var item = new TreeItemViewModel(name, path, IconHelper.GetIcon(path), sortOf: _shared.GetTreeSort);
         item.InitializeLazyLoad();
         parent.Children.Add(item);
     }
@@ -209,6 +268,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         CurrentPath = path;
         Title       = GetTabTitle(path);
         ApplyFolderSort();
+        OnPropertyChanged(nameof(TreeSortIndex));   // the tree header shows this folder's tree sort order
+        OnPropertyChanged(nameof(TreeSortDirectionIndex));
         LoadItems(path);
         UpdateNavState();
         SelectInTree(path);
