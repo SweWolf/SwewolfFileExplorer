@@ -65,6 +65,7 @@ MyFileExplorer/
 | Ctrl+Shift+T | Reopen the last closed tab (up to 20, with its history and sort) |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / Previous tab |
 | Middle-click | On a tab: close it. On a folder: open it in a new tab |
+| Ctrl+Num + | Size all columns to fit their widest text |
 | Alt+Enter | Properties of the selected item(s), or of the current folder |
 
 ## Extending the App

@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using MyFileExplorer.Converters;
 using MyFileExplorer.Helpers;
 using MyFileExplorer.ViewModels;
 using MyFileExplorer.Views;
@@ -222,6 +224,10 @@ public partial class MainWindow : Window
         more.Click += (_, _) => ShowChooseDetails();
         menu.Items.Add(more);
 
+        var fit = new MenuItem { Header = "Size All Columns to Fit", InputGestureText = "Ctrl+Num +" };
+        fit.Click += (_, _) => AutoFitColumns();
+        menu.Items.Add(fit);
+
         menu.PlacementTarget = FileListView;
         menu.IsOpen = true;
     }
@@ -399,6 +405,56 @@ public partial class MainWindow : Window
             (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? VM.PreviousTabCommand : VM.NextTabCommand).Execute(null);
             e.Handled = true;
         }
+        // Ctrl + numeric keypad plus: size every column to its widest text, as in Explorer.
+        else if (e.Key == Key.Add && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            AutoFitColumns();
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Gives each shown column the width of its widest text (header included), growing or shrinking it.</summary>
+    private void AutoFitColumns()
+    {
+        SyncLayoutFromGrid();
+
+        var typeface = new Typeface(FileListView.FontFamily, FileListView.FontStyle,
+                                    FileListView.FontWeight, FileListView.FontStretch);
+        double dpi = VisualTreeHelper.GetDpi(FileListView).PixelsPerDip;
+
+        double TextWidth(string text) => string.IsNullOrEmpty(text) ? 0 :
+            new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface,
+                              FileListView.FontSize, Brushes.Black, new NumberSubstitution(),
+                              TextFormattingMode.Display, dpi).WidthIncludingTrailingWhitespace;
+
+        var sizeConverter = new FileSizeConverter();
+        string Cell(ColumnInfo col, FileItemViewModel item) => col.Key switch
+        {
+            SortColumn.Name         => item.Name,
+            SortColumn.DateModified => item.DateModified.ToString("MM/dd/yyyy  HH:mm", CultureInfo.InvariantCulture),
+            SortColumn.DateCreated  => item.DateCreated.ToString("MM/dd/yyyy  HH:mm", CultureInfo.InvariantCulture),
+            SortColumn.Type         => item.TypeName,
+            SortColumn.Size         => sizeConverter.Convert(item.Size, typeof(string), null!, CultureInfo.CurrentCulture) as string ?? "",
+            _                       => ""
+        };
+
+        foreach (var col in _layout.Where(c => c.Visible))
+        {
+            // The header gets room for the sort arrow too, so sorting does not clip it.
+            double width = TextWidth(col.Title + " ▲") + 16;
+
+            foreach (var item in VM.CurrentItems)
+            {
+                // Cell padding; the Name cell also holds the 16 px icon and its 5 px margin.
+                double w = TextWidth(Cell(col, item)) + 14 + (col.Key == SortColumn.Name ? 21 : 0);
+                if (w > width) width = w;
+            }
+
+            col.Width = Math.Ceiling(width);
+        }
+
+        ApplyColumns();
+        SaveColumnLayout();
     }
 
     /// <summary>The data item of the list or tab row the mouse is over, or null.</summary>
