@@ -21,12 +21,12 @@ public class AppSettings
     public string Style { get; set; } = "System";
 }
 
-/// <summary>Saves <see cref="AppSettings"/> in %AppData%\SweWolfSoftware\MyFileExplorer\settings.json.</summary>
+/// <summary>Saves <see cref="AppSettings"/> in %AppData%\SweWolfSoftware\SweWolf File Explorer\settings.json.</summary>
 public static class AppSettingsStore
 {
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "SweWolfSoftware", "MyFileExplorer", "settings.json");
+        "SweWolfSoftware", AppInfo.Name, "settings.json");
 
     private static AppSettings? _current;
 

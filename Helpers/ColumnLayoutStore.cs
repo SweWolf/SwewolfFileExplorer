@@ -11,12 +11,12 @@ public class ColumnState
     public double Width { get; set; }
 }
 
-/// <summary>Saves the column layout (order, visibility, width) in %AppData%\SweWolfSoftware\MyFileExplorer.</summary>
+/// <summary>Saves the column layout (order, visibility, width) in %AppData%\SweWolfSoftware\SweWolf File Explorer.</summary>
 public static class ColumnLayoutStore
 {
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "SweWolfSoftware", "MyFileExplorer", "columns.json");
+        "SweWolfSoftware", AppInfo.Name, "columns.json");
 
     /// <summary>The saved layout, or null if there is none (first run) or it cannot be read.</summary>
     public static List<ColumnState>? Load()
