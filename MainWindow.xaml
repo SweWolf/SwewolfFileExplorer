@@ -374,6 +374,7 @@
                 <ListView.ContextMenu>
                     <ContextMenu x:Name="FileContextMenu" Opened="ContextMenu_Opened">
                         <MenuItem Header="Open"       Click="CtxOpen_Click"/>
+                        <MenuItem Header="Open With..." Click="CtxOpenWith_Click"/>
                         <MenuItem Header="Open in New Tab" Click="CtxOpenInNewTab_Click"/>
                         <MenuItem Header="Send to"    x:Name="SendToMenu"/>
                         <Separator/>

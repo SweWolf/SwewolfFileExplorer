@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -606,14 +607,51 @@ public partial class MainWindow : Window
     private void FileListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (FileListView.SelectedItem is FileItemViewModel item)
+            OpenItem(item);
+    }
+
+    /// <summary>A picture opens in the picture viewer of this app (not in the program Windows has for it); anything else as usual.</summary>
+    private void OpenItem(FileItemViewModel item)
+    {
+        if (!item.IsDirectory && ThumbnailLoader.IsImage(item.FullPath))
+            OpenInViewer(item);
+        else
             VM.OpenItem(item);
+    }
+
+    private void OpenInViewer(FileItemViewModel item)
+    {
+        // The pictures of the list, in the order it shows them: the viewer goes through them.
+        var pictures = FileListView.Items.OfType<FileItemViewModel>()
+            .Where(i => !i.IsDirectory && ThumbnailLoader.IsImage(i.FullPath))
+            .Select(i => i.FullPath)
+            .ToList();
+
+        var viewer = new PictureViewerWindow(pictures, item.FullPath) { Owner = this };
+        viewer.PictureChanged += SelectInList;   // the list follows the viewer
+        viewer.ShowDialog();
+
+        if (viewer.AnyDeleted)
+            VM.RefreshCommand.Execute(null);   // pictures went to the Recycle Bin
+        SelectInList(viewer.CurrentPath);
+        FileListView.Focus();
+    }
+
+    private void SelectInList(string path)
+    {
+        var item = FileListView.Items.OfType<FileItemViewModel>()
+            .FirstOrDefault(i => string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase));
+        if (item == null) return;
+
+        FileListView.SelectedItem = item;
+        FileListView.ScrollIntoView(item);
     }
 
     private void FileListView_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Return && FileListView.SelectedItem is FileItemViewModel openItem)
         {
-            VM.OpenItem(openItem);
+            OpenItem(openItem);
             e.Handled = true;
         }
         else if (e.Key == Key.System && e.SystemKey == Key.Return)   // Alt+Enter
@@ -644,6 +682,7 @@ public partial class MainWindow : Window
             mi.IsEnabled = mi.Header switch
             {
                 "Open"       => hasSelection,
+                "Open With..." => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false },
                 "Send to"    => hasSelection,
                 "Open in New Tab" => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true },
                 "Cut"        => hasSelection,
@@ -723,7 +762,22 @@ public partial class MainWindow : Window
     private void CtxOpen_Click(object sender, RoutedEventArgs e)
     {
         if (FileListView.SelectedItem is FileItemViewModel item)
-            VM.OpenItem(item);
+            OpenItem(item);
+    }
+
+    /// <summary>Opens the file in a program of the user's choice (the Windows "Open with" dialog).</summary>
+    private void CtxOpenWith_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileListView.SelectedItem is not FileItemViewModel { IsDirectory: false } file) return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = file.FullPath, Verb = "openas", UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot open: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void CtxOpenInNewTab_Click(object sender, RoutedEventArgs e)

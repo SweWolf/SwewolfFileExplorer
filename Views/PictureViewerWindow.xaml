@@ -1,0 +1,53 @@
+<Window x:Class="MyFileExplorer.Views.PictureViewerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Picture Viewer"
+        Icon="pack://application:,,,/Resourses/fluent_file_explorer.ico"
+        Background="Black"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowState="Maximized"
+        ShowInTaskbar="False"
+        UseLayoutRounding="True"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        PreviewMouseWheel="Window_PreviewMouseWheel"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+
+    <!-- The viewer is always black, whatever the style chosen in Settings: it is about the picture. -->
+    <Grid x:Name="Viewport" Background="Black" ClipToBounds="True"
+          SizeChanged="Viewport_SizeChanged"
+          MouseLeftButtonDown="Viewport_MouseLeftButtonDown"
+          MouseLeftButtonUp="Viewport_MouseLeftButtonUp"
+          MouseMove="Viewport_MouseMove">
+
+        <Grid.ContextMenu>
+            <ContextMenu Opened="Menu_Opened" Closed="Menu_Closed">
+                <MenuItem Header="Close" InputGestureText="Esc" Click="MenuClose_Click"/>
+                <Separator/>
+                <MenuItem Header="Rotate Clockwise" InputGestureText="Ctrl+K" Click="MenuRotateClockwise_Click"/>
+                <MenuItem Header="Rotate Counterclockwise" InputGestureText="Ctrl+L" Click="MenuRotateCounterclockwise_Click"/>
+                <Separator/>
+                <MenuItem Header="Toggle Fullscreen" InputGestureText="F11" Click="MenuFullscreen_Click"/>
+                <MenuItem Header="Normal Size" InputGestureText="Numpad /" Click="MenuNormalSize_Click"/>
+                <MenuItem Header="Stretch" InputGestureText="Numpad *" Click="MenuStretch_Click"/>
+                <Separator/>
+                <MenuItem Header="Delete" InputGestureText="Del" Click="MenuDelete_Click"/>
+            </ContextMenu>
+        </Grid.ContextMenu>
+
+        <!-- A Canvas lets the picture keep its own size (a photo is much bigger than the screen): the layout of a Grid would
+             squeeze it to the size of the window. Where it is, how big and how turned is all in its RenderTransform. -->
+        <Canvas ClipToBounds="True" IsHitTestVisible="False">
+            <Image x:Name="Picture" Stretch="Fill"
+                   RenderOptions.BitmapScalingMode="HighQuality"/>
+        </Canvas>
+
+        <!-- A short message in the middle: "End of file list", or a picture that cannot be shown -->
+        <Border x:Name="Overlay" Visibility="Collapsed" IsHitTestVisible="False"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="#CC000000" CornerRadius="4" Padding="20,8">
+            <TextBlock x:Name="OverlayText" Foreground="White" FontSize="22" FontWeight="Bold"/>
+        </Border>
+    </Grid>
+</Window>
