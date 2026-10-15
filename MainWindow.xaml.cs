@@ -273,7 +273,7 @@ public partial class MainWindow : Window
 
     // ── Font size (Ctrl + mouse wheel, separate for the list and the tree) ────
 
-    private const string BaseTitle = "My File Explorer";
+    private const string BaseTitle = AppInfo.Name;
     private readonly System.Windows.Threading.DispatcherTimer _titleTimer = new() { Interval = TimeSpan.FromSeconds(2.5) };
     private int _wheelDelta;
 
@@ -473,6 +473,14 @@ public partial class MainWindow : Window
         }
         return null;
     }
+
+    // ── Menu ──────────────────────────────────────────────────────────────────
+
+    private void MenuCreateShortcut_Click(object sender, RoutedEventArgs e) =>
+        new CreateShortcutWindow { Owner = this }.ShowDialog();
+
+    private void MenuSettings_Click(object sender, RoutedEventArgs e) =>
+        new SettingsWindow { Owner = this }.ShowDialog();
 
     // ── Navigation tree ───────────────────────────────────────────────────────
 

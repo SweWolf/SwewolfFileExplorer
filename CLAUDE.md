@@ -20,13 +20,18 @@ MyFileExplorer/
 ├── Converters/
 │   └── FileSizeConverter.cs    IValueConverter: bytes → human-readable string
 ├── Helpers/
-│   └── IconHelper.cs           Windows Shell icons via SHGetFileInfo (P/Invoke)
+│   ├── IconHelper.cs           Windows Shell icons via SHGetFileInfo (P/Invoke)
+│   ├── AppSettingsStore.cs     settings.json (AppSettings, one shared instance)
+│   ├── ThemeService.cs         Light / Dark / System colors
+│   └── AppInfo.cs              App display name (window titles, message box captions)
 ├── ViewModels/
 │   ├── MainViewModel.cs        All application logic (MVVM)
 │   ├── FileItemViewModel.cs    Represents a file/folder row in the list
 │   └── TreeItemViewModel.cs    Represents a node in the navigation tree (lazy-loaded)
 ├── Views/
-│   └── InputDialog.xaml(.cs)   Generic single-input dialog (used for Rename)
+│   ├── InputDialog.xaml(.cs)   Generic single-input dialog (used for Rename)
+│   ├── SettingsWindow.xaml(.cs)        Tools > Settings (Appearance: Style)
+│   └── CreateShortcutWindow.xaml(.cs)  Tools > Create Shortcut...
 ├── App.xaml(.cs)
 └── MainWindow.xaml(.cs)        Main window — UI only, delegates to MainViewModel
 ```
@@ -45,7 +50,9 @@ MyFileExplorer/
 - **Column layout**: right-click a column header for a checklist of columns and "More..." (Choose Details dialog: order, show/hide, width). Hidden columns are kept in `MainWindow`'s `_layout` list and removed from the GridView. The layout is saved on every change and on close in `%AppData%\SweWolfSoftware\MyFileExplorer\columns.json` (`ColumnLayoutStore`).
 - **Tree follows the folder**: every navigation (list, address bar, back/up) expands the tab's tree to the folder and selects its node (`SelectInTree`). A node selected this way is remembered in `_programmaticSelection`, so the window does not treat it as a click and navigate again.
 - **Folders in the list**: hidden by default (they are in the tree); the "Folders" toggle button in the toolbar shows them. `SharedState.ShowFolders`, saved in `settings.json` (`AppSettingsStore`) next to `columns.json`. `FolderTabViewModel.Refresh()` also re-reads the current folder's tree node, so new, renamed or deleted folders show in the tree.
-- **Font size**: Ctrl + mouse wheel over the list or over the tree changes that control's font size (8-40 pt, default 13), separately. The new size is flashed in the title bar for 2.5 s and saved in `settings.json` (`ListFontSize`, `TreeFontSize`). Always save through `SharedState.Settings`, so one setting never overwrites another.
+- **Font size**: Ctrl + mouse wheel over the list or over the tree changes that control's font size (8-40 pt, default 13), separately. The new size is flashed in the title bar for 2.5 s and saved in `settings.json` (`ListFontSize`, `TreeFontSize`). Always save through the one settings object, `AppSettingsStore.Current` (`SharedState.Settings` is the same instance), so one setting never overwrites another.
+- **Menu, Settings, Create Shortcut**: the menu bar has only **Tools > Create Shortcut...** (desktop / Start menu, current or all users; `Views/CreateShortcutWindow`, as in the sibling apps, but without "Send To" until the app accepts a folder on the command line) and **Tools > Settings** (`Views/SettingsWindow`: Appearance > Style: Light / Dark / System, default System, saved as `Style` in `settings.json`). Message boxes of these windows use `AppInfo.Name` as caption (older ones still say "Error").
+- **Dark mode**: `ThemeService.Apply` sets `Application.ThemeMode` (Fluent Light or Dark; experimental API, WPF0001 is silenced in the .csproj) and the app's own brushes (`PaneBrush`, `LineBrush`, `TabHoverBrush`, `TabSelectedBrush`, `SplitterBrush`), which the XAML uses with `DynamicResource`: never hard-code a color in XAML. Applied before the main window opens (`App.OnStartup`) and again on a change in Settings; "System" follows Windows live. Switching back to the classic theme (`ThemeMode.None`) at runtime leaves wrong colors, so don't use it. Fluent makes the list rows taller than the old classic look; an implicit `ListViewItem` style based on the theme's breaks the rows, so it stays as it is.
 - **Tree header**: above the tree: an up button (`UpCommand`), "Sort By" (Name / Date Created / Date Modified, Asc / Desc) and an "x" that hides the tree pane (F8 or the "Tree" toggle in the toolbar shows it again; `MainViewModel.ShowTree`, `MainWindow.UpdateTreePane`, not saved). The sort is per folder and sorts that folder's subfolders: `SharedState.TreeSorts` (in memory only, like `FolderSorts`: to be saved later in the DB file). `TreeItemViewModel` gets the lookup (`TreeSortLookup`) and `Resort()` moves the loaded nodes in place. Modeled on TeraTool (spec: `G:\My Drive\TeraTool_spec\`, source: `G:\My Drive\TT-SourceCode`, read-only).
 - **Navigation history**: two `Stack<string>` fields (`_backHistory`, `_forwardHistory`) inside `MainViewModel`.
 

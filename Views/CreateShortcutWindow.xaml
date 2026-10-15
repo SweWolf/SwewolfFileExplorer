@@ -1,0 +1,41 @@
+<Window x:Class="MyFileExplorer.Views.CreateShortcutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Create Shortcut"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        FocusManager.FocusedElement="{Binding ElementName=DesktopBox}">
+
+    <StackPanel Margin="12" MinWidth="356">
+
+        <GroupBox Header="Create Shortcut On" Padding="8">
+            <StackPanel>
+                <CheckBox x:Name="DesktopBox" Content="Desktop" IsChecked="True"/>
+                <CheckBox x:Name="StartMenuBox" Content="Start Menu (Programs)" Margin="0,8,0,0"/>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="For" Padding="8" Margin="0,10,0,0">
+            <StackPanel>
+                <RadioButton x:Name="CurrentUserButton" GroupName="Users" Content="Current User Only" IsChecked="True"/>
+                <RadioButton x:Name="AllUsersButton" GroupName="Users" Margin="0,8,0,0"
+                             Content="All Users (May Require Administrator Privileges)"/>
+            </StackPanel>
+        </GroupBox>
+
+        <TextBlock Text="The shortcut will point to the currently running EXE."
+                   Margin="0,10,0,0"
+                   Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="OK" Width="80" Margin="0,0,6,0" IsDefault="True" Click="OkButton_Click"/>
+            <Button Content="Cancel" Width="80" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -14,7 +14,7 @@ public class SharedState
     }
 
     /// <summary>The saved settings (folders shown, font sizes); save them again after a change.</summary>
-    public AppSettings Settings { get; } = AppSettingsStore.Load();
+    public AppSettings Settings { get; } = AppSettingsStore.Current;
 
     // The clipboard is local to the app, not the system clipboard.
     public List<string>? ClipboardPaths { get; set; }

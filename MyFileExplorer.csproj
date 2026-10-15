@@ -10,6 +10,8 @@
     <RootNamespace>MyFileExplorer</RootNamespace>
     <Platforms>x64</Platforms>
     <ApplicationIcon>Resourses\fluent_file_explorer.ico</ApplicationIcon>
+    <!-- WPF0001: Application.ThemeMode (the Fluent light/dark theme) is still marked experimental. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

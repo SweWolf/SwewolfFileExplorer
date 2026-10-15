@@ -16,6 +16,9 @@ public class AppSettings
     /// <summary>Font size of the file list and of the tree: set separately with Ctrl + mouse wheel.</summary>
     public double ListFontSize { get; set; } = DefaultFontSize;
     public double TreeFontSize { get; set; } = DefaultFontSize;
+
+    /// <summary>The window color scheme: "Light", "Dark" or "System" (follow Windows).</summary>
+    public string Style { get; set; } = "System";
 }
 
 /// <summary>Saves <see cref="AppSettings"/> in %AppData%\SweWolfSoftware\MyFileExplorer\settings.json.</summary>
@@ -25,7 +28,15 @@ public static class AppSettingsStore
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "SweWolfSoftware", "MyFileExplorer", "settings.json");
 
-    public static AppSettings Load()
+    private static AppSettings? _current;
+
+    /// <summary>
+    /// The one settings object of the app, loaded on first use. Change it and call <see cref="Save"/>:
+    /// a second copy loaded from the file would overwrite the changes of the first.
+    /// </summary>
+    public static AppSettings Current => _current ??= Load();
+
+    private static AppSettings Load()
     {
         try
         {
@@ -36,6 +47,7 @@ public static class AppSettingsStore
             // A hand-edited file could hold any number.
             settings.ListFontSize = ClampFontSize(settings.ListFontSize);
             settings.TreeFontSize = ClampFontSize(settings.TreeFontSize);
+            if (settings.Style is not ("Light" or "Dark" or "System")) settings.Style = "System";
             return settings;
         }
         catch

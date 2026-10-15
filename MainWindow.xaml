@@ -34,9 +34,17 @@
 
     <DockPanel>
 
+        <!-- ── Menu ────────────────────────────────────────────────── -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Create Shortcut..." Click="MenuCreateShortcut_Click"/>
+                <MenuItem Header="_Settings" Click="MenuSettings_Click"/>
+            </MenuItem>
+        </Menu>
+
         <!-- ── Tab strip ───────────────────────────────────────────── -->
-        <Border DockPanel.Dock="Top" Background="#F3F3F3"
-                BorderBrush="#DDDDDD" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource PaneBrush}"
+                BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal">
                 <ListBox x:Name="TabStrip"
                          ItemsSource="{Binding Tabs}"
@@ -67,10 +75,10 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="TabBorder" Property="Background" Value="#E6E6E6"/>
+                                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource TabHoverBrush}"/>
                                             </Trigger>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="TabBorder" Property="Background" Value="White"/>
+                                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource TabSelectedBrush}"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -198,8 +206,8 @@
             <!-- Navigation tree: header (up, sort order, hide) above the tree -->
             <DockPanel x:Name="TreePane" Grid.Column="0">
 
-                <Border DockPanel.Dock="Top" Background="#F3F3F3"
-                        BorderBrush="#DDDDDD" BorderThickness="0,0,1,1" Padding="4,3">
+                <Border DockPanel.Dock="Top" Background="{DynamicResource PaneBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,1" Padding="4,3">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -222,7 +230,7 @@
                                 <ComboBoxItem Content="Date Created"/>
                                 <ComboBoxItem Content="Date Modified"/>
                             </ComboBox>
-                            <ComboBox Width="62" Margin="0,1,0,1" FontSize="12"
+                            <ComboBox Width="74" Margin="0,1,0,1" FontSize="12"
                                       ToolTip="Sort direction of the subfolders"
                                       SelectedIndex="{Binding TreeSortDirectionIndex}">
                                 <ComboBoxItem Content="Asc"/>
@@ -241,7 +249,7 @@
                 <TreeView x:Name="NavigationTree"
                           ItemsSource="{Binding TreeItems}"
                           BorderThickness="0,0,1,0"
-                          BorderBrush="#DDDDDD"
+                          BorderBrush="{DynamicResource LineBrush}"
                           FontSize="{Binding TreeFontSize}"
                           PreviewMouseWheel="Tree_PreviewMouseWheel"
                           SelectedItemChanged="NavigationTree_SelectedItemChanged">
@@ -272,7 +280,7 @@
             <GridSplitter x:Name="TreeSplitter" Grid.Column="1"
                           Width="4"
                           HorizontalAlignment="Stretch"
-                          Background="#EEEEEE"/>
+                          Background="{DynamicResource SplitterBrush}"/>
 
             <!-- File list -->
             <ListView Grid.Column="2"
