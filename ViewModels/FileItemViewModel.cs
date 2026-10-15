@@ -18,6 +18,28 @@ public class FileItemViewModel : INotifyPropertyChanged
     public string TypeName { get; set; } = "";
     public long Size { get; set; }   // -1 for directories
 
+    // The tags of a music file (the Artist, Title and Track Number columns). Empty until they are read.
+    public string Artist { get; private set; } = "";
+    public string Title { get; private set; } = "";
+    public uint TrackNumber { get; private set; }
+
+    /// <summary>The track number for the list: nothing when the file has none.</summary>
+    public string TrackText => TrackNumber == 0 ? "" : TrackNumber.ToString();
+
+    /// <summary>The tags of this file were asked for already (they are read once, in the background).</summary>
+    public bool TagsRequested { get; set; }
+
+    public void SetTags(AudioTags tags)
+    {
+        Artist      = tags.Artist;
+        Title       = tags.Title;
+        TrackNumber = tags.TrackNumber;
+        OnPropertyChanged(nameof(Artist));
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(TrackNumber));
+        OnPropertyChanged(nameof(TrackText));
+    }
+
     /// <summary>A hidden or system item, shown (dimmed) only when the user asked for the hidden items.</summary>
     public bool IsHidden { get; set; }
 

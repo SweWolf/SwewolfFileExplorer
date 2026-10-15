@@ -13,6 +13,12 @@ public class SharedState
         set => Settings.ShowFolders = value;
     }
 
+    /// <summary>
+    /// True when the list shows (or is sorted by) a column that needs the tags of the music files.
+    /// Only then are they read, in the background: reading costs something for every file.
+    /// </summary>
+    public bool TagColumnsVisible { get; set; }
+
     /// <summary>The saved settings (folders shown, font sizes); save them again after a change.</summary>
     public AppSettings Settings { get; } = AppSettingsStore.Current;
 

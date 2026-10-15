@@ -378,6 +378,14 @@
                       MouseDoubleClick="FileListView_MouseDoubleClick"
                       KeyDown="FileListView_KeyDown">
 
+                <!-- The Fluent theme makes the rows 40 px high: closer together, so more files fit on the screen -->
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+                        <Setter Property="MinHeight" Value="26"/>
+                        <Setter Property="Padding"   Value="4,1"/>
+                    </Style>
+                </ListView.ItemContainerStyle>
+
                 <ListView.InputBindings>
                     <KeyBinding Key="Delete"  Command="{Binding DeleteCommand}"/>
                     <KeyBinding Key="Delete" Modifiers="Shift" Command="{Binding PermanentDeleteCommand}"/>
@@ -432,6 +440,16 @@
                         <GridViewColumn Header="Size" Width="90" x:Name="SizeColumn"
                                         DisplayMemberBinding="{Binding Size,
                                             Converter={StaticResource FileSizeConverter}}"/>
+
+                        <!-- The tags of music files, as in TeraTool. Hidden until chosen (More... in the header menu). -->
+                        <GridViewColumn Header="Artist" Width="160" x:Name="ArtistColumn"
+                                        DisplayMemberBinding="{Binding Artist}"/>
+
+                        <GridViewColumn Header="Title" Width="220" x:Name="TitleColumn"
+                                        DisplayMemberBinding="{Binding Title}"/>
+
+                        <GridViewColumn Header="Track Number" Width="110" x:Name="TrackColumn"
+                                        DisplayMemberBinding="{Binding TrackText}"/>
                     </GridView>
                 </ListView.View>
 

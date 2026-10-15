@@ -78,6 +78,7 @@ public class MainViewModel : INotifyPropertyChanged
         };
         tab.SortChanged    += () => { if (tab == _activeTab) SortChanged?.Invoke(); };
         tab.FolderCreated  += item => { if (tab == _activeTab) FolderCreated?.Invoke(item); };
+        tab.TagsLoaded += () => { if (tab == _activeTab) TagsLoaded?.Invoke(); };
         tab.SelectPathRequested += path => { if (tab == _activeTab) SelectPathRequested?.Invoke(path); };
         // The tree sort order is shared: the other tabs' trees show the same folder in the same order.
         tab.TreeSortChanged += path => { foreach (var t in Tabs) t.ResortTree(path); };
@@ -269,6 +270,16 @@ public class MainViewModel : INotifyPropertyChanged
     /// <summary>Raised after the active tab created a new folder.</summary>
     public event Action<FileItemViewModel>? FolderCreated;
     public event Action<string>? SelectPathRequested;
+
+    /// <summary>The tags of the music files in the list have been read.</summary>
+    public event Action? TagsLoaded;
+
+    /// <summary>Tells whether a column that needs the tags of music files is in use; if so the active tab reads them.</summary>
+    public void SetTagColumnsVisible(bool visible)
+    {
+        _shared.TagColumnsVisible = visible;
+        _activeTab.EnsureTags();
+    }
 
     public void Navigate(string? path, bool addToHistory = true) => _activeTab.Navigate(path, addToHistory);
     public void OpenItem(FileItemViewModel item)                  => _activeTab.OpenItem(item);

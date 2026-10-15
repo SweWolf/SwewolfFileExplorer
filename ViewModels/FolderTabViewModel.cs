@@ -612,8 +612,58 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
     }
 
+    // ── Tags of music files (the Artist, Title and Track Number columns) ─────
+
+    private CancellationTokenSource? _tagsCts;
+
+    /// <summary>Raised on the UI thread when the tags of the folder have been read (a sort by a tag column can then be redone).</summary>
+    public event Action? TagsLoaded;
+
+    /// <summary>
+    /// Reads the tags of the music files of the list that have not been read yet, a few at a time in the background,
+    /// if a column that needs them is shown. Each cell fills in when its file is done.
+    /// </summary>
+    public void EnsureTags()
+    {
+        if (!_shared.TagColumnsVisible || _inArchive) return;   // not on the disk: the property system cannot read it
+
+        var pending = CurrentItems
+            .Where(i => !i.IsDirectory && !i.TagsRequested && ShellProperties.HasTags(i.FullPath))
+            .ToList();
+        if (pending.Count == 0) return;
+
+        foreach (var item in pending) item.TagsRequested = true;
+
+        _tagsCts ??= new CancellationTokenSource();
+        var token      = _tagsCts.Token;
+        var dispatcher = Application.Current.Dispatcher;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Parallel.ForEachAsync(pending,
+                    new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = token },
+                    (item, _) =>
+                    {
+                        var tags = ShellProperties.ReadAudioTags(item.FullPath);
+                        if (tags != null) dispatcher.InvokeAsync(() => item.SetTags(tags));
+                        return ValueTask.CompletedTask;
+                    });
+
+                if (!token.IsCancellationRequested)
+                    await dispatcher.InvokeAsync(() => TagsLoaded?.Invoke());
+            }
+            catch (OperationCanceledException) { /* another folder was opened */ }
+            catch { /* the cells stay empty */ }
+        });
+    }
+
     private void LoadItems(string path)
     {
+        _tagsCts?.Cancel();   // the tags of the folder we leave are no longer wanted
+        _tagsCts = null;
+
         CurrentItems.Clear();
         _hiddenCount = 0;
         UpdateTreeHidden(path);
@@ -691,6 +741,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             }
 
             StatusText = $"{CurrentItems.Count} item(s)";
+            EnsureTags();
         }
         catch (UnauthorizedAccessException)
         {

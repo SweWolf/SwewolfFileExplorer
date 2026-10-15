@@ -38,8 +38,12 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.DateModified, "Date Modified", DateColumn),
             new ColumnInfo(SortColumn.DateCreated,  "Date Created",  CreatedColumn),
             new ColumnInfo(SortColumn.Type,         "Type",          TypeColumn),
-            new ColumnInfo(SortColumn.Size,         "Size",          SizeColumn)
+            new ColumnInfo(SortColumn.Size,         "Size",          SizeColumn),
+            new ColumnInfo(SortColumn.Artist,       "Artist",        ArtistColumn, visible: false),
+            new ColumnInfo(SortColumn.Title,        "Title",         TitleColumn, visible: false),
+            new ColumnInfo(SortColumn.TrackNumber,  "Track Number",  TrackColumn, visible: false)
         });
+        VM.TagsLoaded += () => { if (IsTagColumn(_sortColumn)) ApplySort(_sortColumn, _sortAscending); };
 
         VM.PropertyChanged += (_, e) =>
         {
@@ -100,10 +104,15 @@ public partial class MainWindow : Window
         VM.SetSort(info.Key, ascending);   // remembered for this folder; comes back as SortChanged
     }
 
+    private static bool IsTagColumn(SortColumn key) => key is SortColumn.Artist or SortColumn.Title or SortColumn.TrackNumber;
+
     private void ApplySort(SortColumn key, bool ascending)
     {
         _sortColumn    = key;
         _sortAscending = ascending;
+
+        // The tags of the music files are read only if a column that shows them is in use (shown, or sorted by).
+        VM.SetTagColumnsVisible(IsTagColumn(key) || _layout.Any(c => c.Visible && IsTagColumn(c.Key)));
 
         // The view's sort survives navigation and refresh, and keeps the selection.
         // No sort (None): the view shows the items as they were read, which for an archive is the order stored in it.
@@ -127,15 +136,16 @@ public partial class MainWindow : Window
         public SortColumn Key { get; }
         public string Title { get; }
         public GridViewColumn Column { get; }
-        public bool Visible { get; set; } = true;
+        public bool Visible { get; set; }
         public double Width { get; set; }
 
-        public ColumnInfo(SortColumn key, string title, GridViewColumn column)
+        public ColumnInfo(SortColumn key, string title, GridViewColumn column, bool visible = true)
         {
-            Key    = key;
-            Title  = title;
-            Column = column;
-            Width  = column.Width;
+            Key     = key;
+            Title   = title;
+            Column  = column;
+            Visible = visible;
+            Width   = column.Width;
         }
     }
 
