@@ -21,6 +21,9 @@ public class FileItemViewModel : INotifyPropertyChanged
     /// <summary>A hidden or system item, shown (dimmed) only when the user asked for the hidden items.</summary>
     public bool IsHidden { get; set; }
 
+    /// <summary>The item is inside an archive: it is not on the disk, so its icon and type come from its name.</summary>
+    public bool IsInArchive { get; set; }
+
     public ImageSource? Icon
     {
         get => _icon;
@@ -31,7 +34,7 @@ public class FileItemViewModel : INotifyPropertyChanged
     {
         Task.Run(() =>
         {
-            var icon = IconHelper.GetIcon(FullPath);
+            var icon = IsInArchive ? IconHelper.GetIconForName(Name, IsDirectory) : IconHelper.GetIcon(FullPath);
             Application.Current?.Dispatcher.InvokeAsync(() => Icon = icon);
         });
     }

@@ -202,9 +202,11 @@
         </ToolBarTray>
 
         <!-- ── Status bar ──────────────────────────────────────────── -->
-        <StatusBar DockPanel.Dock="Bottom" Height="24">
+        <StatusBar DockPanel.Dock="Bottom" MinHeight="24">
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusText}" FontSize="12"/>
+                <!-- The status bar has no theme of its own: without this the text is black on the dark styles. -->
+                <TextBlock Text="{Binding StatusText}" FontSize="12"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
             </StatusBarItem>
         </StatusBar>
 

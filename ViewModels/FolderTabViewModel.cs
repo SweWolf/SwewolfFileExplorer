@@ -69,12 +69,15 @@ public class FolderTabViewModel : INotifyPropertyChanged
         SortChanged?.Invoke();
     }
 
-    /// <summary>Takes over the sort order remembered for the current folder (Name, ascending if none).</summary>
+    /// <summary>
+    /// Takes over the sort order remembered for the current folder. If there is none: Name, ascending, for a real folder;
+    /// for an archive no sort at all, so the files show in the order they are stored in it, until a header is clicked.
+    /// </summary>
     private void ApplyFolderSort()
     {
         var (column, ascending) = _shared.FolderSorts.TryGetValue(SharedState.Key(_currentPath), out var s)
             ? s
-            : (SortColumn.Name, true);
+            : (ArchiveSupport.IsInside(_currentPath) ? SortColumn.None : SortColumn.Name, true);
 
         SortColumn    = column;
         SortAscending = ascending;
@@ -91,10 +94,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private (SortColumn Column, bool Ascending) CurrentTreeSort =>
         string.IsNullOrEmpty(_currentPath) ? (SortColumn.Name, true) : _shared.GetTreeSort(_currentPath);
 
-    /// <summary>The "Sort By" choice of the tree: 0 Name, 1 Date Created, 2 Date Modified.</summary>
+    /// <summary>The "Sort By" choice of the tree: 0 Name, 1 Date Created, 2 Date Modified; -1 (empty) if none is chosen (inside an archive).</summary>
     public int TreeSortIndex
     {
-        get => Math.Max(0, Array.IndexOf(TreeSortColumns, CurrentTreeSort.Column));
+        get => Array.IndexOf(TreeSortColumns, CurrentTreeSort.Column);
         set
         {
             if (value >= 0 && value < TreeSortColumns.Length)
@@ -109,7 +112,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         set
         {
             if (value >= 0)
-                SetTreeSort(CurrentTreeSort.Column, value == 0);
+                // With no sort chosen yet (inside an archive), choosing a direction means sorting by Name.
+                SetTreeSort(CurrentTreeSort.Column == SortColumn.None ? SortColumn.Name : CurrentTreeSort.Column, value == 0);
         }
     }
 
@@ -119,7 +123,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private void SetTreeSort(SortColumn column, bool ascending)
     {
         // The address bar can hold half a path while the user types: only a real folder is remembered.
-        if (!Directory.Exists(_currentPath) || CurrentTreeSort == (column, ascending)) return;
+        if (!(Directory.Exists(_currentPath) || ArchiveSupport.FolderExists(_currentPath, out _))
+            || CurrentTreeSort == (column, ascending)) return;
 
         _shared.TreeSorts[SharedState.Key(_currentPath)] = (column, ascending);
         OnPropertyChanged(nameof(TreeSortIndex));
@@ -176,12 +181,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
         UpCommand        = new RelayCommand(_ => GoUp(),          _ => CanGoUp());
         RefreshCommand   = new RelayCommand(_ => Refresh());
         NavigateCommand  = new RelayCommand(_ => Navigate(CurrentPath));
-        DeleteCommand    = new RelayCommand(_ => DeleteSelected(), _ => _selectedItems.Count > 0);
-        PermanentDeleteCommand = new RelayCommand(_ => DeleteSelected(permanent: true), _ => _selectedItems.Count > 0);
-        NewFolderCommand = new RelayCommand(_ => CreateNewFolder());
+        // An archive is read-only: only copying out of it is possible.
+        DeleteCommand    = new RelayCommand(_ => DeleteSelected(), _ => _selectedItems.Count > 0 && !_inArchive);
+        PermanentDeleteCommand = new RelayCommand(_ => DeleteSelected(permanent: true), _ => _selectedItems.Count > 0 && !_inArchive);
+        NewFolderCommand = new RelayCommand(_ => CreateNewFolder(), _ => !_inArchive);
         CopyCommand      = new RelayCommand(_ => CopySelected(),  _ => _selectedItems.Count > 0);
-        CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0);
-        PasteCommand     = new RelayCommand(_ => Paste(),         _ => _shared.ClipboardPaths != null);
+        CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0 && !_inArchive);
+        PasteCommand     = new RelayCommand(_ => Paste(),         _ => _shared.ClipboardPaths != null && !_inArchive);
         ToggleHiddenCommand = new RelayCommand(_ => ToggleHidden());
 
         InitializeTree();
@@ -255,9 +261,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         if (!Directory.Exists(path))
         {
-            if (File.Exists(path)) { OpenFile(path); return; }
-            StatusText = $"Path not found: {path}";
-            return;
+            // A packed file, or a folder inside one, is a folder here: it is entered, not opened.
+            if (!ArchiveSupport.FolderExists(path, out var archiveError))
+            {
+                if (archiveError != null) { StatusText = $"Cannot open the archive: {archiveError}"; return; }
+                if (File.Exists(path)) { OpenFile(path); return; }
+                StatusText = $"Path not found: {path}";
+                return;
+            }
         }
 
         if (addToHistory && !string.IsNullOrEmpty(_currentPath))
@@ -388,6 +399,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         if (string.IsNullOrEmpty(_currentPath)) return;
 
+        ArchiveSupport.Invalidate(_currentPath);   // an archive is read again, in case the file changed
         LoadItems(_currentPath);
 
         // Folders may have come or gone: the tree is the only place they show when the list hides them.
@@ -429,10 +441,81 @@ public class FolderTabViewModel : INotifyPropertyChanged
         LoadItems(_currentPath);
     }
 
+    // ── Archives ─────────────────────────────────────────────────────────────
+
+    // True while the folder shown is a packed file or a folder in one. The content is read-only:
+    // it can be opened and copied out, but not changed.
+    private bool _inArchive;
+
+    public bool InArchive => _inArchive;
+
+    private void LoadArchiveItems(string path)
+    {
+        try
+        {
+            // In the order they are stored in the archive: the list is not sorted until the user picks a column.
+            foreach (var entry in ArchiveSupport.List(path))
+            {
+                if (entry.IsDirectory && !_shared.ShowFolders) continue;   // the folders are in the tree
+
+                var vm = new FileItemViewModel
+                {
+                    Name         = entry.Name,
+                    FullPath     = entry.FullPath,
+                    IsDirectory  = entry.IsDirectory,
+                    IsInArchive  = true,
+                    DateModified = entry.Modified,
+                    DateCreated  = entry.Modified,   // an archive keeps one date for an entry
+                    TypeName     = entry.IsDirectory ? "File folder" : IconHelper.GetTypeNameForName(entry.Name),
+                    Size         = entry.Size
+                };
+                CurrentItems.Add(vm);
+                vm.LoadIconAsync();
+            }
+
+            StatusText = $"{CurrentItems.Count} item(s)";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Cannot read the archive: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// The path of a file on the disk to hand to another program: the file itself, or for a file inside an archive
+    /// a copy unpacked to the temporary folder. Null (after a message) if it cannot be unpacked.
+    /// </summary>
+    public static string? RealPathOf(FileItemViewModel item)
+    {
+        if (!item.IsInArchive) return item.FullPath;
+
+        try
+        {
+            return ArchiveSupport.ExtractToTemp(item.FullPath);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot open '{item.Name}': {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
+        }
+    }
+
     private void LoadItems(string path)
     {
         CurrentItems.Clear();
         _hiddenCount = 0;
+
+        _inArchive = ArchiveSupport.IsInside(path);
+        OnPropertyChanged(nameof(InArchive));
+        RaiseAllCanExecuteChanged();   // nothing can be deleted or pasted in an archive
+
+        if (_inArchive)
+        {
+            LoadArchiveItems(path);
+            OnPropertyChanged(nameof(HasHiddenItems));
+            OnPropertyChanged(nameof(HiddenText));
+            return;
+        }
 
         try
         {
@@ -513,10 +596,15 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     public void OpenItem(FileItemViewModel item)
     {
-        if (item.IsDirectory)
+        // A packed file opens like a folder (a real one, or a zip inside a zip).
+        if (item.IsDirectory || ArchiveSupport.IsArchiveName(item.Name))
+        {
             Navigate(item.FullPath);
-        else
-            OpenFile(item.FullPath);
+            return;
+        }
+
+        var path = RealPathOf(item);
+        if (path != null) OpenFile(path);
     }
 
     private static void OpenFile(string path)
@@ -665,7 +753,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
         {
             try
             {
-                var name = Path.GetFileName(src);
+                var name = Path.GetFileName(src.TrimEnd('\\', '/'));
+
+                // Copied from inside an archive: unpack it here.
+                if (!File.Exists(src) && !Directory.Exists(src) && ArchiveSupport.IsInside(src))
+                {
+                    ArchiveSupport.ExtractTo(src, GetUniqueDestPath(_currentPath, name));
+                    continue;
+                }
 
                 if (Directory.Exists(src) && IsSameOrSubPath(src, _currentPath))
                 {

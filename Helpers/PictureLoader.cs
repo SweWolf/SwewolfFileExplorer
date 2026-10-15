@@ -36,7 +36,7 @@ public static class PictureLoader
         try
         {
             byte[] bytes;
-            using (var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            using (var file = ArchiveSupport.OpenAnyFile(path))   // a file, or a picture inside an archive
             {
                 bytes = new byte[file.Length];
                 file.ReadExactly(bytes);

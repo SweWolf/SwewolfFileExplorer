@@ -31,9 +31,14 @@ public class SharedState
     public Dictionary<string, (SortColumn Column, bool Ascending)> TreeSorts { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The tree sort order of the subfolders of <paramref name="path"/> (Name, ascending if none was chosen).</summary>
+    /// <summary>
+    /// The tree sort order of the subfolders of <paramref name="path"/>. If none was chosen: Name, ascending;
+    /// inside an archive no sort (<see cref="SortColumn.None"/>): its folders show in the order they are stored in it.
+    /// </summary>
     public (SortColumn Column, bool Ascending) GetTreeSort(string path) =>
-        TreeSorts.TryGetValue(Key(path), out var s) ? s : (SortColumn.Name, true);
+        TreeSorts.TryGetValue(Key(path), out var s)
+            ? s
+            : (ArchiveSupport.IsInside(path) ? SortColumn.None : SortColumn.Name, true);
 
     /// <summary>The key of a folder in <see cref="FolderSorts"/>: its full path without a trailing slash.</summary>
     public static string Key(string path) =>

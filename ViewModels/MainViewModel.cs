@@ -170,6 +170,9 @@ public class MainViewModel : INotifyPropertyChanged
     public RelayCommand PasteCommand           => _activeTab.PasteCommand;
     public RelayCommand ToggleHiddenCommand    => _activeTab.ToggleHiddenCommand;
 
+    /// <summary>The folder shown is a packed file or in one: read-only.</summary>
+    public bool   InArchive      => _activeTab.InArchive;
+
     public bool   HasHiddenItems => _activeTab.HasHiddenItems;
     public string HiddenText     => _activeTab.HiddenText;
 

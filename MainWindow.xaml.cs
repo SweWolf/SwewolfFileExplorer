@@ -93,8 +93,9 @@ public partial class MainWindow : Window
         _sortAscending = ascending;
 
         // The view's sort survives navigation and refresh, and keeps the selection.
+        // No sort (None): the view shows the items as they were read, which for an archive is the order stored in it.
         if (CollectionViewSource.GetDefaultView(FileListView.ItemsSource) is ListCollectionView view)
-            view.CustomSort = new FileItemComparer(key, ascending);
+            view.CustomSort = key == SortColumn.None ? null : new FileItemComparer(key, ascending);
 
         foreach (var info in _layout)
         {
@@ -659,7 +660,7 @@ public partial class MainWindow : Window
             ShowProperties();
             e.Handled = true;
         }
-        else if (e.Key == Key.F2 && FileListView.SelectedItem is FileItemViewModel renameItem)
+        else if (e.Key == Key.F2 && !VM.InArchive && FileListView.SelectedItem is FileItemViewModel renameItem)
         {
             ShowRenameDialog(renameItem);
             e.Handled = true;
@@ -672,9 +673,10 @@ public partial class MainWindow : Window
     {
         bool hasSelection = FileListView.SelectedItem != null;
         bool canPaste     = VM.PasteCommand.CanExecute(null);
+        bool inArchive    = VM.InArchive;   // read-only: files can be opened and copied out, nothing else
 
         // Read the SendTo folder each time, so new shortcuts show up at once.
-        FillSendToMenu(SendToMenu, hasSelection ? SendToHelper.GetEntries() : new());
+        FillSendToMenu(SendToMenu, hasSelection && !inArchive ? SendToHelper.GetEntries() : new());
 
         var menu = (ContextMenu)sender;
         foreach (var mi in menu.Items.OfType<MenuItem>())
@@ -683,14 +685,15 @@ public partial class MainWindow : Window
             {
                 "Open"       => hasSelection,
                 "Open With..." => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false },
-                "Send to"    => hasSelection,
+                "Send to"    => hasSelection && !inArchive,
                 "Open in New Tab" => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true },
-                "Cut"        => hasSelection,
+                "Cut"        => hasSelection && !inArchive,
                 "Copy"       => hasSelection,
                 "Paste"      => canPaste,
-                "Delete"     => hasSelection,
-                "Rename"     => hasSelection,
-                "New Folder" => true,
+                "Delete"     => hasSelection && !inArchive,
+                "Rename"     => hasSelection && !inArchive,
+                "New Folder" => !inArchive,
+                "Properties" => !inArchive,
                 _            => true
             };
         }
@@ -742,6 +745,8 @@ public partial class MainWindow : Window
     /// <summary>Properties of the selected items, or of the current folder if nothing is selected.</summary>
     private void ShowProperties()
     {
+        if (VM.InArchive) return;   // what is in an archive is not on the disk: Windows has no properties for it
+
         var paths = FileListView.SelectedItems.Cast<FileItemViewModel>().Select(i => i.FullPath).ToList();
         if (paths.Count == 0 && !string.IsNullOrEmpty(VM.CurrentPath))
             paths.Add(VM.CurrentPath);
@@ -770,13 +775,17 @@ public partial class MainWindow : Window
     {
         if (FileListView.SelectedItem is not FileItemViewModel { IsDirectory: false } file) return;
 
+        // A file in an archive is first unpacked to the temporary folder: the dialog needs a file on the disk.
+        var path = FolderTabViewModel.RealPathOf(file);
+        if (path == null) return;
+
         try
         {
-            Process.Start(new ProcessStartInfo { FileName = file.FullPath, Verb = "openas", UseShellExecute = true });
+            OpenWithHelper.Show(path, new System.Windows.Interop.WindowInteropHelper(this).Handle);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Cannot open: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Cannot open: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

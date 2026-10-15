@@ -295,6 +295,13 @@ public partial class PictureViewerWindow : Window
         if (_files.Count == 0) return;
         string path = CurrentPath;
 
+        // A picture in an archive cannot be deleted: archives are read-only here.
+        if (!File.Exists(path))
+        {
+            ShowOverlay("Cannot delete from an archive");
+            return;
+        }
+
         ShowCursor();
         var answer = MessageBox.Show(this,
             $"Are you sure you want to move '{Path.GetFileName(path)}' to the Recycle Bin?",

@@ -22,8 +22,7 @@ public static class ThumbnailLoader
     {
         try
         {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
-                FileShare.ReadWrite | FileShare.Delete);
+            using var stream = ArchiveSupport.OpenAnyFile(path);   // a file, or a picture inside an archive
 
             var bitmap = new BitmapImage();
             bitmap.BeginInit();

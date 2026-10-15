@@ -4,7 +4,8 @@ using MyFileExplorer.ViewModels;
 
 namespace MyFileExplorer.Helpers;
 
-public enum SortColumn { Name, DateModified, DateCreated, Type, Size }
+/// <summary>The column the list is sorted by. None: not sorted, the items stay in the order they were read (the order inside a zip).</summary>
+public enum SortColumn { Name, DateModified, DateCreated, Type, Size, None }
 
 /// <summary>
 /// Sorts the file list like Windows Explorer: folders always stay above files,
