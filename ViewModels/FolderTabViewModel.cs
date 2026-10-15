@@ -187,7 +187,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         NewFolderCommand = new RelayCommand(_ => CreateNewFolder(), _ => !_inArchive);
         CopyCommand      = new RelayCommand(_ => CopySelected(),  _ => _selectedItems.Count > 0);
         CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0 && !_inArchive);
-        PasteCommand     = new RelayCommand(_ => Paste(),         _ => _shared.ClipboardPaths != null && !_inArchive);
+        PasteCommand     = new RelayCommand(_ => Paste(),         _ => !_inArchive && FileClipboard.HasFiles());
         ToggleHiddenCommand = new RelayCommand(_ => ToggleHidden());
         ToggleTreeHiddenCommand = new RelayCommand(_ => ToggleTreeHidden());
 
@@ -802,76 +802,99 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     // ── Clipboard ────────────────────────────────────────────────────────────
 
-    private void CopySelected()
-    {
-        _shared.ClipboardPaths = _selectedItems.Select(i => i.FullPath).ToList();
-        _shared.ClipboardIsCut = false;
-        PasteCommand.RaiseCanExecuteChanged();
-    }
+    private void CopySelected() => PutOnClipboard(cut: false);
 
-    private void CutSelected()
+    private void CutSelected() => PutOnClipboard(cut: true);
+
+    /// <summary>
+    /// Puts the selected items on the Windows clipboard. What is in an archive is unpacked to the
+    /// temporary folder first, as the clipboard can only hold files on the disk.
+    /// </summary>
+    private void PutOnClipboard(bool cut)
     {
-        _shared.ClipboardPaths = _selectedItems.Select(i => i.FullPath).ToList();
-        _shared.ClipboardIsCut = true;
+        var paths = new List<string>();
+        foreach (var item in _selectedItems)
+        {
+            var path = RealPathOf(item);
+            if (path == null) return;   // it said why
+            paths.Add(path);
+        }
+
+        try
+        {
+            FileClipboard.Set(paths, cut);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot use the clipboard: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
         PasteCommand.RaiseCanExecuteChanged();
     }
 
     private void Paste()
     {
-        if (_shared.ClipboardPaths == null) return;
+        if (FileClipboard.Get() is not var (sources, isCut)) return;
 
-        foreach (var src in _shared.ClipboardPaths)
+        foreach (var src in sources)
         {
             try
             {
                 var name = Path.GetFileName(src.TrimEnd('\\', '/'));
 
-                // Copied from inside an archive: unpack it here.
-                if (!File.Exists(src) && !Directory.Exists(src) && ArchiveSupport.IsInside(src))
-                {
-                    ArchiveSupport.ExtractTo(src, GetUniqueDestPath(_currentPath, name));
-                    continue;
-                }
-
                 if (Directory.Exists(src) && IsSameOrSubPath(src, _currentPath))
                 {
                     MessageBox.Show(
-                        $"Cannot {(_shared.ClipboardIsCut ? "move" : "copy")} '{name}' into itself or one of its subfolders.",
-                        "Paste", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        $"Cannot {(isCut ? "move" : "copy")} '{name}' into itself or one of its subfolders.",
+                        AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
                     continue;
                 }
 
                 // Cutting an item and pasting it where it already is changes nothing.
-                if (_shared.ClipboardIsCut && IsSamePath(Path.GetDirectoryName(src), _currentPath))
+                if (isCut && IsSamePath(Path.GetDirectoryName(src), _currentPath))
                     continue;
 
                 var dest = GetUniqueDestPath(_currentPath, name!);
 
                 if (Directory.Exists(src))
                 {
-                    if (_shared.ClipboardIsCut) Directory.Move(src, dest);
-                    else                 CopyDirectory(src, dest);
+                    if (isCut) MoveDirectory(src, dest);
+                    else       CopyDirectory(src, dest);
                 }
                 else if (File.Exists(src))
                 {
-                    if (_shared.ClipboardIsCut) File.Move(src, dest);
-                    else                 File.Copy(src, dest);
+                    if (isCut) File.Move(src, dest);
+                    else       File.Copy(src, dest);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Paste error: {ex.Message}", "Error",
+                MessageBox.Show($"Paste error: {ex.Message}", AppInfo.Name,
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        if (_shared.ClipboardIsCut)
+        if (isCut)
         {
-            _shared.ClipboardPaths = null;
+            FileClipboard.Clear();   // what was cut is moved: there is nothing left to paste
             PasteCommand.RaiseCanExecuteChanged();
         }
 
         Refresh();
+    }
+
+    /// <summary>Moves a folder. To another drive that means copying it and then deleting the original.</summary>
+    private static void MoveDirectory(string src, string dest)
+    {
+        if (string.Equals(Path.GetPathRoot(Path.GetFullPath(src)), Path.GetPathRoot(Path.GetFullPath(dest)),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            Directory.Move(src, dest);
+            return;
+        }
+
+        CopyDirectory(src, dest);
+        Directory.Delete(src, recursive: true);
     }
 
     private static string NormalizePath(string path) =>

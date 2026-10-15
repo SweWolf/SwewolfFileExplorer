@@ -538,12 +538,12 @@ public static class ArchiveSupport
     private static string TempRoot => Path.Combine(Path.GetTempPath(), "SwewolfFileExplorer");
     private static string TempFolder => Path.Combine(TempRoot, Environment.ProcessId.ToString());
 
-    /// <summary>Unpacks a file of an archive to a temporary file, and returns where it is. The same file is unpacked once.</summary>
+    /// <summary>Unpacks a file or folder of an archive to a temporary place, and returns where it is. The same one is unpacked once.</summary>
     public static string ExtractToTemp(string path)
     {
         lock (Extracted)
         {
-            if (Extracted.TryGetValue(path, out var known) && File.Exists(known))
+            if (Extracted.TryGetValue(path, out var known) && (File.Exists(known) || Directory.Exists(known)))
                 return known;
 
             // A folder of its own for each file keeps its real name and cannot clash with another file of the same name.

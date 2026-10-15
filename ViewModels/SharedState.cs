@@ -3,7 +3,7 @@ using SwewolfFileExplorer.Helpers;
 
 namespace SwewolfFileExplorer.ViewModels;
 
-/// <summary>What all tabs share: the cut/copy clipboard and the sort order chosen per folder.</summary>
+/// <summary>What all tabs share: the sort order chosen per folder.</summary>
 public class SharedState
 {
     /// <summary>Whether the file list shows folders (off by default; they are in the tree).</summary>
@@ -15,10 +15,6 @@ public class SharedState
 
     /// <summary>The saved settings (folders shown, font sizes); save them again after a change.</summary>
     public AppSettings Settings { get; } = AppSettingsStore.Current;
-
-    // The clipboard is local to the app, not the system clipboard.
-    public List<string>? ClipboardPaths { get; set; }
-    public bool ClipboardIsCut { get; set; }
 
     /// <summary>Sort order per folder, for this run. Meant to be saved later (a small database file).</summary>
     public Dictionary<string, (SortColumn Column, bool Ascending)> FolderSorts { get; } =
