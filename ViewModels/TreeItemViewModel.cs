@@ -224,12 +224,19 @@ public class TreeItemViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// The hidden subfolders were shown or hidden: adds or removes their nodes in place,
-    /// so the nodes that stay keep their place, what is expanded below them, and the selection.
+    /// Reads the subfolders again (the hidden ones were shown or hidden, a folder was created, renamed or deleted):
+    /// adds and removes nodes in place, so the nodes that stay keep their place, what is expanded below
+    /// them, and the selection. A packed file is read again, which starts over.
     /// </summary>
-    public void SyncHidden()
+    public void SyncChildren()
     {
-        if (string.IsNullOrEmpty(FullPath) || ChildrenInArchive) return;
+        if (string.IsNullOrEmpty(FullPath)) return;
+
+        if (ChildrenInArchive)
+        {
+            Refresh();
+            return;
+        }
 
         if (!_childrenLoaded)
         {
@@ -244,7 +251,12 @@ public class TreeItemViewModel : INotifyPropertyChanged
             var wanted   = BuildFolderChildren(existing);
 
             foreach (var gone in Children.Where(c => !wanted.Contains(c)).ToList())
+            {
+                // The tree selects the parent when the selected node is removed, and the window would take
+                // that for a click and navigate there: so nothing selected is removed.
+                Deselect(gone);
                 Children.Remove(gone);
+            }
 
             for (int i = 0; i < wanted.Count; i++)
             {
@@ -334,6 +346,12 @@ public class TreeItemViewModel : INotifyPropertyChanged
             if (!ReferenceEquals(Children[i], sorted[i]))
                 Children.Move(Children.IndexOf(sorted[i]), i);
         }
+    }
+
+    private static void Deselect(TreeItemViewModel node)
+    {
+        node.IsSelected = false;
+        foreach (var child in node.Children) Deselect(child);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

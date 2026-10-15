@@ -59,6 +59,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>Raised after a new folder was created and the list refreshed.</summary>
     public event Action<FileItemViewModel>? FolderCreated;
 
+    /// <summary>Raised with the path of an item that the window should select in the list again (after a rename or a refresh).</summary>
+    public event Action<string>? SelectPathRequested;
+
     /// <summary>The user picked a sort order: use it now and remember it for this folder.</summary>
     public void SetSort(SortColumn column, bool ascending)
     {
@@ -132,6 +135,42 @@ public class FolderTabViewModel : INotifyPropertyChanged
         TreeSortChanged?.Invoke(_currentPath);
     }
 
+    /// <summary>
+    /// Reads the subfolders of <paramref name="path"/> again in this tab's tree (where it is loaded),
+    /// keeping what is expanded and selected.
+    /// </summary>
+    public void RefreshTreeFolder(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        try { SyncHiddenNodes(TreeItems, path); }
+        catch { /* not a path */ }
+    }
+
+    /// <summary>
+    /// Selects the node of <paramref name="path"/> in the tree without navigating there (the list stays where it is).
+    /// The tree's own selection is the folder that F2 renames.
+    /// </summary>
+    public void SelectFolderInTree(string path)
+    {
+        try
+        {
+            var node = ResolveNode(path);
+            if (node == null || !NodeIs(node, path) || node.IsSelected) return;
+
+            _programmaticSelection = node;   // the window must not take this for a click
+            node.IsSelected = true;
+        }
+        catch { /* not a folder of the tree */ }
+    }
+
+    /// <summary>The Refresh of the tree's right-click menu: the folder in the tree, and the list if it shows that folder.</summary>
+    public void RefreshFolder(string path)
+    {
+        ArchiveSupport.Invalidate(path);
+        RefreshTreeFolder(path);
+        if (IsSamePath(path, _currentPath)) Refresh();
+    }
+
     /// <summary>Puts the loaded subfolders of <paramref name="path"/> in their (new) order.</summary>
     public void ResortTree(string path) => ResortNodes(TreeItems, path);
 
@@ -169,6 +208,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public RelayCommand CopyCommand      { get; }
     public RelayCommand CutCommand       { get; }
     public RelayCommand PasteCommand     { get; }
+    public RelayCommand CopyPathCommand  { get; }
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
@@ -189,6 +229,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0 && !_inArchive);
         PasteCommand     = new RelayCommand(_ => Paste(),         _ => !_inArchive && FileClipboard.HasFiles());
         ToggleHiddenCommand = new RelayCommand(_ => ToggleHidden());
+        CopyPathCommand  = new RelayCommand(_ => CopyPathsAsText(_selectedItems.Select(i => i.FullPath)),
+                                            _ => _selectedItems.Count > 0);
         ToggleTreeHiddenCommand = new RelayCommand(_ => ToggleTreeHidden());
 
         InitializeTree();
@@ -200,7 +242,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         foreach (var c in new[] { BackCommand, ForwardCommand, UpCommand, RefreshCommand, NavigateCommand,
                                   DeleteCommand, PermanentDeleteCommand, NewFolderCommand,
-                                  CopyCommand, CutCommand, PasteCommand })
+                                  CopyCommand, CutCommand, PasteCommand, CopyPathCommand })
             c.RaiseCanExecuteChanged();
     }
 
@@ -350,7 +392,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             if (next == null && TreeItemViewModel.IsHiddenFolder(current))
             {
                 _shared.TreeShownHidden.Add(SharedState.Key(node.FullPath));
-                node.SyncHidden();   // at once: a new tab has no listener yet
+                node.SyncChildren();   // at once: a new tab has no listener yet
                 TreeHiddenChanged?.Invoke(node.FullPath);
                 next = node.Children.FirstOrDefault(c => NodeIs(c, current));
             }
@@ -499,7 +541,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         foreach (var node in nodes)
         {
-            if (NodeIs(node, path)) node.SyncHidden();
+            if (NodeIs(node, path)) node.SyncChildren();
             SyncHiddenNodes(node.Children, path);
         }
     }
@@ -690,9 +732,15 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
     }
 
-    public void DeleteSelected(bool permanent = false)
+    public void DeleteSelected(bool permanent = false) =>
+        DeleteEntries(_selectedItems.Select(i => (i.FullPath, i.Name, i.IsDirectory)).ToList(), permanent);
+
+    /// <summary>Moves a folder of the tree to the Recycle Bin (its right-click menu).</summary>
+    public void DeleteFolder(string path) =>
+        DeleteEntries(new() { (path, Path.GetFileName(path.TrimEnd('\\', '/')), true) }, permanent: false);
+
+    private void DeleteEntries(List<(string Path, string Name, bool IsDirectory)> items, bool permanent)
     {
-        var items = _selectedItems.ToList();
         if (items.Count == 0) return;
 
         var names  = items.Count == 1 ? $"'{items[0].Name}'" : $"{items.Count} items";
@@ -720,9 +768,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 // UIOption.OnlyErrorDialogs: no progress dialog, but a failed recycle
                 // (e.g. a network drive with no Recycle Bin) is reported, not silently permanent.
                 if (item.IsDirectory)
-                    FileSystem.DeleteDirectory(item.FullPath, UIOption.OnlyErrorDialogs, recycle);
+                    FileSystem.DeleteDirectory(item.Path, UIOption.OnlyErrorDialogs, recycle);
                 else
-                    FileSystem.DeleteFile(item.FullPath, UIOption.OnlyErrorDialogs, recycle);
+                    FileSystem.DeleteFile(item.Path, UIOption.OnlyErrorDialogs, recycle);
             }
             catch (Exception ex)
             {
@@ -731,7 +779,50 @@ public class FolderTabViewModel : INotifyPropertyChanged
             }
         }
 
-        Refresh();
+        foreach (var item in items)
+            RefreshTreeFolder(Path.GetDirectoryName(item.Path.TrimEnd('\\', '/')));
+
+        // The folder shown may be one of those deleted (or inside one): go to the nearest folder that is left.
+        if (!Directory.Exists(_currentPath) && !ArchiveSupport.IsInside(_currentPath))
+        {
+            var left = _currentPath;
+            while (!string.IsNullOrEmpty(left) && !Directory.Exists(left)) left = Path.GetDirectoryName(left) ?? "";
+            if (left != "") Navigate(left, addToHistory: false);
+        }
+        else
+        {
+            Refresh();
+        }
+    }
+
+    /// <summary>Renames a folder of the tree (its right-click menu).</summary>
+    public void RenameFolder(string path, string newName) =>
+        RenameItem(new FileItemViewModel { Name = Path.GetFileName(path.TrimEnd('\\', '/')), FullPath = path, IsDirectory = true }, newName);
+
+    /// <summary>
+    /// What is wrong with <paramref name="newName"/> as the new name of the item at <paramref name="path"/>:
+    /// the message to show, or null if the name can be used. The rename dialog asks this, so it stays open
+    /// until the name is good (or Cancel is clicked).
+    /// </summary>
+    public static string? CheckNewName(string path, string newName)
+    {
+        newName = newName.Trim();
+        if (newName.Length == 0)
+            return "Type a name.";
+
+        if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            return "A file name cannot contain any control characters or any of the following characters:\n\\ / : * ? \" < > |";
+
+        var dir = Path.GetDirectoryName(path.TrimEnd('\\', '/'));
+        if (dir == null) return null;
+
+        // A change of case only (a.txt -> A.txt) points at the same item: allow it.
+        var newPath = Path.Combine(dir, newName);
+        bool sameItem = string.Equals(newPath, path, StringComparison.OrdinalIgnoreCase);
+        if (!sameItem && (File.Exists(newPath) || Directory.Exists(newPath)))
+            return $"'{newName}' already exists in this folder. Choose a different name.";
+
+        return null;
     }
 
     public void RenameItem(FileItemViewModel item, string newName)
@@ -739,11 +830,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
         newName = newName.Trim();
         if (string.IsNullOrEmpty(newName) || newName == item.Name) return;
 
-
-        if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        var problem = CheckNewName(item.FullPath, newName);
+        if (problem != null)
         {
-            MessageBox.Show("A file name cannot contain any control characters or any of the following characters:\n\\ / : * ? \" < > |",
-                "Rename", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(problem, "Rename", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -752,19 +842,35 @@ public class FolderTabViewModel : INotifyPropertyChanged
             var dir     = Path.GetDirectoryName(item.FullPath)!;
             var newPath = Path.Combine(dir, newName);
 
-            // A change of case only (a.txt -> A.txt) points at the same item: allow it.
             bool sameItem = string.Equals(newPath, item.FullPath, StringComparison.OrdinalIgnoreCase);
-            if (!sameItem && (File.Exists(newPath) || Directory.Exists(newPath)))
+
+            // Where the tab must go afterwards, worked out now, before anything changes: the folder shown
+            // is the one renamed (or inside it), so it is at a new place when the move is done.
+            string? newCurrent = null;
+            if (item.IsDirectory && !sameItem && IsSameOrSubPath(item.FullPath, _currentPath))
             {
-                MessageBox.Show($"'{newName}' already exists in this folder. Choose a different name.",
-                    "Rename", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                var rest = Path.GetRelativePath(item.FullPath, _currentPath);
+                newCurrent = rest == "." ? newPath : Path.Combine(newPath, rest);
             }
 
             if (item.IsDirectory) Directory.Move(item.FullPath, newPath);
             else                  File.Move(item.FullPath, newPath);
 
-            Refresh();
+            // The tree first: it must know the new name before it is asked for the node of the folder.
+            RefreshTreeFolder(dir);
+
+            if (newCurrent != null)
+            {
+                Navigate(newCurrent, addToHistory: false);
+            }
+            else
+            {
+                Refresh();
+
+                // The renamed item stays the one in focus: in the tree, and in the list if it is listed.
+                if (item.IsDirectory) SelectFolderInTree(newPath);
+                SelectPathRequested?.Invoke(newPath);
+            }
         }
         catch (Exception ex)
         {
@@ -773,22 +879,30 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
     }
 
-    public void CreateNewFolder()
+    public void CreateNewFolder() => CreateNewFolderIn(_currentPath);
+
+    /// <summary>Makes a new folder in <paramref name="parent"/> (the current folder, or a folder of the tree) and asks for its name.</summary>
+    public void CreateNewFolderIn(string parent)
     {
         var baseName = "New Folder";
-        var path     = Path.Combine(_currentPath, baseName);
+        var path     = Path.Combine(parent, baseName);
         int i        = 1;
 
         while (Directory.Exists(path))
-            path = Path.Combine(_currentPath, $"New Folder ({i++})");
+            path = Path.Combine(parent, $"New Folder ({i++})");
 
         try
         {
             Directory.CreateDirectory(path);
             Refresh();
+            RefreshTreeFolder(parent);
 
-            // The window selects the new folder and asks for its name. With the folders hidden
-            // it is not in the list, but it can still be renamed.
+            // Go into the new folder, so the tree and the list agree on where we are (the list is empty).
+            // It then is the current folder while its name is asked for, and the rename follows it.
+            Navigate(path);
+
+            // The window asks for the name. With the folders hidden the new folder is not in the list,
+            // but it can still be renamed.
             var newItem = CurrentItems.FirstOrDefault(x => x.FullPath == path)
                 ?? new FileItemViewModel { Name = Path.GetFileName(path), FullPath = path, IsDirectory = true };
             FolderCreated?.Invoke(newItem);
@@ -820,6 +934,29 @@ public class FolderTabViewModel : INotifyPropertyChanged
             paths.Add(path);
         }
 
+        PutPathsOnClipboard(paths, cut);
+    }
+
+    /// <summary>The same for a folder of the tree (its right-click menu).</summary>
+    public void PutFolderOnClipboard(string folder, bool cut)
+    {
+        var path = folder;
+        if (!Directory.Exists(path) && !File.Exists(path))
+        {
+            try { path = ArchiveSupport.ExtractToTemp(folder); }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Cannot copy '{Path.GetFileName(folder)}': {ex.Message}", AppInfo.Name,
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+
+        PutPathsOnClipboard(new List<string> { path }, cut);
+    }
+
+    private void PutPathsOnClipboard(List<string> paths, bool cut)
+    {
         try
         {
             FileClipboard.Set(paths, cut);
@@ -832,7 +969,23 @@ public class FolderTabViewModel : INotifyPropertyChanged
         PasteCommand.RaiseCanExecuteChanged();
     }
 
-    private void Paste()
+    /// <summary>Copy as Path: the paths as text, each in quotes and one to a line, as Explorer does.</summary>
+    public void CopyPathsAsText(IEnumerable<string> paths)
+    {
+        try
+        {
+            FileClipboard.SetText(string.Join(Environment.NewLine, paths.Select(p => "\"" + p + "\"")));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot use the clipboard: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void Paste() => PasteInto(_currentPath);
+
+    /// <summary>Pastes what is on the clipboard into <paramref name="destination"/>, a folder of the disk.</summary>
+    public void PasteInto(string destination)
     {
         if (FileClipboard.Get() is not var (sources, isCut)) return;
 
@@ -842,7 +995,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 var name = Path.GetFileName(src.TrimEnd('\\', '/'));
 
-                if (Directory.Exists(src) && IsSameOrSubPath(src, _currentPath))
+                if (Directory.Exists(src) && IsSameOrSubPath(src, destination))
                 {
                     MessageBox.Show(
                         $"Cannot {(isCut ? "move" : "copy")} '{name}' into itself or one of its subfolders.",
@@ -851,10 +1004,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 }
 
                 // Cutting an item and pasting it where it already is changes nothing.
-                if (isCut && IsSamePath(Path.GetDirectoryName(src), _currentPath))
+                if (isCut && IsSamePath(Path.GetDirectoryName(src), destination))
                     continue;
 
-                var dest = GetUniqueDestPath(_currentPath, name!);
+                var dest = GetUniqueDestPath(destination, name!);
 
                 if (Directory.Exists(src))
                 {
@@ -881,6 +1034,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         Refresh();
+        RefreshTreeFolder(destination);   // the folder pasted into need not be the current one
     }
 
     /// <summary>Moves a folder. To another drive that means copying it and then deleting the original.</summary>
@@ -957,6 +1111,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         PermanentDeleteCommand.RaiseCanExecuteChanged();
         CopyCommand.RaiseCanExecuteChanged();
         CutCommand.RaiseCanExecuteChanged();
+        CopyPathCommand.RaiseCanExecuteChanged();
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

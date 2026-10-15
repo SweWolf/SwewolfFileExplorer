@@ -30,6 +30,10 @@ public static class FileClipboard
         Retry(() => { Clipboard.SetDataObject(data, copy: true); return 0; });
     }
 
+    /// <summary>Puts text on the clipboard (Copy as Path).</summary>
+    public static void SetText(string text) =>
+        Retry(() => { Clipboard.SetDataObject(text, copy: true); return 0; });
+
     /// <summary>The files on the clipboard and whether they are to be moved; null if there are no files on it.</summary>
     public static (List<string> Paths, bool IsCut)? Get()
     {

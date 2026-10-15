@@ -78,6 +78,7 @@ public class MainViewModel : INotifyPropertyChanged
         };
         tab.SortChanged    += () => { if (tab == _activeTab) SortChanged?.Invoke(); };
         tab.FolderCreated  += item => { if (tab == _activeTab) FolderCreated?.Invoke(item); };
+        tab.SelectPathRequested += path => { if (tab == _activeTab) SelectPathRequested?.Invoke(path); };
         // The tree sort order is shared: the other tabs' trees show the same folder in the same order.
         tab.TreeSortChanged += path => { foreach (var t in Tabs) t.ResortTree(path); };
         // So is whether the tree shows the hidden folders of a folder.
@@ -171,6 +172,7 @@ public class MainViewModel : INotifyPropertyChanged
     public RelayCommand CutCommand             => _activeTab.CutCommand;
     public RelayCommand PasteCommand           => _activeTab.PasteCommand;
     public RelayCommand ToggleHiddenCommand    => _activeTab.ToggleHiddenCommand;
+    public RelayCommand CopyPathCommand        => _activeTab.CopyPathCommand;
 
     /// <summary>The folder shown is a packed file or in one: read-only.</summary>
     public bool   InArchive      => _activeTab.InArchive;
@@ -266,10 +268,20 @@ public class MainViewModel : INotifyPropertyChanged
 
     /// <summary>Raised after the active tab created a new folder.</summary>
     public event Action<FileItemViewModel>? FolderCreated;
+    public event Action<string>? SelectPathRequested;
 
     public void Navigate(string? path, bool addToHistory = true) => _activeTab.Navigate(path, addToHistory);
     public void OpenItem(FileItemViewModel item)                  => _activeTab.OpenItem(item);
     public void RenameItem(FileItemViewModel item, string name)   => _activeTab.RenameItem(item, name);
+
+    // What the right-click menu of the tree does with a folder (the folder need not be the current one).
+    public void CopyPathsAsText(IEnumerable<string> paths)        => _activeTab.CopyPathsAsText(paths);
+    public void PutFolderOnClipboard(string path, bool cut)       => _activeTab.PutFolderOnClipboard(path, cut);
+    public void PasteInto(string path)                            => _activeTab.PasteInto(path);
+    public void DeleteFolder(string path)                         => _activeTab.DeleteFolder(path);
+    public void RenameFolder(string path, string name)            => _activeTab.RenameFolder(path, name);
+    public void CreateFolderIn(string path)                       => _activeTab.CreateNewFolderIn(path);
+    public void RefreshFolder(string path)                        => _activeTab.RefreshFolder(path);
     public void UpdateSelectedItems(List<FileItemViewModel> items) => _activeTab.UpdateSelectedItems(items);
 
     public event PropertyChangedEventHandler? PropertyChanged;

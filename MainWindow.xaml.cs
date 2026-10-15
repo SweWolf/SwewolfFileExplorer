@@ -24,6 +24,7 @@ public partial class MainWindow : Window
         TreeColumn.Width = _treeWidth;
         DataContext = new MainViewModel();
         VM.FolderCreated += OnFolderCreated;
+        VM.SelectPathRequested += OnSelectPathRequested;
         VM.SortChanged   += () => ApplySort(VM.SortColumn, VM.SortAscending);
         VM.LastTabClosed += Close;
 
@@ -62,6 +63,17 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>Selects an item in the list again, e.g. after it was renamed (the list was read again).</summary>
+    private void OnSelectPathRequested(string path)
+    {
+        var item = VM.CurrentItems.FirstOrDefault(i =>
+            string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase));
+        if (item == null) return;   // not listed (the folders are hidden)
+
+        FileListView.SelectedItem = item;
+        FileListView.ScrollIntoView(item);
+    }
+
     private void OnFolderCreated(FileItemViewModel folder)
     {
         if (VM.CurrentItems.Contains(folder))   // not there when the folders are hidden
@@ -69,7 +81,7 @@ public partial class MainWindow : Window
             FileListView.SelectedItem = folder;
             FileListView.ScrollIntoView(folder);
         }
-        ShowRenameDialog(folder);
+        ShowRenameDialog(folder, isNew: true);   // the name of a new folder is asked for, not changed
     }
 
     // ── Sorting ───────────────────────────────────────────────────────────────
@@ -696,6 +708,7 @@ public partial class MainWindow : Window
                 "Cut"        => hasSelection && !inArchive,
                 "Copy"       => hasSelection,
                 "Paste"      => canPaste,
+                "Copy as Path" => hasSelection,
                 "Delete"     => hasSelection && !inArchive,
                 "Rename"     => hasSelection && !inArchive,
                 "New Folder" => !inArchive,
@@ -813,11 +826,154 @@ public partial class MainWindow : Window
             ShowRenameDialog(item);
     }
 
+    private void CtxCopyPath_Click(object sender, RoutedEventArgs e) => VM.CopyPathCommand.Execute(null);
+
+    // ── Context menu of the tree ──────────────────────────────────────────────
+
+    /// <summary>The folder the tree's menu was opened on (not necessarily the selected one).</summary>
+    private TreeItemViewModel? _treeMenuNode;
+
+    private void NavigationTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        _treeMenuNode = null;
+
+        // The node under the mouse (or with the keyboard focus, for the menu key): the nearest TreeViewItem above the source.
+        var element = e.OriginalSource as DependencyObject;
+        while (element != null && element is not TreeViewItem)
+            element = element is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(element)
+                : LogicalTreeHelper.GetParent(element);
+
+        // Quick Access and This PC are not folders: no menu.
+        if ((element as TreeViewItem)?.DataContext is TreeItemViewModel { FullPath.Length: > 0 } node)
+            _treeMenuNode = node;
+        else
+            e.Handled = true;
+    }
+
+    private void TreeContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode == null) return;
+
+        string path       = _treeMenuNode.FullPath;
+        bool realFolder   = System.IO.Directory.Exists(path);
+        bool canChange    = CanChangeFolder(path);   // a drive cannot be cut, deleted or renamed
+
+        var menu = (ContextMenu)sender;
+        foreach (var mi in menu.Items.OfType<MenuItem>())
+        {
+            mi.IsEnabled = mi.Header switch
+            {
+                "Cut"        => canChange,
+                "Paste"      => realFolder && FileClipboard.HasFiles(),
+                "Delete"     => canChange,
+                "Rename"     => canChange,
+                "New Folder" => realFolder,
+                "Properties" => realFolder || System.IO.File.Exists(path),   // what is in an archive is not on the disk
+                _            => true
+            };
+        }
+    }
+
+    private void TreeCtxOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.Navigate(_treeMenuNode.FullPath);
+    }
+
+    private void TreeCtxOpenInNewTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.OpenNewTab(_treeMenuNode.FullPath, activate: false);
+    }
+
+    private void TreeCtxCut_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.PutFolderOnClipboard(_treeMenuNode.FullPath, cut: true);
+    }
+
+    private void TreeCtxCopy_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.PutFolderOnClipboard(_treeMenuNode.FullPath, cut: false);
+    }
+
+    private void TreeCtxPaste_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.PasteInto(_treeMenuNode.FullPath);
+    }
+
+    private void TreeCtxCopyPath_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.CopyPathsAsText(new[] { _treeMenuNode.FullPath });
+    }
+
+    private void TreeCtxDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.DeleteFolder(_treeMenuNode.FullPath);
+    }
+
+    private void TreeCtxRename_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) RenameTreeFolder(_treeMenuNode);
+    }
+
+    /// <summary>True for a folder of the disk that may be renamed or deleted: not a drive, and nothing in an archive.</summary>
+    private static bool CanChangeFolder(string path) =>
+        System.IO.Directory.Exists(path)
+        && !string.Equals(System.IO.Path.GetPathRoot(path), path, StringComparison.OrdinalIgnoreCase);
+
+    private void RenameTreeFolder(TreeItemViewModel node)
+    {
+        var dlg = new InputDialog("Rename Folder", "Enter new name:", node.Name,
+            name => FolderTabViewModel.CheckNewName(node.FullPath, name)) { Owner = this };
+        if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
+            VM.RenameFolder(node.FullPath, dlg.InputText);
+    }
+
+    /// <summary>F2 in the tree renames the selected folder; in the list it renames the selected item (what has the focus decides).</summary>
+    private void NavigationTree_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F2) return;
+
+        if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } node && CanChangeFolder(node.FullPath))
+            RenameTreeFolder(node);
+
+        e.Handled = true;
+    }
+
+    private void TreeCtxNewFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.CreateFolderIn(_treeMenuNode.FullPath);
+    }
+
+    private void TreeCtxRefresh_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.RefreshFolder(_treeMenuNode.FullPath);
+    }
+
+    private void TreeCtxProperties_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode == null) return;
+
+        try
+        {
+            PropertiesHelper.Show(new[] { _treeMenuNode.FullPath });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot show properties: {ex.Message}", AppInfo.Name,
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     // ── Rename dialog ─────────────────────────────────────────────────────────
 
-    private void ShowRenameDialog(FileItemViewModel item)
+    /// <summary>Asks for a new name. The title says what it is for: a new folder (just made, with a default name), a folder or a file.</summary>
+    private void ShowRenameDialog(FileItemViewModel item, bool isNew = false)
     {
-        var dlg = new InputDialog("Rename", "Enter new name:", item.Name) { Owner = this };
+        var (title, prompt) = isNew        ? ("New Folder",    "Enter a name for the new folder:")
+                            : item.IsDirectory ? ("Rename Folder", "Enter new name:")
+                            :                    ("Rename File",   "Enter new name:");
+        var dlg = new InputDialog(title, prompt, item.Name,
+            name => FolderTabViewModel.CheckNewName(item.FullPath, name)) { Owner = this };
         if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
             VM.RenameItem(item, dlg.InputText);
     }
