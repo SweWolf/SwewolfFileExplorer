@@ -6,10 +6,10 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using Microsoft.VisualBasic.FileIO;
-using SweWolfFileExplorer.Commands;
-using SweWolfFileExplorer.Helpers;
+using SwewolfFileExplorer.Commands;
+using SwewolfFileExplorer.Helpers;
 
-namespace SweWolfFileExplorer.ViewModels;
+namespace SwewolfFileExplorer.ViewModels;
 
 /// <summary>
 /// One tab: its own folder, file list, navigation tree, history, selection and sort.

@@ -1,4 +1,4 @@
-<Window x:Class="SweWolfFileExplorer.Views.AboutWindow"
+<Window x:Class="SwewolfFileExplorer.Views.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About SweWolf File Explorer"
@@ -44,8 +44,8 @@
                        Text="A file explorer for Windows with tabs, archives that open like folders, and a full-screen picture viewer."/>
             <TextBlock Text="SweWolf Software" Margin="0,12,0,0" Opacity="0.65"/>
             <TextBlock Margin="0,4,0,0">
-                <Hyperlink x:Name="GitHubLink" NavigateUri="https://github.com/SweWolf/SweWolfFileExplorer"
-                           RequestNavigate="Link_RequestNavigate">https://github.com/SweWolf/SweWolfFileExplorer</Hyperlink>
+                <Hyperlink x:Name="GitHubLink" NavigateUri="https://github.com/SweWolf/SwewolfFileExplorer"
+                           RequestNavigate="Link_RequestNavigate">https://github.com/SweWolf/SwewolfFileExplorer</Hyperlink>
             </TextBlock>
 
             <TextBlock Text="Built with:" FontWeight="Bold" Margin="0,16,0,4"/>

@@ -6,8 +6,8 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>SweWolfFileExplorer</AssemblyName>
-    <RootNamespace>SweWolfFileExplorer</RootNamespace>
+    <AssemblyName>SwewolfFileExplorer</AssemblyName>
+    <RootNamespace>SwewolfFileExplorer</RootNamespace>
     <Platforms>x64</Platforms>
     <Version>1.0.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>

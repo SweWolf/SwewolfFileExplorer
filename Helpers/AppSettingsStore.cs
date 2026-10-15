@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace SweWolfFileExplorer.Helpers;
+namespace SwewolfFileExplorer.Helpers;
 
 /// <summary>The few settings the user can change in the window, remembered between runs.</summary>
 public class AppSettings

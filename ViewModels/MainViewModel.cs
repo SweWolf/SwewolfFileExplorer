@@ -2,10 +2,10 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
-using SweWolfFileExplorer.Commands;
-using SweWolfFileExplorer.Helpers;
+using SwewolfFileExplorer.Commands;
+using SwewolfFileExplorer.Helpers;
 
-namespace SweWolfFileExplorer.ViewModels;
+namespace SwewolfFileExplorer.ViewModels;
 
 /// <summary>
 /// The window's view model: the list of tabs and the active one. What the window binds to

@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
 
-namespace SweWolfFileExplorer.Helpers;
+namespace SwewolfFileExplorer.Helpers;
 
 /// <summary>
 /// Applies the color scheme ("Light", "Dark" or "System"): the built-in Fluent theme of WPF for the controls,

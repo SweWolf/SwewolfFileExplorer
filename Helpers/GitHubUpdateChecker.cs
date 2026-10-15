@@ -2,7 +2,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
-namespace SweWolfFileExplorer.Helpers;
+namespace SwewolfFileExplorer.Helpers;
 
 /// <summary>
 /// Checks GitHub Releases for a newer version of the application.
@@ -11,7 +11,7 @@ namespace SweWolfFileExplorer.Helpers;
 /// Copied from MP3toMP4's GitHubUpdateChecker.cs. When copying to another app, change the namespace.
 ///
 /// History:
-///   2026-10-15  Copied to SweWolfFileExplorer (WPF): namespace Helpers, public instead of internal.
+///   2026-10-15  Copied to SwewolfFileExplorer (WPF): namespace Helpers, public instead of internal.
 ///   (earlier)   Written for MP3toMP4 (WinForms).
 /// </summary>
 public static class GitHubUpdateChecker
@@ -38,7 +38,7 @@ public static class GitHubUpdateChecker
     /// be completed (network error, API error, etc.) so callers can fail silently.
     /// </summary>
     /// <param name="owner">GitHub username or organization (e.g. "SweWolf")</param>
-    /// <param name="repo">Repository name (e.g. "SweWolfFileExplorer")</param>
+    /// <param name="repo">Repository name (e.g. "SwewolfFileExplorer")</param>
     /// <param name="currentVersion">The version currently running</param>
     public static async Task<UpdateCheckResult?> CheckAsync(
         string owner, string repo, Version currentVersion)

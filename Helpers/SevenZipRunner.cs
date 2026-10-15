@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using Microsoft.Win32;
 
-namespace SweWolfFileExplorer.Helpers;
+namespace SwewolfFileExplorer.Helpers;
 
 /// <summary>
 /// Reads the archives .NET cannot (RAR, 7z) with 7-Zip's command line program, <c>7z.exe</c>, as TeraTool did.
@@ -77,7 +77,7 @@ internal static class SevenZipRunner
         };
         // A password that is surely wrong: an archive that needs one then fails with "Wrong password" at once.
         // Without a -p switch 7-Zip asks for it, and gets nothing (its input is closed): "Break signaled", which says nothing.
-        info.ArgumentList.Add("-pSweWolfFileExplorer-no-password");
+        info.ArgumentList.Add("-pSwewolfFileExplorer-no-password");
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
         return info;
     }

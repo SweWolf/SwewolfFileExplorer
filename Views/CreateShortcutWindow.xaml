@@ -1,4 +1,4 @@
-<Window x:Class="SweWolfFileExplorer.Views.CreateShortcutWindow"
+<Window x:Class="SwewolfFileExplorer.Views.CreateShortcutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Create Shortcut"

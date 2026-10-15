@@ -1,7 +1,7 @@
 using System.Windows;
-using SweWolfFileExplorer.Helpers;
+using SwewolfFileExplorer.Helpers;
 
-namespace SweWolfFileExplorer;
+namespace SwewolfFileExplorer;
 
 public partial class App : Application
 {

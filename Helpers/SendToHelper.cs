@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Windows.Media;
 
-namespace SweWolfFileExplorer.Helpers;
+namespace SwewolfFileExplorer.Helpers;
 
 /// <summary>One item of the Send To menu: a file in the SendTo folder, or a subfolder with children.</summary>
 public class SendToEntry

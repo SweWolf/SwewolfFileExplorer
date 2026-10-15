@@ -1,7 +1,7 @@
 using System.IO;
 using System.Windows.Media.Imaging;
 
-namespace SweWolfFileExplorer.Helpers;
+namespace SwewolfFileExplorer.Helpers;
 
 /// <summary>Reads a small preview of a picture without keeping the file open or locked.</summary>
 public static class ThumbnailLoader
