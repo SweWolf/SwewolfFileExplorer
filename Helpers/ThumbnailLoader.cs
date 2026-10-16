@@ -13,6 +13,28 @@ public static class ThumbnailLoader
 
     public static bool IsImage(string path) => Extensions.Contains(Path.GetExtension(path));
 
+    /// <summary>The same for a picture that is in memory (a cover embedded in a music file).</summary>
+    public static BitmapSource? LoadBytes(byte[] data, int decodeWidth)
+    {
+        try
+        {
+            using var stream = new MemoryStream(data);
+
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.StreamSource      = stream;
+            bitmap.CacheOption       = BitmapCacheOption.OnLoad;
+            bitmap.DecodePixelWidth  = decodeWidth;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch
+        {
+            return null;   // the bytes are not a picture
+        }
+    }
+
     /// <summary>
     /// The picture decoded at <paramref name="decodeWidth"/> pixels wide (a frozen image: usable on any thread),
     /// or null if it cannot be read. The file is read into memory and closed again at once, and others may

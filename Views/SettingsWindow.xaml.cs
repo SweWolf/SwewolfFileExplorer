@@ -10,16 +10,24 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
-        StyleBox.SelectedIndex = Math.Max(0, Array.IndexOf(Styles, AppSettingsStore.Current.Style));
+        var current = AppSettingsStore.Current;
+        StyleBox.SelectedIndex = Math.Max(0, Array.IndexOf(Styles, current.Style));
+        UnreadBoldBox.IsChecked   = current.UnreadBold;
+        UnreadItalicBox.IsChecked = current.UnreadItalic;
+        HiddenExtensionsBox.Text  = current.HiddenExtensions;
     }
 
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {
         var settings = AppSettingsStore.Current;
         settings.Style = Styles[StyleBox.SelectedIndex];
+        settings.UnreadBold   = UnreadBoldBox.IsChecked == true;
+        settings.UnreadItalic = UnreadItalicBox.IsChecked == true;
+        settings.HiddenExtensions = string.Join(";", HiddenItems.Parse(HiddenExtensionsBox.Text));   // tidied: no dots or blanks
         AppSettingsStore.Save(settings);
 
         ThemeService.Apply(settings.Style);
+        UnreadStyle.Instance.Refresh();
         DialogResult = true;
     }
 }

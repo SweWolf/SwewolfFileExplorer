@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <!-- Tags of music files (Artist, Title, Track Number columns). The same package and version as FileInfoViewer. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
     <PackageReference Include="TagLibSharp" Version="2.3.0" />
   </ItemGroup>
 

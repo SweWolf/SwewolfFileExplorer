@@ -181,9 +181,19 @@ public class MainViewModel : INotifyPropertyChanged
     public bool   HasHiddenItems => _activeTab.HasHiddenItems;
     public string HiddenText     => _activeTab.HiddenText;
 
+    public System.Windows.Media.ImageSource? FolderPicture => _activeTab.FolderPicture;
+    public bool   HasFolderPicture => _activeTab.HasFolderPicture;
+    public string? GetFolderPictureFile() => _activeTab.GetFolderPictureFile();
+
     public RelayCommand ToggleTreeHiddenCommand => _activeTab.ToggleTreeHiddenCommand;
     public bool   HasTreeHiddenFolders => _activeTab.HasTreeHiddenFolders;
     public string TreeHiddenText       => _activeTab.TreeHiddenText;
+
+    // Read / unread (the library)
+    public string FolderStatusText     => _activeTab.FolderStatusText;
+    public void MarkRead(IEnumerable<FileItemViewModel> items, bool read) => _activeTab.MarkRead(items, read);
+    public void MarkPathRead(string path)                                 => _activeTab.MarkPathRead(path);
+    public void MarkFolderTree(string folder, bool read)                  => _activeTab.MarkFolderTree(folder, read);
 
     public SortColumn SortColumn    => _activeTab.SortColumn;
     public bool       SortAscending => _activeTab.SortAscending;

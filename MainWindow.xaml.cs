@@ -511,8 +511,12 @@ public partial class MainWindow : Window
     private void MenuCreateShortcut_Click(object sender, RoutedEventArgs e) =>
         new CreateShortcutWindow { Owner = this }.ShowDialog();
 
-    private void MenuSettings_Click(object sender, RoutedEventArgs e) =>
-        new SettingsWindow { Owner = this }.ShowDialog();
+    private void MenuSettings_Click(object sender, RoutedEventArgs e)
+    {
+        // The list of hidden extensions may have changed: read the folder again.
+        if (new SettingsWindow { Owner = this }.ShowDialog() == true)
+            VM.RefreshCommand.Execute(null);
+    }
 
     private void MenuAbout_Click(object sender, RoutedEventArgs e) =>
         new AboutWindow { Owner = this }.ShowDialog();
@@ -657,7 +661,11 @@ public partial class MainWindow : Window
             .ToList();
 
         var viewer = new PictureViewerWindow(pictures, item.FullPath) { Owner = this };
-        viewer.PictureChanged += SelectInList;   // the list follows the viewer
+        viewer.PictureChanged += path =>
+        {
+            SelectInList(path);      // the list follows the viewer
+            VM.MarkPathRead(path);   // a picture shown here is a picture opened
+        };
         viewer.ShowDialog();
 
         if (viewer.AnyDeleted)
@@ -719,6 +727,7 @@ public partial class MainWindow : Window
                 "Copy"       => hasSelection,
                 "Paste"      => canPaste,
                 "Copy as Path" => hasSelection,
+                "Mark as Read" or "Mark as Unread" => hasSelection,
                 "Delete"     => hasSelection && !inArchive,
                 "Rename"     => hasSelection && !inArchive,
                 "New Folder" => !inArchive,
@@ -799,6 +808,22 @@ public partial class MainWindow : Window
             OpenItem(item);
     }
 
+    private void CtxMarkRead_Click(object sender, RoutedEventArgs e) =>
+        VM.MarkRead(FileListView.SelectedItems.OfType<FileItemViewModel>(), read: true);
+
+    private void CtxMarkUnread_Click(object sender, RoutedEventArgs e) =>
+        VM.MarkRead(FileListView.SelectedItems.OfType<FileItemViewModel>(), read: false);
+
+    private void TreeCtxMarkRead_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.MarkFolderTree(_treeMenuNode.FullPath, read: true);
+    }
+
+    private void TreeCtxMarkUnread_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) VM.MarkFolderTree(_treeMenuNode.FullPath, read: false);
+    }
+
     /// <summary>Opens the file in a program of the user's choice (the Windows "Open with" dialog).</summary>
     private void CtxOpenWith_Click(object sender, RoutedEventArgs e)
     {
@@ -859,6 +884,18 @@ public partial class MainWindow : Window
             _treeMenuNode = node;
         else
             e.Handled = true;
+    }
+
+    /// <summary>A double-click on the picture of the folder opens it in the picture viewer.</summary>
+    private void FolderPicture_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2) return;
+
+        var file = VM.GetFolderPictureFile();
+        if (file == null) return;
+
+        new PictureViewerWindow(new[] { file }, file) { Owner = this }.ShowDialog();
+        e.Handled = true;
     }
 
     private void TreeContextMenu_Opened(object sender, RoutedEventArgs e)

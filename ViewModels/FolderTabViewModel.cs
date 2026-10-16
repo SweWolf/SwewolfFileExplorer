@@ -215,8 +215,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public FolderTabViewModel(SharedState shared, string startPath)
     {
         _shared = shared;
+        LibraryService.FolderChanged += OnLibraryFolderChanged;
 
-        BackCommand      = new RelayCommand(_ => GoBack(),        _ => _backHistory.Count > 0);
+        BackCommand     = new RelayCommand(_ => GoBack(),        _ => _backHistory.Count > 0);
         ForwardCommand   = new RelayCommand(_ => GoForward(),     _ => _forwardHistory.Count > 0);
         UpCommand        = new RelayCommand(_ => GoUp(),          _ => CanGoUp());
         RefreshCommand   = new RelayCommand(_ => Refresh());
@@ -327,6 +328,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TreeSortIndex));   // the tree header shows this folder's tree sort order
         OnPropertyChanged(nameof(TreeSortDirectionIndex));
         LoadItems(path);
+        UpdateFolderPicture(path);
         UpdateNavState();
         SelectInTree(path);
     }
@@ -455,6 +457,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         ArchiveSupport.Invalidate(_currentPath);   // an archive is read again, in case the file changed
         LoadItems(_currentPath);
+        UpdateFolderPicture(_currentPath);
 
         // Folders may have come or gone: the tree is the only place they show when the list hides them.
         var node = ResolveNode(_currentPath);
@@ -570,11 +573,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 if (entry.IsDirectory && !_shared.ShowFolders) continue;   // the folders are in the tree
 
+                bool hidden = !entry.IsDirectory && HiddenItems.IsHiddenExtension(entry.Name);
+                if (hidden) _hiddenCount++;
+                if (hidden && !_showHidden) continue;
+
                 var vm = new FileItemViewModel
                 {
                     Name         = entry.Name,
                     FullPath     = entry.FullPath,
                     IsDirectory  = entry.IsDirectory,
+                    IsHidden     = hidden,
                     IsInArchive  = true,
                     DateModified = entry.Modified,
                     DateCreated  = entry.Modified,   // an archive keeps one date for an entry
@@ -586,6 +594,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             }
 
             StatusText = $"{CurrentItems.Count} item(s)";
+            UpdateReadState(path);
         }
         catch (Exception ex)
         {
@@ -610,6 +619,57 @@ public class FolderTabViewModel : INotifyPropertyChanged
             MessageBox.Show($"Cannot open '{item.Name}': {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
+    }
+
+    // ── The picture of the folder (under the tree) ───────────────────────────
+
+    private CancellationTokenSource? _coverCts;
+    private FolderCover? _folderCover;
+
+    /// <summary>The picture that stands for the current folder (a cover); null for most folders.</summary>
+    public System.Windows.Media.ImageSource? FolderPicture => _folderCover?.Image;
+
+    public bool HasFolderPicture => _folderCover != null;
+
+    /// <summary>The picture as a file the picture viewer can open: the file itself, or a copy in the temporary folder for a cover embedded in a music file.</summary>
+    public string? GetFolderPictureFile()
+    {
+        var cover = _folderCover;
+        if (cover == null) return null;
+        if (cover.Path != null) return cover.Path;
+
+        try { return ArchiveSupport.SaveToTemp("Cover.jpg", cover.Data!); }
+        catch { return null; }
+    }
+
+    /// <summary>Looks for the picture of <paramref name="path"/> in the background; the old one goes at once, as it is not this folder's.</summary>
+    private void UpdateFolderPicture(string path)
+    {
+        _coverCts?.Cancel();
+        var cts = _coverCts = new CancellationTokenSource();
+        var token = cts.Token;
+
+        if (_folderCover != null)
+        {
+            _folderCover = null;
+            OnPropertyChanged(nameof(FolderPicture));
+            OnPropertyChanged(nameof(HasFolderPicture));
+        }
+
+        var dispatcher = Application.Current.Dispatcher;
+        _ = Task.Run(() =>
+        {
+            var cover = FolderCoverFinder.Find(path, 500, token);   // 500 px: sharp enough for the widest tree pane
+            if (cover == null || token.IsCancellationRequested) return;
+
+            dispatcher.InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested) return;   // another folder was opened meanwhile
+                _folderCover = cover;
+                OnPropertyChanged(nameof(FolderPicture));
+                OnPropertyChanged(nameof(HasFolderPicture));
+            });
+        });
     }
 
     // ── Tags of music files (the Artist, Title and Track Number columns) ─────
@@ -666,6 +726,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         CurrentItems.Clear();
         _hiddenCount = 0;
+        ClearReadState();
         UpdateTreeHidden(path);
 
         _inArchive = ArchiveSupport.IsInside(path);
@@ -719,7 +780,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 try
                 {
-                    bool hidden = (file.Attributes & HiddenAttributes) != 0;
+                    bool hidden = HiddenItems.IsHiddenFile(file.Attributes, file.Name);
                     if (hidden) _hiddenCount++;
                     if (hidden && !_showHidden) continue;
 
@@ -742,6 +803,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
             StatusText = $"{CurrentItems.Count} item(s)";
             EnsureTags();
+            UpdateReadState(path);
         }
         catch (UnauthorizedAccessException)
         {
@@ -768,19 +830,123 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         var path = RealPathOf(item);
-        if (path != null) OpenFile(path);
+        if (path != null && OpenFile(path))
+            MarkRead(new[] { item }, read: true);
     }
 
-    private static void OpenFile(string path)
+    private static bool OpenFile(string path)
     {
         try
         {
             Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+            return true;
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Cannot open: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
         }
+    }
+
+    // ── Read and unread (the library) ────────────────────────────────────────
+
+    private int _readVersion;   // an answer from the library for a folder we have left is ignored
+
+    private string _folderStatusText = "";
+
+    /// <summary>"Status: Unread / Partly Read / Read" for the current folder, under the tree (as in TeraTool). Empty for an empty folder.</summary>
+    public string FolderStatusText
+    {
+        get => _folderStatusText;
+        private set
+        {
+            if (_folderStatusText == value) return;
+            _folderStatusText = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private void ClearReadState()
+    {
+        _readVersion++;
+        FolderStatusText = "";
+    }
+
+    /// <summary>Asks the library (in the background) which files of the folder were opened, then bolds the others.</summary>
+    private void UpdateReadState(string path)
+    {
+        int version = ++_readVersion;
+        var dispatcher = Application.Current.Dispatcher;
+
+        Task.Run(() =>
+        {
+            FolderInfo info;
+            try { info = LibraryService.Sync(path, create: false); }
+            catch { return; }   // the list stays as it is
+            dispatcher.InvokeAsync(() => { if (version == _readVersion) ApplyReadState(info); });
+        });
+    }
+
+    private void ApplyReadState(FolderInfo info)
+    {
+        foreach (var item in CurrentItems)
+            if (!item.IsDirectory && !ArchiveSupport.IsArchiveName(item.Name))
+                item.SetUnread(!item.IsHidden && !info.ReadNames.Contains(item.Name));
+
+        FolderStatusText = info.State switch
+        {
+            FolderState.Unread     => "Status: Unread",
+            FolderState.PartlyRead => "Status: Partly Read",
+            FolderState.Read       => "Status: Read",
+            _                      => "",
+        };
+    }
+
+    /// <summary>The library says the state of a folder changed (a file was marked, a tree was marked): update if it is the one shown.</summary>
+    private void OnLibraryFolderChanged(string folder, FolderInfo info)
+    {
+        Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            if (string.Equals(SharedState.Key(folder), SharedState.Key(_currentPath), StringComparison.OrdinalIgnoreCase))
+            {
+                _readVersion++;
+                ApplyReadState(info);
+            }
+        });
+    }
+
+    /// <summary>Files were opened (or marked): they stop being bold at once, the library remembers it in the background.</summary>
+    public void MarkRead(IEnumerable<FileItemViewModel> items, bool read)
+    {
+        var files = items.Where(i => !i.IsDirectory && !ArchiveSupport.IsArchiveName(i.Name)).ToList();
+        if (files.Count == 0) return;
+
+        foreach (var item in files) item.SetUnread(!read && !item.IsHidden);
+        LibraryService.SetRead(files.Select(i => i.FullPath), read);
+    }
+
+    /// <summary>A file of the current folder was opened somewhere else in the window (the picture viewer).</summary>
+    public void MarkPathRead(string path)
+    {
+        var item = CurrentItems.FirstOrDefault(i => string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase));
+        if (item != null) MarkRead(new[] { item }, read: true);
+        else LibraryService.SetRead(new[] { path }, true);
+    }
+
+    /// <summary>Mark as Read / Unread on a folder: everything below it. Slow for big trees, so done in the background.</summary>
+    public void MarkFolderTree(string folder, bool read)
+    {
+        StatusText = read ? "Marking as read..." : "Marking as unread...";
+        Task.Run(() =>
+        {
+            try { LibraryService.MarkTree(folder, read); }
+            catch { /* nothing remembered */ }
+            Application.Current?.Dispatcher.InvokeAsync(() =>
+            {
+                StatusText = $"{CurrentItems.Count} item(s)";
+                UpdateReadState(_currentPath);
+            });
+        });
     }
 
     public void DeleteSelected(bool permanent = false) =>

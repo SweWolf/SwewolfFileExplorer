@@ -43,6 +43,19 @@ public class FileItemViewModel : INotifyPropertyChanged
     /// <summary>A hidden or system item, shown (dimmed) only when the user asked for the hidden items.</summary>
     public bool IsHidden { get; set; }
 
+    /// <summary>
+    /// A file that was never opened in the app (the list draws it bold and/or italic). False until the library has answered,
+    /// and for folders and packed files, which have a state of their own.
+    /// </summary>
+    public bool IsUnread { get; private set; }
+
+    public void SetUnread(bool value)
+    {
+        if (IsUnread == value) return;
+        IsUnread = value;
+        OnPropertyChanged(nameof(IsUnread));
+    }
+
     /// <summary>The item is inside an archive: it is not on the disk, so its icon and type come from its name.</summary>
     public bool IsInArchive { get; set; }
 

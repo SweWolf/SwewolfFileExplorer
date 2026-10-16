@@ -19,6 +19,13 @@ public class AppSettings
 
     /// <summary>The window color scheme: "Light", "Dark", "System" (follow Windows) or "Cyber" (light blue on black; working name).</summary>
     public string Style { get; set; } = "System";
+
+    /// <summary>How an unread file shows in the list: bold and/or italic (as in TeraTool). Both off = no difference.</summary>
+    public bool UnreadBold { get; set; } = true;
+    public bool UnreadItalic { get; set; }
+
+    /// <summary>Files with these extensions count as hidden (shown only with "click to show"), like the hidden attribute does.</summary>
+    public string HiddenExtensions { get; set; } = HiddenItems.DefaultExtensions;
 }
 
 /// <summary>Saves <see cref="AppSettings"/> in %AppData%\SweWolfSoftware\SweWolf File Explorer\settings.json.</summary>

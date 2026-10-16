@@ -557,6 +557,17 @@ public static class ArchiveSupport
         }
     }
 
+    /// <summary>Writes bytes to a file in the temporary folder (removed with the rest when the app ends) and returns its path.</summary>
+    public static string SaveToTemp(string fileName, byte[] data)
+    {
+        string folder = Path.Combine(TempFolder, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+
+        string target = Path.Combine(folder, SafeFileName(fileName));
+        File.WriteAllBytes(target, data);
+        return target;
+    }
+
     public static void CleanUpTemp()
     {
         try

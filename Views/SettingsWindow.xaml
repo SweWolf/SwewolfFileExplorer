@@ -27,6 +27,22 @@
             </StackPanel>
         </GroupBox>
 
+        <GroupBox Header="Unread Files" Padding="8" Margin="0,8,0,0"
+                  ToolTip="How a file that has not been opened in this app yet looks in the file list">
+            <StackPanel Orientation="Horizontal">
+                <CheckBox x:Name="UnreadBoldBox"   Content="Bold"   Margin="0,0,16,0"/>
+                <CheckBox x:Name="UnreadItalicBox" Content="Italic"/>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Hidden Files" Padding="8" Margin="0,8,0,0">
+            <StackPanel>
+                <TextBlock Text="Hide Files with These Extensions:" Margin="0,0,0,4"/>
+                <TextBox x:Name="HiddenExtensionsBox"
+                         ToolTip="Separated by semicolons, for example bup;ifo;db. These files are listed as hidden items, like files with the Hidden attribute, and do not count when a folder is checked for being read."/>
+            </StackPanel>
+        </GroupBox>
+
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="OK" Width="80" Margin="0,0,6,0" IsDefault="True" Click="OkButton_Click"/>
             <Button Content="Cancel" Width="80" IsCancel="True"/>

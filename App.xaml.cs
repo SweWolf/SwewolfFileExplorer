@@ -7,6 +7,10 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        // For testing a copy of the app without touching the real library file.
+        var testDb = Environment.GetEnvironmentVariable("SWEWOLF_LIBRARY_TEST_DB");
+        if (!string.IsNullOrEmpty(testDb)) LibraryService.MainDbFileOverride = testDb;
+
         // Before the main window is created (StartupUri), so it opens in the right colors.
         ThemeService.Initialize();
         ThemeService.Apply(AppSettingsStore.Current.Style);
@@ -18,6 +22,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        LibraryService.Flush();   // the last files opened are written
         ArchiveSupport.CleanUpTemp();
         base.OnExit(e);
     }

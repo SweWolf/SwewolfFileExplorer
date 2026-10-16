@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:SwewolfFileExplorer.ViewModels"
         xmlns:conv="clr-namespace:SwewolfFileExplorer.Converters"
+        xmlns:helpers="clr-namespace:SwewolfFileExplorer.Helpers"
         Title="SweWolf File Explorer"
         Icon="Resourses/fluent_file_explorer.ico"
         Height="640" Width="1024"
@@ -18,6 +19,7 @@
     <Window.Resources>
         <conv:FileSizeConverter x:Key="FileSizeConverter"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        <conv:TextToVisibilityConverter x:Key="TextToVisibility"/>
     </Window.Resources>
 
     <!-- Window-level keyboard shortcuts -->
@@ -279,6 +281,19 @@
                     </Grid>
                 </Border>
 
+                <!-- Under the tree, at the very bottom: the picture of the current folder (a cover), when it has one.
+                     Declared first, so it docks below the hidden-folders line. Double-click opens it in the viewer. -->
+                <Border DockPanel.Dock="Bottom" Padding="6"
+                        Background="{DynamicResource PaneBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
+                        Visibility="{Binding HasFolderPicture, Converter={StaticResource BoolToVisibility}}">
+                    <Image Source="{Binding FolderPicture}" Stretch="Uniform" MaxHeight="220"
+                           HorizontalAlignment="Center" Cursor="Hand"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           ToolTip="The picture of this folder (double-click to open it)"
+                           MouseLeftButtonDown="FolderPicture_MouseLeftButtonDown"/>
+                </Border>
+
                 <!-- Under the tree: the hidden subfolders of the current folder (docked before the tree, which fills the rest) -->
                 <Border DockPanel.Dock="Bottom" Padding="10,6"
                         Background="{DynamicResource PaneBrush}"
@@ -290,6 +305,15 @@
                             <Run Text="{Binding TreeHiddenText, Mode=OneWay}"/>
                         </Hyperlink>
                     </TextBlock>
+                </Border>
+
+                <!-- Under the tree: has the current folder been read? (as in TeraTool) -->
+                <Border DockPanel.Dock="Bottom" Padding="10,6"
+                        Background="{DynamicResource PaneBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
+                        Visibility="{Binding FolderStatusText, Converter={StaticResource TextToVisibility}}">
+                    <TextBlock FontSize="12" Text="{Binding FolderStatusText}"
+                               ToolTip="Read means every file in this folder and in all folders below it has been opened. Right-click a folder to mark it."/>
                 </Border>
 
                 <TreeView x:Name="NavigationTree"
@@ -319,6 +343,11 @@
                             <MenuItem Header="Rename"          Click="TreeCtxRename_Click"/>
                             <MenuItem Header="New Folder"      Click="TreeCtxNewFolder_Click"
                                       ToolTip="Make a new folder inside this folder"/>
+                            <Separator/>
+                            <MenuItem Header="Mark as Read"    Click="TreeCtxMarkRead_Click"
+                                      ToolTip="Remember that every file in this folder and in all folders below it has been opened"/>
+                            <MenuItem Header="Mark as Unread"  Click="TreeCtxMarkUnread_Click"
+                                      ToolTip="Forget that anything in this folder and in all folders below it has been opened"/>
                             <Separator/>
                             <MenuItem Header="Refresh"         Click="TreeCtxRefresh_Click"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click"/>
@@ -383,6 +412,13 @@
                     <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
                         <Setter Property="MinHeight" Value="26"/>
                         <Setter Property="Padding"   Value="4,1"/>
+                        <Style.Triggers>
+                            <!-- A file that was never opened in the app: bold and/or italic, as chosen in Settings -->
+                            <DataTrigger Binding="{Binding IsUnread}" Value="True">
+                                <Setter Property="FontWeight" Value="{Binding Weight, Source={x:Static helpers:UnreadStyle.Instance}}"/>
+                                <Setter Property="FontStyle"  Value="{Binding Style,  Source={x:Static helpers:UnreadStyle.Instance}}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
                     </Style>
                 </ListView.ItemContainerStyle>
 
@@ -466,6 +502,11 @@
                         <MenuItem Header="Paste"      Click="CtxPaste_Click"     InputGestureText="Ctrl+V"/>
                         <MenuItem Header="Copy as Path" Click="CtxCopyPath_Click" InputGestureText="Ctrl+Shift+C"
                                   ToolTip="Copy the full path of the selected items as text, each in quotes"/>
+                        <Separator/>
+                        <MenuItem Header="Mark as Read"   Click="CtxMarkRead_Click"
+                                  ToolTip="Remember that the selected files have been opened"/>
+                        <MenuItem Header="Mark as Unread" Click="CtxMarkUnread_Click"
+                                  ToolTip="Forget that the selected files have been opened"/>
                         <Separator/>
                         <MenuItem Header="Delete"     Click="CtxDelete_Click"    InputGestureText="Del"/>
                         <MenuItem Header="Rename"     Click="CtxRename_Click"    InputGestureText="F2"/>

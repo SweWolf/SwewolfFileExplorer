@@ -51,6 +51,25 @@ public static class AudioTagReader
         }
     }
 
+    /// <summary>The picture embedded in a music file (the front cover if there is one, else the first picture); null if none.</summary>
+    public static byte[]? ReadCover(string path)
+    {
+        try
+        {
+            using var file = TagLib.File.Create(path, TagLib.ReadStyle.None);
+            var pictures = file.Tag.Pictures;
+            if (pictures == null || pictures.Length == 0) return null;
+
+            var picture = pictures.FirstOrDefault(p => p.Type == TagLib.PictureType.FrontCover && p.Data.Count > 0)
+                       ?? pictures.FirstOrDefault(p => p.Data.Count > 0);
+            return picture?.Data.Data;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static string Join(IEnumerable<string>? names) =>
         string.Join("; ", (names ?? Enumerable.Empty<string>()).Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()));
 }
