@@ -1,13 +1,16 @@
-# Library database (schema version 1)
+# Library database (schema version 2)
 
-The app remembers which files were opened ("read") in SQLite files. A separate tool (for example a TeraTool importer)
-may write into them, so the format is described here. Change it only with a new `PRAGMA user_version`.
+SweWolf File Explorer and SweWolf Media Player remember which files were opened ("read") and where a video stopped
+(resume position) in SQLite files. Both apps use the same files, and a separate tool (for example a TeraTool importer)
+may write into them, so the format is described here. This copy (in the explorer) is the master.
+Change the schema only by **adding** (new columns, a higher `PRAGMA user_version`), so an older app still works.
+The code that finds the file and writes the rows is `Helpers/LibraryStore.cs`: it is copied between the apps as it is.
 
 ## Where the files are
 
 | Drive | File | Keys (`Folder`, `Path`) |
 |---|---|---|
-| Fixed drive, network share | `%AppData%\SweWolfSoftware\SweWolf File Explorer\library.db` | The full path without a trailing backslash, e.g. `D:\Photos\Trip` |
+| Fixed drive, network share | `%AppData%\SweWolfSoftware\Library\library.db` (shared by the apps; version 1 of the explorer kept it in `...\SweWolf File Explorer\`, and the file is moved once) | The full path without a trailing backslash, e.g. `D:\Photos\Trip` |
 | Removable drive (Windows says removable, or the disk hangs on a USB / FireWire / SD / MMC bus: an external USB hard disk is reported as a fixed disk but is found this way) | `E:\.SweWolfFileExplorerData\library.db` (the folder has the Hidden attribute; created the first time a file is opened, never by browsing) | The path from the drive's root, starting with a backslash, e.g. `\Photos\Trip`. The root itself is the empty string |
 | CD/DVD, or a removable drive that cannot be written | The main file | `vol:` + the volume serial number in 8 hex digits + the path from the root, e.g. `vol:B847843C\Photos\Trip` |
 
@@ -26,6 +29,8 @@ CREATE TABLE File (
     Folder TEXT NOT NULL COLLATE NOCASE,   -- the key of the folder
     Name   TEXT NOT NULL COLLATE NOCASE,   -- the file name
     ReadAt TEXT,                            -- UTC, ISO 8601: when it was first read
+    Position INTEGER,                       -- schema 2: where the user stopped, in milliseconds (NULL: nothing saved)
+    Length   INTEGER,                       -- schema 2: the length of the video or song, in milliseconds
     PRIMARY KEY (Folder, Name)
 ) WITHOUT ROWID;
 ```
@@ -34,7 +39,10 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 
 ## Rules
 
-- A file is read when it is opened in the app. Showing a thumbnail or unpacking an archive is not opening.
+- A file is read when it is opened in the app. Showing a thumbnail or unpacking an archive is not opening. In the
+  media player a video or song counts as read after it has been played for 60 seconds (or to its end).
+- A saved position belongs to a read file: saving one creates the row. When the video is played to its end the position is
+  cleared but the row (read) stays. Marking the file unread deletes the row, position included.
 - A folder is **Read** when every visible file in it and every visible subfolder is read (`Complete = 1`). Hidden files and
   folders (the Hidden/System attribute, or an extension in Settings > Hidden Files) are not counted. A packed file counts
   as a subfolder. A folder that was never listed is not Read, so a parent turns Read only after its whole tree was seen
@@ -48,4 +56,7 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 
 - Journal mode is the default (rollback journal), not WAL, and the app never keeps a connection open: a removable drive
   must be safe to pull out and "Safely Remove" must not be blocked.
-- Planned: resume position and length (the percent-watched column), rating, tag, cover choice, sort orders.
+- Both apps may run at once: each opens the file only for a moment and waits up to 5 seconds when it is busy. The explorer
+  reads the read marks when it lists a folder, so something the player marked shows after F5 or when the window is activated.
+  A folder's stored state (`Folder` table) is only recalculated by the explorer, when the folder is listed.
+- Planned: the percent-watched column (position divided by length), rating, tag, cover choice, sort orders.
