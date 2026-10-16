@@ -8,7 +8,7 @@ may write into them, so the format is described here. Change it only with a new 
 | Drive | File | Keys (`Folder`, `Path`) |
 |---|---|---|
 | Fixed drive, network share | `%AppData%\SweWolfSoftware\SweWolf File Explorer\library.db` | The full path without a trailing backslash, e.g. `D:\Photos\Trip` |
-| Removable drive (USB stick, USB hard disk) | `E:\.SweWolfFileExplorerData\library.db` (the folder has the Hidden attribute; created the first time a file is opened, never by browsing) | The path from the drive's root, starting with a backslash, e.g. `\Photos\Trip`. The root itself is the empty string |
+| Removable drive (Windows says removable, or the disk hangs on a USB / FireWire / SD / MMC bus: an external USB hard disk is reported as a fixed disk but is found this way) | `E:\.SweWolfFileExplorerData\library.db` (the folder has the Hidden attribute; created the first time a file is opened, never by browsing) | The path from the drive's root, starting with a backslash, e.g. `\Photos\Trip`. The root itself is the empty string |
 | CD/DVD, or a removable drive that cannot be written | The main file | `vol:` + the volume serial number in 8 hex digits + the path from the root, e.g. `vol:B847843C\Photos\Trip` |
 
 Paths inside a packed file continue the path of the file: `\Photos\Trip.zip\Day 1`.

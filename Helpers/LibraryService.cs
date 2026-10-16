@@ -67,9 +67,50 @@ public static class LibraryService
     private static uint DriveTypeOf(string root)
     {
         if (!DriveTypes.TryGetValue(root, out var type))
-            DriveTypes[root] = type = GetDriveTypeW(root);
+        {
+            type = GetDriveTypeW(root);
+            // An external USB hard disk reports itself as a fixed disk: only the bus it hangs on tells the truth.
+            if (type == DriveFixed && IsOnPortableBus(root)) type = DriveRemovable;
+            DriveTypes[root] = type;
+        }
         return type;
     }
+
+    private const uint DriveFixed = 3;
+
+    // STORAGE_BUS_TYPE: 4 = IEEE 1394, 7 = USB, 0xC = SD card, 0xD = MMC card.
+    private static bool IsOnPortableBus(string root)
+    {
+        if (root.Length < 2 || root[1] != ':') return false;   // a network share has no bus
+
+        const uint IoctlStorageQueryProperty = 0x002D1400;
+        const uint FileShareReadWrite = 3, OpenExisting = 3;
+
+        using var handle = CreateFileW(@"\\.\" + root.Substring(0, 2), 0, FileShareReadWrite, IntPtr.Zero, OpenExisting, 0, IntPtr.Zero);
+        if (handle.IsInvalid) return false;
+
+        // STORAGE_PROPERTY_QUERY { PropertyId = StorageDeviceProperty (0), QueryType = PropertyStandardQuery (0), AdditionalParameters[1] }
+        // (the adapter property says "unknown" for a USB disk, the device property says USB)
+        var query = new byte[12];
+        var result = new byte[1024];
+        if (!DeviceIoControl(handle, IoctlStorageQueryProperty, query, query.Length, result, result.Length, out var returned, IntPtr.Zero)
+            || returned < 32)
+            return false;
+
+        int busType = BitConverter.ToInt32(result, 28);   // STORAGE_DEVICE_DESCRIPTOR.BusType
+        return busType is 4 or 7 or 0xC or 0xD;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern Microsoft.Win32.SafeHandles.SafeFileHandle CreateFileW(string fileName, uint access, uint share,
+        IntPtr security, uint creation, uint flags, IntPtr template);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool DeviceIoControl(Microsoft.Win32.SafeHandles.SafeFileHandle device, uint code,
+        byte[] inBuffer, int inSize, byte[] outBuffer, int outSize, out int returned, IntPtr overlapped);
+
+    /// <summary>Only for tests: is this drive treated as removable (USB stick, USB hard disk, card)?</summary>
+    public static bool IsPortableDrive(string root) => DriveTypeOf(root) == DriveRemovable;
 
     private static Route? Resolve(string path, bool create)
     {
