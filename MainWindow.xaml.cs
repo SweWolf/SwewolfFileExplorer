@@ -734,6 +734,12 @@ public partial class MainWindow : Window
                 "Properties" => !inArchive,
                 _            => true
             };
+
+            // Only the change that makes sense: unread files can be marked read, read files unread (both for a mixed selection).
+            var files = FileListView.SelectedItems.OfType<FileItemViewModel>()
+                .Where(i => !i.IsDirectory && !ArchiveSupport.IsArchiveName(i.Name)).ToList();
+            if (mi.Header is "Mark as Read")   mi.Visibility = files.Count == 0 || files.Any(i => i.IsUnread)  ? Visibility.Visible : Visibility.Collapsed;
+            if (mi.Header is "Mark as Unread") mi.Visibility = files.Count == 0 || files.Any(i => !i.IsUnread) ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 
@@ -919,6 +925,11 @@ public partial class MainWindow : Window
                 "Properties" => realFolder || System.IO.File.Exists(path),   // what is in an archive is not on the disk
                 _            => true
             };
+
+            // The state is known for the current folder only: there the useless one is hidden.
+            bool isCurrent = string.Equals(SharedState.Key(path), SharedState.Key(VM.CurrentPath), StringComparison.OrdinalIgnoreCase);
+            if (mi.Header is "Mark as Read")   mi.Visibility = isCurrent && VM.FolderStatusText == "Status: Read"   ? Visibility.Collapsed : Visibility.Visible;
+            if (mi.Header is "Mark as Unread") mi.Visibility = isCurrent && VM.FolderStatusText == "Status: Unread" ? Visibility.Collapsed : Visibility.Visible;
         }
     }
 
