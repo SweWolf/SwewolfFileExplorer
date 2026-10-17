@@ -21,12 +21,13 @@ public static class NextFolderFinder
     /// </summary>
     /// <param name="sortOf">The tree's sort order of the subfolders of a folder (<c>SharedState.GetTreeSort</c>).</param>
     /// <param name="showHiddenOf">True if the tree shows the hidden subfolders of a folder (<c>SharedState.ShowsHiddenInTree</c>).</param>
+    /// <param name="root">The root of the tree of the tab, if it has one: the search never goes above it (null = up to the drive).</param>
     public static string? Find(string folder, Func<string, (SortColumn Column, bool Ascending)> sortOf,
-                               Func<string, bool> showHiddenOf, CancellationToken cancel)
+                               Func<string, bool> showHiddenOf, CancellationToken cancel, string? root = null)
     {
         try
         {
-            foreach (var node in Following(folder, sortOf, showHiddenOf, cancel))
+            foreach (var node in Following(folder, sortOf, showHiddenOf, cancel, root))
             {
                 cancel.ThrowIfCancellationRequested();
                 if (HasPictures(node)) return node.Path;
@@ -41,16 +42,19 @@ public static class NextFolderFinder
 
     /// <summary>Every folder after <paramref name="start"/> in tree order, one at a time (the walk stops when the caller does).</summary>
     private static IEnumerable<Node> Following(string start, Func<string, (SortColumn, bool)> sortOf,
-                                               Func<string, bool> showHiddenOf, CancellationToken cancel)
+                                               Func<string, bool> showHiddenOf, CancellationToken cancel, string? root)
     {
         // 1. Inside the folder itself.
         foreach (var node in Descendants(start, sortOf, showHiddenOf, cancel))
             yield return node;
 
-        // 2. Then the later siblings (and what is in them), one level up at a time, up to the root of the drive.
+        // 2. Then the later siblings (and what is in them), one level up at a time, up to the root of the drive
+        //    (or of the tree, if the tab has a root for it: nothing above it exists there).
         string current = start;
         while (true)
         {
+            if (root != null && SamePath(current, root)) yield break;
+
             string? parent = ParentOf(current);
             if (parent == null) yield break;
 

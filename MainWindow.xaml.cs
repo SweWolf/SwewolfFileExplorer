@@ -662,8 +662,9 @@ public partial class MainWindow : Window
         // At the end of the list the viewer can go on to the next folder with pictures (tree order, same drive).
         // The search runs on a background thread, where VM (it reads the DataContext) must not be used: take what it needs here.
         var shared = VM.Shared;
+        var root   = VM.TreeRootPath;   // with a root for the tree there is no next folder above it
         viewer.FindNextFolder = (folder, cancel) =>
-            NextFolderFinder.Find(folder, shared.GetTreeSort, shared.ShowsHiddenInTree, cancel);
+            NextFolderFinder.Find(folder, shared.GetTreeSort, shared.ShowsHiddenInTree, cancel, root);
         viewer.OpenFolder = folder =>
         {
             VM.Navigate(folder);   // the list, the tree and the address bar follow
@@ -934,6 +935,8 @@ public partial class MainWindow : Window
         {
             mi.IsEnabled = mi.Header switch
             {
+                "Set as Tree Root"   => !(VM.HasTreeRoot && SharedState.Key(path).Equals(SharedState.Key(VM.TreeRootPath!), StringComparison.OrdinalIgnoreCase)),
+                "Reset Tree Root"    => VM.HasTreeRoot,
                 "Cut"        => canChange,
                 "Paste"      => realFolder && FileClipboard.HasFiles(),
                 "Delete"     => canChange,
@@ -958,6 +961,30 @@ public partial class MainWindow : Window
     private void TreeCtxOpenInNewTab_Click(object sender, RoutedEventArgs e)
     {
         if (_treeMenuNode != null) VM.OpenNewTab(_treeMenuNode.FullPath, activate: false);
+    }
+
+    private void TreeCtxSetRoot_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) SetTreeRoot(_treeMenuNode.FullPath);
+    }
+
+    private void TreeCtxResetRoot_Click(object sender, RoutedEventArgs e) => VM.ResetTreeRoot();
+
+    // The arrow next to the address bar: right-click for the root of the tree.
+    private void GoMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        GoResetRootMenuItem.IsEnabled = VM.HasTreeRoot;
+    }
+
+    private void GoSetRoot_Click(object sender, RoutedEventArgs e) => SetTreeRoot(AddressBar.Text);
+
+    private void GoResetRoot_Click(object sender, RoutedEventArgs e) => VM.ResetTreeRoot();
+
+    private void SetTreeRoot(string path)
+    {
+        if (!VM.SetTreeRoot(path))
+            MessageBox.Show(this, $"The folder \"{path.Trim()}\" does not exist.", AppInfo.Name,
+                MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void TreeCtxCut_Click(object sender, RoutedEventArgs e)

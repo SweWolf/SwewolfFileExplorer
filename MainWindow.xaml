@@ -165,8 +165,16 @@
                 </TextBox>
 
                 <Button Command="{Binding NavigateCommand}"
-                        ToolTip="Go"
+                        ToolTip="Go (right-click for more)"
                         Padding="6,4">
+                    <Button.ContextMenu>
+                        <ContextMenu Opened="GoMenu_Opened">
+                            <MenuItem x:Name="GoSetRootMenuItem" Header="Set as Tree Root" Click="GoSetRoot_Click"
+                                      ToolTip="Make the folder in the address bar the top of the folder tree in this tab. Not remembered."/>
+                            <MenuItem x:Name="GoResetRootMenuItem" Header="Reset Tree Root" Click="GoResetRoot_Click"
+                                      ToolTip="Show the whole computer in the folder tree again"/>
+                        </ContextMenu>
+                    </Button.ContextMenu>
                     <TextBlock Text="&#x2192;" FontSize="13" FontFamily="Segoe UI"/>
                 </Button>
 
@@ -330,6 +338,10 @@
                         <ContextMenu x:Name="TreeContextMenu" Opened="TreeContextMenu_Opened">
                             <MenuItem Header="Open"            Click="TreeCtxOpen_Click"/>
                             <MenuItem Header="Open in New Tab" Click="TreeCtxOpenInNewTab_Click"/>
+                            <MenuItem Header="Set as Tree Root" Click="TreeCtxSetRoot_Click"
+                                      ToolTip="Make this folder the top of the folder tree in this tab. Not remembered."/>
+                            <MenuItem Header="Reset Tree Root" Click="TreeCtxResetRoot_Click"
+                                      ToolTip="Show the whole computer in the folder tree again"/>
                             <Separator/>
                             <MenuItem Header="Cut"             Click="TreeCtxCut_Click"/>
                             <MenuItem Header="Copy"            Click="TreeCtxCopy_Click"/>

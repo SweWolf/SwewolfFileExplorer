@@ -188,6 +188,12 @@ public class MainViewModel : INotifyPropertyChanged
     public bool   HasFolderPicture => _activeTab.HasFolderPicture;
     public string? GetFolderPictureFile() => _activeTab.GetFolderPictureFile();
 
+    // The root of the tree of this tab (not remembered)
+    public bool    HasTreeRoot  => _activeTab.HasTreeRoot;
+    public string? TreeRootPath => _activeTab.RootPath;
+    public bool SetTreeRoot(string? path) => _activeTab.SetTreeRoot(path);
+    public void ResetTreeRoot()           => _activeTab.ResetTreeRoot();
+
     public RelayCommand ToggleTreeHiddenCommand => _activeTab.ToggleTreeHiddenCommand;
     public bool   HasTreeHiddenFolders => _activeTab.HasTreeHiddenFolders;
     public string TreeHiddenText       => _activeTab.TreeHiddenText;

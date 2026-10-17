@@ -315,6 +315,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
             }
         }
 
+        // A folder outside the root of the tree: the tree goes back to normal (the user asked for it by going there).
+        if (RootPath != null && !IsSameOrSubPath(RootPath, path))
+            ClearTreeRoot();
+
         if (addToHistory && !string.IsNullOrEmpty(_currentPath))
         {
             _backHistory.Push(_currentPath);
@@ -372,12 +376,25 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     private TreeItemViewModel? ResolveNode(string path)
     {
+        // With a root, the tree is that one folder: start from its node.
+        if (RootPath != null)
+        {
+            if (!IsSameOrSubPath(RootPath, path)) return null;
+            var rootNode = TreeItems.FirstOrDefault();
+            return rootNode == null ? null : WalkDown(rootNode, RootPath, path);
+        }
+
         var root = Path.GetPathRoot(Path.GetFullPath(path));
         var node = _thisPcNode?.Children.FirstOrDefault(c => NodeIs(c, root!));
         if (node == null) return null;   // e.g. a network path
 
-        var current = root!;
-        var segments = Path.GetRelativePath(root!, path).Split(
+        return WalkDown(node, root!, path);
+    }
+
+    /// <summary>Goes down the tree from <paramref name="node"/> (the folder <paramref name="current"/>) to <paramref name="path"/>.</summary>
+    private TreeItemViewModel WalkDown(TreeItemViewModel node, string current, string path)
+    {
+        var segments = Path.GetRelativePath(current, path).Split(
             new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
             StringSplitOptions.RemoveEmptyEntries);
 
@@ -444,12 +461,121 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     private void GoUp()
     {
+        if (!CanGoUp()) return;
         var parent = Directory.GetParent(_currentPath);
         if (parent != null) Navigate(parent.FullName);
     }
 
+    // With a root for the tree, Up stops there: nothing above it exists in this tab.
     private bool CanGoUp() =>
-        !string.IsNullOrEmpty(_currentPath) && Directory.GetParent(_currentPath) != null;
+        !string.IsNullOrEmpty(_currentPath) && Directory.GetParent(_currentPath) != null
+        && !(RootPath != null && IsSamePath(_currentPath, RootPath));
+
+    // ── Root of the tree ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The folder (or packed file) that is the top of this tab's tree; null = the normal tree (Quick Access and This PC).
+    /// Not remembered: a new tab starts with the normal tree.
+    /// </summary>
+    public string? RootPath { get; private set; }
+
+    public bool HasTreeRoot => RootPath != null;
+
+    /// <summary>
+    /// Makes <paramref name="path"/> the root of the tree and opens it. A folder of the disk, a packed file, or a folder
+    /// in one. Returns false (and changes nothing) if there is no such folder.
+    /// </summary>
+    public bool SetTreeRoot(string? path)
+    {
+        path = path?.Trim().Trim('"');
+        if (string.IsNullOrEmpty(path)) return false;
+
+        string root;
+        if (Directory.Exists(path))
+        {
+            root = Path.GetFullPath(path);
+            if (root.Length > 3) root = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);   // C:\ keeps its slash
+        }
+        else if (File.Exists(path) ? ArchiveSupport.IsArchiveName(path) : ArchiveSupport.FolderExists(path, out _))
+        {
+            root = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        else
+        {
+            return false;
+        }
+
+        RootPath = root;
+        RebuildTree();
+        OnPropertyChanged(nameof(HasTreeRoot));
+
+        Navigate(root);   // inside the root, so the tree stays; selects the root node
+        return true;
+    }
+
+    /// <summary>Back to the normal tree; the current folder is selected in it again.</summary>
+    public void ResetTreeRoot()
+    {
+        if (RootPath == null) return;
+        ClearTreeRoot();
+        if (!string.IsNullOrEmpty(_currentPath)) SelectInTree(_currentPath);
+        UpdateNavState();
+    }
+
+    private void ClearTreeRoot()
+    {
+        RootPath = null;
+        RebuildTree();
+        OnPropertyChanged(nameof(HasTreeRoot));
+    }
+
+    /// <summary>Builds the tree again: the root's node alone, or the normal tree.</summary>
+    private void RebuildTree()
+    {
+        // Nothing selected is removed: the tree would select something else, and the window would take that for a click.
+        var selected = FindSelectedNode(TreeItems);
+        if (selected != null) selected.IsSelected = false;
+
+        TreeItems.Clear();
+        _thisPcNode = null;
+
+        if (RootPath == null) InitializeTree();
+        else                  TreeItems.Add(BuildRootNode(RootPath));
+    }
+
+    private TreeItemViewModel BuildRootNode(string path)
+    {
+        string trimmed = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string name = Path.GetFileName(trimmed);
+        if (string.IsNullOrEmpty(name)) name = path;   // a drive: C:\
+
+        bool isArchive, inArchive;
+        System.Windows.Media.ImageSource? icon;
+
+        if (Directory.Exists(path))
+        {
+            isArchive = inArchive = false;
+            icon = IconHelper.GetIcon(path);
+        }
+        else if (File.Exists(path))
+        {
+            isArchive = true; inArchive = false;   // a packed file on the disk
+            icon = IconHelper.GetIcon(path);
+        }
+        else
+        {
+            var entry = ArchiveSupport.GetEntry(path);   // inside an archive: a folder, or a zip in the zip
+            isArchive = entry != null && !entry.IsDirectory;
+            inArchive = true;
+            icon = IconHelper.GetIconForName(name, !isArchive);
+        }
+
+        var node = new TreeItemViewModel(name, path, icon, sortOf: _shared.GetTreeSort,
+                                         isArchive: isArchive, inArchive: inArchive, showHiddenOf: _shared.ShowsHiddenInTree);
+        node.InitializeLazyLoad();
+        node.IsExpanded = true;   // its folders show at once
+        return node;
+    }
 
     public void Refresh()
     {
