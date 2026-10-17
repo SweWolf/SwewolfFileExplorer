@@ -60,6 +60,9 @@ public partial class MainWindow : Window
 
         Closing += (_, _) => SaveColumnLayout();
 
+        // The media player is another program and marks files read while it plays: look again when the window comes back.
+        Activated += (_, _) => VM.RefreshReadState();
+
         _titleTimer.Tick += (_, _) =>
         {
             _titleTimer.Stop();

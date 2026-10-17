@@ -191,6 +191,7 @@ public class MainViewModel : INotifyPropertyChanged
 
     // Read / unread (the library)
     public string FolderStatusText     => _activeTab.FolderStatusText;
+    public void RefreshReadState()     => _activeTab.RefreshReadState();
     public void MarkRead(IEnumerable<FileItemViewModel> items, bool read) => _activeTab.MarkRead(items, read);
     public void MarkPathRead(string path)                                 => _activeTab.MarkPathRead(path);
     public void MarkFolderTree(string folder, bool read)                  => _activeTab.MarkFolderTree(folder, read);

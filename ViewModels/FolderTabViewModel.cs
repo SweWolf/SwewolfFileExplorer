@@ -830,8 +830,25 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         var path = RealPathOf(item);
-        if (path != null && OpenFile(path))
+        if (path == null) return;
+
+        // Video and music play in SweWolf Media Player, which marks them read after 60 seconds of playing (the explorer
+        // does not know how long it was watched). A file from an archive is remembered under its path in the archive.
+        if (MediaPlayerLauncher.IsMedia(item.Name))
+        {
+            var result = MediaPlayerLauncher.Open(path, item.IsInArchive ? item.FullPath : null);
+            if (result != LaunchResult.UseDefaultProgram) return;
+        }
+
+        if (OpenFile(path))
             MarkRead(new[] { item }, read: true);
+    }
+
+    /// <summary>The window was activated: something may have been marked in another program (the media player).</summary>
+    public void RefreshReadState()
+    {
+        if (!string.IsNullOrEmpty(_currentPath) && CurrentItems.Count > 0)
+            UpdateReadState(_currentPath);
     }
 
     private static bool OpenFile(string path)
