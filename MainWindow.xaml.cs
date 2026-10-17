@@ -810,22 +810,82 @@ public partial class MainWindow : Window
 
     private const int ThumbnailDecodeWidth = 320;   // twice the size shown, so it stays sharp on a high-DPI screen
 
+    // What the preview shows, so that a click on it can open it in the viewer: the item it is of, and, for a music file,
+    // the bytes of the picture built into it.
+    private FileItemViewModel? _previewItem;
+    private byte[]? _previewCover;
+
     private async void ShowThumbnail(FileItemViewModel? item)
     {
         int version = ++_thumbnailVersion;
+        _previewItem  = null;
+        _previewCover = null;
 
-        if (item == null || item.IsDirectory || !ThumbnailLoader.IsImage(item.FullPath))
+        if (item == null || item.IsDirectory)
         {
             ThumbnailImage.Source = null;
             return;
         }
 
-        // Off the UI thread: a large photo takes a moment to decode, and the arrow keys must stay responsive.
         string path = item.FullPath;
-        var bitmap = await Task.Run(() => ThumbnailLoader.Load(path, ThumbnailDecodeWidth));
 
-        if (version == _thumbnailVersion)   // not if another item was selected meanwhile
+        // A picture: off the UI thread, as a large photo takes a moment to decode and the arrow keys must stay responsive.
+        if (ThumbnailLoader.IsImage(path))
+        {
+            var bitmap = await Task.Run(() => ThumbnailLoader.Load(path, ThumbnailDecodeWidth));
+            if (version != _thumbnailVersion) return;   // another item was selected meanwhile
+
             ThumbnailImage.Source = bitmap;
+            if (bitmap != null) _previewItem = item;
+            return;
+        }
+
+        // A music file with a picture built into it (an album cover): the preview shows that picture.
+        if (!item.IsInArchive && AudioTagReader.HasTags(path))
+        {
+            var (cover, picture) = await Task.Run(() =>
+            {
+                var bytes = AudioTagReader.ReadCover(path);
+                return (bytes, bytes == null ? null : ThumbnailLoader.LoadBytes(bytes, ThumbnailDecodeWidth));
+            });
+            if (version != _thumbnailVersion) return;
+
+            ThumbnailImage.Source = picture;
+            if (picture != null) { _previewItem = item; _previewCover = cover; }
+            return;
+        }
+
+        ThumbnailImage.Source = null;
+    }
+
+    /// <summary>
+    /// A click on the preview opens its picture in the picture viewer: a picture of the list as any other (and the viewer goes
+    /// on through the pictures of the list); the cover of a music file is saved to the temporary folder first, as the
+    /// cover of a folder is, and shown alone.
+    /// </summary>
+    private void ThumbnailImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 1 || _previewItem == null || ThumbnailImage.Source == null) return;
+        e.Handled = true;
+
+        var item = _previewItem;
+        if (_previewCover == null)
+        {
+            OpenInViewer(item);
+            return;
+        }
+
+        try
+        {
+            bool png = _previewCover.Length > 4 && _previewCover[0] == 0x89 && _previewCover[1] == 'P';
+            var file = ArchiveSupport.SaveToTemp(System.IO.Path.GetFileNameWithoutExtension(item.Name) + (png ? ".png" : ".jpg"), _previewCover);
+            new PictureViewerWindow(new[] { file }, file) { Owner = this }.ShowDialog();
+            FileListView.Focus();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Cannot show the picture: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void FileListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)

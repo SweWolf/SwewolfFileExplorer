@@ -624,10 +624,12 @@
                         </TextBlock>
                     </StackPanel>
 
+                    <!-- A click opens the picture in the picture viewer (the picture of a picture file, or the cover built into a music file) -->
                     <Image x:Name="ThumbnailImage" Grid.Column="1"
                            Width="160" Height="100" Stretch="Uniform"
-                           HorizontalAlignment="Left" VerticalAlignment="Top"
-                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                           HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="Hand"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           MouseLeftButtonDown="ThumbnailImage_MouseLeftButtonDown"/>
                 </Grid>
             </Border>
 
