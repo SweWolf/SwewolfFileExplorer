@@ -282,15 +282,14 @@
                 </Border>
 
                 <!-- Under the tree, at the very bottom: the picture of the current folder (a cover), when it has one.
-                     Declared first, so it docks below the hidden-folders line. Double-click opens it in the viewer. -->
-                <Border DockPanel.Dock="Bottom" Padding="6"
+                     Declared first, so it docks below the hidden-folders line. The area is always there (empty
+                     when the folder has no picture), so the tree does not jump. A click opens it in the viewer. -->
+                <Border DockPanel.Dock="Bottom" Padding="6" Height="233"
                         Background="{DynamicResource PaneBrush}"
-                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
-                        Visibility="{Binding HasFolderPicture, Converter={StaticResource BoolToVisibility}}">
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0">
                     <Image Source="{Binding FolderPicture}" Stretch="Uniform" MaxHeight="220"
                            HorizontalAlignment="Center" Cursor="Hand"
                            RenderOptions.BitmapScalingMode="HighQuality"
-                           ToolTip="The picture of this folder (double-click to open it)"
                            MouseLeftButtonDown="FolderPicture_MouseLeftButtonDown"/>
                 </Border>
 

@@ -40,6 +40,10 @@
                 <TextBlock Text="Hide Files with These Extensions:" Margin="0,0,0,4"/>
                 <TextBox x:Name="HiddenExtensionsBox"
                          ToolTip="Separated by semicolons, for example bup;ifo;db. These files are listed as hidden items, like files with the Hidden attribute, and do not count when a folder is checked for being read."/>
+
+                <TextBlock Text="Also Hide Files with These Extensions When Inside Compressed Files:" Margin="0,10,0,4"/>
+                <TextBox x:Name="HiddenExtensionsInArchivesBox"
+                         ToolTip="Separated by semicolons, for example nfo;txt;url. Only used inside zip, RAR and other compressed files (the files of the list above are hidden there too), for example the text files that come with a comic."/>
             </StackPanel>
         </GroupBox>
 

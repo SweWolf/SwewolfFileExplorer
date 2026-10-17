@@ -27,6 +27,6 @@
 
         <TextBlock x:Name="MessageText" Grid.Row="0" TextWrapping="Wrap" MinHeight="80"/>
 
-        <StackPanel x:Name="ButtonPanel" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"/>
+        <StackPanel x:Name="ButtonPanel" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center"/>
     </Grid>
 </Window>

@@ -175,7 +175,7 @@ public static class NextFolderFinder
             if (node.InArchive || node.IsArchive)
             {
                 return ArchiveSupport.List(node.Path).Any(e =>
-                    !e.IsDirectory && ThumbnailLoader.IsImage(e.Name) && !HiddenItems.IsHiddenExtension(e.Name));
+                    !e.IsDirectory && ThumbnailLoader.IsImage(e.Name) && !HiddenItems.IsHiddenInArchive(e.Name));
             }
 
             return new DirectoryInfo(node.Path).EnumerateFiles().Any(f =>

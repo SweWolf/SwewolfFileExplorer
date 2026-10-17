@@ -81,7 +81,7 @@ public static class LibraryService
                 foreach (var entry in ArchiveSupport.List(folder))
                 {
                     if (entry.IsDirectory || entry.IsArchive) children.Add(entry.FullPath);
-                    else if (!HiddenItems.IsHiddenExtension(entry.Name)) files.Add(entry.Name);
+                    else if (!HiddenItems.IsHiddenInArchive(entry.Name)) files.Add(entry.Name);
                 }
             }
             else

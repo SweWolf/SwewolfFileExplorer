@@ -29,6 +29,9 @@ public class AppSettings
 
     /// <summary>Files with these extensions count as hidden (shown only with "click to show"), like the hidden attribute does.</summary>
     public string HiddenExtensions { get; set; } = HiddenItems.DefaultExtensions;
+
+    /// <summary>Extensions hidden only inside compressed files, on top of <see cref="HiddenExtensions"/> (none to begin with).</summary>
+    public string HiddenExtensionsInArchives { get; set; } = "";
 }
 
 /// <summary>Saves <see cref="AppSettings"/> in %AppData%\SweWolfSoftware\SweWolf File Explorer\settings.json.</summary>

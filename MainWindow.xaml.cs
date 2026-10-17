@@ -909,10 +909,10 @@ public partial class MainWindow : Window
             e.Handled = true;
     }
 
-    /// <summary>A double-click on the picture of the folder opens it in the picture viewer.</summary>
+    /// <summary>A click on the picture of the folder opens it in the picture viewer.</summary>
     private void FolderPicture_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 2) return;
+        if (e.ClickCount != 1) return;   // a quick second click must not open a second viewer
 
         var file = VM.GetFolderPictureFile();
         if (file == null) return;

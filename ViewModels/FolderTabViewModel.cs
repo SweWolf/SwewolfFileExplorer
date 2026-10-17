@@ -571,9 +571,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
             // In the order they are stored in the archive: the list is not sorted until the user picks a column.
             foreach (var entry in ArchiveSupport.List(path))
             {
-                if (entry.IsDirectory && !_shared.ShowFolders) continue;   // the folders are in the tree
+                if ((entry.IsDirectory || entry.IsArchive) && !_shared.ShowFolders) continue;   // the folders (and packed files) are in the tree
 
-                bool hidden = !entry.IsDirectory && HiddenItems.IsHiddenExtension(entry.Name);
+                bool hidden = !entry.IsDirectory && HiddenItems.IsHiddenInArchive(entry.Name);
                 if (hidden) _hiddenCount++;
                 if (hidden && !_showHidden) continue;
 
@@ -780,6 +780,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 try
                 {
+                    // A packed file is a folder here (it is in the tree): listed only when the folders are.
+                    if (!_shared.ShowFolders && ArchiveSupport.IsArchiveName(file.Name)) continue;
+
                     bool hidden = HiddenItems.IsHiddenFile(file.Attributes, file.Name);
                     if (hidden) _hiddenCount++;
                     if (hidden && !_showHidden) continue;
