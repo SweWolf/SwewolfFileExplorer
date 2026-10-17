@@ -65,7 +65,8 @@
         </StackPanel>
 
         <StackPanel Grid.Row="6" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="OK" Width="80" Margin="0,0,6,0" IsDefault="True" Click="OkButton_Click"/>
+            <Button Content="OK" Width="80" Margin="0,0,6,0" IsDefault="True" Click="OkButton_Click"
+                    BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"/>
             <Button Content="Cancel" Width="80" IsCancel="True"/>
         </StackPanel>
     </Grid>

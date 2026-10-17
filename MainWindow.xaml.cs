@@ -58,7 +58,20 @@ public partial class MainWindow : Window
         LoadColumnLayout();
         ApplySort(VM.SortColumn, VM.SortAscending);
 
-        Closing += (_, _) => SaveColumnLayout();
+        Closing += (_, _) =>
+        {
+            SaveColumnLayout();
+            VM.Session.Flush();   // the last file selected is written before the program ends
+        };
+
+        VM.Session.Changed += UpdateSessionUi;
+        UpdateSessionUi();
+
+        // A workspace or session file given on the command line is opened (replacing the tab the program starts with).
+        Loaded += (_, _) =>
+        {
+            if (App.StartupFile != null) OpenTabSet(App.StartupFile, atStartup: true);
+        };
 
         // The media player is another program and marks files read while it plays: look again when the window comes back.
         Activated += (_, _) => VM.RefreshReadState();
@@ -308,7 +321,8 @@ public partial class MainWindow : Window
 
     // ── Font size (Ctrl + mouse wheel, separate for the list and the tree) ────
 
-    private const string BaseTitle = AppInfo.Name;
+    /// <summary>The window title: the program's name, and the session's name while one is on.</summary>
+    private string BaseTitle => VM.Session.IsActive ? $"{AppInfo.Name} - Session {VM.Session.Name}" : AppInfo.Name;
     private readonly System.Windows.Threading.DispatcherTimer _titleTimer = new() { Interval = TimeSpan.FromSeconds(2.5) };
     private int _wheelDelta;
 
@@ -523,6 +537,177 @@ public partial class MainWindow : Window
 
     private void MenuAbout_Click(object sender, RoutedEventArgs e) =>
         new AboutWindow { Owner = this }.ShowDialog();
+
+    // ── Workspaces and sessions ───────────────────────────────────────────────
+
+    private void WorkspaceMenu_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource != sender) return;
+        bool open = sender == WorkspaceOpenMenu;
+        FillNames((MenuItem)sender, StoreKind.Workspace, null,
+            name => { if (open) OpenTabSet(WorkspaceStore.PathFor(StoreKind.Workspace, name)); else DeleteSaved(StoreKind.Workspace, name); });
+    }
+
+    private void SessionMenu_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource != sender) return;
+        bool open = sender == SessionOpenMenu;
+        FillNames((MenuItem)sender, StoreKind.Session, open ? VM.Session.Name : null,
+            name => { if (open) OpenTabSet(WorkspaceStore.PathFor(StoreKind.Session, name)); else DeleteSaved(StoreKind.Session, name); });
+    }
+
+    /// <summary>Fills a submenu with the names of the saved workspaces or sessions (the one in use gets a check mark).</summary>
+    private static void FillNames(MenuItem menu, StoreKind kind, string? checkedName, Action<string> click)
+    {
+        menu.Items.Clear();
+
+        var names = WorkspaceStore.Names(kind);
+        if (names.Count == 0)
+        {
+            menu.Items.Add(new MenuItem { Header = "(None)", IsEnabled = false });
+            return;
+        }
+
+        foreach (var name in names)
+        {
+            var item = new MenuItem
+            {
+                Header    = name.Replace("_", "__"),   // a single underscore would be an access key
+                IsChecked = string.Equals(name, checkedName, StringComparison.OrdinalIgnoreCase),
+            };
+            item.Click += (_, _) => click(name);
+            menu.Items.Add(item);
+        }
+    }
+
+    /// <summary>Asks for a name (it becomes a file name). Null if canceled.</summary>
+    private string? AskName(string title, string prompt)
+    {
+        var dialog = new InputDialog(title, prompt, "", WorkspaceStore.CheckName) { Owner = this };
+        return dialog.ShowDialog() == true ? dialog.InputText.Trim() : null;
+    }
+
+    private bool Confirm(string text) =>
+        MessageBox.Show(this, text, AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+    private void WorkspaceSave_Click(object sender, RoutedEventArgs e)
+    {
+        var name = AskName("Save Workspace", "Name of the workspace:");
+        if (name == null) return;
+
+        var file = WorkspaceStore.PathFor(StoreKind.Workspace, name);
+        if (System.IO.File.Exists(file) && !Confirm($"A workspace named \"{name}\" already exists. Do you want to replace it?"))
+            return;
+
+        if (WorkspaceStore.Write(file, StoreKind.Workspace, VM.CaptureState()))
+            FlashTitle($"{BaseTitle} - Workspace saved: {name}");
+        else
+            MessageBox.Show(this, $"The workspace could not be saved to:\n{file}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    private void SessionStart_Click(object sender, RoutedEventArgs e)
+    {
+        var name = AskName("Start New Session", "Name of the session:");
+        if (name == null) return;
+
+        var file = WorkspaceStore.PathFor(StoreKind.Session, name);
+        if (System.IO.File.Exists(file) && !Confirm($"A session named \"{name}\" already exists. Do you want to replace it with the tabs that are open now?"))
+            return;
+
+        VM.Session.Start(file);   // writes the open tabs at once, then keeps the file up to date
+        if (!System.IO.File.Exists(file))
+        {
+            VM.Session.Stop();
+            MessageBox.Show(this, $"The session could not be saved to:\n{file}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void SessionStop_Click(object sender, RoutedEventArgs e) => VM.Session.Stop();
+
+    private void WorkspaceOpenFile_Click(object sender, RoutedEventArgs e) => OpenTabSetFromDialog(StoreKind.Workspace);
+    private void SessionOpenFile_Click(object sender, RoutedEventArgs e)   => OpenTabSetFromDialog(StoreKind.Session);
+
+    private void OpenTabSetFromDialog(StoreKind kind)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title            = kind == StoreKind.Workspace ? "Open Workspace" : "Open Session",
+            Filter           = "Workspace and Session Files (*.json)|*.json|All Files (*.*)|*.*",
+            InitialDirectory = WorkspaceStore.Folder(kind),
+        };
+        if (dialog.ShowDialog(this) == true) OpenTabSet(dialog.FileName);
+    }
+
+    private void WorkspaceShowFolder_Click(object sender, RoutedEventArgs e) => ShowFolder(StoreKind.Workspace);
+    private void SessionShowFolder_Click(object sender, RoutedEventArgs e)   => ShowFolder(StoreKind.Session);
+
+    private static void ShowFolder(StoreKind kind)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{WorkspaceStore.Folder(kind)}\"") { UseShellExecute = true });
+        }
+        catch { }
+    }
+
+    private void DeleteSaved(StoreKind kind, string name)
+    {
+        string what = kind == StoreKind.Workspace ? "workspace" : "session";
+        if (!Confirm($"Do you want to delete the {what} \"{name}\"?")) return;
+
+        if (kind == StoreKind.Session && string.Equals(VM.Session.Name, name, StringComparison.OrdinalIgnoreCase))
+            VM.Session.Stop();
+
+        if (!WorkspaceStore.Delete(kind, name))
+            MessageBox.Show(this, $"The {what} could not be deleted.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    /// <summary>
+    /// Opens a workspace or session file; what it is, is read from the file itself, wherever it lies. If the user has been
+    /// clicking around, asks first: for a session "All open tabs will be closed. Continue?" (OK / Cancel, a session always
+    /// replaces the tabs); for a workspace whether to close the open tabs first (Yes: close, No: keep and add, Cancel).
+    /// A session goes on being saved into the same file.
+    /// </summary>
+    private void OpenTabSet(string file, bool atStartup = false)
+    {
+        var data = WorkspaceStore.Read(file, out var kind, out var error);
+        if (data == null)
+        {
+            MessageBox.Show(this, $"Cannot open \"{file}\":\n{error}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        bool replace = true;
+        if (!atStartup && VM.HasUserActivity)
+        {
+            if (kind == StoreKind.Session)
+            {
+                // A session is the whole state: it never makes sense to mix it with the tabs that are open.
+                var answer = MessageBox.Show(this, "All open tabs will be closed. Continue?", AppInfo.Name,
+                    MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                if (answer != MessageBoxResult.OK) return;
+            }
+            else
+            {
+                // A workspace can also be added to the tabs that are open.
+                var answer = MessageBox.Show(this, "Do you want to close all current tabs first?", AppInfo.Name,
+                    MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                if (answer == MessageBoxResult.Cancel) return;
+                replace = answer == MessageBoxResult.Yes;
+            }
+        }
+
+        if (kind == StoreKind.Session) VM.Session.Stop();   // the old session does not record the switch
+        VM.RestoreTabs(data, replace);
+        if (kind == StoreKind.Session) VM.Session.Start(file);
+    }
+
+    /// <summary>The window title and the Stop Session item follow whether a session is on.</summary>
+    private void UpdateSessionUi()
+    {
+        SessionStopMenuItem.IsEnabled = VM.Session.IsActive;
+        Title = BaseTitle;
+    }
 
     // ── Navigation tree ───────────────────────────────────────────────────────
 

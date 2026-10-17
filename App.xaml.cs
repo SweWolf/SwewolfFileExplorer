@@ -5,8 +5,25 @@ namespace SwewolfFileExplorer;
 
 public partial class App : Application
 {
+    /// <summary>A workspace or session file (.json) given on the command line; the main window opens it.</summary>
+    public static string? StartupFile { get; private set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
+        foreach (var arg in e.Args)
+        {
+            try
+            {
+                var full = System.IO.Path.GetFullPath(arg.Trim('"'));
+                if (full.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && System.IO.File.Exists(full))
+                {
+                    StartupFile = full;
+                    break;
+                }
+            }
+            catch { }   // not a path: ignored
+        }
+
         // For testing a copy of the app without touching the real library file.
         var testDb = Environment.GetEnvironmentVariable("SWEWOLF_LIBRARY_TEST_DB");
         if (!string.IsNullOrEmpty(testDb)) LibraryService.MainDbFileOverride = testDb;

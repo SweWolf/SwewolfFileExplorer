@@ -21,8 +21,14 @@ public class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<FolderTabViewModel> Tabs { get; } = new();
 
+    /// <summary>Remembers the open tabs all the time, when a session is started or opened.</summary>
+    public SessionRecorder Session { get; }
+
     public MainViewModel()
     {
+        Session = new SessionRecorder(this);
+        Tabs.CollectionChanged += (_, _) => Session.TouchStructure();
+
         _activeTab = AddTab(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
         NewTabCommand      = new RelayCommand(_ => OpenNewTab(ActiveTab.CurrentPath, activate: true));
@@ -68,17 +74,25 @@ public class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged(string.Empty);
             _activeTab.RaiseAllCanExecuteChanged();
             ActiveTabChanged?.Invoke();
+
+            _activeTab.RaisePendingSelection();   // a tab restored from a workspace or session selects its file now
+            Session.TouchStructure();             // which tab is active is saved too
         }
     }
 
-    private FolderTabViewModel AddTab(string path)
+    private FolderTabViewModel AddTab(string? path)
     {
         var tab = new FolderTabViewModel(_shared, path);
         tab.PropertyChanged += (s, e) =>
         {
             // Only what the active tab shows is of interest to the window.
             if (s == _activeTab) OnPropertyChanged(e.PropertyName);
+
+            // A session follows every tab: the folder it shows (the title changes when a navigation succeeded) and its root.
+            if (e.PropertyName is nameof(FolderTabViewModel.Title) or nameof(FolderTabViewModel.HasTreeRoot))
+                Session.TouchStructure();
         };
+        tab.SelectionRemembered += Session.TouchSelection;
         tab.SortChanged    += () => { if (tab == _activeTab) SortChanged?.Invoke(); };
         tab.FolderCreated  += item => { if (tab == _activeTab) FolderCreated?.Invoke(item); };
         tab.TagsLoaded += () => { if (tab == _activeTab) TagsLoaded?.Invoke(); };
@@ -99,6 +113,51 @@ public class MainViewModel : INotifyPropertyChanged
         var tab = AddTab(path);
         Tabs.Move(Tabs.IndexOf(tab), Tabs.IndexOf(_activeTab) + 1);
         if (activate) ActiveTab = tab;
+
+        NextTabCommand.RaiseCanExecuteChanged();
+        PreviousTabCommand.RaiseCanExecuteChanged();
+    }
+
+    // ── Workspaces and sessions ──────────────────────────────────────────────
+
+    /// <summary>
+    /// True if the user has been clicking around: more than one tab, or a tab that was navigated or has a tree root.
+    /// Then opening a workspace asks whether to close the tabs first; just after the start it does not ask.
+    /// </summary>
+    public bool HasUserActivity => Tabs.Count > 1 || Tabs.Any(t => t.HasHistory || t.HasTreeRoot);
+
+    /// <summary>The open tabs as a workspace or session file saves them.</summary>
+    public TabSetFile CaptureState() => new()
+    {
+        Tabs      = Tabs.Select(t => t.CaptureState()).ToList(),
+        ActiveTab = Math.Max(0, Tabs.IndexOf(_activeTab)),
+    };
+
+    /// <summary>
+    /// Opens the tabs of a workspace or session. With <paramref name="replace"/> the tabs that were open are closed
+    /// (after the new ones are there, so the window never closes with its last tab); otherwise the new ones are added.
+    /// A folder that is not there now gets a tab that says "currently unavailable".
+    /// </summary>
+    public void RestoreTabs(TabSetFile data, bool replace)
+    {
+        if (data.Tabs.Count == 0) return;
+
+        var old   = Tabs.ToList();
+        var added = new List<FolderTabViewModel>();
+        foreach (var state in data.Tabs)
+        {
+            var tab = AddTab(null);
+            tab.Restore(state);
+            added.Add(tab);
+        }
+
+        ActiveTab = added[Math.Clamp(data.ActiveTab, 0, added.Count - 1)];
+        if (replace)
+        {
+            foreach (var tab in old) Tabs.Remove(tab);
+            _closedTabs.Clear();   // Ctrl+Shift+T brings back tabs of the old set: not what the user wants now
+            ReopenTabCommand.RaiseCanExecuteChanged();
+        }
 
         NextTabCommand.RaiseCanExecuteChanged();
         PreviousTabCommand.RaiseCanExecuteChanged();

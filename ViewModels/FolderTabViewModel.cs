@@ -212,7 +212,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
-    public FolderTabViewModel(SharedState shared, string startPath)
+    /// <param name="startPath">The folder to open; null for a tab that is filled in by <see cref="ShowUnavailable"/>.</param>
+    public FolderTabViewModel(SharedState shared, string? startPath)
     {
         _shared = shared;
         LibraryService.FolderChanged += OnLibraryFolderChanged;
@@ -235,7 +236,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         ToggleTreeHiddenCommand = new RelayCommand(_ => ToggleTreeHidden());
 
         InitializeTree();
-        Navigate(startPath);
+        if (startPath != null) Navigate(startPath);
     }
 
     /// <summary>Re-evaluates every command's CanExecute, e.g. when this tab becomes the active one.</summary>
@@ -318,6 +319,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // A folder outside the root of the tree: the tree goes back to normal (the user asked for it by going there).
         if (RootPath != null && !IsSameOrSubPath(RootPath, path))
             ClearTreeRoot();
+        if (_pendingRoot != null && !IsSameOrSubPath(_pendingRoot, path))
+            _pendingRoot = null;   // the user went somewhere else: the saved root is no longer wanted
 
         if (addToHistory && !string.IsNullOrEmpty(_currentPath))
         {
@@ -326,6 +329,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         _showHidden = false;   // hidden items are shown for one folder at a time
+        _unavailable = false;
+        FolderPath   = path;
+        LastSelectedPath = null;   // a new folder: nothing is selected in it yet
         CurrentPath = path;
         Title       = GetTabTitle(path);
         ApplyFolderSort();
@@ -471,6 +477,108 @@ public class FolderTabViewModel : INotifyPropertyChanged
         !string.IsNullOrEmpty(_currentPath) && Directory.GetParent(_currentPath) != null
         && !(RootPath != null && IsSamePath(_currentPath, RootPath));
 
+    // ── Workspaces and sessions: what a tab remembers ────────────────────────
+
+    /// <summary>
+    /// The folder of the last successful navigation. <see cref="CurrentPath"/> is the text of the address bar, which changes
+    /// while the user types: a session must not save a half-typed path.
+    /// </summary>
+    public string FolderPath { get; private set; } = "";
+
+    /// <summary>The file selected last in the current folder (null when nothing was selected since the folder was opened).</summary>
+    public string? LastSelectedPath { get; private set; }
+
+    /// <summary>Raised when the user selected another file (a session saves that, but not at once: see SessionRecorder).</summary>
+    public event Action? SelectionRemembered;
+
+    /// <summary>True if the tab has been navigated: the user has been clicking around in it.</summary>
+    public bool HasHistory => _backHistory.Count > 0;
+
+    private bool _unavailable;
+    private string? _pendingRoot;      // a root that was saved but could not be used yet (its drive is not there)
+    private string? _pendingSelect;    // a file to select when the tab first becomes the active one
+
+    /// <summary>True if a folder, packed file or folder in one can be opened now.</summary>
+    public static bool IsAvailable(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        try { return Directory.Exists(path) || ArchiveSupport.FolderExists(path, out _); }
+        catch { return false; }
+    }
+
+    private static string UnavailableText(string path) =>
+        $"Currently unavailable: {path}. The drive may not be connected. Press F5 to try again.";
+
+    /// <summary>
+    /// What a workspace or session saves for this tab. The path stays even while it is unavailable, and so does a root
+    /// that could not be used yet: nothing is removed because it is not there at the moment.
+    /// </summary>
+    public TabState CaptureState() => new()
+    {
+        Path         = FolderPath,
+        Root         = RootPath ?? _pendingRoot,
+        SelectedFile = LastSelectedPath,
+    };
+
+    /// <summary>
+    /// Fills in a tab from a saved state. The folder is opened if it is there; if not, the tab says "currently unavailable"
+    /// and keeps the path (and root and file) for the next time. Call on a tab made with a null start path, or on any tab.
+    /// </summary>
+    public void Restore(TabState state)
+    {
+        if (IsAvailable(state.Path))
+        {
+            Navigate(state.Path, addToHistory: false);
+        }
+        else
+        {
+            ShowUnavailable(state.Path);
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.Root))
+        {
+            _pendingRoot = state.Root;
+            ApplyPendingRoot();
+        }
+
+        LastSelectedPath = state.SelectedFile;
+        _pendingSelect   = state.SelectedFile;
+    }
+
+    /// <summary>A tab for a folder that is not there now: empty, with a note, and the path kept (Go or F5 tries again).</summary>
+    private void ShowUnavailable(string path)
+    {
+        _unavailable = true;
+        FolderPath   = path;
+        CurrentPath  = path;
+        Title        = GetTabTitle(path) + " (unavailable)";
+        CurrentItems.Clear();
+        StatusText   = UnavailableText(path);
+        UpdateNavState();
+    }
+
+    /// <summary>Uses the saved root as soon as it is there and the tab's folder lies inside it.</summary>
+    private void ApplyPendingRoot()
+    {
+        if (_pendingRoot == null || RootPath != null || _unavailable) return;
+        if (!IsAvailable(_pendingRoot) || !IsSameOrSubPath(_pendingRoot, FolderPath)) return;
+
+        RootPath = _pendingRoot;
+        _pendingRoot = null;
+        RebuildTree();
+        OnPropertyChanged(nameof(HasTreeRoot));
+        SelectInTree(FolderPath);
+        UpdateNavState();
+    }
+
+    /// <summary>The file saved as selected is selected now (asked for once, when the tab is the one on screen).</summary>
+    public void RaisePendingSelection()
+    {
+        var path = _pendingSelect;
+        _pendingSelect = null;
+        if (path != null) SelectPathRequested?.Invoke(path);
+    }
+
     // ── Root of the tree ─────────────────────────────────────────────────────
 
     /// <summary>
@@ -580,6 +688,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void Refresh()
     {
         if (string.IsNullOrEmpty(_currentPath)) return;
+
+        // A tab that was "currently unavailable" tries again (the USB drive may be connected now).
+        if (_unavailable)
+        {
+            if (!IsAvailable(FolderPath)) { StatusText = UnavailableText(FolderPath); return; }
+            Navigate(FolderPath, addToHistory: false);
+            ApplyPendingRoot();
+            return;
+        }
+        ApplyPendingRoot();
 
         ArchiveSupport.Invalidate(_currentPath);   // an archive is read again, in case the file changed
         LoadItems(_currentPath);
@@ -1463,9 +1581,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
         _selectedItems = items;
         SelectedItem   = items.Count > 0 ? items[0] : null;
 
+        // Remembered for a session: only a real selection (switching tabs clears the list, which must not erase it).
+        if (items.Count > 0 && items[0].FullPath != LastSelectedPath)
+        {
+            LastSelectedPath = items[0].FullPath;
+            SelectionRemembered?.Invoke();
+        }
+
         StatusText = items.Count switch
         {
-            0 => $"{CurrentItems.Count} item(s)",
+            0 => _unavailable ? UnavailableText(FolderPath) : $"{CurrentItems.Count} item(s)",
             1 => "1 item selected",
             _ => $"{items.Count} items selected"
         };

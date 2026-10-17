@@ -30,6 +30,7 @@
             <Button Content="OK"
                     Width="80" Margin="0,0,6,0"
                     IsDefault="True"
+                    BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"
                     Click="OkButton_Click"/>
             <Button Content="Cancel"
                     Width="80"

@@ -64,6 +64,11 @@ public partial class ChoiceDialog : Window
                 IsDefault = i == defaultIndex,
                 IsCancel  = i == cancelIndex,
             };
+            if (i == defaultIndex)   // the default button shows it, as in Windows
+            {
+                button.SetResourceReference(Control.BorderBrushProperty, SystemColors.AccentColorBrushKey);
+                button.BorderThickness = new Thickness(2);
+            }
             button.Click += (_, _) => Choose(index);
             _buttons[i] = button;
             ButtonPanel.Children.Add(button);

@@ -44,6 +44,47 @@
                 <MenuItem Header="_Create Shortcut..." Click="MenuCreateShortcut_Click"/>
                 <MenuItem Header="_Settings" Click="MenuSettings_Click"/>
             </MenuItem>
+
+            <!-- Workspace: folders the user saved by hand, opened again in tabs. -->
+            <MenuItem Header="_Workspace">
+                <MenuItem Header="_Save Current Tabs as Workspace..." Click="WorkspaceSave_Click"
+                          ToolTip="Save the folders of the open tabs under a name"/>
+                <MenuItem x:Name="WorkspaceOpenMenu" Header="_Open Workspace" SubmenuOpened="WorkspaceMenu_SubmenuOpened">
+                    <MenuItem Header="(None)" IsEnabled="False"/>
+                </MenuItem>
+                <!-- Hidden for now (less clutter); the code is kept and may come back as a feature. A workspace file can
+                     also be opened with the file as the program's command-line argument. -->
+                <MenuItem Header="Open Workspace from _File..." Click="WorkspaceOpenFile_Click" Visibility="Collapsed"
+                          ToolTip="Open a workspace file that is somewhere else, for example one you got from another computer"/>
+                <MenuItem x:Name="WorkspaceDeleteMenu" Header="_Delete Workspace" SubmenuOpened="WorkspaceMenu_SubmenuOpened">
+                    <MenuItem Header="(None)" IsEnabled="False"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Show Workspaces F_older" Click="WorkspaceShowFolder_Click"
+                          ToolTip="Show the folder with the workspace files"/>
+            </MenuItem>
+
+            <!-- Session: the open tabs, remembered all the time. -->
+            <MenuItem Header="_Session">
+                <MenuItem Header="_Start New Session..." Click="SessionStart_Click"
+                          ToolTip="Start remembering the open tabs, the folders and the selected files, under a name"/>
+                <MenuItem x:Name="SessionOpenMenu" Header="_Open Session" SubmenuOpened="SessionMenu_SubmenuOpened">
+                    <MenuItem Header="(None)" IsEnabled="False"/>
+                </MenuItem>
+                <!-- Hidden for now (less clutter); the code is kept and may come back as a feature. A session file can
+                     also be opened with the file as the program's command-line argument. -->
+                <MenuItem Header="Open Session from _File..." Click="SessionOpenFile_Click" Visibility="Collapsed"
+                          ToolTip="Open a session file that is somewhere else, for example one you got from another computer"/>
+                <MenuItem x:Name="SessionStopMenuItem" Header="S_top Session" Click="SessionStop_Click"
+                          ToolTip="Stop remembering the open tabs. The session file stays."/>
+                <MenuItem x:Name="SessionDeleteMenu" Header="_Delete Session" SubmenuOpened="SessionMenu_SubmenuOpened">
+                    <MenuItem Header="(None)" IsEnabled="False"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Show Sessions F_older" Click="SessionShowFolder_Click"
+                          ToolTip="Show the folder with the session files"/>
+            </MenuItem>
+
             <MenuItem Header="_Help">
                 <MenuItem Header="_About" Click="MenuAbout_Click"/>
             </MenuItem>
