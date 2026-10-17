@@ -13,10 +13,34 @@ public class FileItemViewModel : INotifyPropertyChanged
     public string Name { get; set; } = "";
     public string FullPath { get; set; } = "";
     public bool IsDirectory { get; set; }
-    public DateTime DateModified { get; set; }
-    public DateTime DateCreated { get; set; }
     public string TypeName { get; set; } = "";
-    public long Size { get; set; }   // -1 for directories
+
+    // These can change while the item is on show (the Properties window edits a file): the cells follow.
+    private DateTime _dateModified, _dateCreated;
+    private long _size;
+
+    public DateTime DateModified { get => _dateModified; set { _dateModified = value; OnPropertyChanged(); } }
+    public DateTime DateCreated  { get => _dateCreated;  set { _dateCreated  = value; OnPropertyChanged(); } }
+    public long Size             { get => _size;         set { _size         = value; OnPropertyChanged(); } }   // -1 for directories
+
+    /// <summary>Reads the size and dates of a file again. False if the file is not there any more.</summary>
+    public bool ReloadFileInfo()
+    {
+        try
+        {
+            var file = new System.IO.FileInfo(FullPath);
+            if (!file.Exists) return false;
+
+            Size         = file.Length;
+            DateModified = file.LastWriteTime;
+            DateCreated  = file.CreationTime;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     // The tags of a music file (the Artist, Title and Track Number columns). Empty until they are read.
     public string Artist { get; private set; } = "";

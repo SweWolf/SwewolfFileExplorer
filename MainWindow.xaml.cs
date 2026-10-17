@@ -1113,13 +1113,79 @@ public partial class MainWindow : Window
 
         try
         {
-            PropertiesHelper.Show(paths);
+            PropertiesHelper.Show(paths, OnPropertiesChanged);
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Cannot show properties: {ex.Message}", "Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    /// <summary>
+    /// Something was changed from the Properties window (OK or Apply): a new track number, a new name, the Hidden attribute.
+    /// The rows of the files that only changed in size, dates or tags are updated in place (and the list is sorted again);
+    /// a file that is gone (renamed), a folder, or a changed Hidden attribute needs the folder to be read again.
+    /// The selection stays.
+    /// </summary>
+    private void OnPropertiesChanged(IReadOnlyList<string> paths)
+    {
+        var current = VM.ActiveTab.FolderPath;
+        var inPlace = new List<FileItemViewModel>();
+        bool readAgain = false;
+
+        foreach (var path in paths)
+        {
+            if (string.Equals(path.TrimEnd('\\', '/'), current.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+            {
+                readAgain = true;   // the folder shown (its Properties were open)
+                continue;
+            }
+
+            var item = VM.CurrentItems.FirstOrDefault(i => string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase));
+            var parent = System.IO.Path.GetDirectoryName(path.TrimEnd('\\', '/'));
+            if (item == null)
+            {
+                // Not listed: it may have become listed (no longer hidden) or have a new name, if it is in this folder.
+                if (string.Equals(parent, current.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) readAgain = true;
+                continue;
+            }
+
+            bool hiddenNow = false;
+            try { hiddenNow = HiddenItems.IsHiddenFile(System.IO.File.GetAttributes(path), item.Name); } catch { readAgain = true; continue; }
+
+            if (item.IsDirectory || hiddenNow != item.IsHidden || !System.IO.File.Exists(path)) readAgain = true;
+            else inPlace.Add(item);
+        }
+
+        if (readAgain)
+        {
+            // Read the folder again, as F5 does, and select again what was selected.
+            var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
+            VM.RefreshCommand.Execute(null);
+            ReselectInList(selected);
+            return;
+        }
+
+        if (inPlace.Count == 0) return;
+
+        foreach (var item in inPlace) item.ReloadFileInfo();
+        VM.ReloadTags(inPlace);                       // the tags come back by themselves, a sort by them is redone then
+        ApplySort(_sortColumn, _sortAscending);       // a sort by size or date is redone now
+        QueueInfoUpdate();
+    }
+
+    private void ReselectInList(IReadOnlyCollection<string> paths)
+    {
+        if (paths.Count == 0) return;
+
+        var items = FileListView.Items.OfType<FileItemViewModel>()
+            .Where(i => paths.Contains(i.FullPath, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (items.Count == 0) return;
+
+        FileListView.SelectedItems.Clear();
+        foreach (var item in items) FileListView.SelectedItems.Add(item);
+        FileListView.ScrollIntoView(items[0]);
     }
 
     private void CtxProperties_Click(object sender, RoutedEventArgs e) => ShowProperties();
@@ -1364,7 +1430,7 @@ public partial class MainWindow : Window
 
         try
         {
-            PropertiesHelper.Show(new[] { _treeMenuNode.FullPath });
+            PropertiesHelper.Show(new[] { _treeMenuNode.FullPath }, OnPropertiesChanged);
         }
         catch (Exception ex)
         {

@@ -257,6 +257,8 @@ public class MainViewModel : INotifyPropertyChanged
     public bool   HasTreeHiddenFolders => _activeTab.HasTreeHiddenFolders;
     public string TreeHiddenText       => _activeTab.TreeHiddenText;
 
+    public void ReloadTags(IEnumerable<FileItemViewModel> items) => _activeTab.ReloadTags(items);
+
     // Rating and expectation (the library)
     public string FolderRatingText      => _activeTab.FolderRatingText;
     public string FolderExpectationText => _activeTab.FolderExpectationText;

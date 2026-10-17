@@ -964,6 +964,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
         });
     }
 
+    /// <summary>Reads the tags of these music files again (they were edited, e.g. in the Properties window).</summary>
+    public void ReloadTags(IEnumerable<FileItemViewModel> items)
+    {
+        foreach (var item in items) item.TagsRequested = false;
+        EnsureTags();   // when the tags are in, TagsLoaded lets the window sort again if it is sorted by a tag column
+    }
+
     private void LoadItems(string path)
     {
         _tagsCts?.Cancel();   // the tags of the folder we leave are no longer wanted

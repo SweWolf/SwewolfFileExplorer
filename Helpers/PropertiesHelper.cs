@@ -10,15 +10,23 @@ namespace SwewolfFileExplorer.Helpers;
 /// </summary>
 public static class PropertiesHelper
 {
-    /// <summary>Properties of one file or folder, or the combined properties of several items.</summary>
-    public static void Show(IReadOnlyCollection<string> paths)
+    /// <summary>
+    /// Properties of one file or folder, or the combined properties of several items.
+    /// <paramref name="changed"/> is called (on the UI thread) with the items that were changed from the window, as soon as
+    /// that is seen (see <see cref="PropertiesWatcher"/>): the list can then refresh them.
+    /// </summary>
+    public static void Show(IReadOnlyCollection<string> paths, Action<IReadOnlyList<string>>? changed = null)
     {
         if (paths.Count == 0) return;
+
+        var watcher = changed == null ? null : new PropertiesWatcher(paths, changed);   // looks at the items before they can change
 
         if (paths.Count == 1)
             ShowSingle(paths.First());
         else
             SHMultiFileProperties(SendToHelper.CreateDataObject(paths), 0);
+
+        watcher?.Start();
     }
 
     private static void ShowSingle(string path)
