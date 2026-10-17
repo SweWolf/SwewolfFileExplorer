@@ -80,7 +80,10 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 - Both apps may run at once: each opens the file only for a moment and waits up to 5 seconds when it is busy. The explorer
   reads the read marks when it lists a folder, so something the player marked shows after F5 or when the window is activated.
   A folder's stored state (`Folder` table) is only recalculated by the explorer, when the folder is listed.
+- **Delete, rename, move:** the explorer removes the rows of a deleted file or folder (and everything below a folder) and moves
+  them to the new key when it renames or moves something itself (`LibraryStore.Forget` / `Move`: `File`, `Rated` and `Folder` rows,
+  the rows below a folder are found with the key range `K\` .. `K]`). Things changed outside the app leave their rows behind.
 - **Rating and expectation** (schema 3): set with Ctrl+R / Ctrl+E on files and folders (also inside packed files, which are keyed like
-  everything else). A row with neither value is deleted. Sorting treats no value as 0. A rename or move does not carry them yet
-  (same as the read marks).
+  everything else). A row with neither value is deleted. Sorting treats no value as 0. A rename or move done in the explorer carries them
+  along with the read marks.
 - Planned: the percent-watched column (position divided by length), tag, cover choice, sort orders.

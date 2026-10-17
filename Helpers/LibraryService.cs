@@ -48,7 +48,62 @@ public static class LibraryService
     public static void SetRead(IEnumerable<string> paths, bool read) => LibraryStore.SetRead(paths, read);
 
     /// <summary>Waits until everything queued is written: call when the app closes.</summary>
-    public static void Flush(int timeoutMilliseconds = 3000) => LibraryStore.Flush(timeoutMilliseconds);
+    public static void Flush(int timeoutMilliseconds = 3000)
+    {
+        WaitForQueued(timeoutMilliseconds);
+        LibraryStore.Flush(timeoutMilliseconds);
+    }
+
+    // ── What the app changed itself: ratings, deleted, renamed and moved items ──
+    // All of it is written in the background, one thing after the other (in the order it was asked for). Reading a folder
+    // waits for it (WaitForQueued), so the list never shows what was there before.
+
+    private static Task _queued = Task.CompletedTask;
+    private static readonly object QueueLock = new();
+
+    /// <summary>Runs <paramref name="work"/> in the background after everything queued before it.</summary>
+    public static void Queue(Action work)
+    {
+        lock (QueueLock)
+        {
+            _queued = _queued.ContinueWith(_ =>
+            {
+                try { work(); } catch { /* not remembering something is not worth an error box */ }
+            }, TaskScheduler.Default);
+        }
+    }
+
+    /// <summary>Waits (at most a few seconds) for what was queued; call on a background thread or when closing.</summary>
+    public static void WaitForQueued(int timeoutMilliseconds = 3000)
+    {
+        Task pending;
+        lock (QueueLock) pending = _queued;
+        try { pending.Wait(timeoutMilliseconds); } catch { }
+    }
+
+    /// <summary>Files and folders were deleted in the app: what is remembered about them (and below them) goes too.</summary>
+    public static void Forget(IEnumerable<string> paths)
+    {
+        var list = paths.ToList();
+        if (list.Count == 0) return;
+        Queue(() =>
+        {
+            LibraryStore.Flush();   // a read mark still waiting to be written must not bring a row back
+            LibraryStore.Forget(list);
+        });
+    }
+
+    /// <summary>Files and folders were renamed or moved in the app: what is remembered about them follows.</summary>
+    public static void Move(IEnumerable<(string From, string To)> moves)
+    {
+        var list = moves.ToList();
+        if (list.Count == 0) return;
+        Queue(() =>
+        {
+            LibraryStore.Flush();
+            LibraryStore.Move(list);
+        });
+    }
 
     /// <summary>The folder above, or null at the root of a drive. Works for paths inside a packed file too.</summary>
     private static string? ParentOf(string folder)

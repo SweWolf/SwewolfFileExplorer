@@ -18,6 +18,8 @@ public sealed record LibraryRoute(string DbFile, string Prefix, bool Relative, s
 /// what it knows.
 ///
 /// History:
+///   2026-10-17  Forget (what the app deleted) and Move (what the app renamed or moved): the rows of a file, or of a folder and
+///               everything below it, are removed or follow it to the new path (also to another database file).
 ///   2026-10-17  Schema 3: table Rated (rating 1-10 and expectation 1-10, for files and folders, in a table of its own so
 ///               that the File rows keep meaning "opened"). GetRatings / GetMark / SetRating / SetExpectation. An older copy
 ///               of this file ignores the table and is not harmed by it.
@@ -721,6 +723,209 @@ public static class LibraryStore
         }
 
         return allSaved;
+    }
+
+    // ── Forgetting and moving what is remembered ─────────────────────────────
+
+    // Opens each database file at most once, in one transaction that is committed when the session ends: forgetting or moving
+    // 500 files costs one write, not 500.
+    private sealed class Session : IDisposable
+    {
+        private readonly Dictionary<string, (SqliteConnection Connection, SqliteTransaction Transaction)> _open =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        public SqliteConnection? Get(LibraryRoute route, bool create)
+        {
+            if (_open.TryGetValue(route.DbFile, out var existing)) return existing.Connection;
+
+            var connection = Open(route, create);
+            if (connection == null) return null;
+            _open[route.DbFile] = (connection, connection.BeginTransaction());
+            return connection;
+        }
+
+        public SqliteCommand Command(SqliteConnection connection, string sql, params (string Name, object? Value)[] parameters)
+        {
+            var command = LibraryStore.Command(connection, sql, parameters);
+            command.Transaction = _open.Values.First(v => v.Connection == connection).Transaction;
+            return command;
+        }
+
+        public void Dispose()
+        {
+            foreach (var (connection, transaction) in _open.Values)
+            {
+                try { transaction.Commit(); } catch { /* write-protected or busy: nothing was changed */ }
+                connection.Dispose();
+            }
+            _open.Clear();
+        }
+    }
+
+    // The rows below a folder have its key plus a backslash in front of them: "K\..." lies between "K\" and "K]".
+    private static (string Below, string Above) SubtreeRange(string key) => (key + "\\", key + "]");
+
+    // Removes the rows of the item itself (a file, or a folder as an item of its parent) and of everything below it.
+    private static void DeleteRows(Session session, SqliteConnection connection, string parentKey, string name, string key)
+    {
+        var (below, above) = SubtreeRange(key);
+
+        foreach (var table in new[] { "File", "Rated" })
+        {
+            using (var item = session.Command(connection, $"DELETE FROM {table} WHERE Folder = $p AND Name = $n", ("$p", parentKey), ("$n", name)))
+                item.ExecuteNonQuery();
+            using (var sub = session.Command(connection, $"DELETE FROM {table} WHERE Folder = $k OR (Folder > $a AND Folder < $b)",
+                       ("$k", key), ("$a", below), ("$b", above)))
+                sub.ExecuteNonQuery();
+        }
+
+        using var folders = session.Command(connection, "DELETE FROM Folder WHERE Path = $k OR (Path > $a AND Path < $b)",
+            ("$k", key), ("$a", below), ("$b", above));
+        folders.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Forgets everything remembered about files and folders that were deleted: read marks, resume positions, ratings and
+    /// expectations, and for a folder (or a packed file) everything below it too. Call it for what the app deleted itself.
+    /// </summary>
+    public static void Forget(IEnumerable<string> paths)
+    {
+        lock (Gate)
+        {
+            try
+            {
+                using var session = new Session();
+                foreach (var raw in paths)
+                {
+                    var path = raw.TrimEnd('\\', '/');
+                    if (path.Length == 0) continue;
+
+                    try
+                    {
+                        var route = Resolve(path, create: false);   // nothing is created just to forget something
+                        if (route == null) continue;
+                        var connection = session.Get(route, create: false);
+                        if (connection == null) continue;
+
+                        var (parentKey, name) = RatedKey(route, path);
+                        DeleteRows(session, connection, parentKey, name, KeyOf(route, path));
+                    }
+                    catch { /* this one stays remembered; harmless */ }
+                }
+            }
+            catch { }
+        }
+    }
+
+    /// <summary>
+    /// What is remembered about a file or folder that was renamed or moved follows it to its new path (for a folder: its own
+    /// state and rating and everything below it), also to another drive. Call it for what the app moved itself.
+    /// </summary>
+    public static void Move(IEnumerable<(string From, string To)> moves)
+    {
+        lock (Gate)
+        {
+            try
+            {
+                using var session = new Session();
+                foreach (var (rawFrom, rawTo) in moves)
+                {
+                    var from = rawFrom.TrimEnd('\\', '/');
+                    var to   = rawTo.TrimEnd('\\', '/');
+                    if (from.Length == 0 || to.Length == 0) continue;
+
+                    try { MoveRows(session, from, to); }
+                    catch { /* it keeps its marks under the old path; harmless */ }
+                }
+            }
+            catch { }
+        }
+    }
+
+    private static List<object?[]> ReadAll(Session session, SqliteConnection connection, string sql, params (string Name, object? Value)[] parameters)
+    {
+        var rows = new List<object?[]>();
+        using var command = session.Command(connection, sql, parameters);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var row = new object?[reader.FieldCount];
+            for (int i = 0; i < row.Length; i++) row[i] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+            rows.Add(row);
+        }
+        return rows;
+    }
+
+    private static void MoveRows(Session session, string from, string to)
+    {
+        var fromRoute = Resolve(from, create: false);
+        if (fromRoute == null) return;
+        var fromConnection = session.Get(fromRoute, create: false);
+        if (fromConnection == null) return;
+
+        var fromKey = KeyOf(fromRoute, from);
+        var (fromParent, fromName) = RatedKey(fromRoute, from);
+        var (below, above) = SubtreeRange(fromKey);
+
+        // Everything remembered about the item and below it, read before anything is changed.
+        var p = new (string, object?)[] { ("$p", fromParent), ("$n", fromName), ("$k", fromKey), ("$a", below), ("$b", above) };
+        var files   = ReadAll(session, fromConnection,
+            "SELECT Folder, Name, ReadAt, Position, Length FROM File WHERE (Folder = $p AND Name = $n) OR Folder = $k OR (Folder > $a AND Folder < $b)", p);
+        var rated   = ReadAll(session, fromConnection,
+            "SELECT Folder, Name, Rating, Expectation FROM Rated WHERE (Folder = $p AND Name = $n) OR Folder = $k OR (Folder > $a AND Folder < $b)", p);
+        var folders = ReadAll(session, fromConnection,
+            "SELECT Path, OwnUnread, Complete FROM Folder WHERE Path = $k OR (Path > $a AND Path < $b)", p);
+        if (files.Count == 0 && rated.Count == 0 && folders.Count == 0) return;
+
+        var toRoute = Resolve(to, create: true);
+        if (toRoute == null) return;
+        var toConnection = session.Get(toRoute, create: true);
+        if (toConnection == null) return;
+
+        var toKey = KeyOf(toRoute, to);
+        var (toParent, toName) = RatedKey(toRoute, to);
+
+        // A change of the case of the name only: the keys are the same (they ignore case), nothing to move.
+        if (string.Equals(fromRoute.DbFile, toRoute.DbFile, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(fromKey, toKey, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // The old rows go first (they may be in the same file); then the rows are written under their new keys.
+        DeleteRows(session, fromConnection, fromParent, fromName, fromKey);
+
+        // The key of a folder below the item: the old key of the item becomes the new one.
+        string Remap(string key) =>
+            key.Equals(fromKey, StringComparison.OrdinalIgnoreCase) ? toKey : toKey + key.Substring(fromKey.Length);
+
+        bool IsTheItem(object? folder, object? name) =>
+            string.Equals((string?)folder, fromParent, StringComparison.OrdinalIgnoreCase)
+            && string.Equals((string?)name, fromName, StringComparison.OrdinalIgnoreCase);
+
+        foreach (var r in files)
+        {
+            var (folder, name) = IsTheItem(r[0], r[1]) ? (toParent, toName) : (Remap((string)r[0]!), (string)r[1]!);
+            using var insert = session.Command(toConnection,
+                "INSERT OR REPLACE INTO File (Folder, Name, ReadAt, Position, Length) VALUES ($f, $n, $t, $p, $l)",
+                ("$f", folder), ("$n", name), ("$t", r[2]), ("$p", r[3]), ("$l", r[4]));
+            insert.ExecuteNonQuery();
+        }
+
+        foreach (var r in rated)
+        {
+            var (folder, name) = IsTheItem(r[0], r[1]) ? (toParent, toName) : (Remap((string)r[0]!), (string)r[1]!);
+            using var insert = session.Command(toConnection,
+                "INSERT OR REPLACE INTO Rated (Folder, Name, Rating, Expectation) VALUES ($f, $n, $r, $e)",
+                ("$f", folder), ("$n", name), ("$r", r[2]), ("$e", r[3]));
+            insert.ExecuteNonQuery();
+        }
+
+        foreach (var r in folders)
+        {
+            using var insert = session.Command(toConnection,
+                "INSERT OR REPLACE INTO Folder (Path, OwnUnread, Complete) VALUES ($p, $o, $c)",
+                ("$p", Remap((string)r[0]!)), ("$o", r[1]), ("$c", r[2]));
+            insert.ExecuteNonQuery();
+        }
     }
 
     // ── Resume positions ─────────────────────────────────────────────────────

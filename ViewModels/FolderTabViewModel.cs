@@ -1230,31 +1230,20 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         // Saved in the background, one after the other; reading the folder waits for them (see UpdateReadState), or the
         // window's re-reading when a dialog closes would bring back the old value before it was written.
-        lock (_markWritesLock)
+        LibraryService.Queue(() =>
         {
-            _markWrites = _markWrites.ContinueWith(_ =>
-            {
-                bool saved = isRating ? LibraryStore.SetRating(list, rating) : LibraryStore.SetExpectation(list, expectation);
-                if (!saved)
-                    dispatcher.InvokeAsync(() =>
-                        StatusText = $"The {(isRating ? "rating" : "expectation")} could not be saved. The drive may be write-protected.");
-            }, TaskScheduler.Default);
-        }
+            bool saved = isRating ? LibraryStore.SetRating(list, rating) : LibraryStore.SetExpectation(list, expectation);
+            if (!saved)
+                dispatcher.InvokeAsync(() =>
+                    StatusText = $"The {(isRating ? "rating" : "expectation")} could not be saved. The drive may be write-protected.");
+        });
     }
 
     // Which items were rated on the screen, and when (a counter): see UpdateReadState. Only the UI thread touches them.
     private int _markEpoch;
     private readonly Dictionary<string, int> _markChanged = new(StringComparer.OrdinalIgnoreCase);
 
-    private static Task _markWrites = Task.CompletedTask;
-    private static readonly object _markWritesLock = new();
-
-    private static void WaitForMarkWrites()
-    {
-        Task pending;
-        lock (_markWritesLock) pending = _markWrites;
-        try { pending.Wait(3000); } catch { }
-    }
+    private static void WaitForMarkWrites() => LibraryService.WaitForQueued();
 
     private void ApplyReadState(FolderInfo info)
     {
@@ -1346,6 +1335,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (result != MessageBoxResult.Yes) return;
 
         var recycle = permanent ? RecycleOption.DeletePermanently : RecycleOption.SendToRecycleBin;
+        var deleted = new List<string>();
 
         foreach (var item in items)
         {
@@ -1357,6 +1347,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
                     FileSystem.DeleteDirectory(item.Path, UIOption.OnlyErrorDialogs, recycle);
                 else
                     FileSystem.DeleteFile(item.Path, UIOption.OnlyErrorDialogs, recycle);
+
+                if (!File.Exists(item.Path) && !Directory.Exists(item.Path)) deleted.Add(item.Path);
             }
             catch (Exception ex)
             {
@@ -1364,6 +1356,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        // What is remembered about them (read marks, ratings ...) goes with them. A restore from the Recycle Bin starts over.
+        LibraryService.Forget(deleted);
 
         foreach (var item in items)
             RefreshTreeFolder(Path.GetDirectoryName(item.Path.TrimEnd('\\', '/')));
@@ -1441,6 +1436,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
             if (item.IsDirectory) Directory.Move(item.FullPath, newPath);
             else                  File.Move(item.FullPath, newPath);
+
+            // What is remembered about it (read marks, ratings, a folder's state and what is below it) follows the new name.
+            LibraryService.Move(new[] { (item.FullPath, newPath) });
 
             // The tree first: it must know the new name before it is asked for the node of the folder.
             RefreshTreeFolder(dir);
@@ -1575,6 +1573,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         if (FileClipboard.Get() is not var (sources, isCut)) return;
 
+        var moved = new List<(string From, string To)>();
+
         foreach (var src in sources)
         {
             try
@@ -1597,12 +1597,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
                 if (Directory.Exists(src))
                 {
-                    if (isCut) MoveDirectory(src, dest);
+                    if (isCut) { MoveDirectory(src, dest); moved.Add((src, dest)); }
                     else       CopyDirectory(src, dest);
                 }
                 else if (File.Exists(src))
                 {
-                    if (isCut) File.Move(src, dest);
+                    if (isCut) { File.Move(src, dest); moved.Add((src, dest)); }
                     else       File.Copy(src, dest);
                 }
             }
@@ -1612,6 +1612,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        LibraryService.Move(moved);   // what is remembered about the moved items (to another drive too) goes along
 
         if (isCut)
         {

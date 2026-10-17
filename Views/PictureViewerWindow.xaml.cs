@@ -458,6 +458,7 @@ public partial class PictureViewerWindow : Window
         }
 
         AnyDeleted = true;
+        LibraryService.Forget(new[] { path });   // its read mark and rating go with it
         _files.RemoveAt(_index);
         if (_files.Count == 0)
         {
