@@ -14,6 +14,9 @@ namespace SwewolfFileExplorer.ViewModels;
 public class MainViewModel : INotifyPropertyChanged
 {
     private readonly SharedState _shared = new();
+
+    /// <summary>What all tabs share (tree sort orders, hidden folders shown in the tree).</summary>
+    public SharedState Shared => _shared;
     private FolderTabViewModel _activeTab;
 
     public ObservableCollection<FolderTabViewModel> Tabs { get; } = new();

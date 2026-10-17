@@ -84,6 +84,7 @@ public partial class PictureViewerWindow : Window
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         SetThreadExecutionState(ES_CONTINUOUS);
+        StopNextFolderSearch();
         _animationTimer.Stop();
         _cursorTimer.Stop();
         _overlayTimer.Stop();
@@ -97,6 +98,8 @@ public partial class PictureViewerWindow : Window
         int version = ++_loadVersion;
         string path = CurrentPath;
         PictureChanged?.Invoke(path);
+
+        if (_index == _files.Count - 1) StartNextFolderSearch();   // the end is here: look ahead while the user looks at the picture
 
         // Off the UI thread: a big photo takes a moment to decode, and a quick key press must not wait for it.
         var loaded = await Task.Run(() => PictureLoader.Load(path));
@@ -264,23 +267,158 @@ public partial class PictureViewerWindow : Window
 
     private void Navigate(int direction)
     {
-        if (_files.Count <= 1) return;
+        if (_files.Count == 0) return;
 
         int next = _index + direction;
-        string? message = null;
+        if (next < 0)
+        {
+            ShowOverlay("This is the first item in the list");   // stays on the picture; no wrapping around
+            return;
+        }
         if (next >= _files.Count)
         {
-            next = 0;
-            message = "End of file list";
-        }
-        else if (next < 0)
-        {
-            next = _files.Count - 1;
-            message = "Start of file list";
+            AskAtEndOfList();
+            return;
         }
 
         _index = next;
-        ShowCurrent(message);
+        ShowCurrent();
+    }
+
+    // ── The end of the list: the next folder ─────────────────────────────────
+
+    /// <summary>
+    /// Finds the next folder with pictures (on a background thread; see <see cref="NextFolderFinder"/>). Set by the Explorer.
+    /// Arguments: the folder shown now, and a token that is canceled when the viewer closes or moves to another folder.
+    /// </summary>
+    public Func<string, CancellationToken, string?>? FindNextFolder { get; set; }
+
+    /// <summary>
+    /// Makes the Explorer go to a folder and returns its pictures in the order its list shows them
+    /// (null if it cannot be opened). Set by the Explorer.
+    /// </summary>
+    public Func<string, List<string>?>? OpenFolder { get; set; }
+
+    private CancellationTokenSource? _nextFolderCts;
+    private Task<string?>? _nextFolderTask;
+    private string? _nextFolderFor;      // the folder the search was started for
+    private bool _askingAtEnd;
+
+    private const string NoNextFolderText = "There is no next folder.";
+
+    /// <summary>
+    /// Starts looking for the next folder as soon as the last picture is on show, so the answer is ready (or nearly)
+    /// when the user goes on. One search per folder.
+    /// </summary>
+    private void StartNextFolderSearch()
+    {
+        if (FindNextFolder == null || OpenFolder == null || _files.Count == 0) return;
+
+        string folder = Path.GetDirectoryName(CurrentPath) ?? "";
+        if (folder.Length == 0 || (_nextFolderTask != null && string.Equals(_nextFolderFor, folder, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        _nextFolderCts?.Cancel();
+        var cts = _nextFolderCts = new CancellationTokenSource();
+        var find = FindNextFolder;
+        _nextFolderFor  = folder;
+        _nextFolderTask = Task.Run(() => find(folder, cts.Token), cts.Token);
+    }
+
+    private void StopNextFolderSearch()
+    {
+        _nextFolderCts?.Cancel();
+        _nextFolderCts  = null;
+        _nextFolderTask = null;
+        _nextFolderFor  = null;
+    }
+
+    /// <summary>
+    /// Past the last picture: a choice, as TeraTool had. Go to the next folder, start again from the first picture, or close.
+    /// With no one touching the mouse or keyboard, the next folder is chosen after ten seconds.
+    /// </summary>
+    private void AskAtEndOfList()
+    {
+        if (_askingAtEnd) return;
+        _askingAtEnd = true;
+
+        try
+        {
+            StartNextFolderSearch();
+            var search = _nextFolderTask;   // null if the Explorer gave no way to look
+
+            const string Intro = "This is the last picture in this folder.";
+            string textFor(string? found) => found == null
+                ? $"{Intro}\n\n{NoNextFolderText}"
+                : $"{Intro}\n\nNext folder:\n{found}";
+
+            bool done = search == null || search.IsCompleted;
+            string? found = search != null && search.IsCompletedSuccessfully ? search.Result : null;
+
+            var dialog = new ChoiceDialog(
+                done ? textFor(found) : $"{Intro}\n\nLooking for the next folder...",
+                new[] { "Go to Next Folder", "Start from Beginning", "Close" },
+                defaultIndex: 0, cancelIndex: 2)
+            {
+                Owner = this,
+                CountdownSeconds = 10,
+            };
+            dialog.SetButtonEnabled(0, done && found != null);
+
+            // The search may finish while the dialog is open: then the text and the button follow.
+            if (!done)
+            {
+                _ = search!.ContinueWith(t =>
+                {
+                    string? result = t.IsCompletedSuccessfully ? t.Result : null;
+                    dialog.Dispatcher.BeginInvoke(() =>
+                    {
+                        dialog.SetMessage(textFor(result));
+                        dialog.SetButtonEnabled(0, result != null);
+                    });
+                }, TaskScheduler.Default);
+            }
+
+            ShowCursor();
+            dialog.ShowDialog();
+
+            switch (dialog.Result)
+            {
+                case 0:
+                    var target = search != null && search.IsCompletedSuccessfully ? search.Result : null;
+                    if (target != null) GoToFolder(target);
+                    break;
+
+                case 1:
+                    _index = 0;
+                    ShowCurrent("Start of file list");
+                    break;
+
+                default:
+                    Close();
+                    break;
+            }
+        }
+        finally
+        {
+            _askingAtEnd = false;
+        }
+    }
+
+    private void GoToFolder(string folder)
+    {
+        var pictures = OpenFolder?.Invoke(folder);
+        if (pictures == null || pictures.Count == 0)
+        {
+            ShowOverlay("Cannot open the next folder");
+            return;
+        }
+
+        StopNextFolderSearch();
+        _files.Clear();
+        _files.AddRange(pictures);
+        _index = 0;
+        ShowCurrent(Path.GetFileName(folder.TrimEnd('\\', '/')));
     }
 
     private void GoTo(int index)

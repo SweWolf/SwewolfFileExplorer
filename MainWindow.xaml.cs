@@ -657,13 +657,20 @@ public partial class MainWindow : Window
 
     private void OpenInViewer(FileItemViewModel item)
     {
-        // The pictures of the list, in the order it shows them: the viewer goes through them.
-        var pictures = FileListView.Items.OfType<FileItemViewModel>()
-            .Where(i => !i.IsDirectory && ThumbnailLoader.IsImage(i.FullPath))
-            .Select(i => i.FullPath)
-            .ToList();
+        var viewer = new PictureViewerWindow(PicturesInList(), item.FullPath) { Owner = this };
 
-        var viewer = new PictureViewerWindow(pictures, item.FullPath) { Owner = this };
+        // At the end of the list the viewer can go on to the next folder with pictures (tree order, same drive).
+        // The search runs on a background thread, where VM (it reads the DataContext) must not be used: take what it needs here.
+        var shared = VM.Shared;
+        viewer.FindNextFolder = (folder, cancel) =>
+            NextFolderFinder.Find(folder, shared.GetTreeSort, shared.ShowsHiddenInTree, cancel);
+        viewer.OpenFolder = folder =>
+        {
+            VM.Navigate(folder);   // the list, the tree and the address bar follow
+            return string.Equals(VM.ActiveTab.CurrentPath?.TrimEnd('\\', '/'), folder.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)
+                ? PicturesInList()
+                : null;
+        };
         viewer.PictureChanged += path =>
         {
             SelectInList(path);      // the list follows the viewer
@@ -676,6 +683,13 @@ public partial class MainWindow : Window
         SelectInList(viewer.CurrentPath);
         FileListView.Focus();
     }
+
+    /// <summary>The pictures of the list, in the order it shows them: the viewer goes through them.</summary>
+    private List<string> PicturesInList() =>
+        FileListView.Items.OfType<FileItemViewModel>()
+            .Where(i => !i.IsDirectory && ThumbnailLoader.IsImage(i.FullPath))
+            .Select(i => i.FullPath)
+            .ToList();
 
     private void SelectInList(string path)
     {

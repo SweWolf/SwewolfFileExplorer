@@ -1,0 +1,32 @@
+<Window x:Class="SwewolfFileExplorer.Views.ChoiceDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Choice"
+        MinWidth="860" MaxWidth="1100"
+        FontSize="22"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing"
+        PreviewMouseMove="Window_PreviewMouseMove"
+        PreviewMouseDown="Window_Activity"
+        PreviewKeyDown="Window_Activity">
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="MessageText" Grid.Row="0" TextWrapping="Wrap" MinHeight="80"/>
+
+        <StackPanel x:Name="ButtonPanel" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"/>
+    </Grid>
+</Window>
