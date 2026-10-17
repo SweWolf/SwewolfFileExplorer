@@ -40,6 +40,29 @@ public class FileItemViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TrackText));
     }
 
+    // The user's own rating and expectation (1-10; kept in the library). None until set; the columns show them.
+    public int? Rating { get; private set; }
+    public double? Expectation { get; private set; }
+
+    public string RatingText      => RatingRules.Format(Rating);
+    public string ExpectationText => RatingRules.Format(Expectation);
+
+    public void SetMarks(int? rating, double? expectation)
+    {
+        if (Rating != rating)
+        {
+            Rating = rating;
+            OnPropertyChanged(nameof(Rating));
+            OnPropertyChanged(nameof(RatingText));
+        }
+        if (Expectation != expectation)
+        {
+            Expectation = expectation;
+            OnPropertyChanged(nameof(Expectation));
+            OnPropertyChanged(nameof(ExpectationText));
+        }
+    }
+
     /// <summary>A hidden or system item, shown (dimmed) only when the user asked for the hidden items.</summary>
     public bool IsHidden { get; set; }
 

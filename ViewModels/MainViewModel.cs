@@ -257,6 +257,13 @@ public class MainViewModel : INotifyPropertyChanged
     public bool   HasTreeHiddenFolders => _activeTab.HasTreeHiddenFolders;
     public string TreeHiddenText       => _activeTab.TreeHiddenText;
 
+    // Rating and expectation (the library)
+    public string FolderRatingText      => _activeTab.FolderRatingText;
+    public string FolderExpectationText => _activeTab.FolderExpectationText;
+    public SwewolfFileExplorer.Helpers.LibraryStore.Marks GetMarks(string path) => _activeTab.GetMarks(path);
+    public void SetRating(IReadOnlyCollection<string> paths, int? value)         => _activeTab.SetRating(paths, value);
+    public void SetExpectation(IReadOnlyCollection<string> paths, double? value) => _activeTab.SetExpectation(paths, value);
+
     // Read / unread (the library)
     public string FolderStatusText     => _activeTab.FolderStatusText;
     public void RefreshReadState()     => _activeTab.RefreshReadState();

@@ -41,7 +41,9 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Size,         "Size",          SizeColumn),
             new ColumnInfo(SortColumn.Artist,       "Artist",        ArtistColumn, visible: false),
             new ColumnInfo(SortColumn.Title,        "Title",         TitleColumn, visible: false),
-            new ColumnInfo(SortColumn.TrackNumber,  "Track Number",  TrackColumn, visible: false)
+            new ColumnInfo(SortColumn.TrackNumber,  "Track Number",  TrackColumn, visible: false),
+            new ColumnInfo(SortColumn.Rating,       "Rating",        RatingColumn, visible: false),
+            new ColumnInfo(SortColumn.Expectation,  "Expectation",   ExpectationColumn, visible: false)
         });
         VM.TagsLoaded += () => { if (IsTagColumn(_sortColumn)) ApplySort(_sortColumn, _sortAscending); };
 
@@ -115,8 +117,9 @@ public partial class MainWindow : Window
         var info = _layout.FirstOrDefault(c => c.Column == column);
         if (info == null) return;
 
-        // A second click on the same column reverses the order.
-        bool ascending = info.Key != _sortColumn || !_sortAscending;
+        // A second click on the same column reverses the order. Rating and expectation start with the highest first.
+        bool firstAscending = info.Key is not (SortColumn.Rating or SortColumn.Expectation);
+        bool ascending = info.Key != _sortColumn ? firstAscending : !_sortAscending;
         VM.SetSort(info.Key, ascending);   // remembered for this folder; comes back as SortChanged
     }
 
@@ -827,8 +830,38 @@ public partial class MainWindow : Window
 
     private void FileListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        // A double-click on the Rating or Expectation cell edits it (as in TeraTool); anywhere else it opens the item.
+        var column = ColumnUnderMouse(e);
+        if (column is SortColumn.Rating or SortColumn.Expectation && FileListView.SelectedItem is FileItemViewModel)
+        {
+            RateSelectedItems(rating: column == SortColumn.Rating);
+            e.Handled = true;
+            return;
+        }
+
         if (FileListView.SelectedItem is FileItemViewModel item)
             OpenItem(item);
+    }
+
+    /// <summary>The column of the cell under the mouse in a list row (null for a header, the empty space, or outside a row).</summary>
+    private SortColumn? ColumnUnderMouse(MouseButtonEventArgs e)
+    {
+        for (var d = e.OriginalSource as DependencyObject; d != null; d = d is Visual or System.Windows.Media.Media3D.Visual3D
+                 ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+        {
+            if (d is not GridViewRowPresenter presenter) continue;
+
+            // The cells are laid out from the left edge of the row, one column after the other.
+            double x = e.GetPosition(presenter).X, left = 0;
+            foreach (var column in ListGrid.Columns)
+            {
+                if (x < left + column.ActualWidth)
+                    return _layout.FirstOrDefault(c => c.Column == column)?.Key;
+                left += column.ActualWidth;
+            }
+            return null;
+        }
+        return null;
     }
 
     /// <summary>A picture opens in the picture viewer of this app (not in the program Windows has for it); anything else as usual.</summary>
@@ -904,6 +937,85 @@ public partial class MainWindow : Window
             ShowRenameDialog(renameItem);
             e.Handled = true;
         }
+        else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.R or Key.E)   // as in TeraTool
+        {
+            RateSelectedItems(rating: e.Key == Key.R);
+            e.Handled = true;
+        }
+    }
+
+    // ── Rating and expectation ────────────────────────────────────────────────
+
+    private void CtxRating_Click(object sender, RoutedEventArgs e)      => RateSelectedItems(rating: true);
+    private void CtxExpectation_Click(object sender, RoutedEventArgs e) => RateSelectedItems(rating: false);
+
+    private void TreeCtxRating_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) RateFolder(_treeMenuNode.FullPath, rating: true);
+    }
+
+    private void TreeCtxExpectation_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) RateFolder(_treeMenuNode.FullPath, rating: false);
+    }
+
+    // The two lines under the tree: a click edits the current folder's value.
+    private void FolderRating_Click(object sender, MouseButtonEventArgs e)      => RateFolder(VM.ActiveTab.FolderPath, rating: true);
+    private void FolderExpectation_Click(object sender, MouseButtonEventArgs e) => RateFolder(VM.ActiveTab.FolderPath, rating: false);
+
+    /// <summary>Ctrl+R / Ctrl+E on the list: every selected item gets the value (the box starts with the first one's).</summary>
+    private void RateSelectedItems(bool rating)
+    {
+        var items = FileListView.SelectedItems.OfType<FileItemViewModel>().ToList();
+        if (items.Count == 0) return;
+
+        var first = items[0];
+        RateItems(items.Select(i => i.FullPath).ToList(), new LibraryStore.Marks(first.Rating, first.Expectation), rating);
+    }
+
+    private void RateFolder(string path, bool rating)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        RateItems(new[] { path }, VM.GetMarks(path), rating);
+    }
+
+    /// <summary>
+    /// Asks for a rating or an expectation and sets it. A number from 1 to 10 sets it, anything else removes it
+    /// (blank, text, zero, negative, more than 10): see <see cref="RatingRules"/>. Cancel changes nothing.
+    /// </summary>
+    private void RateItems(IReadOnlyCollection<string> paths, LibraryStore.Marks current, bool rating)
+    {
+        var dialog = new InputDialog(
+            rating ? "Rating" : "Expectation",
+            rating ? "Rating from 1 to 10. Leave it empty to remove it:"
+                   : "Expectation from 1 to 10 (decimals allowed). Leave it empty to remove it:",
+            rating ? RatingRules.Format(current.Rating) : RatingRules.Format(current.Expectation)) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
+        if (rating)
+        {
+            var value = RatingRules.ParseRating(dialog.InputText);
+            VM.SetRating(paths, value);
+            if (value != null) ShowColumn(SortColumn.Rating);
+        }
+        else
+        {
+            var value = RatingRules.ParseExpectation(dialog.InputText);
+            VM.SetExpectation(paths, value);
+            if (value != null) ShowColumn(SortColumn.Expectation);
+        }
+    }
+
+    /// <summary>The column of a value that was just set shows itself if it was hidden (TeraTool did the same).</summary>
+    private void ShowColumn(SortColumn key)
+    {
+        var info = _layout.FirstOrDefault(c => c.Key == key);
+        if (info == null || info.Visible) return;
+
+        SyncLayoutFromGrid();
+        info.Visible = true;
+        ApplyColumns();
+        SaveColumnLayout();
     }
 
     // ── Context menu ──────────────────────────────────────────────────────────
@@ -931,6 +1043,7 @@ public partial class MainWindow : Window
                 "Paste"      => canPaste,
                 "Copy as Path" => hasSelection,
                 "Mark as Read" or "Mark as Unread" => hasSelection,
+                "Rating..." or "Expectation..." => hasSelection,
                 "Delete"     => hasSelection && !inArchive,
                 "Rename"     => hasSelection && !inArchive,
                 "New Folder" => !inArchive,
@@ -1218,6 +1331,15 @@ public partial class MainWindow : Window
     /// <summary>F2 in the tree renames the selected folder; in the list it renames the selected item (what has the focus decides).</summary>
     private void NavigationTree_KeyDown(object sender, KeyEventArgs e)
     {
+        // Ctrl+R / Ctrl+E in the tree rate the selected folder (in the list: the selected files).
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.R or Key.E)
+        {
+            if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } rated)
+                RateFolder(rated.FullPath, rating: e.Key == Key.R);
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.F2) return;
 
         if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } node && CanChangeFolder(node.FullPath))

@@ -553,6 +553,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         CurrentPath  = path;
         Title        = GetTabTitle(path) + " (unavailable)";
         CurrentItems.Clear();
+        SetFolderMarks(default);
         StatusText   = UnavailableText(path);
         UpdateNavState();
     }
@@ -1134,21 +1135,125 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         _readVersion++;
         FolderStatusText = "";
+        SetFolderMarks(default);
     }
 
-    /// <summary>Asks the library (in the background) which files of the folder were opened, then bolds the others.</summary>
+    /// <summary>
+    /// Asks the library (in the background) which files of the folder were opened, then bolds the others; the ratings and
+    /// expectations of the items come in the same answer.
+    /// </summary>
     private void UpdateReadState(string path)
     {
         int version = ++_readVersion;
+        int startEpoch = _markEpoch;   // a rating set after this point is newer than what this read finds
         var dispatcher = Application.Current.Dispatcher;
 
         Task.Run(() =>
         {
             FolderInfo info;
-            try { info = LibraryService.Sync(path, create: false); }
+            Dictionary<string, LibraryStore.Marks> marks;
+            LibraryStore.Marks own;
+            try
+            {
+                WaitForMarkWrites();   // a rating just set is written before the folder is read again
+                info  = LibraryService.Sync(path, create: false);
+                marks = LibraryStore.GetRatings(path);
+                own   = LibraryStore.GetMark(path);
+            }
             catch { return; }   // the list stays as it is
-            dispatcher.InvokeAsync(() => { if (version == _readVersion) ApplyReadState(info); });
+            dispatcher.InvokeAsync(() =>
+            {
+                if (version != _readVersion) return;
+                ApplyReadState(info);
+                foreach (var item in CurrentItems)
+                {
+                    // An item rated on the screen after this read began keeps what the user just set: the read may have
+                    // started (when a dialog closed and the window woke up) before the new value was written.
+                    if (_markChanged.TryGetValue(item.FullPath, out var changed) && changed > startEpoch) continue;
+
+                    marks.TryGetValue(item.Name, out var m);
+                    item.SetMarks(m.Rating, m.Expectation);
+                }
+                if (!(_markChanged.TryGetValue(FolderPath, out var folderChanged) && folderChanged > startEpoch))
+                    SetFolderMarks(own);
+            });
         });
+    }
+
+    // ── Rating and expectation (1-10, kept in the library) ───────────────────
+
+    private LibraryStore.Marks _folderMarks;
+
+    /// <summary>"Rating: 8" for the current folder, under the tree (clicking it edits it).</summary>
+    public string FolderRatingText => "Rating: " + (_folderMarks.Rating is { } r ? RatingRules.Format(r) : "-");
+
+    /// <summary>"Expectation: 7.5" for the current folder, under the tree.</summary>
+    public string FolderExpectationText => "Expectation: " + (_folderMarks.Expectation is { } e ? RatingRules.Format(e) : "-");
+
+    private void SetFolderMarks(LibraryStore.Marks marks)
+    {
+        _folderMarks = marks;
+        OnPropertyChanged(nameof(FolderRatingText));
+        OnPropertyChanged(nameof(FolderExpectationText));
+    }
+
+    /// <summary>The rating and expectation of a file or folder (for the input box to start with).</summary>
+    public LibraryStore.Marks GetMarks(string path) =>
+        IsSamePath(path, _currentPath) ? _folderMarks : LibraryStore.GetMark(path);
+
+    /// <summary>Sets (null removes) the rating of files and folders. Shown at once; saved in the background.</summary>
+    public void SetRating(IReadOnlyCollection<string> paths, int? value) => ApplyMark(paths, isRating: true, value, null);
+
+    /// <summary>Sets (null removes) the expectation of files and folders. Shown at once; saved in the background.</summary>
+    public void SetExpectation(IReadOnlyCollection<string> paths, double? value) => ApplyMark(paths, isRating: false, null, value);
+
+    private void ApplyMark(IReadOnlyCollection<string> paths, bool isRating, int? rating, double? expectation)
+    {
+        if (paths.Count == 0) return;
+
+        int epoch = ++_markEpoch;
+        foreach (var path in paths) _markChanged[path] = epoch;
+
+        var wanted = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
+        foreach (var item in CurrentItems)
+        {
+            if (!wanted.Contains(item.FullPath)) continue;
+            item.SetMarks(isRating ? rating : item.Rating, isRating ? item.Expectation : expectation);
+        }
+
+        if (paths.Any(p => IsSamePath(p, _currentPath)))   // the folder shown: its label under the tree
+            SetFolderMarks(new LibraryStore.Marks(
+                isRating ? rating : _folderMarks.Rating, isRating ? _folderMarks.Expectation : expectation));
+
+        var dispatcher = Application.Current.Dispatcher;
+        var list = paths.ToList();
+
+        // Saved in the background, one after the other; reading the folder waits for them (see UpdateReadState), or the
+        // window's re-reading when a dialog closes would bring back the old value before it was written.
+        lock (_markWritesLock)
+        {
+            _markWrites = _markWrites.ContinueWith(_ =>
+            {
+                bool saved = isRating ? LibraryStore.SetRating(list, rating) : LibraryStore.SetExpectation(list, expectation);
+                if (!saved)
+                    dispatcher.InvokeAsync(() =>
+                        StatusText = $"The {(isRating ? "rating" : "expectation")} could not be saved. The drive may be write-protected.");
+            }, TaskScheduler.Default);
+        }
+    }
+
+    // Which items were rated on the screen, and when (a counter): see UpdateReadState. Only the UI thread touches them.
+    private int _markEpoch;
+    private readonly Dictionary<string, int> _markChanged = new(StringComparer.OrdinalIgnoreCase);
+
+    private static Task _markWrites = Task.CompletedTask;
+    private static readonly object _markWritesLock = new();
+
+    private static void WaitForMarkWrites()
+    {
+        Task pending;
+        lock (_markWritesLock) pending = _markWrites;
+        try { pending.Wait(3000); } catch { }
     }
 
     private void ApplyReadState(FolderInfo info)

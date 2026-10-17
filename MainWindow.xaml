@@ -364,6 +364,20 @@
                                ToolTip="Read means every file in this folder and in all folders below it has been opened. Right-click a folder to mark it."/>
                 </Border>
 
+                <!-- Under the tree: the rating and expectation of the current folder (a click edits them, as in TeraTool) -->
+                <Border DockPanel.Dock="Bottom" Padding="10,6"
+                        Background="{DynamicResource PaneBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="12" Text="{Binding FolderRatingText}" Cursor="Hand"
+                                   ToolTip="Your rating of this folder, 1 to 10 (click to change it, Ctrl+R)"
+                                   MouseLeftButtonUp="FolderRating_Click"/>
+                        <TextBlock FontSize="12" Text="{Binding FolderExpectationText}" Cursor="Hand" Margin="18,0,0,0"
+                                   ToolTip="How good you expect this folder to be, 1 to 10 (click to change it, Ctrl+E)"
+                                   MouseLeftButtonUp="FolderExpectation_Click"/>
+                    </StackPanel>
+                </Border>
+
                 <TreeView x:Name="NavigationTree"
                           ItemsSource="{Binding TreeItems}"
                           BorderThickness="0,0,1,0"
@@ -400,6 +414,11 @@
                                       ToolTip="Remember that every file in this folder and in all folders below it has been opened"/>
                             <MenuItem Header="Mark as Unread"  Click="TreeCtxMarkUnread_Click"
                                       ToolTip="Forget that anything in this folder and in all folders below it has been opened"/>
+                            <Separator/>
+                            <MenuItem Header="Rating..."       Click="TreeCtxRating_Click"      InputGestureText="Ctrl+R"
+                                      ToolTip="Your rating of this folder, 1 to 10. Leave it empty to remove it."/>
+                            <MenuItem Header="Expectation..."  Click="TreeCtxExpectation_Click" InputGestureText="Ctrl+E"
+                                      ToolTip="How good you expect this folder to be, 1 to 10 (decimals allowed). Leave it empty to remove it."/>
                             <Separator/>
                             <MenuItem Header="Refresh"         Click="TreeCtxRefresh_Click"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click"/>
@@ -538,6 +557,13 @@
 
                         <GridViewColumn Header="Track Number" Width="110" x:Name="TrackColumn"
                                         DisplayMemberBinding="{Binding TrackText}"/>
+
+                        <!-- The user's own rating and expectation (1-10, Ctrl+R and Ctrl+E), as in TeraTool. Hidden until used. -->
+                        <GridViewColumn Header="Rating" Width="80" x:Name="RatingColumn"
+                                        DisplayMemberBinding="{Binding RatingText}"/>
+
+                        <GridViewColumn Header="Expectation" Width="100" x:Name="ExpectationColumn"
+                                        DisplayMemberBinding="{Binding ExpectationText}"/>
                     </GridView>
                 </ListView.View>
 
@@ -559,6 +585,11 @@
                                   ToolTip="Remember that the selected files have been opened"/>
                         <MenuItem Header="Mark as Unread" Click="CtxMarkUnread_Click"
                                   ToolTip="Forget that the selected files have been opened"/>
+                        <Separator/>
+                        <MenuItem Header="Rating..."      Click="CtxRating_Click"      InputGestureText="Ctrl+R"
+                                  ToolTip="Your rating of the selected items, 1 to 10. Leave it empty to remove it."/>
+                        <MenuItem Header="Expectation..." Click="CtxExpectation_Click" InputGestureText="Ctrl+E"
+                                  ToolTip="How good you expect the selected items to be, 1 to 10 (decimals allowed). Leave it empty to remove it."/>
                         <Separator/>
                         <MenuItem Header="Delete"     Click="CtxDelete_Click"    InputGestureText="Del"/>
                         <MenuItem Header="Rename"     Click="CtxRename_Click"    InputGestureText="F2"/>

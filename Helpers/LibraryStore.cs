@@ -18,6 +18,9 @@ public sealed record LibraryRoute(string DbFile, string Prefix, bool Relative, s
 /// what it knows.
 ///
 /// History:
+///   2026-10-17  Schema 3: table Rated (rating 1-10 and expectation 1-10, for files and folders, in a table of its own so
+///               that the File rows keep meaning "opened"). GetRatings / GetMark / SetRating / SetExpectation. An older copy
+///               of this file ignores the table and is not harmed by it.
 ///   2026-10-16  A damaged file is also found when a call fails (RepairAfter), not only by the check when it is opened.
 ///   2026-10-16  A damaged file is found (quick_check, once per file and run), moved aside as library.corrupt-<date>.db and
 ///               replaced (the main file by the newest good backup); event Repaired. BackUpMainFile: one backup a day,
@@ -31,7 +34,7 @@ public static class LibraryStore
 {
     public const string UsbFolderName = ".SweWolfFileExplorerData";
     public const string DbFileName = "library.db";
-    private const int SchemaVersion = 2;
+    private const int SchemaVersion = 3;
 
     /// <summary>One thing at a time on the database files (inside this app).</summary>
     public static readonly object Gate = new();
@@ -442,6 +445,13 @@ public static class LibraryStore
                     Position INTEGER,
                     Length   INTEGER,
                     PRIMARY KEY (Folder, Name)
+                ) WITHOUT ROWID;
+                CREATE TABLE IF NOT EXISTS Rated (
+                    Folder      TEXT NOT NULL COLLATE NOCASE,
+                    Name        TEXT NOT NULL COLLATE NOCASE,
+                    Rating      INTEGER,
+                    Expectation REAL,
+                    PRIMARY KEY (Folder, Name)
                 ) WITHOUT ROWID;";
             create.ExecuteNonQuery();
 
@@ -578,6 +588,139 @@ public static class LibraryStore
 
             if (written) FolderWritten?.Invoke(group.Key);
         }
+    }
+
+    // ── Rating and expectation ───────────────────────────────────────────────
+
+    /// <summary>A rating (whole number 1-10) and an expectation (1-10, decimals allowed), either or both, of a file or folder.</summary>
+    public readonly record struct Marks(int? Rating, double? Expectation);
+
+    // What a path is stored under in Rated: the key of the folder that holds it, and its name. A drive's root has no
+    // folder above it: it is stored with an empty folder and its own key as the name.
+    private static (string Folder, string Name) RatedKey(LibraryRoute route, string path)
+    {
+        var trimmed = path.TrimEnd('\\', '/');
+        var parent = Path.GetDirectoryName(trimmed);
+        return string.IsNullOrEmpty(parent)
+            ? ("", KeyOf(route, path))
+            : (KeyOf(route, parent), Path.GetFileName(trimmed));
+    }
+
+    /// <summary>The ratings and expectations of the items (files and folders) directly in a folder, by name.</summary>
+    public static Dictionary<string, Marks> GetRatings(string folderPath)
+    {
+        var result = new Dictionary<string, Marks>(StringComparer.OrdinalIgnoreCase);
+        lock (Gate)
+        {
+            try
+            {
+                var route = Resolve(folderPath, create: false);
+                if (route == null) return result;
+
+                using var connection = Open(route, create: false);
+                if (connection == null) return result;
+
+                using var command = Command(connection, "SELECT Name, Rating, Expectation FROM Rated WHERE Folder = $f",
+                    ("$f", KeyOf(route, folderPath)));
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                    result[reader.GetString(0)] = new Marks(
+                        reader.IsDBNull(1) ? null : (int)reader.GetInt64(1),
+                        reader.IsDBNull(2) ? null : reader.GetDouble(2));
+            }
+            catch (Exception ex)
+            {
+                RepairAfter(ex, folderPath);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>The rating and expectation of one file or folder (both null if it has none).</summary>
+    public static Marks GetMark(string path)
+    {
+        var trimmed = path.TrimEnd('\\', '/');
+        lock (Gate)
+        {
+            try
+            {
+                var route = Resolve(trimmed, create: false);
+                if (route == null) return default;
+
+                using var connection = Open(route, create: false);
+                if (connection == null) return default;
+
+                var (folder, name) = RatedKey(route, trimmed);
+                using var command = Command(connection, "SELECT Rating, Expectation FROM Rated WHERE Folder = $f AND Name = $n",
+                    ("$f", folder), ("$n", name));
+                using var reader = command.ExecuteReader();
+                if (!reader.Read()) return default;
+                return new Marks(reader.IsDBNull(0) ? null : (int)reader.GetInt64(0), reader.IsDBNull(1) ? null : reader.GetDouble(1));
+            }
+            catch (Exception ex)
+            {
+                RepairAfter(ex, trimmed);
+                return default;
+            }
+        }
+    }
+
+    /// <summary>Sets (or, with null, removes) the rating of files and folders. False if something could not be saved (a write-protected drive).</summary>
+    public static bool SetRating(IEnumerable<string> paths, int? rating) => SetMark(paths, "Rating", rating);
+
+    /// <summary>Sets (or, with null, removes) the expectation of files and folders. False if something could not be saved.</summary>
+    public static bool SetExpectation(IEnumerable<string> paths, double? expectation) => SetMark(paths, "Expectation", expectation);
+
+    private static bool SetMark(IEnumerable<string> paths, string column, object? value)
+    {
+        bool allSaved = true;
+
+        lock (Gate)
+        {
+            foreach (var path in paths.Select(p => p.TrimEnd('\\', '/')).Where(p => p.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    // Removing something never creates a file on a removable drive.
+                    var route = Resolve(path, create: value != null);
+                    if (route == null) continue;
+
+                    using var connection = Open(route, create: value != null);
+                    if (connection == null) { if (value != null) allSaved = false; continue; }
+
+                    var (folder, name) = RatedKey(route, path);
+                    using var transaction = connection.BeginTransaction();
+
+                    using (var set = value == null
+                        ? Command(connection, $"UPDATE Rated SET {column} = NULL WHERE Folder = $f AND Name = $n", ("$f", folder), ("$n", name))
+                        : Command(connection,
+                            $"INSERT INTO Rated (Folder, Name, {column}) VALUES ($f, $n, $v) ON CONFLICT(Folder, Name) DO UPDATE SET {column} = $v",
+                            ("$f", folder), ("$n", name), ("$v", value)))
+                    {
+                        set.Transaction = transaction;
+                        set.ExecuteNonQuery();
+                    }
+
+                    // A row with neither value is not kept.
+                    using (var tidy = Command(connection,
+                        "DELETE FROM Rated WHERE Folder = $f AND Name = $n AND Rating IS NULL AND Expectation IS NULL",
+                        ("$f", folder), ("$n", name)))
+                    {
+                        tidy.Transaction = transaction;
+                        tidy.ExecuteNonQuery();
+                    }
+
+                    transaction.Commit();
+                }
+                catch (Exception ex)
+                {
+                    allSaved = false;
+                    RepairAfter(ex, path);   // otherwise write-protected or busy
+                }
+            }
+        }
+
+        return allSaved;
     }
 
     // ── Resume positions ─────────────────────────────────────────────────────

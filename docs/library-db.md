@@ -1,4 +1,4 @@
-# Library database (schema version 2)
+# Library database (schema version 3)
 
 SweWolf File Explorer and SweWolf Media Player remember which files were opened ("read") and where a video stopped
 (resume position) in SQLite files. Both apps use the same files, and a separate tool (for example a TeraTool importer)
@@ -31,6 +31,16 @@ CREATE TABLE File (
     ReadAt TEXT,                            -- UTC, ISO 8601: when it was first read
     Position INTEGER,                       -- schema 2: where the user stopped, in milliseconds (NULL: nothing saved)
     Length   INTEGER,                       -- schema 2: the length of the video or song, in milliseconds
+    PRIMARY KEY (Folder, Name)
+) WITHOUT ROWID;
+
+-- schema 3: the user's own rating and expectation of a file or a folder (a table of its own, so that a File row keeps
+-- meaning "opened": marking a file unread must not remove its rating, and an older app knows nothing of this table)
+CREATE TABLE Rated (
+    Folder      TEXT NOT NULL COLLATE NOCASE,   -- the key of the folder that holds the item (a drive's root: the empty string)
+    Name        TEXT NOT NULL COLLATE NOCASE,   -- the name of the file or folder (a drive's root: its own key)
+    Rating      INTEGER,                        -- 1..10, whole number; NULL = none
+    Expectation REAL,                           -- 1..10, decimals allowed (how good the user expects it to be); NULL = none
     PRIMARY KEY (Folder, Name)
 ) WITHOUT ROWID;
 ```
@@ -70,4 +80,7 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 - Both apps may run at once: each opens the file only for a moment and waits up to 5 seconds when it is busy. The explorer
   reads the read marks when it lists a folder, so something the player marked shows after F5 or when the window is activated.
   A folder's stored state (`Folder` table) is only recalculated by the explorer, when the folder is listed.
-- Planned: the percent-watched column (position divided by length), rating, tag, cover choice, sort orders.
+- **Rating and expectation** (schema 3): set with Ctrl+R / Ctrl+E on files and folders (also inside packed files, which are keyed like
+  everything else). A row with neither value is deleted. Sorting treats no value as 0. A rename or move does not carry them yet
+  (same as the read marks).
+- Planned: the percent-watched column (position divided by length), tag, cover choice, sort orders.
