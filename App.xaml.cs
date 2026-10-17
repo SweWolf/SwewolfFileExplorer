@@ -11,6 +11,15 @@ public partial class App : Application
         var testDb = Environment.GetEnvironmentVariable("SWEWOLF_LIBRARY_TEST_DB");
         if (!string.IsNullOrEmpty(testDb)) LibraryService.MainDbFileOverride = testDb;
 
+        // A damaged library file is replaced by LibraryStore (the newest good backup, or a new file): say so.
+        LibraryStore.Repaired += (movedTo, whatNow) => Dispatcher.BeginInvoke(() =>
+            MessageBox.Show(
+                $"The file that remembers which files you have opened was damaged. It was moved to:\n{movedTo}\n\n{whatNow}",
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning));
+
+        // One backup of the main library file a day (the first start of the day), the last 7 are kept.
+        Task.Run(() => LibraryStore.BackUpMainFile());
+
         // Before the main window is created (StartupUri), so it opens in the right colors.
         ThemeService.Initialize();
         ThemeService.Apply(AppSettingsStore.Current.Style);

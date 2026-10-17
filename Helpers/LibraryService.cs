@@ -120,6 +120,20 @@ public static class LibraryService
 
     private static FolderInfo SyncCore(string folder, bool create)
     {
+        try
+        {
+            return SyncInner(folder, create);
+        }
+        catch (Exception ex)
+        {
+            // A damaged file is replaced (here, with its connection closed): the next look finds a working one.
+            if (!LibraryStore.RepairAfter(ex, folder)) throw;
+            return new FolderInfo(new HashSet<string>(StringComparer.OrdinalIgnoreCase), FolderState.None);
+        }
+    }
+
+    private static FolderInfo SyncInner(string folder, bool create)
+    {
         var empty = new FolderInfo(new HashSet<string>(StringComparer.OrdinalIgnoreCase), FolderState.None);
 
         var listing = Enumerate(folder);
@@ -219,6 +233,7 @@ public static class LibraryService
             var route = LibraryStore.Resolve(folder, create: true);
             if (route == null) return;
 
+            Exception? failure = null;
             using (var connection = LibraryStore.Open(route, create: true))
             {
                 if (connection == null) return;
@@ -274,7 +289,13 @@ public static class LibraryService
 
                     transaction.Commit();
                 }
-                catch { return; }   // write-protected
+                catch (Exception ex) { failure = ex; }   // write-protected, busy or damaged
+            }
+
+            if (failure != null)
+            {
+                LibraryStore.RepairAfter(failure, folder);
+                return;
             }
 
             // The rows above the folder follow (a parent's state may change); SyncCore also recomputes this folder.

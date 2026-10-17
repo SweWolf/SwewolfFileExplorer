@@ -52,6 +52,17 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 - To mark a whole tree as read from another tool, insert the `File` rows and set `Folder.OwnUnread = 0, Complete = 1`
   for every folder in it, then open the app (the parent folders are recalculated when they are next listed).
 
+## Damage and backups
+
+- **A damaged file** is found by SQLite's `quick_check` when an app opens it (once per file and run), or when a call fails with
+  "malformed" or "not a database". It is moved aside as `library.corrupt-<date>.db` in the same folder (nothing is deleted)
+  and replaced: the main file by the newest good backup, a USB file or a volume file by a new, empty one. The app shows a
+  message with the new name of the old file. To try to rescue data from it, open it in an SQLite tool (the `sqlite3` command
+  `.recover` can read much of a broken file).
+- **Backups of the main file:** the first start of an app each day makes `Backups\library-yyyyMMdd.db` next to
+  `library.db` (SQLite's backup, so it is consistent while another app writes). The last 7 are kept. The USB files are not
+  backed up: they travel with the drive. To restore by hand: close both apps and copy a backup over `library.db`.
+
 ## Notes
 
 - Journal mode is the default (rollback journal), not WAL, and the app never keeps a connection open: a removable drive
