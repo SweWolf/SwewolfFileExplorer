@@ -38,6 +38,12 @@ public static class PictureLoader
             byte[] bytes;
             using (var file = ArchiveSupport.OpenAnyFile(path))   // a file, or a picture inside an archive
             {
+                // A RAW photo (NEF): the biggest JPEG built into it, in a few milliseconds and with the camera's own look;
+                // only the bytes of that JPEG are read. Without one, the file is tried like any other (Windows may have a codec).
+                if (RawPreview.IsRaw(path) && RawPreview.Read(file) is { } raw)
+                    return LoadRaw(raw);
+
+                if (file.CanSeek) file.Position = 0;
                 bytes = new byte[file.Length];
                 file.ReadExactly(bytes);
             }
@@ -53,7 +59,7 @@ public static class PictureLoader
             }
 
             var frame = decoder.Frames[0];
-            BitmapSource image = ApplyOrientation(frame);
+            BitmapSource image = ApplyOrientation(frame, Query(frame.Metadata, "System.Photo.Orientation", 1));
             if (image.CanFreeze) image.Freeze();
             return new LoadedPicture(image);
         }
@@ -61,6 +67,23 @@ public static class PictureLoader
         {
             return null;   // not a picture, a damaged file, or one that was deleted meanwhile
         }
+    }
+
+    // ── RAW photo: the JPEG inside it ────────────────────────────────────────
+
+    private static LoadedPicture? LoadRaw(RawPreviewImage raw)
+    {
+        using var stream = new MemoryStream(raw.Jpeg);
+        var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        if (decoder.Frames.Count == 0) return null;
+
+        var frame = decoder.Frames[0];
+
+        // The camera's orientation is in the RAW file; the JPEG inside it usually says nothing (if it does, one of them is used, not both).
+        int orientation = raw.Orientation > 1 ? raw.Orientation : Query(frame.Metadata, "System.Photo.Orientation", 1);
+        BitmapSource image = ApplyOrientation(frame, orientation);
+        if (image.CanFreeze) image.Freeze();
+        return new LoadedPicture(image);
     }
 
     // ── Animated GIF ─────────────────────────────────────────────────────────
@@ -107,10 +130,8 @@ public static class PictureLoader
     // ── EXIF orientation ─────────────────────────────────────────────────────
 
     /// <summary>Turns a photo the right way up, as its camera said (EXIF orientation 1-8).</summary>
-    private static BitmapSource ApplyOrientation(BitmapFrame frame)
+    private static BitmapSource ApplyOrientation(BitmapFrame frame, int orientation)
     {
-        int orientation = Query(frame.Metadata, "System.Photo.Orientation", 1);
-
         var transform = new TransformGroup();
         switch (orientation)
         {

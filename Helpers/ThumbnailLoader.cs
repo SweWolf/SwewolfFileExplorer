@@ -11,7 +11,8 @@ public static class ThumbnailLoader
         ".jpg", ".jpeg", ".jpe", ".jfif", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp"
     };
 
-    public static bool IsImage(string path) => Extensions.Contains(Path.GetExtension(path));
+    /// <summary>A picture the viewer can show: the usual formats, and RAW photos (NEF) through the JPEG built into them.</summary>
+    public static bool IsImage(string path) => Extensions.Contains(Path.GetExtension(path)) || RawPreview.IsRaw(path);
 
     /// <summary>The same for a picture that is in memory (a cover embedded in a music file).</summary>
     public static BitmapSource? LoadBytes(byte[] data, int decodeWidth)
@@ -45,6 +46,11 @@ public static class ThumbnailLoader
         try
         {
             using var stream = ArchiveSupport.OpenAnyFile(path);   // a file, or a picture inside an archive
+
+            // A RAW photo: the small preview comes from the JPEG built into it (fast; no RAW decoder needed).
+            if (RawPreview.IsRaw(path) && RawPreview.Read(stream) is { } raw && LoadBytes(raw.Jpeg, decodeWidth) is { } fromRaw)
+                return fromRaw;
+            if (stream.CanSeek) stream.Position = 0;
 
             var bitmap = new BitmapImage();
             bitmap.BeginInit();
