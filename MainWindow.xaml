@@ -372,10 +372,21 @@
                         <Style TargetType="Border">
                             <Setter Property="Height" Value="233"/>
                             <Style.Triggers>
-                                <!-- No rating row: its space goes to the picture. -->
-                                <DataTrigger Binding="{Binding HasFolderMarks}" Value="False">
+                                <!-- No rating row and no tags row: their space goes to the picture. With both rows it gives way to the tags row. -->
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding HasFolderMarks}" Value="False"/>
+                                        <Condition Binding="{Binding HasFolderTags}" Value="False"/>
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Height" Value="265"/>
-                                </DataTrigger>
+                                </MultiDataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding HasFolderMarks}" Value="True"/>
+                                        <Condition Binding="{Binding HasFolderTags}" Value="True"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Height" Value="201"/>
+                                </MultiDataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
@@ -383,6 +394,15 @@
                            HorizontalAlignment="Center" Cursor="Hand"
                            RenderOptions.BitmapScalingMode="HighQuality"
                            MouseLeftButtonDown="FolderPicture_MouseLeftButtonDown"/>
+                </Border>
+
+                <!-- Under the tree: the tags of the current folder, read from its desktop.ini (read only), only when it has some -->
+                <Border DockPanel.Dock="Bottom" Padding="10,6"
+                        Background="{DynamicResource PaneBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
+                        Visibility="{Binding HasFolderTags, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock FontSize="12" Text="{Binding FolderTagsText}" TextWrapping="Wrap"
+                               ToolTip="The tags of this folder, from its desktop.ini (the Windows Tags property). They can only be read here."/>
                 </Border>
 
                 <!-- Under the tree: the rating and expectation of the current folder, only when it has one (a click edits them, as in TeraTool; Ctrl+R / Ctrl+E set them) -->

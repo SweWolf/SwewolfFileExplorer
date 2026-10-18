@@ -374,6 +374,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TreeSortDirectionIndex));
         LoadItems(path);
         UpdateFolderPicture(path);
+        UpdateFolderTags(path);
         UpdateNavState();
         SelectInTree(path);
     }
@@ -394,6 +395,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(FolderPicture));
             OnPropertyChanged(nameof(HasFolderPicture));
         }
+        _folderTagsCts?.Cancel();
+        SetFolderTags("");
 
         CurrentItems.Clear();
         _hiddenCount = 0;
@@ -769,6 +772,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         ArchiveSupport.Invalidate(_currentPath);   // an archive is read again, in case the file changed
         LoadItems(_currentPath);
         UpdateFolderPicture(_currentPath);
+        UpdateFolderTags(_currentPath);
 
         // Folders may have come or gone: the tree is the only place they show when the list hides them.
         var node = ResolveNode(_currentPath);
@@ -979,6 +983,45 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 _folderCover = cover;
                 OnPropertyChanged(nameof(FolderPicture));
                 OnPropertyChanged(nameof(HasFolderPicture));
+            });
+        });
+    }
+
+    // ── Tags of the folder (read from its desktop.ini; read only) ────────────
+
+    private string _folderTags = "";
+    private CancellationTokenSource? _folderTagsCts;
+
+    /// <summary>"Tags: ..." for the current folder, from its desktop.ini (where Windows and TeraTool keep them); empty if it has none.</summary>
+    public string FolderTagsText => _folderTags.Length == 0 ? "" : "Tags: " + _folderTags;
+    public bool HasFolderTags => _folderTags.Length > 0;
+
+    private void SetFolderTags(string tags)
+    {
+        if (_folderTags == tags) return;
+        _folderTags = tags;
+        OnPropertyChanged(nameof(FolderTagsText));
+        OnPropertyChanged(nameof(HasFolderTags));
+    }
+
+    /// <summary>Reads the tags of the folder in the background (a desktop.ini on a slow drive must not hold up the list); the old ones go at once.</summary>
+    private void UpdateFolderTags(string path)
+    {
+        _folderTagsCts?.Cancel();
+        var cts = _folderTagsCts = new CancellationTokenSource();
+        var token = cts.Token;
+
+        SetFolderTags("");
+
+        var dispatcher = Application.Current.Dispatcher;
+        _ = Task.Run(() =>
+        {
+            var tags = FolderTagReader.Read(path);
+            if (tags == null || token.IsCancellationRequested) return;
+
+            dispatcher.InvokeAsync(() =>
+            {
+                if (!token.IsCancellationRequested) SetFolderTags(tags);   // another folder was opened meanwhile: ignored
             });
         });
     }
