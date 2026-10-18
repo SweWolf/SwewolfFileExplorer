@@ -31,7 +31,8 @@ public class MainViewModel : INotifyPropertyChanged
 
         _activeTab = AddTab(null);   // starts on This PC
 
-        NewTabCommand      = new RelayCommand(_ => OpenNewTab(ActiveTab.CurrentPath, activate: true));
+        // A new tab starts on the default node, This PC (a setting for that may come later), not in the folder of the active tab.
+        NewTabCommand      = new RelayCommand(_ => OpenNewTab("", activate: true));
         CloseTabCommand    = new RelayCommand(p => CloseTab(p as FolderTabViewModel ?? ActiveTab));
         NextTabCommand     = new RelayCommand(_ => SwitchTab(+1), _ => Tabs.Count > 1);
         PreviousTabCommand = new RelayCommand(_ => SwitchTab(-1), _ => Tabs.Count > 1);
