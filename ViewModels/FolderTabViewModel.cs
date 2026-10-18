@@ -1158,11 +1158,18 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (MediaPlayerLauncher.IsMedia(item.Name))
         {
             var result = MediaPlayerLauncher.Open(path, item.IsInArchive ? item.FullPath : null);
-            if (result != LaunchResult.UseDefaultProgram) return;
+            if (result != LaunchResult.UseDefaultProgram)
+            {
+                if (result == LaunchResult.Started) LibraryService.SetLastOpened(item.FullPath);   // opened (not canceled)
+                return;
+            }
         }
 
         if (OpenFile(path))
+        {
             MarkRead(new[] { item }, read: true);
+            LibraryService.SetLastOpened(item.FullPath);   // "Jump to Last Opened File" finds it
+        }
     }
 
     /// <summary>The window was activated: something may have been marked in another program (the media player).</summary>
@@ -1366,6 +1373,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var item = CurrentItems.FirstOrDefault(i => string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase));
         if (item != null) MarkRead(new[] { item }, read: true);
         else LibraryService.SetRead(new[] { path }, true);
+
+        LibraryService.SetLastOpened(path);   // the picture shown last in the viewer is the last opened file of its folder
     }
 
     /// <summary>Mark as Read / Unread on a folder: everything below it. Slow for big trees, so done in the background.</summary>

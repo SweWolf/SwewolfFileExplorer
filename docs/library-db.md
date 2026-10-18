@@ -1,4 +1,4 @@
-# Library database (schema version 5)
+# Library database (schema version 6)
 
 SweWolf File Explorer and SweWolf Media Player remember which files were opened ("read") and where a video stopped
 (resume position) in SQLite files. Both apps use the same files, and a separate tool (for example a TeraTool importer)
@@ -51,6 +51,12 @@ CREATE TABLE FolderPrefs (
     SortAscending     INTEGER,    -- 1 ascending, 0 descending
     TreeSortColumn    TEXT,       -- how the subfolders of the folder are sorted in the tree (Name, DateCreated, DateModified)
     TreeSortAscending INTEGER
+) WITHOUT ROWID;
+
+-- schema 6: the file opened last in a folder (one row per folder; "Jump to Last Opened File")
+CREATE TABLE LastOpened (
+    Path TEXT NOT NULL COLLATE NOCASE PRIMARY KEY,   -- the key of the folder (like Folder.Path)
+    Name TEXT NOT NULL                               -- the name of the file in it
 ) WITHOUT ROWID;
 
 -- schema 5: the preview picture the user chose for a video or music file (only where they chose something)
@@ -107,6 +113,8 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
   along with the read marks.
 - **Sort order** (schema 4): saved when the user clicks a column header in the list or chooses the Sort By order of the tree;
   read the first time a folder is shown in a run. `Forget` and `Move` carry the `FolderPrefs` rows with the folder.
+- **Last opened file** (schema 6): written when the explorer opens a file (or shows a picture in its viewer); not by Mark as Read. A
+  renamed or moved file takes its row with it, a deleted file or folder removes it (`Forget` and `Move`).
 - **Preview picture** (schema 5): chosen with the right-click menu of the preview square under the list (Choose Preview Picture...,
   No Preview Picture, Use Automatic Preview Picture, which deletes the row). A picture that no longer exists counts as not chosen.
   `Forget` and `Move` carry the rows; a file moved to another folder gets its picture path written again from the new place.

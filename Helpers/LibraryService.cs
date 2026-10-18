@@ -47,6 +47,9 @@ public static class LibraryService
     /// <summary>Remembers that these files were opened (or not), in the background. See <see cref="LibraryStore.SetRead"/>.</summary>
     public static void SetRead(IEnumerable<string> paths, bool read) => LibraryStore.SetRead(paths, read);
 
+    /// <summary>Remembers, in the background, that this file was the last one opened in its folder (Jump to Last Opened File).</summary>
+    public static void SetLastOpened(string filePath) => Queue(() => LibraryStore.SetLastOpened(filePath));
+
     /// <summary>Waits until everything queued is written: call when the app closes.</summary>
     public static void Flush(int timeoutMilliseconds = 3000)
     {

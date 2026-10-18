@@ -1795,6 +1795,45 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── Jump to Last Opened File (as in TeraTool's folder menu) ──────────────
+
+    private void TreeCtxJumpLast_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) JumpToLastOpened(_treeMenuNode.FullPath);
+    }
+
+    private void CtxJumpLast_Click(object sender, RoutedEventArgs e) => JumpToLastOpened(VM.CurrentPath);
+
+    /// <summary>
+    /// Goes to the folder (if it is not the one shown) and selects the file that was opened last in it: a file opened in this
+    /// program (Enter, double-click, the picture viewer, the media player started from here). Says in the title bar when
+    /// there is none, or when it is gone or hidden.
+    /// </summary>
+    private void JumpToLastOpened(string folder)
+    {
+        LibraryService.WaitForQueued(1000);   // a file opened a moment ago is written first
+        var name = string.IsNullOrEmpty(folder) ? null : LibraryStore.GetLastOpened(folder);
+        if (name == null)
+        {
+            FlashTitle($"{BaseTitle} - No file has been opened in this folder yet");
+            return;
+        }
+
+        if (!string.Equals(SharedState.Key(folder), SharedState.Key(VM.CurrentPath), StringComparison.OrdinalIgnoreCase))
+            VM.Navigate(folder);
+
+        var item = VM.CurrentItems.FirstOrDefault(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (item == null)
+        {
+            FlashTitle($"{BaseTitle} - \"{name}\" is not in this folder any more, or it is hidden");
+            return;
+        }
+
+        FileListView.SelectedItem = item;
+        FileListView.ScrollIntoView(item);
+        FileListView.Focus();
+    }
+
     private void TreeCtxOpen_Click(object sender, RoutedEventArgs e)
     {
         if (_treeMenuNode != null) VM.Navigate(_treeMenuNode.FullPath);
