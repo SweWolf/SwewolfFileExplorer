@@ -237,6 +237,27 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         InitializeTree();
         if (startPath != null) Navigate(startPath);
+        else ShowThisPc();
+    }
+
+    /// <summary>
+    /// The start of the program and of a new tab with no folder: This PC is selected, its drives are not expanded and the
+    /// list is empty. (Quick Access above it shows its places, as it always does.)
+    /// </summary>
+    public void ShowThisPc()
+    {
+        ShowNoFolder();
+        _unavailable = false;
+        FolderPath  = "";
+        CurrentPath = "";
+        Title       = "This PC";
+
+        if (_thisPcNode != null && !_thisPcNode.IsSelected)
+        {
+            _programmaticSelection = _thisPcNode;
+            _thisPcNode.IsSelected = true;
+        }
+        UpdateNavState();
     }
 
     /// <summary>Re-evaluates every command's CanExecute, e.g. when this tab becomes the active one.</summary>
@@ -551,7 +572,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     public void Restore(TabState state)
     {
-        if (IsAvailable(state.Path))
+        if (string.IsNullOrWhiteSpace(state.Path))
+        {
+            ShowThisPc();   // a tab saved while it showed This PC
+        }
+        else if (IsAvailable(state.Path))
         {
             Navigate(state.Path, addToHistory: false);
         }

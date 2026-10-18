@@ -29,7 +29,7 @@ public class MainViewModel : INotifyPropertyChanged
         Session = new SessionRecorder(this);
         Tabs.CollectionChanged += (_, _) => Session.TouchStructure();
 
-        _activeTab = AddTab(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        _activeTab = AddTab(null);   // starts on This PC
 
         NewTabCommand      = new RelayCommand(_ => OpenNewTab(ActiveTab.CurrentPath, activate: true));
         CloseTabCommand    = new RelayCommand(p => CloseTab(p as FolderTabViewModel ?? ActiveTab));
@@ -108,9 +108,7 @@ public class MainViewModel : INotifyPropertyChanged
     /// <summary>Opens <paramref name="path"/> in a new tab, next to the active one.</summary>
     public void OpenNewTab(string path, bool activate)
     {
-        if (string.IsNullOrWhiteSpace(path)) return;
-
-        var tab = AddTab(path);
+        var tab = AddTab(string.IsNullOrWhiteSpace(path) ? null : path);   // no folder: a tab on This PC
         Tabs.Move(Tabs.IndexOf(tab), Tabs.IndexOf(_activeTab) + 1);
         if (activate) ActiveTab = tab;
 
