@@ -907,6 +907,7 @@ public partial class MainWindow : Window
         if (item == null || item.IsDirectory)
         {
             ThumbnailImage.Source = null;
+            ShowPreviewFrame(false);
             return;
         }
 
@@ -919,6 +920,7 @@ public partial class MainWindow : Window
             if (version != _thumbnailVersion) return;   // another item was selected meanwhile
 
             ThumbnailImage.Source = bitmap;
+            ShowPreviewFrame(false);
             if (bitmap != null) _previewItem = item;
             return;
         }
@@ -935,11 +937,21 @@ public partial class MainWindow : Window
             if (version != _thumbnailVersion) return;
 
             ThumbnailImage.Source = found?.Image;
+            ShowPreviewFrame(found == null);   // no picture: a frame and a hint, so the user sees where to right-click
             if (found != null) { _previewItem = item; _previewSource = found; }
             return;
         }
 
         ThumbnailImage.Source = null;
+        ShowPreviewFrame(false);
+    }
+
+    /// <summary>A thin frame with the text "No Preview Picture" in the empty preview of a video or music file.</summary>
+    private void ShowPreviewFrame(bool show)
+    {
+        PreviewBox.BorderThickness = new Thickness(show ? 1 : 0);
+        PreviewBox.SetResourceReference(Border.BorderBrushProperty, "LineBrush");
+        PreviewEmptyText.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ── The right-click menu of the preview square ───────────────────────────
@@ -960,6 +972,138 @@ public partial class MainWindow : Window
         PreviewChooseItem.Visibility = Visibility.Visible;
         PreviewNoneItem.Visibility   = choice is { None: true } ? Visibility.Collapsed : Visibility.Visible;
         PreviewAutoItem.Visibility   = choice != null ? Visibility.Visible : Visibility.Collapsed;
+
+        // Save As only when there is a picture to save.
+        var save = _previewSource != null ? Visibility.Visible : Visibility.Collapsed;
+        PreviewSaveItem.Visibility      = save;
+        PreviewSaveSeparator.Visibility = save;
+    }
+
+    /// <summary>
+    /// Save Preview Picture As...: the picture shown can be saved as a file. The suggestion is the same folder and name when the
+    /// picture already is a file (a poster beside the video, or the one the user chose); otherwise (a picture inside the file, or a
+    /// frame of the video) it is <c>&lt;video name&gt;-poster.png</c> (.jpg for a JPEG cover) in the folder of the video, which is
+    /// what the preview picture finder looks for. A frame is made again at full size, not saved at the size of the preview.
+    /// </summary>
+    private async void PreviewSave_Click(object sender, RoutedEventArgs e)
+    {
+        if (PreviewMenuTarget() is not { } item || _previewSource is not { } source) return;
+
+        string videoPath = item.FullPath;
+        string folder, name;
+        if (source.File != null)
+        {
+            folder = System.IO.Path.GetDirectoryName(source.File)!;
+            name   = System.IO.Path.GetFileName(source.File);
+        }
+        else
+        {
+            bool jpeg = source.Bytes is { Length: > 2 } b && b[0] == 0xFF && b[1] == 0xD8;
+            folder = System.IO.Path.GetDirectoryName(videoPath)!;
+            name   = System.IO.Path.GetFileNameWithoutExtension(videoPath) + "-poster" + (jpeg ? ".jpg" : ".png");
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title            = "Save Preview Picture As",
+            InitialDirectory = folder,
+            FileName         = name,
+            Filter           = "Pictures|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff|All Files|*.*",
+            DefaultExt       = System.IO.Path.GetExtension(name),
+            OverwritePrompt  = true,
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        var target = dialog.FileName;
+        Mouse.OverrideCursor = Cursors.Wait;
+        try
+        {
+            await Task.Run(() => WritePreviewPicture(source, videoPath, target));
+
+            // The folder shown may be the one saved into, and a new poster file may now be what the preview shows.
+            if (IsSameFolder(System.IO.Path.GetDirectoryName(target), VM.CurrentPath))
+            {
+                var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
+                VM.RefreshCommand.Execute(null);
+                ReselectInList(selected);   // the selection stays, and the preview is made again by it
+            }
+            ShowThumbnail(item);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Cannot save the picture: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+        }
+    }
+
+    private static bool IsSameFolder(string? a, string? b) =>
+        a != null && b != null &&
+        string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+
+    // Writes the picture in the format of the file name; the original bytes when the format is the same, otherwise it is
+    // decoded and encoded again. A frame of the video is made again at full size.
+    private static void WritePreviewPicture(PreviewPicture source, string videoPath, string target)
+    {
+        string targetExt = System.IO.Path.GetExtension(target).ToLowerInvariant();
+
+        if (source.File != null)
+        {
+            if (SameFormat(System.IO.Path.GetExtension(source.File), targetExt))
+            {
+                if (!string.Equals(System.IO.Path.GetFullPath(source.File), System.IO.Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
+                    System.IO.File.Copy(source.File, target, overwrite: true);
+                return;
+            }
+            WriteBitmap(DecodeFull(System.IO.File.ReadAllBytes(source.File)), target, targetExt);
+            return;
+        }
+
+        if (source.Bytes is { } bytes)
+        {
+            bool jpeg = bytes.Length > 2 && bytes[0] == 0xFF && bytes[1] == 0xD8;
+            if (SameFormat(jpeg ? ".jpg" : ".png", targetExt)) System.IO.File.WriteAllBytes(target, bytes);
+            else WriteBitmap(DecodeFull(bytes), target, targetExt);
+            return;
+        }
+
+        // A frame: Windows' thumbnail at a large size, else ffmpeg's frame at the size of the video (as the preview was found).
+        var frame = ShellThumbnail.Get(videoPath, 1920)
+                    ?? (FfmpegFrame.Get(videoPath, 0) is { } jpegBytes ? DecodeFull(jpegBytes) : null)
+                    ?? throw new InvalidOperationException("the frame of the video could not be made again");
+        WriteBitmap(frame, target, targetExt);
+    }
+
+    private static bool SameFormat(string a, string b)
+    {
+        static string Norm(string e) => e.ToLowerInvariant() switch { ".jpeg" or ".jpe" or ".jfif" => ".jpg", ".tiff" => ".tif", var x => x };
+        return Norm(a) == Norm(b);
+    }
+
+    private static System.Windows.Media.Imaging.BitmapSource DecodeFull(byte[] bytes)
+    {
+        using var stream = new System.IO.MemoryStream(bytes);
+        var frame = System.Windows.Media.Imaging.BitmapDecoder.Create(stream, System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat,
+            System.Windows.Media.Imaging.BitmapCacheOption.OnLoad).Frames[0];
+        frame.Freeze();
+        return frame;
+    }
+
+    private static void WriteBitmap(System.Windows.Media.Imaging.BitmapSource bitmap, string target, string ext)
+    {
+        System.Windows.Media.Imaging.BitmapEncoder encoder = ext switch
+        {
+            ".jpg" or ".jpeg" or ".jpe" or ".jfif" => new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 92 },
+            ".bmp"                                  => new System.Windows.Media.Imaging.BmpBitmapEncoder(),
+            ".gif"                                  => new System.Windows.Media.Imaging.GifBitmapEncoder(),
+            ".tif" or ".tiff"                       => new System.Windows.Media.Imaging.TiffBitmapEncoder(),
+            _                                       => new System.Windows.Media.Imaging.PngBitmapEncoder(),
+        };
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        using var file = System.IO.File.Create(target);
+        encoder.Save(file);
     }
 
     private void SetPreviewChoice(FileItemViewModel item, LibraryStore.PreviewChoice? choice)

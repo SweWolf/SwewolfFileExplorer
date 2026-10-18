@@ -65,7 +65,11 @@ public static class FfmpegFrame
         return Path.Combine(CacheFolder, hash + ".jpg");
     }
 
-    /// <summary>The JPEG of a frame of the video, about <paramref name="width"/> pixels wide; null if there is no ffmpeg or it gave nothing.</summary>
+    /// <summary>
+    /// The JPEG of a frame of the video, about <paramref name="width"/> pixels wide; null if there is no ffmpeg or it gave nothing.
+    /// With <paramref name="width"/> 0 the frame has the size of the video, and the cache is neither read nor written (it holds
+    /// the small preview frames): that is what Save Preview Picture As uses.
+    /// </summary>
     public static byte[]? Get(string path, int width)
     {
         try
@@ -74,7 +78,7 @@ public static class FfmpegFrame
             if (ffmpeg == null || !File.Exists(path)) return null;
 
             var cache = CacheFile(path);
-            if (File.Exists(cache))
+            if (width > 0 && File.Exists(cache))
             {
                 var cached = File.ReadAllBytes(cache);
                 if (cached.Length > 0) return cached;
@@ -93,7 +97,7 @@ public static class FfmpegFrame
                 Limit.Release();
             }
 
-            if (jpeg != null) SaveToCache(cache, jpeg);
+            if (jpeg != null && width > 0) SaveToCache(cache, jpeg);
             return jpeg;
         }
         catch
@@ -122,9 +126,9 @@ public static class FfmpegFrame
             "-ss", seconds.ToString("0.###", CultureInfo.InvariantCulture),   // before -i: jumps instead of decoding up to there
             "-i", path,
             "-frames:v", "1",
-            "-vf", $"scale={width}:-2",
-            "-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "3", "pipe:1",
         };
+        if (width > 0) { args.Add("-vf"); args.Add($"scale={width}:-2"); }
+        args.AddRange(new[] { "-f", "image2pipe", "-c:v", "mjpeg", "-q:v", width > 0 ? "3" : "1", "pipe:1" });
         var bytes = Run(ffmpeg, args, captureError: false, out _);
         return bytes is { Length: > 100 } ? bytes : null;
     }
