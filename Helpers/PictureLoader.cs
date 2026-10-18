@@ -48,6 +48,13 @@ public static class PictureLoader
                 file.ReadExactly(bytes);
             }
 
+            // JPEG XL: through ImageMagick if it is there, which also turns an HDR picture into a normal one (the codec of Windows
+            // shows such a picture burnt out). The picture comes out turned the right way up. Without ImageMagick, or if it cannot
+            // read the file, the codec of Windows (Microsoft's JPEG XL Image Extension) is tried below like for any other format.
+            if (JxlSupport.IsJxl(path) && JxlSupport.FindMagick() != null
+                && JxlSupport.ToBitmap(bytes) is { } jxlPicture)
+                return new LoadedPicture(jxlPicture);
+
             using var stream = new MemoryStream(bytes);
             var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
             if (decoder.Frames.Count == 0) return null;

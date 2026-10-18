@@ -116,7 +116,10 @@ public partial class PictureViewerWindow : Window
         if (loaded == null)
         {
             Picture.Source = null;
-            ShowOverlay($"Cannot show {Path.GetFileName(path)}");
+            // A JPEG XL picture with nothing to read it: say what is needed, not just that it failed.
+            ShowOverlay(JxlSupport.IsJxl(path) && JxlSupport.FindMagick() == null
+                ? $"Cannot show {Path.GetFileName(path)}: {JxlSupport.MissingHint}"
+                : $"Cannot show {Path.GetFileName(path)}");
         }
         else
         {
