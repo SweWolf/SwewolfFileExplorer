@@ -97,7 +97,19 @@ public class TreeItemViewModel : INotifyPropertyChanged
         {
             if (_inArchive) return ArchiveSupport.HasSubfolders(FullPath);
 
-            return VisibleFolders().Any() || VisibleArchiveFiles().Any();
+            // One listing of the folder, stopping at the first folder or packed file that is shown. (Asking the disk for the
+            // folders and then once for each kind of packed file was six listings per folder: on a cloud drive with 70
+            // folders that was 4 seconds when a tab was opened.)
+            bool showHidden = ShowHidden;
+            foreach (var entry in new DirectoryInfo(FullPath).EnumerateFileSystemInfos())
+            {
+                bool hidden = (entry.Attributes & HiddenAttributes) != 0;
+                if (hidden && !showHidden) continue;
+
+                bool isFolder = (entry.Attributes & FileAttributes.Directory) != 0;
+                if (isFolder || ArchiveSupport.IsArchiveName(entry.Name)) return true;
+            }
+            return false;
         }
         catch { return false; }
     }
@@ -108,12 +120,33 @@ public class TreeItemViewModel : INotifyPropertyChanged
         catch { return false; }
     }
 
-    /// <summary>The subfolders to list: not the hidden and system ones, unless they are asked for.</summary>
-    private IEnumerable<string> VisibleFolders() =>
-        Directory.EnumerateDirectories(FullPath).Where(d => ShowHidden || !IsHiddenPath(d));
+    /// <summary>
+    /// The subfolders and the packed files of this folder to list (not the hidden and system ones, unless they are asked for),
+    /// and which of those are hidden: all from ONE listing of the folder, whose entries carry their attributes. (Asking the
+    /// disk about each folder separately, and listing the folder once more for each kind of packed file, took 4 seconds for
+    /// the 72 folders of a cloud drive.)
+    /// </summary>
+    private (List<string> Folders, List<string> Archives, HashSet<string> Hidden) ListChildren()
+    {
+        bool showHidden = ShowHidden;
+        var folders  = new List<string>();
+        var archives = new List<string>();
+        var hidden   = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-    private IEnumerable<string> VisibleArchiveFiles() =>
-        EnumerateArchiveFiles(FullPath).Where(f => ShowHidden || !IsHiddenPath(f));
+        foreach (var entry in new DirectoryInfo(FullPath).EnumerateFileSystemInfos())
+        {
+            bool isFolder = (entry.Attributes & FileAttributes.Directory) != 0;
+            if (!isFolder && !ArchiveSupport.IsArchiveName(entry.Name)) continue;   // "*.zip" also finds ".zipx": the name decides
+
+            bool isHidden = (entry.Attributes & HiddenAttributes) != 0;
+            if (isHidden && !showHidden) continue;
+
+            (isFolder ? folders : archives).Add(entry.FullName);
+            if (isHidden) hidden.Add(entry.FullName);
+        }
+
+        return (folders, archives, hidden);
+    }
 
     /// <summary>How many hidden and system subfolders (and packed files) the real folder <paramref name="folder"/> has.</summary>
     public static int CountHiddenIn(string folder)
@@ -121,19 +154,21 @@ public class TreeItemViewModel : INotifyPropertyChanged
         try
         {
             if (!Directory.Exists(folder)) return 0;
-            return Directory.EnumerateDirectories(folder).Count(IsHiddenPath)
-                 + EnumerateArchiveFiles(folder).Count(IsHiddenPath);
+
+            int count = 0;
+            foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos())   // one listing, attributes included
+            {
+                bool isFolder = (entry.Attributes & FileAttributes.Directory) != 0;
+                if ((isFolder || ArchiveSupport.IsArchiveName(entry.Name)) && (entry.Attributes & HiddenAttributes) != 0)
+                    count++;
+            }
+            return count;
         }
         catch { return 0; }
     }
 
     /// <summary>True if <paramref name="path"/> is a real folder with the Hidden or System attribute.</summary>
     public static bool IsHiddenFolder(string path) => Directory.Exists(path) && IsHiddenPath(path);
-
-    /// <summary>The packed files of a folder. The patterns are applied by the file system, which is much faster than looking at every file.</summary>
-    private static IEnumerable<string> EnumerateArchiveFiles(string folder) =>
-        ArchiveSupport.FilePatterns.SelectMany(pattern => Directory.EnumerateFiles(folder, pattern))
-            .Where(f => ArchiveSupport.IsArchiveName(f));   // "*.zip" also finds ".zipx"
 
     /// <summary>Reads the subfolders again (a folder was created, renamed or deleted).</summary>
     public void Refresh()
@@ -180,8 +215,9 @@ public class TreeItemViewModel : INotifyPropertyChanged
     private List<TreeItemViewModel> BuildFolderChildren(Dictionary<string, TreeItemViewModel>? reuse = null)
     {
         var nodes = new List<TreeItemViewModel>();
+        var (folders, archives, hidden) = ListChildren();
 
-        foreach (var dir in SortFolders(VisibleFolders().ToList()))
+        foreach (var dir in SortFolders(folders))
         {
             try
             {
@@ -193,14 +229,14 @@ public class TreeItemViewModel : INotifyPropertyChanged
                     IconHelper.GetIcon(dir),
                     sortOf: _sortOf,
                     showHiddenOf: _showHiddenOf,
-                    isHidden: IsHiddenPath(dir));
+                    isHidden: hidden.Contains(dir));
                 item.InitializeLazyLoad();
                 nodes.Add(item);
             }
             catch { /* skip inaccessible */ }
         }
 
-        foreach (var file in SortFolders(VisibleArchiveFiles().ToList()))
+        foreach (var file in SortFolders(archives))
         {
             try
             {
@@ -213,7 +249,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
                     sortOf: _sortOf,
                     isArchive: true,
                     showHiddenOf: _showHiddenOf,
-                    isHidden: IsHiddenPath(file));
+                    isHidden: hidden.Contains(file));
                 item.InitializeLazyLoad();
                 nodes.Add(item);
             }

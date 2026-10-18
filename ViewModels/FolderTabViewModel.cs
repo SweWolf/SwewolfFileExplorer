@@ -1047,7 +1047,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                         IsHidden     = hidden,
                         DateModified = file.LastWriteTime,
                         DateCreated  = file.CreationTime,
-                        TypeName     = IconHelper.GetFileType(file.FullName),
+                        TypeName     = IconHelper.GetTypeNameForName(file.Name),   // from the extension, kept per extension: no disk access per file (Google Drive took 6 ms each)
                         Size         = file.Length
                     };
                     CurrentItems.Add(vm);

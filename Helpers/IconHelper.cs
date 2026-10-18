@@ -63,6 +63,42 @@ public static class IconHelper
         }
     }
 
+    // Does a file of this kind have an icon of its own, inside the file (an exe, an icon, a shortcut)? Then the icon has to be
+    // read from the file. All other files show the icon of their type, which does not touch the disk at all: Explorer does
+    // the same. (Reading 618 icons from a folder on a cloud drive, all at once, held up everything else on that drive for
+    // seconds.) Decided from the registry once per extension: the icon of the type is "%1" (the file itself).
+    private static readonly Dictionary<string, bool> OwnIcons = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> AlwaysOwnIcon = new(StringComparer.OrdinalIgnoreCase)
+        { ".exe", ".ico", ".cur", ".ani", ".lnk", ".url", ".scr", ".icl", ".cpl", ".msc" };
+
+    public static bool HasOwnIcon(string fileName)
+    {
+        string ext = Path.GetExtension(fileName);
+        if (ext.Length == 0) return false;
+        if (AlwaysOwnIcon.Contains(ext)) return true;
+
+        lock (OwnIcons)
+        {
+            if (OwnIcons.TryGetValue(ext, out var known)) return known;
+        }
+
+        bool own = false;
+        try
+        {
+            using var extKey = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(ext);
+            if (extKey?.GetValue(null) is string progId && progId.Length > 0)
+            {
+                using var iconKey = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(progId + @"\DefaultIcon");
+                var value = (iconKey?.GetValue(null) as string)?.Trim().Trim('"');
+                own = value != null && (value == "%1" || value == "%L");
+            }
+        }
+        catch { /* unknown: the type's icon is used */ }
+
+        lock (OwnIcons) OwnIcons[ext] = own;
+        return own;
+    }
+
     // Icons and type names of things that are not on the disk (the content of an archive): found from the name alone,
     // and kept per extension, so a zip with thousands of files asks the shell a few times and not thousands.
     private static readonly Dictionary<string, ImageSource?> NameIcons = new(StringComparer.OrdinalIgnoreCase);
@@ -70,6 +106,30 @@ public static class IconHelper
 
     private static string NameKey(string name, bool isDirectory) =>
         isDirectory ? "<folder>" : Path.GetExtension(name);
+
+    /// <summary>The icon of this kind of file if it has been looked up already (instant); false if it has not.</summary>
+    public static bool TryGetCachedIconForName(string name, bool isDirectory, out ImageSource? icon)
+    {
+        lock (NameIcons) return NameIcons.TryGetValue(NameKey(name, isDirectory), out icon);
+    }
+
+    private static readonly Dictionary<string, Task<ImageSource?>> NameIconTasks = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The icon of this kind of file, looked up in the background. One lookup per kind (extension) however many files ask:
+    /// the first lookup of a kind can take a while (the shell loads the program that owns it), and a folder of 500 files
+    /// has a few dozen kinds.
+    /// </summary>
+    public static Task<ImageSource?> GetIconForNameAsync(string name, bool isDirectory)
+    {
+        string key = NameKey(name, isDirectory);
+        lock (NameIconTasks)
+        {
+            if (!NameIconTasks.TryGetValue(key, out var task))
+                NameIconTasks[key] = task = Task.Run(() => GetIconForName(name, isDirectory));
+            return task;
+        }
+    }
 
     /// <summary>The icon for a file or folder with this name, without it being on the disk.</summary>
     public static ImageSource? GetIconForName(string name, bool isDirectory)
@@ -122,6 +182,10 @@ public static class IconHelper
         return type;
     }
 
+    /// <summary>
+    /// The type of a file or folder on the disk. It asks the disk whether the path is a folder, which is slow for every file
+    /// of a big folder on a cloud drive: for files whose name is known use <see cref="GetTypeNameForName"/> (the list does).
+    /// </summary>
     public static string GetFileType(string path)
     {
         bool isDir = Directory.Exists(path);

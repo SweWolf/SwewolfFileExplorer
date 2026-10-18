@@ -669,7 +669,7 @@ public partial class MainWindow : Window
     /// Opens a workspace or session file; what it is, is read from the file itself, wherever it lies. If the user has been
     /// clicking around, asks first: for a session "All open tabs will be closed. Continue?" (OK / Cancel, a session always
     /// replaces the tabs; not asked if a session is on, as the tabs are saved in it); for a workspace whether to close the open tabs first (Yes: close, No: keep and add, Cancel).
-    /// A session goes on being saved into the same file.
+    /// A session goes on being saved into the same file. The mouse pointer is the wait pointer while the tabs open.
     /// </summary>
     private void OpenTabSet(string file, bool atStartup = false)
     {
@@ -704,13 +704,23 @@ public partial class MainWindow : Window
             }
         }
 
-        if (kind == StoreKind.Session)
+        // Opening the folders takes a while (every tab reads its folder and its tree): the mouse pointer says so.
+        var previousCursor = Mouse.OverrideCursor;
+        Mouse.OverrideCursor = Cursors.Wait;
+        try
         {
-            VM.Session.Flush();   // the old session gets its last changes (a pending folder or selected file) written now...
-            VM.Session.Stop();    // ...and does not record the switch itself
+            if (kind == StoreKind.Session)
+            {
+                VM.Session.Flush();   // the old session gets its last changes (a pending folder or selected file) written now...
+                VM.Session.Stop();    // ...and does not record the switch itself
+            }
+            VM.RestoreTabs(data, replace);
+            if (kind == StoreKind.Session) VM.Session.Start(file);
         }
-        VM.RestoreTabs(data, replace);
-        if (kind == StoreKind.Session) VM.Session.Start(file);
+        finally
+        {
+            Mouse.OverrideCursor = previousCursor;
+        }
     }
 
     /// <summary>The window title and the Stop Session item follow whether a session is on.</summary>
