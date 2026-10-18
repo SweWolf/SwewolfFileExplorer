@@ -255,19 +255,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // Quick Access
         var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
         quickAccess.IsExpanded = true;
+        // The order of Explorer's Quick Access. Downloads is asked of Windows (it is often moved to another drive, and .NET
+        // has no entry for it): the folder in the user profile does not have to exist.
         AddQuickAccessItem(quickAccess, "Desktop",   Environment.SpecialFolder.Desktop);
+        AddQuickAccessPath(quickAccess, "Downloads", KnownFolders.Downloads());
         AddQuickAccessItem(quickAccess, "Documents", Environment.SpecialFolder.MyDocuments);
         AddQuickAccessItem(quickAccess, "Pictures",  Environment.SpecialFolder.MyPictures);
         AddQuickAccessItem(quickAccess, "Music",     Environment.SpecialFolder.MyMusic);
         AddQuickAccessItem(quickAccess, "Videos",    Environment.SpecialFolder.MyVideos);
-
-        var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-        if (Directory.Exists(downloads))
-        {
-            var item = new TreeItemViewModel("Downloads", downloads, IconHelper.GetIcon(downloads), sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
-            item.InitializeLazyLoad();
-            quickAccess.Children.Add(item);
-        }
 
         TreeItems.Add(quickAccess);
 
@@ -287,10 +282,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
         TreeItems.Add(thisPC);
     }
 
-    private void AddQuickAccessItem(TreeItemViewModel parent, string name, Environment.SpecialFolder folder)
+    private void AddQuickAccessItem(TreeItemViewModel parent, string name, Environment.SpecialFolder folder) =>
+        AddQuickAccessPath(parent, name, Environment.GetFolderPath(folder));
+
+    private void AddQuickAccessPath(TreeItemViewModel parent, string name, string? path)
     {
-        var path = Environment.GetFolderPath(folder);
-        if (!Directory.Exists(path)) return;
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
         var item = new TreeItemViewModel(name, path, IconHelper.GetIcon(path), sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
         item.InitializeLazyLoad();
         parent.Children.Add(item);
