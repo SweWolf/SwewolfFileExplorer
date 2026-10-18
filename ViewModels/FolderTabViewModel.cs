@@ -1263,9 +1263,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>"Expectation: 7.5" for the current folder, under the tree.</summary>
     public string FolderExpectationText => "Expectation: " + (_folderMarks.Expectation is { } e ? RatingRules.Format(e) : "-");
 
+    /// <summary>The current folder has a rating or an expectation: only then the row under the tree is shown.</summary>
+    public bool HasFolderMarks => _folderMarks.Rating != null || _folderMarks.Expectation != null;
+
     private void SetFolderMarks(LibraryStore.Marks marks)
     {
         _folderMarks = marks;
+        OnPropertyChanged(nameof(HasFolderMarks));
         OnPropertyChanged(nameof(FolderRatingText));
         OnPropertyChanged(nameof(FolderExpectationText));
     }

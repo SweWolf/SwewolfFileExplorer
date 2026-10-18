@@ -258,6 +258,7 @@ public class MainViewModel : INotifyPropertyChanged
     public void ReloadTags(IEnumerable<FileItemViewModel> items) => _activeTab.ReloadTags(items);
 
     // Rating and expectation (the library)
+    public bool HasFolderMarks          => _activeTab.HasFolderMarks;
     public string FolderRatingText      => _activeTab.FolderRatingText;
     public string FolderExpectationText => _activeTab.FolderExpectationText;
     public SwewolfFileExplorer.Helpers.LibraryStore.Marks GetMarks(string path) => _activeTab.GetMarks(path);

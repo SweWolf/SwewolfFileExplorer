@@ -357,13 +357,48 @@
                 <!-- Under the tree, at the very bottom: the picture of the current folder (a cover), when it has one.
                      Declared first, so it docks below the hidden-folders line. The area is always there (empty
                      when the folder has no picture), so the tree does not jump. A click opens it in the viewer. -->
-                <Border DockPanel.Dock="Bottom" Padding="6" Height="233"
+                <Border DockPanel.Dock="Bottom" Padding="6"
                         Background="{DynamicResource PaneBrush}"
                         BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0">
-                    <Image Source="{Binding FolderPicture}" Stretch="Uniform" MaxHeight="220"
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Height" Value="233"/>
+                            <Style.Triggers>
+                                <!-- No rating row: its space goes to the picture. -->
+                                <DataTrigger Binding="{Binding HasFolderMarks}" Value="False">
+                                    <Setter Property="Height" Value="265"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Image Source="{Binding FolderPicture}" Stretch="Uniform" MaxHeight="260"
                            HorizontalAlignment="Center" Cursor="Hand"
                            RenderOptions.BitmapScalingMode="HighQuality"
                            MouseLeftButtonDown="FolderPicture_MouseLeftButtonDown"/>
+                </Border>
+
+                <!-- Under the tree: the rating and expectation of the current folder, only when it has one (a click edits them, as in TeraTool; Ctrl+R / Ctrl+E set them) -->
+                <Border DockPanel.Dock="Bottom" Padding="10,6"
+                        Background="{DynamicResource PaneBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
+                        Visibility="{Binding HasFolderMarks, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="12" Text="{Binding FolderRatingText}" Cursor="Hand"
+                                   ToolTip="Your rating of this folder, 1 to 10 (click to change it, Ctrl+R)"
+                                   MouseLeftButtonUp="FolderRating_Click"/>
+                        <TextBlock FontSize="12" Text="{Binding FolderExpectationText}" Cursor="Hand" Margin="18,0,0,0"
+                                   ToolTip="How good you expect this folder to be, 1 to 10 (click to change it, Ctrl+E)"
+                                   MouseLeftButtonUp="FolderExpectation_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Under the tree: has the current folder been read? (as in TeraTool) -->
+                <Border DockPanel.Dock="Bottom" Padding="10,6"
+                        Background="{DynamicResource PaneBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
+                        Visibility="{Binding FolderStatusText, Converter={StaticResource TextToVisibility}}">
+                    <TextBlock FontSize="12" Text="{Binding FolderStatusText}"
+                               ToolTip="Read means every file in this folder and in all folders below it has been opened. Right-click a folder to mark it."/>
                 </Border>
 
                 <!-- Under the tree: the hidden subfolders of the current folder (docked before the tree, which fills the rest) -->
@@ -377,29 +412,6 @@
                             <Run Text="{Binding TreeHiddenText, Mode=OneWay}"/>
                         </Hyperlink>
                     </TextBlock>
-                </Border>
-
-                <!-- Under the tree: has the current folder been read? (as in TeraTool) -->
-                <Border DockPanel.Dock="Bottom" Padding="10,6"
-                        Background="{DynamicResource PaneBrush}"
-                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
-                        Visibility="{Binding FolderStatusText, Converter={StaticResource TextToVisibility}}">
-                    <TextBlock FontSize="12" Text="{Binding FolderStatusText}"
-                               ToolTip="Read means every file in this folder and in all folders below it has been opened. Right-click a folder to mark it."/>
-                </Border>
-
-                <!-- Under the tree: the rating and expectation of the current folder (a click edits them, as in TeraTool) -->
-                <Border DockPanel.Dock="Bottom" Padding="10,6"
-                        Background="{DynamicResource PaneBrush}"
-                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock FontSize="12" Text="{Binding FolderRatingText}" Cursor="Hand"
-                                   ToolTip="Your rating of this folder, 1 to 10 (click to change it, Ctrl+R)"
-                                   MouseLeftButtonUp="FolderRating_Click"/>
-                        <TextBlock FontSize="12" Text="{Binding FolderExpectationText}" Cursor="Hand" Margin="18,0,0,0"
-                                   ToolTip="How good you expect this folder to be, 1 to 10 (click to change it, Ctrl+E)"
-                                   MouseLeftButtonUp="FolderExpectation_Click"/>
-                    </StackPanel>
                 </Border>
 
                 <TreeView x:Name="NavigationTree"
