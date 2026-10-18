@@ -77,7 +77,11 @@ public partial class MainWindow : Window
         };
 
         // The media player is another program and marks files read while it plays: look again when the window comes back.
-        Activated += (_, _) => VM.RefreshReadState();
+        Activated += (_, _) =>
+        {
+            if (_refreshOnActivate) { _refreshOnActivate = false; RefreshKeepingSelection(); }
+            VM.RefreshReadState();
+        };
 
         _titleTimer.Tick += (_, _) =>
         {
@@ -242,7 +246,17 @@ public partial class MainWindow : Window
     /// <summary>A right-click on a column header shows the column menu, not the file menu.</summary>
     private void FileListView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
+        _contextOverEmpty = false;
         if (e.CursorLeft < 0) return;   // opened with the keyboard
+        _contextOverEmpty = !IsOverListItem();
+
+        // Shift + right-click: the Windows menu at once, as in Explorer (not on a column header).
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && !IsOverColumnHeader())
+        {
+            e.Handled = true;
+            ShowWindowsMenu();
+            return;
+        }
 
         var hit = VisualTreeHelper.HitTest(FileListView, Mouse.GetPosition(FileListView));
         for (DependencyObject? d = hit?.VisualHit; d != null && d != FileListView; d = VisualTreeHelper.GetParent(d))
@@ -253,6 +267,25 @@ public partial class MainWindow : Window
             ShowColumnMenu();
             return;
         }
+    }
+
+    /// <summary>The right-click that opened the list's menu was on the empty part of the list (the Windows menu is then the folder's).</summary>
+    private bool _contextOverEmpty;
+
+    private bool IsOverListItem()
+    {
+        var hit = VisualTreeHelper.HitTest(FileListView, Mouse.GetPosition(FileListView));
+        for (DependencyObject? d = hit?.VisualHit; d != null && d != FileListView; d = VisualTreeHelper.GetParent(d))
+            if (d is ListViewItem) return true;
+        return false;
+    }
+
+    private bool IsOverColumnHeader()
+    {
+        var hit = VisualTreeHelper.HitTest(FileListView, Mouse.GetPosition(FileListView));
+        for (DependencyObject? d = hit?.VisualHit; d != null && d != FileListView; d = VisualTreeHelper.GetParent(d))
+            if (d is GridViewColumnHeader) return true;
+        return false;
     }
 
     private void ShowColumnMenu()
@@ -1224,6 +1257,7 @@ public partial class MainWindow : Window
                 "Rename"     => hasSelection && !inArchive,
                 "New Folder" => !inArchive,
                 "Properties" => !inArchive,
+                "More Options" => !inArchive && (hasSelection || System.IO.Directory.Exists(VM.CurrentPath)),
                 _            => true
             };
 
@@ -1445,9 +1479,20 @@ public partial class MainWindow : Window
 
         // Quick Access and This PC are not folders: no menu.
         if ((element as TreeViewItem)?.DataContext is TreeItemViewModel { FullPath.Length: > 0 } node)
+        {
             _treeMenuNode = node;
+
+            // Shift + right-click: the Windows menu of the folder at once, as in Explorer.
+            if (e.CursorLeft >= 0 && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+            {
+                e.Handled = true;
+                ShowWindowsMenuForFolder(node.FullPath);
+            }
+        }
         else
+        {
             e.Handled = true;
+        }
     }
 
     /// <summary>A click on the picture of the folder opens it in the picture viewer.</summary>
@@ -1483,6 +1528,7 @@ public partial class MainWindow : Window
                 "Rename"     => canChange,
                 "New Folder" => realFolder,
                 "Properties" => realFolder || System.IO.File.Exists(path),   // what is in an archive is not on the disk
+                "More Options" => realFolder,
                 _            => true
             };
 
@@ -1613,6 +1659,56 @@ public partial class MainWindow : Window
             MessageBox.Show($"Cannot show properties: {ex.Message}", AppInfo.Name,
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    // ── The Windows menu ("More Options") ─────────────────────────────────────
+
+    private void CtxMoreOptions_Click(object sender, RoutedEventArgs e) => ShowWindowsMenu();
+
+    private void TreeCtxMoreOptions_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) ShowWindowsMenuForFolder(_treeMenuNode.FullPath);
+    }
+
+    /// <summary>The Windows menu of the selected items of the list, or of the shown folder when nothing is selected.</summary>
+    private void ShowWindowsMenu()
+    {
+        if (VM.InArchive) return;   // not on the disk: Windows has no menu for it
+
+        // On the empty part of the list (or with nothing selected) the menu is the folder's, as in Explorer.
+        var paths = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
+        if (paths.Count > 0 && !_contextOverEmpty)
+            ShellContextMenu.ShowFor(paths, AfterWindowsMenu);
+        else if (System.IO.Directory.Exists(VM.CurrentPath))
+            ShellContextMenu.ShowForBackground(VM.CurrentPath, AfterWindowsMenu);
+    }
+
+    private void ShowWindowsMenuForFolder(string folder)
+    {
+        if (System.IO.Directory.Exists(folder))
+            ShellContextMenu.ShowFor(new[] { folder }, AfterWindowsMenu);
+    }
+
+    private bool _refreshOnActivate;
+
+    /// <summary>
+    /// The chosen command may have made, changed or removed files (7-Zip, Create shortcut, PowerRename ...), some of them a moment later
+    /// in another program: the folder is read again now and once more when the window comes back to the front.
+    /// </summary>
+    private void AfterWindowsMenu(string? error)
+    {
+        if (error != null)
+            MessageBox.Show(this, $"The Windows menu could not be used: {error}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+
+        _refreshOnActivate = true;
+        RefreshKeepingSelection();
+    }
+
+    private void RefreshKeepingSelection()
+    {
+        var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
+        VM.RefreshCommand.Execute(null);
+        ReselectInList(selected);
     }
 
     // ── Rename dialog ─────────────────────────────────────────────────────────

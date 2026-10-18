@@ -458,6 +458,9 @@
                             <Separator/>
                             <MenuItem Header="Refresh"         Click="TreeCtxRefresh_Click"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click"/>
+                            <Separator/>
+                            <MenuItem Header="More Options"    Click="TreeCtxMoreOptions_Click"
+                                      ToolTip="The full Windows menu of this folder, with the add-ons. Shift + right-click opens it at once."/>
                         </ContextMenu>
                     </TreeView.ContextMenu>
 
@@ -633,6 +636,9 @@
                         <MenuItem Header="New Folder" Click="CtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"/>
                         <Separator/>
                         <MenuItem Header="Properties" Click="CtxProperties_Click" InputGestureText="Alt+Enter"/>
+                        <Separator/>
+                        <MenuItem Header="More Options" Click="CtxMoreOptions_Click"
+                                  ToolTip="The full Windows menu of the selected items (or of this folder when nothing is selected), with 7-Zip and the other add-ons. Shift + right-click opens it at once."/>
                     </ContextMenu>
                 </ListView.ContextMenu>
 

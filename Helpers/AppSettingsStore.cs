@@ -35,6 +35,12 @@ public class AppSettings
 
     /// <summary>Do not show the extension of special shell and system file types (.lnk, .url ...), as Windows does: "Photos", not "Photos.lnk".</summary>
     public bool HideShellExtensions { get; set; } = true;
+
+    /// <summary>
+    /// What is left out of the Windows menu ("More Options"): verbs or texts of its lines, separated by semicolons. The app has its own
+    /// Cut, Copy, Delete, Rename, Properties and Copy as Path (they keep the library right), and no Favorites. Edit the file to show more.
+    /// </summary>
+    public string HiddenShellMenuItems { get; set; } = "cut;copy;delete;rename;properties;open;copyaspath;paste;undo;Add to Favorites";
 }
 
 /// <summary>Saves <see cref="AppSettings"/> in %AppData%\SweWolfSoftware\SweWolf File Explorer\settings.json.</summary>
