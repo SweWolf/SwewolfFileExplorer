@@ -120,9 +120,12 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="TabBorder" Margin="2,4,0,0" Padding="10,5,6,5"
+                                        <!-- The 3 px top line is transparent, and in the accent color for the active tab (with bold text and
+                                             a distinct background), so it is easy to see which tab is the active one -->
+                                        <Border x:Name="TabBorder" Margin="2,4,0,0" Padding="10,2,6,5"
+                                                BorderThickness="0,3,0,0" BorderBrush="Transparent"
                                                 CornerRadius="6,6,0,0" Background="Transparent">
-                                            <ContentPresenter/>
+                                            <ContentPresenter x:Name="TabContent"/>
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
@@ -130,6 +133,8 @@
                                             </Trigger>
                                             <Trigger Property="IsSelected" Value="True">
                                                 <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource TabSelectedBrush}"/>
+                                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"/>
+                                                <Setter TargetName="TabContent" Property="TextElement.FontWeight" Value="Bold"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>

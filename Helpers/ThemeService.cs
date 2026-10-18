@@ -16,7 +16,7 @@ public static class ThemeService
         ["PaneBrush"]        = ("#F3F3F3", "#2B2B2B", "#0B0B0B"),   // tab strip, tree header, info panel
         ["LineBrush"]        = ("#DDDDDD", "#454545", "#555555"),   // thin separator lines
         ["TabHoverBrush"]    = ("#E6E6E6", "#3A3A3A", "#1C1C1C"),
-        ["TabSelectedBrush"] = ("#FFFFFF", "#1F1F1F", "#000000"),
+        ["TabSelectedBrush"] = ("#FFFFFF", "#1F1F1F", "#14313B"),   // Cyber: a dark teal, as black was too close to the strip's own color
         ["SplitterBrush"]    = ("#EEEEEE", "#333333", "#1C1C1C"),
         ["CloseHoverBrush"]   = ("#C42B1C", "#C42B1C", "#C42B1C"),   // a close button under the mouse: red in every style, as in Windows
         ["ClosePressedBrush"] = ("#A52313", "#A52313", "#A52313"),
