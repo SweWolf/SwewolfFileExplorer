@@ -30,6 +30,8 @@ public sealed class LoadedPicture
 /// <summary>Reads a picture for the viewer. The file is read into memory at once and closed, so it is never locked.</summary>
 public static class PictureLoader
 {
+    private const int ViewerSvgWidth = 3000;
+
     /// <summary>Call from any thread. Returns null if the file cannot be read as a picture.</summary>
     public static LoadedPicture? Load(string path)
     {
@@ -47,6 +49,10 @@ public static class PictureLoader
                 bytes = new byte[file.Length];
                 file.ReadExactly(bytes);
             }
+
+            // SVG: drawn inside the program, 3000 pixels wide (about a screen, and sharp when zoomed a little), on white.
+            if (SvgSupport.IsSvg(path))
+                return SvgSupport.ToBitmap(bytes, ViewerSvgWidth) is { } svgPicture ? new LoadedPicture(svgPicture) : null;
 
             // JPEG XL: through ImageMagick if it is there, which also turns an HDR picture into a normal one (the codec of Windows
             // shows such a picture burnt out). The picture comes out turned the right way up. Without ImageMagick, or if it cannot

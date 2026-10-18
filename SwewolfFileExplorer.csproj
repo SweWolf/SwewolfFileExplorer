@@ -9,6 +9,11 @@
     <AssemblyName>SwewolfFileExplorer</AssemblyName>
     <RootNamespace>SwewolfFileExplorer</RootNamespace>
     <Platforms>x64</Platforms>
+    <!-- Windows x64 only: without this, SkiaSharp (SVG pictures) and SQLite copy their native libraries for every operating
+         system into the output (a folder of 450 MB instead of about 50 MB). The output stays in bin\x64\Release\net10.0-windows. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <Version>1.0.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationIcon>Resourses\fluent_file_explorer.ico</ApplicationIcon>
@@ -19,11 +24,17 @@
   <ItemGroup>
     <!-- Tags of music files (Artist, Title, Track Number columns). The same package and version as FileInfoViewer. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+    <PackageReference Include="Svg.Skia" Version="5.2.3" />
     <PackageReference Include="TagLibSharp" Version="2.3.0" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Resourses\fluent_file_explorer.ico" />
   </ItemGroup>
+
+  <!-- The debug symbols of SkiaSharp's native libraries (106 MB) come along with them; nobody needs them. -->
+  <Target Name="DropNativePdbs" AfterTargets="Build">
+    <Delete Files="$(OutDir)libSkiaSharp.pdb;$(OutDir)libHarfBuzzSharp.pdb" ContinueOnError="true" />
+  </Target>
 
 </Project>

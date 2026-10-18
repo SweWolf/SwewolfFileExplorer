@@ -8,7 +8,7 @@ public static class ThumbnailLoader
 {
     private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".jpg", ".jpeg", ".jpe", ".jfif", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxl"
+        ".jpg", ".jpeg", ".jpe", ".jfif", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxl", ".svg", ".svgz"
     };
 
     /// <summary>
@@ -54,6 +54,14 @@ public static class ThumbnailLoader
             if (RawPreview.IsRaw(path) && RawPreview.Read(stream) is { } raw && LoadBytes(raw.Jpeg, decodeWidth) is { } fromRaw)
                 return fromRaw;
             if (stream.CanSeek) stream.Position = 0;
+
+            // SVG: a drawing, drawn at the width asked for, on white (see SvgSupport).
+            if (SvgSupport.IsSvg(path))
+            {
+                using var copy = new MemoryStream();
+                stream.CopyTo(copy);
+                return SvgSupport.ToBitmap(copy.ToArray(), decodeWidth);
+            }
 
             // JPEG XL: through ImageMagick if it is there (it also tones down an HDR picture, see JxlSupport); otherwise,
             // and if it cannot read the file, through the codec of Windows below.
