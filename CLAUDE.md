@@ -125,6 +125,7 @@ SwewolfFileExplorer/
 | Alt + ← / → | Back / Forward |
 | F2 | Rename the selected item in the list, or the selected folder when the tree has the focus |
 | F5 | Refresh |
+| F6 | Focus the address bar and select its text |
 | F8 | Show / hide the folder tree |
 | Delete | Delete selected item(s) |
 | Ctrl+C / X / V | Copy / Cut / Paste |

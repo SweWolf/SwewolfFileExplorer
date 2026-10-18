@@ -464,6 +464,13 @@ public partial class MainWindow : Window
             (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? VM.PreviousTabCommand : VM.NextTabCommand).Execute(null);
             e.Handled = true;
         }
+        // F6: into the address bar with its text selected, as in Explorer.
+        else if (e.Key == Key.F6 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            AddressBar.Focus();
+            AddressBar.SelectAll();
+            e.Handled = true;
+        }
         // Ctrl + numeric keypad plus: size every column to its widest text, as in Explorer.
         else if (e.Key == Key.Add && Keyboard.Modifiers == ModifierKeys.Control)
         {
