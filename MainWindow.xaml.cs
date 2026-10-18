@@ -1661,6 +1661,85 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── A picture dragged in from a web browser ──────────────────────────────
+
+    /// <summary>The folder a picture can be dropped in: a real folder of the disk (not This PC, not inside a compressed file).</summary>
+    private static bool CanSaveIn(string? folder) =>
+        !string.IsNullOrEmpty(folder) && System.IO.Directory.Exists(folder) && !ArchiveSupport.IsInside(folder);
+
+    private void FileListView_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = CanSaveIn(VM.ActiveTab.FolderPath) && DroppedImage.CanAccept(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void FileListView_Drop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (CanSaveIn(VM.ActiveTab.FolderPath)) SavePicture(e, VM.ActiveTab.FolderPath);
+    }
+
+    /// <summary>The folder of the tree under the mouse, if it can take a picture.</summary>
+    private string? TreeFolderUnder(DragEventArgs e)
+    {
+        var element = e.OriginalSource as DependencyObject;
+        while (element != null && element is not TreeViewItem)
+            element = element is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(element)
+                : LogicalTreeHelper.GetParent(element);
+
+        var path = ((element as TreeViewItem)?.DataContext as TreeItemViewModel)?.FullPath;
+        return CanSaveIn(path) ? path : null;
+    }
+
+    private void NavigationTree_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = TreeFolderUnder(e) != null && DroppedImage.CanAccept(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void NavigationTree_Drop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        var folder = TreeFolderUnder(e);
+        if (folder != null) SavePicture(e, folder);
+    }
+
+    /// <summary>
+    /// Takes the picture out of the drop (now: the data is only valid in the handler), then saves it in <paramref name="folder"/>
+    /// (a download may take a moment). A new file is selected when its folder is the one shown.
+    /// </summary>
+    private async void SavePicture(DragEventArgs e, string folder)
+    {
+        DroppedImage.Payload? payload;
+        try { payload = DroppedImage.Read(e.Data); }
+        catch { payload = null; }
+        if (payload == null) return;
+
+        Mouse.OverrideCursor = Cursors.Wait;
+        try
+        {
+            var saved = await DroppedImage.SaveAsync(payload, folder);
+
+            bool shown = string.Equals(SharedState.Key(folder), SharedState.Key(VM.ActiveTab.FolderPath), StringComparison.OrdinalIgnoreCase);
+            if (shown)
+            {
+                VM.RefreshCommand.Execute(null);
+                SelectInList(saved);
+                FileListView.Focus();
+            }
+            FlashTitle($"{BaseTitle} - Saved {System.IO.Path.GetFileName(saved)}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+        }
+    }
+
     // ── The Windows menu ("More Options") ─────────────────────────────────────
 
     private void CtxMoreOptions_Click(object sender, RoutedEventArgs e) => ShowWindowsMenu();

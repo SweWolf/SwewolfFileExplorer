@@ -421,6 +421,7 @@
                           FontSize="{Binding TreeFontSize}"
                           PreviewMouseWheel="Tree_PreviewMouseWheel"
                           ContextMenuOpening="NavigationTree_ContextMenuOpening"
+                          AllowDrop="True" DragOver="NavigationTree_DragOver" Drop="NavigationTree_Drop"
                           KeyDown="NavigationTree_KeyDown"
                           SelectedItemChanged="NavigationTree_SelectedItemChanged">
 
@@ -514,6 +515,7 @@
                       GridViewColumnHeader.Click="FileListView_HeaderClick"
                       ContextMenuOpening="FileListView_ContextMenuOpening"
                       PreviewMouseDown="FileListView_PreviewMouseDown"
+                      AllowDrop="True" DragOver="FileListView_DragOver" Drop="FileListView_Drop"
                       MouseDoubleClick="FileListView_MouseDoubleClick"
                       KeyDown="FileListView_KeyDown">
 
