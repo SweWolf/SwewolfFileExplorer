@@ -81,6 +81,11 @@ public partial class MainWindow : Window
         {
             if (_refreshOnActivate) { _refreshOnActivate = false; RefreshKeepingSelection(); }
             VM.RefreshReadState();
+
+            // The player (another process) may have set the preview picture of the selected video while this window was
+            // in the background: look for it again now, so it shows without F5 or selecting another file.
+            // (The item whose preview is shown is remembered: the list does not report its selection reliably at this moment.)
+            if (_mediaPreviewItem is { } shown) ShowThumbnail(shown);
         };
 
         _titleTimer.Tick += (_, _) =>
@@ -902,12 +907,14 @@ public partial class MainWindow : Window
     // file, where its preview picture came from.
     private FileItemViewModel? _previewItem;
     private PreviewPicture? _previewSource;
+    private FileItemViewModel? _mediaPreviewItem;   // the video or music file whose preview picture is looked for or shown
 
     private async void ShowThumbnail(FileItemViewModel? item)
     {
         int version = ++_thumbnailVersion;
-        _previewItem   = null;
-        _previewSource = null;
+        _previewItem      = null;
+        _previewSource    = null;
+        _mediaPreviewItem = null;
 
         if (item == null || item.IsDirectory)
         {
@@ -934,6 +941,7 @@ public partial class MainWindow : Window
         // frame Windows makes (PreviewPictureFinder). Not inside an archive.
         if (!item.IsInArchive && (MediaPlayerLauncher.IsVideo(path) || AudioTagReader.HasTags(path)))
         {
+            _mediaPreviewItem = item;
             var found = await Task.Run(() =>
             {
                 LibraryService.WaitForQueued();   // a choice that was just made is written first
