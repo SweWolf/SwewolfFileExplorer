@@ -187,8 +187,6 @@ public static class DroppedImage
 
     // ── Saving ───────────────────────────────────────────────────────────────
 
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
-
     /// <summary>
     /// Writes the picture into <paramref name="folder"/> as a new file and returns its path. The name is the original one when there is one;
     /// a name that is taken gets " (2)" ... Never overwrites. Throws with a message fit to show when it cannot.
@@ -224,35 +222,8 @@ public static class DroppedImage
             return (data, mime);
         }
 
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) SweWolfFileExplorer");
-            using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-            response.EnsureSuccessStatusCode();
-
-            if (response.Content.Headers.ContentLength > MaxBytes)
-                throw new InvalidOperationException("The picture is too big.");
-
-            await using var stream = await response.Content.ReadAsStreamAsync();
-            using var buffer = new MemoryStream();
-            var chunk = new byte[64 * 1024];
-            int read;
-            while ((read = await stream.ReadAsync(chunk)) > 0)
-            {
-                buffer.Write(chunk, 0, read);
-                if (buffer.Length > MaxBytes) throw new InvalidOperationException("The picture is too big.");
-            }
-            return (buffer.ToArray(), response.Content.Headers.ContentType?.MediaType);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new InvalidOperationException($"The picture could not be downloaded: {ex.Message}");
-        }
-        catch (TaskCanceledException)
-        {
-            throw new InvalidOperationException("The picture could not be downloaded in time.");
-        }
+        var download = await FileDownloader.GetBytesAsync(url, MaxBytes, timeoutSeconds: 60, what: "picture");
+        return (download.Bytes, download.ContentType);
     }
 
     /// <summary>The file name: the original, or the one in the address, or "image"; with an extension that fits what the picture really is.</summary>
@@ -315,7 +286,7 @@ public static class DroppedImage
     }
 
     /// <summary>The extension from the first bytes of the file (null if they are not a known picture).</summary>
-    private static string? ExtensionOf(byte[] b)
+    internal static string? ExtensionOf(byte[] b)
     {
         static bool Starts(byte[] data, params byte[] prefix) => data.Length >= prefix.Length && data.AsSpan(0, prefix.Length).SequenceEqual(prefix);
 
@@ -333,7 +304,7 @@ public static class DroppedImage
         return null;
     }
 
-    private static string? ExtensionOfContentType(string? contentType) => contentType?.ToLowerInvariant() switch
+    internal static string? ExtensionOfContentType(string? contentType) => contentType?.ToLowerInvariant() switch
     {
         "image/png" => ".png",
         "image/jpeg" or "image/jpg" => ".jpg",

@@ -36,6 +36,9 @@ public class AppSettings
     /// <summary>Do not show the extension of special shell and system file types (.lnk, .url ...), as Windows does: "Photos", not "Photos.lnk".</summary>
     public bool HideShellExtensions { get; set; } = true;
 
+    /// <summary>The poster named in a video's .nfo file may be downloaded for the preview picture (no window for it: settings.json only).</summary>
+    public bool DownloadPosterFromNfo { get; set; } = true;
+
     /// <summary>
     /// What is left out of the Windows menu ("More Options"): verbs or texts of its lines, separated by semicolons. The app has its own
     /// Cut, Copy, Delete, Rename, Properties and Copy as Path (they keep the library right), and no Favorites. Edit the file to show more.

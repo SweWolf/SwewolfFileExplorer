@@ -35,6 +35,68 @@ public static class PreviewPictureFinder
             yield return Path.Combine(folder, baseName + suffix);
     }
 
+    private const long PosterMaxBytes = 30 * 1024 * 1024;
+
+    // Addresses that failed in this run (not asked again at every selection: an offline computer would wait for each one),
+    // and the .nfo files already logged as a failure.
+    private static readonly HashSet<string> FailedAddresses = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The poster an .nfo file names (see <see cref="NfoPoster"/>), full picture first, then the preview. A file on the disk is
+    /// used as it is. A web address is downloaded and kept beside the video as a hidden file <c>&lt;name&gt;-poster.png/.jpg</c>, which
+    /// step 3 then finds by itself next time (the saved file is never overwritten; if it cannot be saved the picture is still
+    /// shown, from memory, and downloaded again next time). A failed address is tried once per run and written to the error log.
+    /// </summary>
+    private static PreviewPicture? FromNfo(string path, int decodeWidth)
+    {
+        var folder = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(folder)) return null;
+
+        foreach (var nfo in NfoPoster.NfoFilesOf(path))
+        {
+            if (!File.Exists(nfo)) continue;
+
+            foreach (var address in NfoPoster.Addresses(nfo))
+            {
+                if (!NfoPoster.IsWebAddress(address))
+                {
+                    if (NfoPoster.LocalFile(address, folder) is { } local && ThumbnailLoader.Load(local, decodeWidth) is { } fromDisk)
+                        return new PreviewPicture(fromDisk, local, null, false);
+                    continue;
+                }
+
+                if (!AppSettingsStore.Current.DownloadPosterFromNfo) continue;
+                lock (FailedAddresses) { if (FailedAddresses.Contains(address)) continue; }
+
+                try
+                {
+                    var download = FileDownloader.GetBytesAsync(address, PosterMaxBytes, timeoutSeconds: 15, what: "poster").GetAwaiter().GetResult();
+                    var image = ThumbnailLoader.LoadBytes(download.Bytes, decodeWidth)
+                        ?? throw new InvalidOperationException("It is not a picture.");
+
+                    // Kept beside the video as a hidden poster file; not if the folder cannot be written to or the name is taken.
+                    if (NfoPoster.ForSaving(download.Bytes) is { } save)
+                    {
+                        var target = Path.Combine(folder, Path.GetFileNameWithoutExtension(path) + "-poster" + save.Extension);
+                        try
+                        {
+                            FileDownloader.WriteNew(target, save.Bytes, hidden: true);
+                            return new PreviewPicture(image, target, null, false);
+                        }
+                        catch { /* not saved: shown from memory */ }
+                    }
+                    return new PreviewPicture(image, null, download.Bytes, false);
+                }
+                catch (Exception ex)
+                {
+                    lock (FailedAddresses) FailedAddresses.Add(address);
+                    LogFiles.AppendError($"Could not get the poster \"{address}\" named in \"{nfo}\": {ex.Message}");
+                }
+            }
+        }
+        return null;
+    }
+
     public static PreviewPicture? Find(string path, int decodeWidth)
     {
         bool isVideo = MediaPlayerLauncher.IsVideo(path);
@@ -53,6 +115,9 @@ public static class PreviewPictureFinder
         foreach (var side in SideFiles(path))
             if (File.Exists(side) && ThumbnailLoader.Load(side, decodeWidth) is { } beside)
                 return new PreviewPicture(beside, side, null, false);
+
+        // 3b. The poster named in the .nfo file beside it: a file on the disk, or downloaded (and kept as a hidden poster file).
+        if (FromNfo(path, decodeWidth) is { } named) return named;
 
         // 4. A frame of the video: the thumbnail Windows makes, else (it has no codec) one made with ffmpeg at 10 % of the length.
         if (isVideo)
