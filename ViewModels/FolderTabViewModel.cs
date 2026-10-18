@@ -327,6 +327,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         _showHidden = false;   // hidden items are shown for one folder at a time
         _unavailable = false;
+        _noFolderShown = false;
         FolderPath   = path;
         LastSelectedPath = null;   // a new folder: nothing is selected in it yet
         CurrentPath = path;
@@ -339,6 +340,33 @@ public class FolderTabViewModel : INotifyPropertyChanged
         UpdateNavState();
         SelectInTree(path);
     }
+
+    /// <summary>
+    /// "This PC" or "Quick Access" was clicked: they are no folder, so the list, the picture and the labels are emptied.
+    /// The current folder stays as it is (history, session, Back), but F5 does not bring its files back.
+    /// </summary>
+    public void ShowNoFolder()
+    {
+        _noFolderShown = true;
+        _tagsCts?.Cancel();
+        _tagsCts = null;
+        _coverCts?.Cancel();
+        if (_folderCover != null)
+        {
+            _folderCover = null;
+            OnPropertyChanged(nameof(FolderPicture));
+            OnPropertyChanged(nameof(HasFolderPicture));
+        }
+
+        CurrentItems.Clear();
+        _hiddenCount = 0;
+        ClearReadState();
+        OnPropertyChanged(nameof(HasHiddenItems));
+        OnPropertyChanged(nameof(HiddenText));
+        StatusText = "";
+    }
+
+    private bool _noFolderShown;
 
     // ── Keeping the tree on the current folder ───────────────────────────────
 
@@ -685,7 +713,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     public void Refresh()
     {
-        if (string.IsNullOrEmpty(_currentPath)) return;
+        if (string.IsNullOrEmpty(_currentPath) || _noFolderShown) return;
 
         // A tab that was "currently unavailable" tries again (the USB drive may be connected now).
         if (_unavailable)
@@ -1099,7 +1127,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>The window was activated: something may have been marked in another program (the media player).</summary>
     public void RefreshReadState()
     {
-        if (!string.IsNullOrEmpty(_currentPath) && CurrentItems.Count > 0)
+        if (!string.IsNullOrEmpty(_currentPath) && !_noFolderShown && CurrentItems.Count > 0)
             UpdateReadState(_currentPath);
     }
 

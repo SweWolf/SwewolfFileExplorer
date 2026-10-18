@@ -370,6 +370,7 @@ public class MainViewModel : INotifyPropertyChanged
     }
 
     public void Navigate(string? path, bool addToHistory = true) => _activeTab.Navigate(path, addToHistory);
+    public void ShowNoFolder()                                    => _activeTab.ShowNoFolder();
     public void OpenItem(FileItemViewModel item)                  => _activeTab.OpenItem(item);
     public void RenameItem(FileItemViewModel item, string name)   => _activeTab.RenameItem(item, name);
 

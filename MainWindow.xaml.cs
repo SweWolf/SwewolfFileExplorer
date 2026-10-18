@@ -770,6 +770,8 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrEmpty(item.FullPath))
             VM.Navigate(item.FullPath);
+        else
+            VM.ShowNoFolder();   // This PC / Quick Access: not a folder, so the list is emptied
     }
 
     private void TreeItem_Selected(object sender, RoutedEventArgs e)
