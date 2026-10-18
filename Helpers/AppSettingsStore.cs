@@ -17,7 +17,7 @@ public class AppSettings
     public double ListFontSize { get; set; } = DefaultFontSize;
     public double TreeFontSize { get; set; } = DefaultFontSize;
 
-    /// <summary>The window color scheme: "Light", "Dark", "System" (follow Windows) or "Cyber" (light blue on black; working name).</summary>
+    /// <summary>The window color scheme: "Light", "Dark", "System" (follow Windows) or "Cyber Cyan" (light blue on black).</summary>
     public string Style { get; set; } = "System";
 
     /// <summary>How an unread file shows in the list: bold and/or italic (as in TeraTool). Both off = no difference.</summary>
@@ -69,7 +69,8 @@ public static class AppSettingsStore
             // A hand-edited file could hold any number.
             settings.ListFontSize = ClampFontSize(settings.ListFontSize);
             settings.TreeFontSize = ClampFontSize(settings.TreeFontSize);
-            if (settings.Style is not ("Light" or "Dark" or "System" or "Cyber")) settings.Style = "System";
+            if (settings.Style == "Cyber") settings.Style = "Cyber Cyan";   // its name until 2026-10-18
+            if (settings.Style is not ("Light" or "Dark" or "System" or "Cyber Cyan")) settings.Style = "System";
             return settings;
         }
         catch

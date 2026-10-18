@@ -18,11 +18,11 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Style:" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <ComboBox x:Name="StyleBox" Width="140"
-                          ToolTip="Light, Dark, the same as Windows, or Cyber (light blue on black)">
+                          ToolTip="Light, Dark, the same as Windows, or Cyber Cyan (light blue on black)">
                     <ComboBoxItem Content="Light"/>
                     <ComboBoxItem Content="Dark"/>
                     <ComboBoxItem Content="System"/>
-                    <ComboBoxItem Content="Cyber"/>
+                    <ComboBoxItem Content="Cyber Cyan"/>
                 </ComboBox>
             </StackPanel>
         </GroupBox>

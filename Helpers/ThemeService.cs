@@ -47,7 +47,7 @@ public static class ThemeService
     public static void Apply(string style)
     {
         _style = style;
-        bool cyber = style == "Cyber";
+        bool cyber = style == "Cyber Cyan";
         IsDark = cyber || style == "Dark" || (style == "System" && WindowsUsesDarkTheme());
 
         var app = Application.Current;

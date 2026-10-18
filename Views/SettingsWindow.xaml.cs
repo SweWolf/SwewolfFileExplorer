@@ -5,7 +5,7 @@ namespace SwewolfFileExplorer.Views;
 
 public partial class SettingsWindow : Window
 {
-    private static readonly string[] Styles = { "Light", "Dark", "System", "Cyber" };
+    private static readonly string[] Styles = { "Light", "Dark", "System", "Cyber Cyan" };
 
     public SettingsWindow()
     {
