@@ -193,17 +193,41 @@
 
                 <Separator/>
 
-                <!-- Address bar -->
-                <TextBox x:Name="AddressBar"
-                         Text="{Binding CurrentPath, UpdateSourceTrigger=PropertyChanged}"
-                         Width="460"
-                         VerticalContentAlignment="Center"
-                         Padding="4,3"
-                         FontSize="13">
-                    <TextBox.InputBindings>
-                        <KeyBinding Key="Return" Command="{Binding NavigateCommand}"/>
-                    </TextBox.InputBindings>
-                </TextBox>
+                <!-- Address bar. The Fluent text box draws a thicker line along its bottom edge and shows no focus in a toolbar:
+                     it gets a flat template, and the frame around it does the work: 1 px line, 2 px in the accent color with focus. -->
+                <Border CornerRadius="3" BorderThickness="1" Padding="1" VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=AddressBar}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"/>
+                                    <Setter Property="BorderThickness" Value="2"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBox x:Name="AddressBar"
+                             Text="{Binding CurrentPath, UpdateSourceTrigger=PropertyChanged}"
+                             Width="456"
+                             VerticalContentAlignment="Center"
+                             Padding="4,3"
+                             BorderThickness="0"
+                             FontSize="13">
+                        <TextBox.Template>
+                            <ControlTemplate TargetType="TextBox">
+                                <Border Background="{TemplateBinding Background}" CornerRadius="2">
+                                    <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}" Focusable="False"
+                                                  VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </TextBox.Template>
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding NavigateCommand}"/>
+                        </TextBox.InputBindings>
+                    </TextBox>
+                </Border>
 
                 <Button Command="{Binding NavigateCommand}"
                         ToolTip="Go (right-click for more)"
