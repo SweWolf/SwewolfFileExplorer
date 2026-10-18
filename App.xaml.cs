@@ -11,6 +11,9 @@ public partial class App : Application
     /// <summary>A picture given on the command line: it is shown at once in the viewer, with no Explorer window until the user asks for it.</summary>
     public static string? StartupImage { get; private set; }
 
+    /// <summary>A folder given on the command line: the Explorer opens it as the root of its tree.</summary>
+    public static string? StartupFolder { get; private set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         foreach (var arg in e.Args)
@@ -21,6 +24,11 @@ public partial class App : Application
                 if (full.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && System.IO.File.Exists(full))
                 {
                     StartupFile = full;
+                    break;
+                }
+                if (System.IO.Directory.Exists(full))
+                {
+                    StartupFolder = full;
                     break;
                 }
                 if (System.IO.File.Exists(full) && ThumbnailLoader.IsImage(full))

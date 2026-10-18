@@ -73,6 +73,7 @@ public partial class MainWindow : Window
         Loaded += (_, _) =>
         {
             if (App.StartupFile != null) OpenTabSet(App.StartupFile, atStartup: true);
+            else if (App.StartupFolder != null) VM.SetTreeRoot(App.StartupFolder);   // a folder on the command line is the root of the tree
         };
 
         // The media player is another program and marks files read while it plays: look again when the window comes back.
