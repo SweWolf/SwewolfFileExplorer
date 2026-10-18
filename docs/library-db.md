@@ -1,4 +1,4 @@
-# Library database (schema version 3)
+# Library database (schema version 4)
 
 SweWolf File Explorer and SweWolf Media Player remember which files were opened ("read") and where a video stopped
 (resume position) in SQLite files. Both apps use the same files, and a separate tool (for example a TeraTool importer)
@@ -43,6 +43,15 @@ CREATE TABLE Rated (
     Expectation REAL,                           -- 1..10, decimals allowed (how good the user expects it to be); NULL = none
     PRIMARY KEY (Folder, Name)
 ) WITHOUT ROWID;
+
+-- schema 4: what the user chose for a folder (only for folders where they chose something)
+CREATE TABLE FolderPrefs (
+    Path              TEXT NOT NULL COLLATE NOCASE PRIMARY KEY,   -- the key of the folder (like Folder.Path)
+    SortColumn        TEXT,       -- how the list of the folder is sorted: a name of the explorer's SortColumn (Name, DateModified, DateCreated, Type, Size, Artist, Title, TrackNumber, Rating, Expectation, None)
+    SortAscending     INTEGER,    -- 1 ascending, 0 descending
+    TreeSortColumn    TEXT,       -- how the subfolders of the folder are sorted in the tree (Name, DateCreated, DateModified)
+    TreeSortAscending INTEGER
+) WITHOUT ROWID;
 ```
 
 Only exceptions are stored: **a file without a row is unread**, a folder without a row has never been touched.
@@ -86,4 +95,6 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 - **Rating and expectation** (schema 3): set with Ctrl+R / Ctrl+E on files and folders (also inside packed files, which are keyed like
   everything else). A row with neither value is deleted. Sorting treats no value as 0. A rename or move done in the explorer carries them
   along with the read marks.
-- Planned: the percent-watched column (position divided by length), tag, cover choice, sort orders.
+- **Sort order** (schema 4): saved when the user clicks a column header in the list or chooses the Sort By order of the tree;
+  read the first time a folder is shown in a run. `Forget` and `Move` carry the `FolderPrefs` rows with the folder.
+- Planned: the percent-watched column (position divided by length), tag, cover choice.

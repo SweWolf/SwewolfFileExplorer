@@ -18,6 +18,8 @@ public sealed record LibraryRoute(string DbFile, string Prefix, bool Relative, s
 /// what it knows.
 ///
 /// History:
+///   2026-10-17  Schema 4: table FolderPrefs (per folder: the sort order of its list and of its subfolders in the tree).
+///               GetFolderPrefs / SetFolderSort / SetFolderTreeSort; Forget and Move carry the rows. An older copy ignores the table.
 ///   2026-10-17  Forget (what the app deleted) and Move (what the app renamed or moved): the rows of a file, or of a folder and
 ///               everything below it, are removed or follow it to the new path (also to another database file).
 ///   2026-10-17  Schema 3: table Rated (rating 1-10 and expectation 1-10, for files and folders, in a table of its own so
@@ -36,7 +38,7 @@ public static class LibraryStore
 {
     public const string UsbFolderName = ".SweWolfFileExplorerData";
     public const string DbFileName = "library.db";
-    private const int SchemaVersion = 3;
+    private const int SchemaVersion = 4;
 
     /// <summary>One thing at a time on the database files (inside this app).</summary>
     public static readonly object Gate = new();
@@ -454,6 +456,13 @@ public static class LibraryStore
                     Rating      INTEGER,
                     Expectation REAL,
                     PRIMARY KEY (Folder, Name)
+                ) WITHOUT ROWID;
+                CREATE TABLE IF NOT EXISTS FolderPrefs (
+                    Path              TEXT NOT NULL COLLATE NOCASE PRIMARY KEY,
+                    SortColumn        TEXT,
+                    SortAscending     INTEGER,
+                    TreeSortColumn    TEXT,
+                    TreeSortAscending INTEGER
                 ) WITHOUT ROWID;";
             create.ExecuteNonQuery();
 
@@ -725,6 +734,86 @@ public static class LibraryStore
         return allSaved;
     }
 
+    // ── Sort order of a folder ───────────────────────────────────────────────
+
+    /// <summary>
+    /// What the user chose for a folder: how its list is sorted, and how its subfolders are sorted in the tree. The column is the
+    /// name of the explorer's SortColumn (a text, so a newer app can add columns). Null where nothing was chosen.
+    /// </summary>
+    public sealed record FolderPrefs(string? SortColumn, bool SortAscending, string? TreeSortColumn, bool TreeSortAscending);
+
+    /// <summary>The saved sort orders of a folder, or null if none was ever chosen for it (or nothing can be read).</summary>
+    public static FolderPrefs? GetFolderPrefs(string folderPath)
+    {
+        var path = folderPath.TrimEnd('\\', '/');
+        if (path.Length == 0) return null;
+
+        lock (Gate)
+        {
+            try
+            {
+                var route = Resolve(path, create: false);   // browsing leaves no trace on a removable drive
+                if (route == null) return null;
+
+                using var connection = Open(route, create: false);
+                if (connection == null) return null;
+
+                using var command = Command(connection,
+                    "SELECT SortColumn, SortAscending, TreeSortColumn, TreeSortAscending FROM FolderPrefs WHERE Path = $p",
+                    ("$p", KeyOf(route, path)));
+                using var reader = command.ExecuteReader();
+                if (!reader.Read()) return null;
+
+                return new FolderPrefs(
+                    reader.IsDBNull(0) ? null : reader.GetString(0), reader.IsDBNull(1) || reader.GetInt64(1) != 0,
+                    reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) || reader.GetInt64(3) != 0);
+            }
+            catch (Exception ex)
+            {
+                RepairAfter(ex, path);
+                return null;
+            }
+        }
+    }
+
+    /// <summary>Saves how the list of a folder is sorted. False if it could not be saved (a write-protected drive).</summary>
+    public static bool SetFolderSort(string folderPath, string column, bool ascending) =>
+        SetPrefs(folderPath, "SortColumn", "SortAscending", column, ascending);
+
+    /// <summary>Saves how the subfolders of a folder are sorted in the tree. False if it could not be saved.</summary>
+    public static bool SetFolderTreeSort(string folderPath, string column, bool ascending) =>
+        SetPrefs(folderPath, "TreeSortColumn", "TreeSortAscending", column, ascending);
+
+    private static bool SetPrefs(string folderPath, string columnField, string ascendingField, string column, bool ascending)
+    {
+        var path = folderPath.TrimEnd('\\', '/');
+        if (path.Length == 0) return false;
+
+        lock (Gate)
+        {
+            try
+            {
+                var route = Resolve(path, create: true);
+                if (route == null) return false;
+
+                using var connection = Open(route, create: true);
+                if (connection == null) return false;
+
+                using var command = Command(connection,
+                    $"INSERT INTO FolderPrefs (Path, {columnField}, {ascendingField}) VALUES ($p, $c, $a) " +
+                    $"ON CONFLICT(Path) DO UPDATE SET {columnField} = $c, {ascendingField} = $a",
+                    ("$p", KeyOf(route, path)), ("$c", column), ("$a", ascending ? 1 : 0));
+                command.ExecuteNonQuery();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                RepairAfter(ex, path);   // otherwise write-protected or busy
+                return false;
+            }
+        }
+    }
+
     // ── Forgetting and moving what is remembered ─────────────────────────────
 
     // Opens each database file at most once, in one transaction that is committed when the session ends: forgetting or moving
@@ -779,9 +868,12 @@ public static class LibraryStore
                 sub.ExecuteNonQuery();
         }
 
-        using var folders = session.Command(connection, "DELETE FROM Folder WHERE Path = $k OR (Path > $a AND Path < $b)",
-            ("$k", key), ("$a", below), ("$b", above));
-        folders.ExecuteNonQuery();
+        foreach (var table in new[] { "Folder", "FolderPrefs" })
+        {
+            using var folders = session.Command(connection, $"DELETE FROM {table} WHERE Path = $k OR (Path > $a AND Path < $b)",
+                ("$k", key), ("$a", below), ("$b", above));
+            folders.ExecuteNonQuery();
+        }
     }
 
     /// <summary>
@@ -875,7 +967,9 @@ public static class LibraryStore
             "SELECT Folder, Name, Rating, Expectation FROM Rated WHERE (Folder = $p AND Name = $n) OR Folder = $k OR (Folder > $a AND Folder < $b)", p);
         var folders = ReadAll(session, fromConnection,
             "SELECT Path, OwnUnread, Complete FROM Folder WHERE Path = $k OR (Path > $a AND Path < $b)", p);
-        if (files.Count == 0 && rated.Count == 0 && folders.Count == 0) return;
+        var prefs   = ReadAll(session, fromConnection,
+            "SELECT Path, SortColumn, SortAscending, TreeSortColumn, TreeSortAscending FROM FolderPrefs WHERE Path = $k OR (Path > $a AND Path < $b)", p);
+        if (files.Count == 0 && rated.Count == 0 && folders.Count == 0 && prefs.Count == 0) return;
 
         var toRoute = Resolve(to, create: true);
         if (toRoute == null) return;
@@ -924,6 +1018,14 @@ public static class LibraryStore
             using var insert = session.Command(toConnection,
                 "INSERT OR REPLACE INTO Folder (Path, OwnUnread, Complete) VALUES ($p, $o, $c)",
                 ("$p", Remap((string)r[0]!)), ("$o", r[1]), ("$c", r[2]));
+            insert.ExecuteNonQuery();
+        }
+
+        foreach (var r in prefs)
+        {
+            using var insert = session.Command(toConnection,
+                "INSERT OR REPLACE INTO FolderPrefs (Path, SortColumn, SortAscending, TreeSortColumn, TreeSortAscending) VALUES ($p, $c, $a, $tc, $ta)",
+                ("$p", Remap((string)r[0]!)), ("$c", r[1]), ("$a", r[2]), ("$tc", r[3]), ("$ta", r[4]));
             insert.ExecuteNonQuery();
         }
     }

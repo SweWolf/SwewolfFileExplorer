@@ -3,7 +3,7 @@ using SwewolfFileExplorer.Helpers;
 
 namespace SwewolfFileExplorer.ViewModels;
 
-/// <summary>What all tabs share: the sort order chosen per folder.</summary>
+/// <summary>What all tabs share: the sort order chosen per folder, and which hidden folders the tree shows.</summary>
 public class SharedState
 {
     /// <summary>Whether the file list shows folders (off by default; they are in the tree).</summary>
@@ -22,25 +22,93 @@ public class SharedState
     /// <summary>The saved settings (folders shown, font sizes); save them again after a change.</summary>
     public AppSettings Settings { get; } = AppSettingsStore.Current;
 
-    /// <summary>Sort order per folder, for this run. Meant to be saved later (a small database file).</summary>
-    public Dictionary<string, (SortColumn Column, bool Ascending)> FolderSorts { get; } =
-        new(StringComparer.OrdinalIgnoreCase);
+    // ── Sort orders, per folder ──────────────────────────────────────────────
+    // What the user chose is kept in the library database (table FolderPrefs), so it is still there after the program is
+    // closed. A folder's saved order is read once per run, the first time it is asked for, and kept here; a change is
+    // written in the background. Used from the UI thread and, for the tree, by the next-folder search: one lock.
 
-    /// <summary>
-    /// How the subfolders of a folder are sorted in the navigation tree, per folder, for this run.
-    /// Only Name, DateCreated and DateModified are used. Meant to be saved later, with <see cref="FolderSorts"/>.
-    /// </summary>
-    public Dictionary<string, (SortColumn Column, bool Ascending)> TreeSorts { get; } =
-        new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _sortGate = new();
+    private readonly Dictionary<string, (SortColumn Column, bool Ascending)> _folderSorts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (SortColumn Column, bool Ascending)> _treeSorts   = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _prefsLoaded = new(StringComparer.OrdinalIgnoreCase);
+
+    private static SortColumn? ParseColumn(string? text) =>
+        text != null && Enum.TryParse<SortColumn>(text, out var column) && Enum.IsDefined(column) ? column : null;
+
+    // Takes over what the database says about a folder, unless this run already knows something newer. Call inside the lock.
+    private void LoadPrefs(string path, string key)
+    {
+        if (!_prefsLoaded.Add(key)) return;
+
+        var prefs = LibraryStore.GetFolderPrefs(path);
+        if (prefs == null) return;
+
+        if (ParseColumn(prefs.SortColumn) is { } column && !_folderSorts.ContainsKey(key))
+            _folderSorts[key] = (column, prefs.SortAscending);
+        if (ParseColumn(prefs.TreeSortColumn) is { } treeColumn && !_treeSorts.ContainsKey(key))
+            _treeSorts[key] = (treeColumn, prefs.TreeSortAscending);
+    }
+
+    /// <summary>How the user sorted the list of <paramref name="path"/>, if they ever did (in this run or an earlier one).</summary>
+    public bool TryGetFolderSort(string path, out (SortColumn Column, bool Ascending) sort)
+    {
+        sort = default;
+        if (string.IsNullOrWhiteSpace(path)) return false;
+
+        lock (_sortGate)
+        {
+            var key = Key(path);
+            LoadPrefs(path, key);
+            return _folderSorts.TryGetValue(key, out sort);
+        }
+    }
+
+    /// <summary>The user sorted the list of <paramref name="path"/> this way: used now, and remembered for the next run.</summary>
+    public void SetFolderSort(string path, SortColumn column, bool ascending)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        lock (_sortGate)
+        {
+            var key = Key(path);
+            _prefsLoaded.Add(key);   // what is in the database is older than this
+            _folderSorts[key] = (column, ascending);
+        }
+        LibraryService.Queue(() => LibraryStore.SetFolderSort(path, column.ToString(), ascending));
+    }
 
     /// <summary>
     /// The tree sort order of the subfolders of <paramref name="path"/>. If none was chosen: Name, ascending;
     /// inside an archive no sort (<see cref="SortColumn.None"/>): its folders show in the order they are stored in it.
     /// </summary>
-    public (SortColumn Column, bool Ascending) GetTreeSort(string path) =>
-        TreeSorts.TryGetValue(Key(path), out var s)
-            ? s
-            : (ArchiveSupport.IsInside(path) ? SortColumn.None : SortColumn.Name, true);
+    public (SortColumn Column, bool Ascending) GetTreeSort(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return (SortColumn.Name, true);
+
+        lock (_sortGate)
+        {
+            var key = Key(path);
+            LoadPrefs(path, key);
+            if (_treeSorts.TryGetValue(key, out var sort)) return sort;
+        }
+        return (ArchiveSupport.IsInside(path) ? SortColumn.None : SortColumn.Name, true);
+    }
+
+    /// <summary>The user chose this order for the subfolders of <paramref name="path"/> in the tree: used now, and remembered.</summary>
+    public void SetTreeSort(string path, SortColumn column, bool ascending)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        lock (_sortGate)
+        {
+            var key = Key(path);
+            _prefsLoaded.Add(key);
+            _treeSorts[key] = (column, ascending);
+        }
+        LibraryService.Queue(() => LibraryStore.SetFolderTreeSort(path, column.ToString(), ascending));
+    }
+
+    // ── Hidden folders in the tree ───────────────────────────────────────────
 
     /// <summary>
     /// The folders whose hidden and system subfolders the navigation tree shows, for this run.
@@ -55,7 +123,7 @@ public class SharedState
         catch { return false; }   // not a path
     }
 
-    /// <summary>The key of a folder in <see cref="FolderSorts"/>: its full path without a trailing slash.</summary>
+    /// <summary>The key of a folder in the sort orders: its full path without a trailing slash.</summary>
     public static string Key(string path) =>
         Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 }

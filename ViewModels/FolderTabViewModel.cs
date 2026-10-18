@@ -68,7 +68,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         SortColumn    = column;
         SortAscending = ascending;
         if (!string.IsNullOrEmpty(_currentPath))
-            _shared.FolderSorts[SharedState.Key(_currentPath)] = (column, ascending);
+            _shared.SetFolderSort(_currentPath, column, ascending);   // also saved for the next run
         SortChanged?.Invoke();
     }
 
@@ -78,7 +78,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     private void ApplyFolderSort()
     {
-        var (column, ascending) = _shared.FolderSorts.TryGetValue(SharedState.Key(_currentPath), out var s)
+        var (column, ascending) = _shared.TryGetFolderSort(_currentPath, out var s)
             ? s
             : (ArchiveSupport.IsInside(_currentPath) ? SortColumn.None : SortColumn.Name, true);
 
@@ -129,7 +129,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (!(Directory.Exists(_currentPath) || ArchiveSupport.FolderExists(_currentPath, out _))
             || CurrentTreeSort == (column, ascending)) return;
 
-        _shared.TreeSorts[SharedState.Key(_currentPath)] = (column, ascending);
+        _shared.SetTreeSort(_currentPath, column, ascending);   // also saved for the next run
         OnPropertyChanged(nameof(TreeSortIndex));
         OnPropertyChanged(nameof(TreeSortDirectionIndex));
         TreeSortChanged?.Invoke(_currentPath);
