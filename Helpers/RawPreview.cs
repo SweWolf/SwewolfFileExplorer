@@ -12,13 +12,15 @@ public sealed record RawPreviewImage(byte[] Jpeg, int Orientation, int Width, in
 /// preview directory), only the bytes needed are read, and nothing is converted or written. The camera's orientation is
 /// in the first directory of the RAW file, not in the JPEG, so it is returned too.
 ///
-/// Only the extensions in <see cref="Extensions"/> are taken as RAW: NEF was tested with the user's files; the others that
-/// are built the same way (NRW, CR2, ARW, DNG, ORF, RW2, PEF ...) can be added to the list once there are files to try.
+/// Only the extensions in <see cref="Extensions"/> are taken as RAW: NEF and DNG were tested with the user's files (the DNG:
+/// a Canon "linear" DNG, 3456x2304, whose biggest JPEG is a 1024x683 preview in a SubIFD); the others that are built the
+/// same way (NRW, CR2, ARW, ORF, PEF ...) can be added to the list once there are files to try (RW2 is not a plain TIFF).
 /// A JPEG that is really the sensor data in a lossless wrapper (SOF3: Canon CR2, DNG) is skipped: it is not a picture.
+/// A DNG whose raw data is a tiled lossy JPEG ("Linear Raw") is skipped the same way: it is in tiles, not one JPEG.
 /// </summary>
 public static class RawPreview
 {
-    private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase) { ".nef" };
+    private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase) { ".nef", ".dng" };
 
     public static bool IsRaw(string path) => Extensions.Contains(Path.GetExtension(path));
 
