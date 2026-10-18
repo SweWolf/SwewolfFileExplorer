@@ -1,0 +1,68 @@
+using System.IO;
+using System.Windows.Media.Imaging;
+
+namespace SwewolfFileExplorer.Helpers;
+
+/// <summary>
+/// The preview picture of a video or music file: the picture and where it came from, so that a click on it can show it big.
+/// <see cref="File"/> is a picture file (opened as it is); <see cref="Bytes"/> is a picture that was inside the file (saved to
+/// the temporary folder first); neither is set for a frame Windows made (<see cref="Frame"/>), which is saved the same way.
+/// </summary>
+public sealed record PreviewPicture(BitmapSource Image, string? File, byte[]? Bytes, bool Frame);
+
+/// <summary>
+/// Finds the preview picture of a video or music file, first match wins:
+///   1. what the user chose in the library database (a picture, or "none": then there is no preview picture at all),
+///   2. a picture built into the file (the cover of a music file; the cover of an mp4 / mkv),
+///   3. a picture file in the same folder: &lt;name&gt;-poster.png / .jpg / .jpeg, then &lt;name&gt;.png / .jpg / .jpeg
+///      (TeraTool looked for the same names),
+///   4. for a video: the thumbnail Windows makes (<see cref="ShellThumbnail"/>); where Windows has none, a frame made with
+///      ffmpeg at 10 % of the length (<see cref="FfmpegFrame"/>, kept in a cache folder, never beside the video).
+/// Runs on a background thread; never writes anything and never keeps a file open.
+/// </summary>
+public static class PreviewPictureFinder
+{
+    private static readonly string[] SideNames = { "-poster.png", "-poster.jpg", "-poster.jpeg", ".png", ".jpg", ".jpeg" };
+
+    /// <summary>The picture files next to <paramref name="path"/> that count, in the order they are tried.</summary>
+    public static IEnumerable<string> SideFiles(string path)
+    {
+        var folder = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(folder)) yield break;
+
+        var baseName = Path.GetFileNameWithoutExtension(path);
+        foreach (var suffix in SideNames)
+            yield return Path.Combine(folder, baseName + suffix);
+    }
+
+    public static PreviewPicture? Find(string path, int decodeWidth)
+    {
+        bool isVideo = MediaPlayerLauncher.IsVideo(path);
+
+        // 1. The user's own choice.
+        var choice = LibraryStore.GetPreviewChoice(path);
+        if (choice is { None: true }) return null;
+        if (choice is { Picture: { } chosen } && File.Exists(chosen) && ThumbnailLoader.Load(chosen, decodeWidth) is { } picked)
+            return new PreviewPicture(picked, chosen, null, false);   // a chosen file that is gone counts as not chosen
+
+        // 2. A picture inside the file.
+        if (AudioTagReader.ReadCover(path) is { } cover && ThumbnailLoader.LoadBytes(cover, decodeWidth) is { } inside)
+            return new PreviewPicture(inside, null, cover, false);
+
+        // 3. A picture file next to it.
+        foreach (var side in SideFiles(path))
+            if (File.Exists(side) && ThumbnailLoader.Load(side, decodeWidth) is { } beside)
+                return new PreviewPicture(beside, side, null, false);
+
+        // 4. A frame of the video: the thumbnail Windows makes, else (it has no codec) one made with ffmpeg at 10 % of the length.
+        if (isVideo)
+        {
+            if (ShellThumbnail.Get(path, decodeWidth) is { } frame)
+                return new PreviewPicture(frame, null, null, true);
+            if (FfmpegFrame.Get(path, decodeWidth) is { } jpeg && ThumbnailLoader.LoadBytes(jpeg, decodeWidth) is { } made)
+                return new PreviewPicture(made, null, null, true);
+        }
+
+        return null;
+    }
+}

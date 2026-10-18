@@ -23,17 +23,23 @@ public static class MediaPlayerLauncher
     private const string DisplayName = "SweWolf Media Player";
     private const string DownloadPage = "https://github.com/SweWolf/SwewolfMediaPlayer/releases";
 
-    private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        // video
         ".mp4", ".m4v", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mpg", ".mpeg", ".mpe", ".ts", ".m2ts", ".mts",
         ".3gp", ".vob", ".ogv", ".divx", ".asf", ".rm", ".rmvb",
-        // music (the ones the player lists, plus SID tunes)
+    };
+
+    // music (the ones the player lists, plus SID tunes)
+    private static readonly HashSet<string> MusicExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
         ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wma", ".wav", ".aif", ".aiff", ".sid",
     };
 
     /// <summary>A video or music file: it is played in SweWolf Media Player.</summary>
-    public static bool IsMedia(string name) => Extensions.Contains(Path.GetExtension(name));
+    public static bool IsMedia(string name) => IsVideo(name) || MusicExtensions.Contains(Path.GetExtension(name));
+
+    /// <summary>A video file.</summary>
+    public static bool IsVideo(string name) => VideoExtensions.Contains(Path.GetExtension(name));
 
     /// <summary>
     /// The player's EXE, looked for in the order of D:\Dev\CLAUDE.md ("Finding a sibling app"): next to this EXE, then

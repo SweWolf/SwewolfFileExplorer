@@ -871,16 +871,16 @@ public partial class MainWindow : Window
 
     private const int ThumbnailDecodeWidth = 320;   // twice the size shown, so it stays sharp on a high-DPI screen
 
-    // What the preview shows, so that a click on it can open it in the viewer: the item it is of, and, for a music file,
-    // the bytes of the picture built into it.
+    // What the preview shows, so that a click on it can open it in the viewer: the item it is of and, for a video or music
+    // file, where its preview picture came from.
     private FileItemViewModel? _previewItem;
-    private byte[]? _previewCover;
+    private PreviewPicture? _previewSource;
 
     private async void ShowThumbnail(FileItemViewModel? item)
     {
         int version = ++_thumbnailVersion;
-        _previewItem  = null;
-        _previewCover = null;
+        _previewItem   = null;
+        _previewSource = null;
 
         if (item == null || item.IsDirectory)
         {
@@ -901,22 +901,80 @@ public partial class MainWindow : Window
             return;
         }
 
-        // A music file with a picture built into it (an album cover): the preview shows that picture.
-        if (!item.IsInArchive && AudioTagReader.HasTags(path))
+        // A video or music file: the user's choice, a picture built into the file, a picture file next to it, for a video a
+        // frame Windows makes (PreviewPictureFinder). Not inside an archive.
+        if (!item.IsInArchive && (MediaPlayerLauncher.IsVideo(path) || AudioTagReader.HasTags(path)))
         {
-            var (cover, picture) = await Task.Run(() =>
+            var found = await Task.Run(() =>
             {
-                var bytes = AudioTagReader.ReadCover(path);
-                return (bytes, bytes == null ? null : ThumbnailLoader.LoadBytes(bytes, ThumbnailDecodeWidth));
+                LibraryService.WaitForQueued();   // a choice that was just made is written first
+                return PreviewPictureFinder.Find(path, ThumbnailDecodeWidth);
             });
             if (version != _thumbnailVersion) return;
 
-            ThumbnailImage.Source = picture;
-            if (picture != null) { _previewItem = item; _previewCover = cover; }
+            ThumbnailImage.Source = found?.Image;
+            if (found != null) { _previewItem = item; _previewSource = found; }
             return;
         }
 
         ThumbnailImage.Source = null;
+    }
+
+    // ── The right-click menu of the preview square ───────────────────────────
+
+    /// <summary>The file the preview menu is for: one selected video or music file (not a folder, a picture or something in an archive).</summary>
+    private FileItemViewModel? PreviewMenuTarget() =>
+        FileListView.SelectedItems.Count == 1
+        && FileListView.SelectedItems[0] is FileItemViewModel { IsDirectory: false, IsInArchive: false } item
+        && (MediaPlayerLauncher.IsVideo(item.FullPath) || AudioTagReader.HasTags(item.FullPath))
+            ? item : null;
+
+    private void PreviewBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        var item = PreviewMenuTarget();
+        if (item == null) { e.Handled = true; return; }   // no menu where there is nothing to choose
+
+        var choice = LibraryStore.GetPreviewChoice(item.FullPath);
+        PreviewChooseItem.Visibility = Visibility.Visible;
+        PreviewNoneItem.Visibility   = choice is { None: true } ? Visibility.Collapsed : Visibility.Visible;
+        PreviewAutoItem.Visibility   = choice != null ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SetPreviewChoice(FileItemViewModel item, LibraryStore.PreviewChoice? choice)
+    {
+        var path = item.FullPath;
+        LibraryService.Queue(() => LibraryStore.SetPreviewChoice(path, choice));
+        ShowThumbnail(item);
+    }
+
+    private void PreviewChoose_Click(object sender, RoutedEventArgs e)
+    {
+        if (PreviewMenuTarget() is not { } item) return;
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title            = "Choose Preview Picture",
+            Filter           = "Pictures|*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.bmp;*.gif;*.tif;*.tiff;*.webp;*.ico|All Files|*.*",
+            InitialDirectory = System.IO.Path.GetDirectoryName(item.FullPath),
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        if (ThumbnailLoader.Load(dialog.FileName, ThumbnailDecodeWidth) == null)
+        {
+            MessageBox.Show(this, "That file is not a picture the program can show.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        SetPreviewChoice(item, new LibraryStore.PreviewChoice(false, dialog.FileName));
+    }
+
+    private void PreviewNone_Click(object sender, RoutedEventArgs e)
+    {
+        if (PreviewMenuTarget() is { } item) SetPreviewChoice(item, new LibraryStore.PreviewChoice(true, null));
+    }
+
+    private void PreviewAuto_Click(object sender, RoutedEventArgs e)
+    {
+        if (PreviewMenuTarget() is { } item) SetPreviewChoice(item, null);
     }
 
     /// <summary>
@@ -929,17 +987,36 @@ public partial class MainWindow : Window
         if (e.ClickCount != 1 || _previewItem == null || ThumbnailImage.Source == null) return;
         e.Handled = true;
 
-        var item = _previewItem;
-        if (_previewCover == null)
+        var item   = _previewItem;
+        var source = _previewSource;
+        if (source == null)
         {
-            OpenInViewer(item);
+            OpenInViewer(item);   // a picture file shows itself, with the pictures of the list
             return;
         }
 
         try
         {
-            bool png = _previewCover.Length > 4 && _previewCover[0] == 0x89 && _previewCover[1] == 'P';
-            var file = ArchiveSupport.SaveToTemp(System.IO.Path.GetFileNameWithoutExtension(item.Name) + (png ? ".png" : ".jpg"), _previewCover);
+            string file;
+            if (source.File != null)
+            {
+                file = source.File;   // a picture file: the one the user chose, or the one next to the video
+            }
+            else
+            {
+                // A picture from inside the file, or a frame Windows made: saved to the temporary folder first.
+                var bytes = source.Bytes;
+                bool png = bytes == null || (bytes.Length > 4 && bytes[0] == 0x89 && bytes[1] == 'P');
+                if (bytes == null)
+                {
+                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(source.Image));
+                    using var memory = new System.IO.MemoryStream();
+                    encoder.Save(memory);
+                    bytes = memory.ToArray();
+                }
+                file = ArchiveSupport.SaveToTemp(System.IO.Path.GetFileNameWithoutExtension(item.Name) + (png ? ".png" : ".jpg"), bytes);
+            }
             new PictureViewerWindow(new[] { file }, file) { Owner = this }.ShowDialog();
             FileListView.Focus();
         }

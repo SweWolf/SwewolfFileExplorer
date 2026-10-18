@@ -1,4 +1,4 @@
-# Library database (schema version 4)
+# Library database (schema version 5)
 
 SweWolf File Explorer and SweWolf Media Player remember which files were opened ("read") and where a video stopped
 (resume position) in SQLite files. Both apps use the same files, and a separate tool (for example a TeraTool importer)
@@ -52,6 +52,16 @@ CREATE TABLE FolderPrefs (
     TreeSortColumn    TEXT,       -- how the subfolders of the folder are sorted in the tree (Name, DateCreated, DateModified)
     TreeSortAscending INTEGER
 ) WITHOUT ROWID;
+
+-- schema 5: the preview picture the user chose for a video or music file (only where they chose something)
+CREATE TABLE PreviewPick (
+    Folder  TEXT NOT NULL COLLATE NOCASE,   -- the key of the folder that holds the file (like Rated.Folder)
+    Name    TEXT NOT NULL COLLATE NOCASE,   -- the file name
+    Picture TEXT NOT NULL,                  -- '' = no preview picture at all; a path without a drive or leading backslash = from the folder of the file
+                                            -- (the picture lies in that folder or below it); '\x\y.png' = from the root of the drive (USB database
+                                            -- only); anything else = the full path
+    PRIMARY KEY (Folder, Name)
+) WITHOUT ROWID;
 ```
 
 Only exceptions are stored: **a file without a row is unread**, a folder without a row has never been touched.
@@ -97,4 +107,7 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
   along with the read marks.
 - **Sort order** (schema 4): saved when the user clicks a column header in the list or chooses the Sort By order of the tree;
   read the first time a folder is shown in a run. `Forget` and `Move` carry the `FolderPrefs` rows with the folder.
+- **Preview picture** (schema 5): chosen with the right-click menu of the preview square under the list (Choose Preview Picture...,
+  No Preview Picture, Use Automatic Preview Picture, which deletes the row). A picture that no longer exists counts as not chosen.
+  `Forget` and `Move` carry the rows; a file moved to another folder gets its picture path written again from the new place.
 - Planned: the percent-watched column (position divided by length), tag, cover choice.

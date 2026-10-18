@@ -668,12 +668,23 @@
                         </TextBlock>
                     </StackPanel>
 
-                    <!-- A click opens the picture in the picture viewer (the picture of a picture file, or the cover built into a music file) -->
-                    <Image x:Name="ThumbnailImage" Grid.Column="1"
-                           Width="160" Height="100" Stretch="Uniform"
-                           HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="Hand"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           MouseLeftButtonDown="ThumbnailImage_MouseLeftButtonDown"/>
+                    <!-- A click opens the picture in the picture viewer (the picture of a picture file, the cover built into a
+                         music file, the preview picture of a video). The transparent border is there so that the right-click
+                         menu (Choose / No / Automatic preview picture) also works on an empty square. -->
+                    <Border x:Name="PreviewBox" Grid.Column="1" Width="160" Height="100" Background="Transparent"
+                            HorizontalAlignment="Left" VerticalAlignment="Top"
+                            ContextMenuOpening="PreviewBox_ContextMenuOpening">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem x:Name="PreviewChooseItem" Header="Choose Preview Picture..." Click="PreviewChoose_Click"/>
+                                <MenuItem x:Name="PreviewNoneItem"   Header="No Preview Picture"        Click="PreviewNone_Click"/>
+                                <MenuItem x:Name="PreviewAutoItem"   Header="Use Automatic Preview Picture" Click="PreviewAuto_Click"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
+                        <Image x:Name="ThumbnailImage" Stretch="Uniform" Cursor="Hand"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               MouseLeftButtonDown="ThumbnailImage_MouseLeftButtonDown"/>
+                    </Border>
                 </Grid>
             </Border>
 

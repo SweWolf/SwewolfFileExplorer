@@ -18,6 +18,8 @@ public sealed record LibraryRoute(string DbFile, string Prefix, bool Relative, s
 /// what it knows.
 ///
 /// History:
+///   2026-10-18  Schema 5: table PreviewPick (per file: the picture the user chose as its preview picture, or "none").
+///               GetPreviewChoice / SetPreviewChoice; Forget and Move carry the rows. An older copy ignores the table.
 ///   2026-10-17  Schema 4: table FolderPrefs (per folder: the sort order of its list and of its subfolders in the tree).
 ///               GetFolderPrefs / SetFolderSort / SetFolderTreeSort; Forget and Move carry the rows. An older copy ignores the table.
 ///   2026-10-17  Forget (what the app deleted) and Move (what the app renamed or moved): the rows of a file, or of a folder and
@@ -38,7 +40,7 @@ public static class LibraryStore
 {
     public const string UsbFolderName = ".SweWolfFileExplorerData";
     public const string DbFileName = "library.db";
-    private const int SchemaVersion = 4;
+    private const int SchemaVersion = 5;
 
     /// <summary>One thing at a time on the database files (inside this app).</summary>
     public static readonly object Gate = new();
@@ -463,6 +465,12 @@ public static class LibraryStore
                     SortAscending     INTEGER,
                     TreeSortColumn    TEXT,
                     TreeSortAscending INTEGER
+                ) WITHOUT ROWID;
+                CREATE TABLE IF NOT EXISTS PreviewPick (
+                    Folder  TEXT NOT NULL COLLATE NOCASE,
+                    Name    TEXT NOT NULL COLLATE NOCASE,
+                    Picture TEXT NOT NULL,
+                    PRIMARY KEY (Folder, Name)
                 ) WITHOUT ROWID;";
             create.ExecuteNonQuery();
 
@@ -734,6 +742,105 @@ public static class LibraryStore
         return allSaved;
     }
 
+    // ── Preview picture of a file ────────────────────────────────────────────
+
+    /// <summary>What the user chose as the preview picture of a file: none at all, or a picture (full path, not checked for existence).</summary>
+    public readonly record struct PreviewChoice(bool None, string? Picture);
+
+    // How the picture is written in PreviewPick.Picture: "" = none; a path that is not rooted = from the folder of the file (the
+    // picture lies in that folder or below it, so it follows the folder when it is renamed or moved); "\x\y" (one backslash) =
+    // from the root of the drive, on a USB drive (the letter can change); anything else = the full path.
+    private static string EncodePicture(LibraryRoute route, string folder, string picture)
+    {
+        var full = Path.GetFullPath(picture);
+        var folderFull = Path.GetFullPath(folder).TrimEnd('\\', '/') + "\\";
+        if (full.StartsWith(folderFull, StringComparison.OrdinalIgnoreCase))
+            return full.Substring(folderFull.Length);
+
+        if (route.Relative && full.StartsWith(route.Root, StringComparison.OrdinalIgnoreCase))
+            return "\\" + full.Substring(route.Root.TrimEnd('\\', '/').Length).TrimStart('\\');
+
+        return full;
+    }
+
+    private static string DecodePicture(LibraryRoute route, string folder, string stored)
+    {
+        if (stored.StartsWith("\\") && !stored.StartsWith("\\\\") && route.Relative)
+            return route.Root.TrimEnd('\\', '/') + stored;
+        if (Path.IsPathRooted(stored)) return stored;
+        return Path.Combine(folder, stored);
+    }
+
+    /// <summary>The preview picture the user chose for a file, or null if nothing was chosen (then the program looks for one itself).</summary>
+    public static PreviewChoice? GetPreviewChoice(string filePath)
+    {
+        var path = filePath.TrimEnd('\\', '/');
+        var folder = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(folder)) return null;
+
+        lock (Gate)
+        {
+            try
+            {
+                var route = Resolve(folder, create: false);
+                if (route == null) return null;
+
+                using var connection = Open(route, create: false);
+                if (connection == null) return null;
+
+                var (parentKey, name) = RatedKey(route, path);
+                using var command = Command(connection, "SELECT Picture FROM PreviewPick WHERE Folder = $f AND Name = $n",
+                    ("$f", parentKey), ("$n", name));
+                if (command.ExecuteScalar() is not string stored) return null;
+
+                return stored.Length == 0 ? new PreviewChoice(true, null) : new PreviewChoice(false, DecodePicture(route, folder, stored));
+            }
+            catch (Exception ex)
+            {
+                RepairAfter(ex, path);
+                return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Saves the choice (none, or a picture) or, with null, removes it (back to automatic). False if it could not be saved
+    /// (a write-protected drive). Removing never creates a file on a removable drive.
+    /// </summary>
+    public static bool SetPreviewChoice(string filePath, PreviewChoice? choice)
+    {
+        var path = filePath.TrimEnd('\\', '/');
+        var folder = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(folder)) return false;
+
+        lock (Gate)
+        {
+            try
+            {
+                var route = Resolve(folder, create: choice != null);
+                if (route == null) return choice == null;
+
+                using var connection = Open(route, create: choice != null);
+                if (connection == null) return choice == null;
+
+                var (parentKey, name) = RatedKey(route, path);
+                using var command = choice is not { } c
+                    ? Command(connection, "DELETE FROM PreviewPick WHERE Folder = $f AND Name = $n", ("$f", parentKey), ("$n", name))
+                    : Command(connection,
+                        "INSERT INTO PreviewPick (Folder, Name, Picture) VALUES ($f, $n, $p) ON CONFLICT(Folder, Name) DO UPDATE SET Picture = $p",
+                        ("$f", parentKey), ("$n", name),
+                        ("$p", c.None || string.IsNullOrEmpty(c.Picture) ? "" : EncodePicture(route, folder, c.Picture)));
+                command.ExecuteNonQuery();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                RepairAfter(ex, path);
+                return false;
+            }
+        }
+    }
+
     // ── Sort order of a folder ───────────────────────────────────────────────
 
     /// <summary>
@@ -859,7 +966,7 @@ public static class LibraryStore
     {
         var (below, above) = SubtreeRange(key);
 
-        foreach (var table in new[] { "File", "Rated" })
+        foreach (var table in new[] { "File", "Rated", "PreviewPick" })
         {
             using (var item = session.Command(connection, $"DELETE FROM {table} WHERE Folder = $p AND Name = $n", ("$p", parentKey), ("$n", name)))
                 item.ExecuteNonQuery();
@@ -969,7 +1076,9 @@ public static class LibraryStore
             "SELECT Path, OwnUnread, Complete FROM Folder WHERE Path = $k OR (Path > $a AND Path < $b)", p);
         var prefs   = ReadAll(session, fromConnection,
             "SELECT Path, SortColumn, SortAscending, TreeSortColumn, TreeSortAscending FROM FolderPrefs WHERE Path = $k OR (Path > $a AND Path < $b)", p);
-        if (files.Count == 0 && rated.Count == 0 && folders.Count == 0 && prefs.Count == 0) return;
+        var picks   = ReadAll(session, fromConnection,
+            "SELECT Folder, Name, Picture FROM PreviewPick WHERE (Folder = $p AND Name = $n) OR Folder = $k OR (Folder > $a AND Folder < $b)", p);
+        if (files.Count == 0 && rated.Count == 0 && folders.Count == 0 && prefs.Count == 0 && picks.Count == 0) return;
 
         var toRoute = Resolve(to, create: true);
         if (toRoute == null) return;
@@ -1013,10 +1122,30 @@ public static class LibraryStore
             insert.ExecuteNonQuery();
         }
 
+        foreach (var r in picks)
+        {
+            bool item = IsTheItem(r[0], r[1]);
+            var (folder, name) = item ? (toParent, toName) : (Remap((string)r[0]!), (string)r[1]!);
+
+            // The file itself may have moved to another folder: the picture is written again from where it is now.
+            var picture = (string)r[2]!;
+            if (item && picture.Length > 0)
+            {
+                var oldFolder = Path.GetDirectoryName(from)!;
+                var newFolder = Path.GetDirectoryName(to)!;
+                picture = EncodePicture(toRoute, newFolder, DecodePicture(fromRoute, oldFolder, picture));
+            }
+
+            using var insert = session.Command(toConnection,
+                "INSERT OR REPLACE INTO PreviewPick (Folder, Name, Picture) VALUES ($f, $n, $p)",
+                ("$f", folder), ("$n", name), ("$p", picture));
+            insert.ExecuteNonQuery();
+        }
+
         foreach (var r in folders)
         {
             using var insert = session.Command(toConnection,
-                "INSERT OR REPLACE INTO Folder (Path, OwnUnread, Complete) VALUES ($p, $o, $c)",
+                "INSERT OR REPLACE INTO Folder(Path, OwnUnread, Complete) VALUES ($p, $o, $c)",
                 ("$p", Remap((string)r[0]!)), ("$o", r[1]), ("$c", r[2]));
             insert.ExecuteNonQuery();
         }
