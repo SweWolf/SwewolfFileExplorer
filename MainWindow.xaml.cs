@@ -730,8 +730,9 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Opens a workspace or session file; what it is, is read from the file itself, wherever it lies. If the user has been
-    /// clicking around, asks first, for a workspace and a session alike: "All your current tabs will be closed. Do you want to
-    /// continue?" (OK / Cancel; both always replace the tabs; not asked if a session is on, as the tabs are saved in it).
+    /// clicking around, asks first: for a session "All your current tabs will be closed. Do you want to continue?" (OK / Cancel;
+    /// a session always replaces the tabs; not asked if a session is on, as the tabs are saved in it); for a workspace whether to
+    /// close the open tabs first (Yes: close, No: keep and add, Cancel).
     /// A session goes on being saved into the same file. The mouse pointer is the wait pointer while the tabs open.
     /// </summary>
     private void OpenTabSet(string file, bool atStartup = false)
@@ -743,21 +744,32 @@ public partial class MainWindow : Window
             return;
         }
 
-        // A workspace and a session both replace the open tabs (they are never mixed with them): if the user has been clicking
-        // around, one question, OK / Cancel. Not asked when a session is on already: the open tabs are saved in it, so
-        // closing them loses nothing.
-        const bool replace = true;
+        // If the user has been clicking around, a question first, in the app's own dialog (title "Open Workspace - <name>").
+        // A session always replaces the open tabs (it is the whole state, never mixed with them): OK / Cancel; not asked when a
+        // session is on already, as the open tabs are saved in it and closing them loses nothing. A workspace can also be added
+        // to the open tabs: Yes (close them first) / No (keep them and add the workspace) / Cancel.
+        bool replace = true;
         if (!atStartup && VM.HasUserActivity && !(kind == StoreKind.Session && VM.Session.IsActive))
         {
-            var dialog = new ChoiceDialog("All your current tabs will be closed.\n\nDo you want to continue?", new[] { "OK", "Cancel" }, 0, 1)
+            bool session = kind == StoreKind.Session;
+            var dialog = new ChoiceDialog(
+                session ? "All your current tabs will be closed.\n\nDo you want to continue?" : "Do you want to close all current tabs first?",
+                session ? new[] { "OK", "Cancel" } : new[] { "Yes", "No", "Cancel" },
+                0, session ? 1 : 2)
             {
-                Title    = $"Open {(kind == StoreKind.Session ? "Session" : "Workspace")} - {System.IO.Path.GetFileNameWithoutExtension(file)}",
+                Title    = $"Open {(session ? "Session" : "Workspace")} - {System.IO.Path.GetFileNameWithoutExtension(file)}",
                 FontSize = 16,
                 MinWidth = 560,
                 Owner    = this,
             };
             dialog.ShowDialog();
-            if (dialog.Result != 0) return;
+
+            if (session) { if (dialog.Result != 0) return; }
+            else
+            {
+                if (dialog.Result == 2) return;   // Cancel (or Esc)
+                replace = dialog.Result == 0;     // Yes: close them first; No: keep them and add
+            }
         }
 
         // Opening the folders takes a while (every tab reads its folder and its tree): the mouse pointer says so.
