@@ -730,8 +730,8 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Opens a workspace or session file; what it is, is read from the file itself, wherever it lies. If the user has been
-    /// clicking around, asks first: for a session "All open tabs will be closed. Continue?" (OK / Cancel, a session always
-    /// replaces the tabs; not asked if a session is on, as the tabs are saved in it); for a workspace whether to close the open tabs first (Yes: close, No: keep and add, Cancel).
+    /// clicking around, asks first, for a workspace and a session alike: "All your current tabs will be closed. Do you want to
+    /// continue?" (OK / Cancel; both always replace the tabs; not asked if a session is on, as the tabs are saved in it).
     /// A session goes on being saved into the same file. The mouse pointer is the wait pointer while the tabs open.
     /// </summary>
     private void OpenTabSet(string file, bool atStartup = false)
@@ -743,28 +743,21 @@ public partial class MainWindow : Window
             return;
         }
 
-        bool replace = true;
-        if (!atStartup && VM.HasUserActivity)
+        // A workspace and a session both replace the open tabs (they are never mixed with them): if the user has been clicking
+        // around, one question, OK / Cancel. Not asked when a session is on already: the open tabs are saved in it, so
+        // closing them loses nothing.
+        const bool replace = true;
+        if (!atStartup && VM.HasUserActivity && !(kind == StoreKind.Session && VM.Session.IsActive))
         {
-            if (kind == StoreKind.Session)
+            var dialog = new ChoiceDialog("All your current tabs will be closed.\n\nDo you want to continue?", new[] { "OK", "Cancel" }, 0, 1)
             {
-                // A session is the whole state: it never makes sense to mix it with the tabs that are open. No question
-                // if a session is on already: the open tabs are saved in it, so closing them loses nothing.
-                if (!VM.Session.IsActive)
-                {
-                    var answer = MessageBox.Show(this, "All open tabs will be closed. Continue?", AppInfo.Name,
-                        MessageBoxButton.OKCancel, MessageBoxImage.Question);
-                    if (answer != MessageBoxResult.OK) return;
-                }
-            }
-            else
-            {
-                // A workspace can also be added to the tabs that are open.
-                var answer = MessageBox.Show(this, "Do you want to close all current tabs first?", AppInfo.Name,
-                    MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-                if (answer == MessageBoxResult.Cancel) return;
-                replace = answer == MessageBoxResult.Yes;
-            }
+                Title    = $"Open {(kind == StoreKind.Session ? "Session" : "Workspace")} - {System.IO.Path.GetFileNameWithoutExtension(file)}",
+                FontSize = 16,
+                MinWidth = 560,
+                Owner    = this,
+            };
+            dialog.ShowDialog();
+            if (dialog.Result != 0) return;
         }
 
         // Opening the folders takes a while (every tab reads its folder and its tree): the mouse pointer says so.
