@@ -1491,11 +1491,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <param name="media">Each video or music file with the path it is going to get.</param>
     /// <param name="alsoMoving">Paths that are moved anyway (cut together): they are not asked about.</param>
     private static bool AskAboutRelated(IReadOnlyList<(string Media, string NewMedia)> media, ISet<string>? alsoMoving, bool rename,
-                                        out List<(string From, string To)> related)
+                                        out List<RelatedMove> related, out List<NotDone> notDone)
     {
-        related = new List<(string From, string To)>();
-        var willMove = new List<(string From, string To)>();
-        var skipped  = new List<string>();
+        related = new List<RelatedMove>();
+        notDone = new List<NotDone>();
+        var willMove = new List<RelatedMove>();
+        var skipped  = new List<NotDone>();   // their new name is taken: they are left as they are
 
         foreach (var (path, newPath) in media)
         {
@@ -1510,15 +1511,17 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
                 if (string.Equals(target, file, StringComparison.Ordinal)) continue;   // nothing changes for this one
                 bool sameFile = string.Equals(target, file, StringComparison.OrdinalIgnoreCase);   // a change of case only
-                if (!sameFile && (File.Exists(target) || Directory.Exists(target))) skipped.Add(Path.GetFileName(target));
-                else willMove.Add((file, target));
+                if (!sameFile && (File.Exists(target) || Directory.Exists(target)))
+                    skipped.Add(new NotDone(file, target, "a file with the new name already exists"));
+                else willMove.Add(new RelatedMove(file, target, path));
             }
         }
 
         if (willMove.Count == 0 && skipped.Count == 0) return true;   // nothing to ask about
 
         // Only the names of the files that would follow; the new names are made by the same pattern as the video's.
-        var list = RelatedFiles.Describe(willMove.Select(m => Path.GetFileName(m.From)).ToList(), skipped);
+        var list = RelatedFiles.Describe(willMove.Select(m => Path.GetFileName(m.From)).ToList(),
+                                         skipped.Select(s => Path.GetFileName(s.From)).ToList());
 
         string verb  = rename ? "rename" : "move";
         string title = rename ? "Rename File" : media.Count == 1 ? "Move File" : "Move Files";
@@ -1533,6 +1536,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (willMove.Count == 0)
         {
             Ask(owner, title, $"{head}\n\n{list}\n\nThey are not {(rename ? "renamed" : "moved")}.", new[] { "OK" }, 0, -1);
+            LogNotDone(skipped, rename);
             return true;
         }
 
@@ -1547,8 +1551,20 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         int answer = Ask(owner, title, question, new[] { "Yes", "No", "Cancel" }, 0, 2);
         if (answer == 2) return false;
-        if (answer == 0) related = willMove;
+        if (answer == 0) { related = willMove; notDone = skipped; }   // the skipped ones are told about at the end
         return true;
+    }
+
+    /// <summary>A related file to rename or move, and the video or music file it belongs to (it only follows if that one was done).</summary>
+    private sealed record RelatedMove(string From, string To, string Owner);
+
+    /// <summary>A related file that could not be renamed or moved: where from, where to, and why (in words the user can read).</summary>
+    private sealed record NotDone(string From, string To, string Reason);
+
+    private static void LogNotDone(IEnumerable<NotDone> items, bool rename)
+    {
+        foreach (var n in items)
+            LogFiles.AppendError($"Could not {(rename ? "rename" : "move")} \"{n.From}\" to \"{n.To}\": {n.Reason}");
     }
 
     // The app's own dialog (it follows the style the user chose, which a Windows message box does not).
@@ -1566,29 +1582,52 @@ public class FolderTabViewModel : INotifyPropertyChanged
     }
 
     /// <summary>Renames or moves the related files; what is remembered about them follows. A failure is reported once, at the end.</summary>
-    private static void MoveRelated(List<(string From, string To)> moves, string verb)
+    private static void MoveRelated(List<RelatedMove> moves, List<NotDone> notDone, bool rename)
     {
-        var done   = new List<(string From, string To)>();
-        var failed = new List<string>();
+        var done = new List<(string From, string To)>();
 
-        foreach (var (from, to) in moves)
+        // Every file that can be done is done; the ones that cannot are collected (and the ones skipped before, whose
+        // new name was taken) and told about once at the end.
+        foreach (var (from, to, _) in moves)
         {
             try
             {
+                if (File.Exists(to) && !string.Equals(from, to, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("a file with the new name already exists");   // it appeared since the question
+
                 File.Move(from, to);
                 done.Add((from, to));
             }
             catch (Exception ex)
             {
-                failed.Add($"{Path.GetFileName(from)}: {ex.Message}");
+                notDone.Add(new NotDone(from, to, ReasonOf(ex)));
             }
         }
 
         LibraryService.Move(done);
 
-        if (failed.Count > 0)
-            MessageBox.Show($"Cannot {verb} these files:\n\n{string.Join("\n", failed)}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (notDone.Count == 0) return;
+
+        LogNotDone(notDone, rename);   // the log has the full paths and the system's words
+
+        var verb  = rename ? "renamed" : "moved";
+        var lines = notDone.Take(15).Select(n => $"    {Path.GetFileName(n.From)}  ({n.Reason})").ToList();
+        if (notDone.Count > 15) lines.Add($"    ... and {notDone.Count - 15} more");
+
+        var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
+        Ask(owner, rename ? "Rename File" : "Move File",
+            $"These files were not {verb}:\n\n{string.Join("\n", lines)}\n\nThe other files were {verb}. Details are in the log file (Help > Open Log File).",
+            new[] { "OK" }, 0, -1);
     }
+
+    // Short words for the usual reasons; anything else is the system's own text.
+    private static string ReasonOf(Exception ex) => ex switch
+    {
+        UnauthorizedAccessException => "access denied",
+        FileNotFoundException or DirectoryNotFoundException => "the file is gone",
+        IOException io when io.Message.Contains("being used", StringComparison.OrdinalIgnoreCase) => "the file is in use",
+        _ => ex.Message.TrimEnd('.'),
+    };
 
     public void RenameItem(FileItemViewModel item, string newName)
     {
@@ -1603,10 +1642,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         // A video or music file: do the files that belong to it (subtitles, poster ...) follow? Asked before anything changes.
-        var relatedMoves = new List<(string From, string To)>();
+        var relatedMoves = new List<RelatedMove>();
+        var notDone = new List<NotDone>();
         if (!item.IsDirectory && !item.IsInArchive &&
             !AskAboutRelated(new[] { (item.FullPath, Path.Combine(Path.GetDirectoryName(item.FullPath)!, newName)) },
-                             null, rename: true, out relatedMoves))
+                             null, rename: true, out relatedMoves, out notDone))
             return;
 
         try
@@ -1632,7 +1672,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             LibraryService.Move(new[] { (item.FullPath, newPath) });
 
             // The files that belong to it, if the user said yes.
-            MoveRelated(relatedMoves, "rename");
+            MoveRelated(relatedMoves, notDone, rename: true);
 
             // The tree first: it must know the new name before it is asked for the node of the folder.
             RefreshTreeFolder(dir);
@@ -1770,7 +1810,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var moved = new List<(string From, string To)>();
 
         // Cut video or music files: do the files that belong to them follow? Asked before anything is moved; Cancel stops the paste.
-        var relatedMoves = new List<(string From, string To)>();
+        var relatedMoves = new List<RelatedMove>();
+        var notDone = new List<NotDone>();
         if (isCut)
         {
             var media = sources
@@ -1778,7 +1819,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 .Select(s => (Media: s, NewMedia: GetUniqueDestPath(destination, Path.GetFileName(s))))
                 .ToList();
 
-            if (media.Count > 0 && !AskAboutRelated(media, new HashSet<string>(sources, StringComparer.OrdinalIgnoreCase), rename: false, out relatedMoves))
+            if (media.Count > 0 && !AskAboutRelated(media, new HashSet<string>(sources, StringComparer.OrdinalIgnoreCase), rename: false, out relatedMoves, out notDone))
                 return;
         }
 
@@ -1823,7 +1864,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
         LibraryService.Move(moved);   // what is remembered about the moved items (to another drive too) goes along
 
         // The files that belong to a moved video or music file (nothing if nothing was moved).
-        if (moved.Count > 0) MoveRelated(relatedMoves, "move");
+        // Only for a video or music file whose own move worked; the others' related files stay where they are.
+        var movedFrom = new HashSet<string>(moved.Select(m => m.From), StringComparer.OrdinalIgnoreCase);
+        var followers = relatedMoves.Where(r => movedFrom.Contains(r.Owner)).ToList();
+        if (followers.Count > 0 || notDone.Count > 0) MoveRelated(followers, notDone, rename: false);
 
         if (isCut)
         {

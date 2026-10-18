@@ -1,0 +1,74 @@
+using System.IO;
+using System.Text;
+
+namespace SwewolfFileExplorer.Helpers;
+
+/// <summary>
+/// Log files under %APPDATA%\SweWolfSoftware\&lt;app&gt;\Logs\ (Help > Open Log File, Help > Open Log Folder):
+///   errors.log   one line per thing that could not be done: "yyyy-MM-dd HH:mm:ss&lt;TAB&gt;what, and why". Errors only,
+///                no log of what worked (the user's decision, 2026-10-18).
+///
+/// Taken from MP3toMP4's LogFiles.cs (same folder layout, LogFolder, and the way a file is cut down when it gets too big),
+/// without its conversion parts. When copying to another app: change the namespace and AppFolderName.
+/// When changing this file, add a line to the history below, so the copies in the other apps can be compared with it.
+///
+/// History:
+///   2026-10-18  Created in the explorer, from MP3toMP4's LogFiles.cs (2026-09-27): LogFolder, TruncateToNewestHalf;
+///               new: ErrorsLogFile, AppendError (errors.log over 0.5 MB is cut down to its newest 0.25 MB).
+/// </summary>
+internal static class LogFiles
+{
+    private static string AppFolderName => AppInfo.Name;   // "SweWolf File Explorer"
+
+    internal static string LogFolder => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "SweWolfSoftware", AppFolderName, "Logs");
+
+    internal static string ErrorsLogFile => Path.Combine(LogFolder, "errors.log");
+
+    private const long ErrorsMaxBytes = 512 * 1024;
+    private static readonly object WriteLock = new();
+
+    /// <summary>
+    /// Appends one line to errors.log. Logging must never stop what the user is doing, so errors here are ignored.
+    /// </summary>
+    internal static void AppendError(string message)
+    {
+        try
+        {
+            lock (WriteLock)
+            {
+                Directory.CreateDirectory(LogFolder);
+                var file = ErrorsLogFile;
+                var line = message.Replace("\r", "").Replace("\n", " ");
+                File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{line}\r\n", Encoding.UTF8);
+                TruncateToNewestHalf(file, ErrorsMaxBytes);
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// When the file is larger than maxBytes, keeps only the newest whole lines that fit in half of it,
+    /// so the file isn't rewritten on every call. Writes a temporary file first and then replaces the
+    /// log, so a failure never leaves a half-written log behind.
+    /// </summary>
+    private static void TruncateToNewestHalf(string file, long maxBytes)
+    {
+        if (new FileInfo(file).Length <= maxBytes) return;
+
+        string[] lines = File.ReadAllLines(file, Encoding.UTF8);
+        long budget = maxBytes / 2, size = 0;
+        int first = lines.Length;
+        while (first > 0)
+        {
+            size += Encoding.UTF8.GetByteCount(lines[first - 1]) + 2;   // + CRLF
+            if (size > budget) break;
+            first--;
+        }
+
+        string temp = file + ".tmp";
+        File.WriteAllLines(temp, lines[first..], Encoding.UTF8);
+        File.Move(temp, file, overwrite: true);
+    }
+}

@@ -582,6 +582,28 @@ public partial class MainWindow : Window
     private void MenuAbout_Click(object sender, RoutedEventArgs e) =>
         new AboutWindow { Owner = this }.ShowDialog();
 
+    // Errors only are logged (LogFiles): what the program could not do, so the user can look into it afterwards.
+    private void MenuOpenLogFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (!System.IO.File.Exists(LogFiles.ErrorsLogFile))
+        {
+            MessageBox.Show(this, "There is no log file yet: nothing has gone wrong.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        try { Process.Start(new ProcessStartInfo(LogFiles.ErrorsLogFile) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, $"Cannot open the log file: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    private void MenuOpenLogFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(LogFiles.LogFolder);
+            Process.Start("explorer.exe", $"\"{LogFiles.LogFolder}\"");
+        }
+        catch (Exception ex) { MessageBox.Show(this, $"Cannot open the log folder: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
     // ── Workspaces and sessions ───────────────────────────────────────────────
 
     private void WorkspaceMenu_SubmenuOpened(object sender, RoutedEventArgs e)

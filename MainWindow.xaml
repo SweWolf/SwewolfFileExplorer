@@ -86,6 +86,9 @@
             </MenuItem>
 
             <MenuItem Header="_Help">
+                <MenuItem Header="Open _Log File"   Click="MenuOpenLogFile_Click"/>
+                <MenuItem Header="Open Log _Folder" Click="MenuOpenLogFolder_Click"/>
+                <Separator/>
                 <MenuItem Header="_About" Click="MenuAbout_Click"/>
             </MenuItem>
         </Menu>
