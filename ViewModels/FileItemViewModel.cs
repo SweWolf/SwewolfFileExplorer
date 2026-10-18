@@ -11,6 +11,9 @@ public class FileItemViewModel : INotifyPropertyChanged
     private ImageSource? _icon;
 
     public string Name { get; set; } = "";
+
+    /// <summary>What the list shows: the name, without the extension of a special shell file type (.lnk ...) when the setting hides it.</summary>
+    public string DisplayName => IsDirectory ? Name : ShellExtensions.DisplayName(Name);
     public string FullPath { get; set; } = "";
     public bool IsDirectory { get; set; }
     public string TypeName { get; set; } = "";

@@ -1623,9 +1623,11 @@ public partial class MainWindow : Window
         var (title, prompt) = isNew        ? ("New Folder",    "Enter a name for the new folder:")
                             : item.IsDirectory ? ("Rename Folder", "Enter new name:")
                             :                    ("Rename File",   "Enter new name:");
-        var dlg = new InputDialog(title, prompt, item.Name,
-            name => FolderTabViewModel.CheckNewName(item.FullPath, name)) { Owner = this };
+        // A file whose extension is not shown is renamed without it: the extension is put back (as Explorer does).
+        string Real(string typed) => item.IsDirectory ? typed : ShellExtensions.RestoreExtension(item.Name, typed);
+        var dlg = new InputDialog(title, prompt, item.DisplayName,
+            name => FolderTabViewModel.CheckNewName(item.FullPath, Real(name))) { Owner = this };
         if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
-            VM.RenameItem(item, dlg.InputText);
+            VM.RenameItem(item, Real(dlg.InputText));
     }
 }

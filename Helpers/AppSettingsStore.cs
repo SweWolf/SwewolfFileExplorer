@@ -32,6 +32,9 @@ public class AppSettings
 
     /// <summary>Extensions hidden only inside compressed files, on top of <see cref="HiddenExtensions"/> (none to begin with).</summary>
     public string HiddenExtensionsInArchives { get; set; } = "";
+
+    /// <summary>Do not show the extension of special shell and system file types (.lnk, .url ...), as Windows does: "Photos", not "Photos.lnk".</summary>
+    public bool HideShellExtensions { get; set; } = true;
 }
 
 /// <summary>Saves <see cref="AppSettings"/> in %AppData%\SweWolfSoftware\SweWolf File Explorer\settings.json.</summary>

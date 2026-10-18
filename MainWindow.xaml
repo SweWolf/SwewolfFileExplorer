@@ -562,7 +562,7 @@
                                                VerticalAlignment="Center"
                                                Margin="0,0,5,0"
                                                RenderOptions.BitmapScalingMode="NearestNeighbor"/>
-                                        <TextBlock Text="{Binding Name}"
+                                        <TextBlock Text="{Binding DisplayName, Mode=OneWay}"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </DataTemplate>
