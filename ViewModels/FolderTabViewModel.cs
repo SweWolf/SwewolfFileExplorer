@@ -322,6 +322,22 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         path = path.Trim();
 
+        // %APPDATA%, %TEMP%, %USERPROFILE% ...: Windows' variables, also with a path after them (%APPDATA%\Microsoft).
+        // A name that does not exist stays as typed and ends as "Path not found". A folder really named like that wins.
+        if (path.Contains('%') && !Directory.Exists(path))
+        {
+            var expanded = Environment.ExpandEnvironmentVariables(path);
+            try
+            {
+                // Tidy the result (slashes, a closing backslash) when it is a folder; otherwise keep it for the message.
+                var full = Path.GetFullPath(expanded);
+                if (full.Length > 3) full = full.TrimEnd('\\');
+                if (Directory.Exists(full)) expanded = full;
+            }
+            catch { /* not a usable path: the checks below say so */ }
+            path = expanded;
+        }
+
         if (!Directory.Exists(path))
         {
             // A packed file, or a folder inside one, is a folder here: it is entered, not opened.
