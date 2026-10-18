@@ -1483,6 +1483,113 @@ public class FolderTabViewModel : INotifyPropertyChanged
         return null;
     }
 
+    /// <summary>
+    /// A video or music file is renamed or moved: finds the files that belong to it by name (<see cref="RelatedFiles"/>) and asks
+    /// whether they follow (Yes: all of them, No: only the file itself, Cancel: nothing happens). Returns false on Cancel. Asked
+    /// before anything is changed. <paramref name="related"/> holds the (from, to) pairs to do when the answer is Yes, else it is empty.
+    /// </summary>
+    /// <param name="media">Each video or music file with the path it is going to get.</param>
+    /// <param name="alsoMoving">Paths that are moved anyway (cut together): they are not asked about.</param>
+    private static bool AskAboutRelated(IReadOnlyList<(string Media, string NewMedia)> media, ISet<string>? alsoMoving, bool rename,
+                                        out List<(string From, string To)> related)
+    {
+        related = new List<(string From, string To)>();
+        var willMove = new List<(string From, string To)>();
+        var skipped  = new List<string>();
+
+        foreach (var (path, newPath) in media)
+        {
+            if (!RelatedFiles.HasRelated(path)) continue;
+
+            foreach (var file in RelatedFiles.Find(path))
+            {
+                if (alsoMoving != null && alsoMoving.Contains(file)) continue;
+
+                var target = Path.Combine(Path.GetDirectoryName(newPath)!,
+                    RelatedFiles.NewName(Path.GetFileName(file), Path.GetFileName(path), Path.GetFileName(newPath)));
+
+                if (string.Equals(target, file, StringComparison.Ordinal)) continue;   // nothing changes for this one
+                bool sameFile = string.Equals(target, file, StringComparison.OrdinalIgnoreCase);   // a change of case only
+                if (!sameFile && (File.Exists(target) || Directory.Exists(target))) skipped.Add(Path.GetFileName(target));
+                else willMove.Add((file, target));
+            }
+        }
+
+        if (willMove.Count == 0 && skipped.Count == 0) return true;   // nothing to ask about
+
+        // Only the names of the files that would follow; the new names are made by the same pattern as the video's.
+        var list = RelatedFiles.Describe(willMove.Select(m => Path.GetFileName(m.From)).ToList(), skipped);
+
+        string verb  = rename ? "rename" : "move";
+        string title = rename ? "Rename File" : media.Count == 1 ? "Move File" : "Move Files";
+        string head  = media.Count == 1
+            ? $"You are {verb.TrimEnd('e')}ing \"{Path.GetFileName(media[0].Media)}\"" +
+              (rename ? $" to \"{Path.GetFileName(media[0].NewMedia)}\"." : $" to \"{Path.GetDirectoryName(media[0].NewMedia)}\".")
+            : $"You are {verb.TrimEnd('e')}ing {media.Count} video or music files.";
+
+        var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
+
+        // Only files that cannot follow (their new names are taken): nothing to decide, only to know.
+        if (willMove.Count == 0)
+        {
+            Ask(owner, title, $"{head}\n\n{list}\n\nThey are not {(rename ? "renamed" : "moved")}.", new[] { "OK" }, 0, -1);
+            return true;
+        }
+
+        string ask = rename
+            ? "Do you also want to rename these files according to the same pattern?"
+            : "Do you also want to move these files?";
+
+        string question = $"{head}\n\n{ask}\n\n{list}\n\n" +
+                          $"Yes: {char.ToUpper(verb[0])}{verb[1..]} them too.\n" +
+                          $"No: {char.ToUpper(verb[0])}{verb[1..]} only the video or music file.\n" +
+                          "Cancel: Change nothing.";
+
+        int answer = Ask(owner, title, question, new[] { "Yes", "No", "Cancel" }, 0, 2);
+        if (answer == 2) return false;
+        if (answer == 0) related = willMove;
+        return true;
+    }
+
+    // The app's own dialog (it follows the style the user chose, which a Windows message box does not).
+    private static int Ask(Window? owner, string title, string message, IList<string> buttons, int defaultIndex, int cancelIndex)
+    {
+        var dialog = new SwewolfFileExplorer.Views.ChoiceDialog(message, buttons, defaultIndex, cancelIndex)
+        {
+            Title    = title,
+            FontSize = 16,
+            MinWidth = 760,
+        };
+        if (owner != null) dialog.Owner = owner;
+        dialog.ShowDialog();
+        return dialog.Result;
+    }
+
+    /// <summary>Renames or moves the related files; what is remembered about them follows. A failure is reported once, at the end.</summary>
+    private static void MoveRelated(List<(string From, string To)> moves, string verb)
+    {
+        var done   = new List<(string From, string To)>();
+        var failed = new List<string>();
+
+        foreach (var (from, to) in moves)
+        {
+            try
+            {
+                File.Move(from, to);
+                done.Add((from, to));
+            }
+            catch (Exception ex)
+            {
+                failed.Add($"{Path.GetFileName(from)}: {ex.Message}");
+            }
+        }
+
+        LibraryService.Move(done);
+
+        if (failed.Count > 0)
+            MessageBox.Show($"Cannot {verb} these files:\n\n{string.Join("\n", failed)}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
     public void RenameItem(FileItemViewModel item, string newName)
     {
         newName = newName.Trim();
@@ -1494,6 +1601,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
             MessageBox.Show(problem, "Rename", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+
+        // A video or music file: do the files that belong to it (subtitles, poster ...) follow? Asked before anything changes.
+        var relatedMoves = new List<(string From, string To)>();
+        if (!item.IsDirectory && !item.IsInArchive &&
+            !AskAboutRelated(new[] { (item.FullPath, Path.Combine(Path.GetDirectoryName(item.FullPath)!, newName)) },
+                             null, rename: true, out relatedMoves))
+            return;
 
         try
         {
@@ -1516,6 +1630,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
             // What is remembered about it (read marks, ratings, a folder's state and what is below it) follows the new name.
             LibraryService.Move(new[] { (item.FullPath, newPath) });
+
+            // The files that belong to it, if the user said yes.
+            MoveRelated(relatedMoves, "rename");
 
             // The tree first: it must know the new name before it is asked for the node of the folder.
             RefreshTreeFolder(dir);
@@ -1652,6 +1769,19 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         var moved = new List<(string From, string To)>();
 
+        // Cut video or music files: do the files that belong to them follow? Asked before anything is moved; Cancel stops the paste.
+        var relatedMoves = new List<(string From, string To)>();
+        if (isCut)
+        {
+            var media = sources
+                .Where(s => File.Exists(s) && RelatedFiles.HasRelated(s) && !IsSamePath(Path.GetDirectoryName(s), destination))
+                .Select(s => (Media: s, NewMedia: GetUniqueDestPath(destination, Path.GetFileName(s))))
+                .ToList();
+
+            if (media.Count > 0 && !AskAboutRelated(media, new HashSet<string>(sources, StringComparer.OrdinalIgnoreCase), rename: false, out relatedMoves))
+                return;
+        }
+
         foreach (var src in sources)
         {
             try
@@ -1691,6 +1821,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         LibraryService.Move(moved);   // what is remembered about the moved items (to another drive too) goes along
+
+        // The files that belong to a moved video or music file (nothing if nothing was moved).
+        if (moved.Count > 0) MoveRelated(relatedMoves, "move");
 
         if (isCut)
         {
