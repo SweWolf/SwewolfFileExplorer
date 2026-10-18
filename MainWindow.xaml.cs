@@ -962,7 +962,92 @@ public partial class MainWindow : Window
 
     private void OpenInViewer(FileItemViewModel item)
     {
-        var viewer = new PictureViewerWindow(PicturesInList(), item.FullPath) { Owner = this };
+        var viewer = CreateViewer(PicturesInList(), item.FullPath, owner: this);
+        viewer.ShowDialog();
+        AfterViewer(viewer);
+    }
+
+    /// <summary>
+    /// The program was started with a picture: the viewer opens at once, alone, with no Explorer window (the folder is not even
+    /// opened in the Explorer yet, which costs time). Esc, X and the window's close button end the program; "Close" in the
+    /// viewer's right-click menu goes on to the Explorer, in the folder of the picture.
+    /// </summary>
+    public void RunPictureOnly(string imagePath)
+    {
+        var folder = System.IO.Path.GetDirectoryName(imagePath) ?? "";
+
+        var viewer = CreateViewer(QuickPictureList(folder, imagePath), imagePath, owner: null);
+
+        // "Close" in the viewer's menu: the Explorer is made ready while the viewer stays on screen with an hourglass (the tree
+        // takes a few seconds), then the viewer closes. Esc and the other ways out just end the program (ExitApplication).
+        bool leaving = false;
+        viewer.CloseToExplorerHandler = () =>
+        {
+            if (leaving) return;
+            leaving = true;
+            Mouse.OverrideCursor = Cursors.Wait;
+
+            // The folder of the picture last shown (the viewer may have gone on to another folder).
+            var shownFolder = System.IO.Path.GetDirectoryName(viewer.CurrentPath) ?? folder;
+            if (!string.Equals(VM.ActiveTab.CurrentPath?.TrimEnd('\\', '/'), shownFolder.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+                VM.Navigate(shownFolder);
+
+            ContentRendered += (_, _) =>
+            {
+                Mouse.OverrideCursor = null;
+                viewer.Close();   // the Explorer is under it and shows now
+                Activate();
+            };
+            Application.Current.ShutdownMode = ShutdownMode.OnMainWindowClose;   // the Explorer is the program now
+            Show();
+        };
+
+        viewer.ShowDialog();
+
+        if (viewer.ExitApplication)
+        {
+            Application.Current.Shutdown();
+            return;
+        }
+
+        AfterViewer(viewer);   // the Explorer is shown already
+    }
+
+    /// <summary>
+    /// The pictures of a folder in the order the Explorer's list would show them (the sort the user chose for that folder, else
+    /// by name), without opening the folder in the Explorer: hidden files are left out, the picture asked for is always there.
+    /// </summary>
+    private List<string> QuickPictureList(string folder, string imagePath)
+    {
+        var items = new List<FileItemViewModel>();
+        try
+        {
+            foreach (var file in new System.IO.DirectoryInfo(folder).EnumerateFiles())
+            {
+                if (!ThumbnailLoader.IsImage(file.FullName)) continue;
+                if (HiddenItems.IsHiddenFile(file.Attributes, file.Name)) continue;
+
+                items.Add(new FileItemViewModel
+                {
+                    Name = file.Name, FullPath = file.FullName, IsDirectory = false,
+                    DateModified = file.LastWriteTime, DateCreated = file.CreationTime, Size = file.Length,
+                });
+            }
+        }
+        catch { /* the folder cannot be read: the picture asked for is shown alone */ }
+
+        var (column, ascending) = VM.Shared.TryGetFolderSort(folder, out var saved) ? saved : (SortColumn.Name, true);
+        items.Sort((x, y) => new FileItemComparer(column, ascending).Compare(x, y));
+
+        var pictures = items.Select(i => i.FullPath).ToList();
+        if (!pictures.Contains(imagePath, StringComparer.OrdinalIgnoreCase)) pictures.Insert(0, imagePath);
+        return pictures;
+    }
+
+    private PictureViewerWindow CreateViewer(List<string> pictures, string current, Window? owner)
+    {
+        var viewer = new PictureViewerWindow(pictures, current);
+        if (owner != null) viewer.Owner = owner;
 
         // At the end of the list the viewer can go on to the next folder with pictures (tree order, same drive).
         // The search runs on a background thread, where VM (it reads the DataContext) must not be used: take what it needs here.
@@ -982,8 +1067,11 @@ public partial class MainWindow : Window
             SelectInList(path);      // the list follows the viewer
             VM.MarkPathRead(path);   // a picture shown here is a picture opened
         };
-        viewer.ShowDialog();
+        return viewer;
+    }
 
+    private void AfterViewer(PictureViewerWindow viewer)
+    {
         if (viewer.AnyDeleted)
             VM.RefreshCommand.Execute(null);   // pictures went to the Recycle Bin
         SelectInList(viewer.CurrentPath);

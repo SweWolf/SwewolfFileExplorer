@@ -29,6 +29,11 @@ public partial class PictureViewerWindow : Window
     /// <summary>True if a picture was moved to the Recycle Bin from the viewer: the Explorer must read its folder again.</summary>
     public bool AnyDeleted { get; private set; }
 
+    // "Close" in the right-click menu means "go on to the Explorer"; Esc, X, Alt+F4 and the window's own close button end the program
+    // when the program was started with a picture (as TeraTool did). Only the program that started with a picture cares.
+    private bool _closeToExplorer;
+    public bool ExitApplication => !_closeToExplorer;
+
     // What is on show, and how.
     private LoadedPicture? _picture;
     private int _loadVersion;                // a picture loads in the background: only the last one asked for is shown
@@ -646,7 +651,19 @@ public partial class PictureViewerWindow : Window
     private void Menu_Opened(object sender, RoutedEventArgs e) => ShowCursor();
     private void Menu_Closed(object sender, RoutedEventArgs e) => ShowCursor();
 
-    private void MenuClose_Click(object sender, RoutedEventArgs e) => Close();
+    /// <summary>
+    /// Set by the program when it started with a picture: "Close" in the menu then asks it to get the Explorer ready first (it takes
+    /// a few seconds), and it closes this window when that is done, so the viewer stays on screen with an hourglass meanwhile.
+    /// Null: the viewer just closes.
+    /// </summary>
+    public Action? CloseToExplorerHandler { get; set; }
+
+    private void MenuClose_Click(object sender, RoutedEventArgs e)
+    {
+        _closeToExplorer = true;
+        if (CloseToExplorerHandler != null) CloseToExplorerHandler();
+        else Close();
+    }
     private void MenuRotateClockwise_Click(object sender, RoutedEventArgs e) => Rotate(+1);
     private void MenuRotateCounterclockwise_Click(object sender, RoutedEventArgs e) => Rotate(-1);
     private void MenuFullscreen_Click(object sender, RoutedEventArgs e) => ToggleFullscreen();
