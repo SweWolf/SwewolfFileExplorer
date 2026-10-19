@@ -2007,6 +2007,61 @@ public class FolderTabViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// After a video file was renamed with "Use Smart Name" (and Settings > File Names > Auto-Suggest File Move When Renaming Video
+    /// Files is on): offers to move it to <c>Videos\Movies</c> or <c>Videos\TV Shows\Show Name</c>, as TeraTool did. The user
+    /// can change the folder; a folder that is not there is made. Nothing is offered when the file already is in the Videos folder, or
+    /// when the new name has neither a year nor an episode. The move is the same as a Cut and Paste (progress window, related files,
+    /// what is remembered about the file follows).
+    /// </summary>
+    public async void OfferMoveAfterSmartRename(string path)
+    {
+        if (!AppSettingsStore.Current.SuggestMoveAfterSmartRename || _pasting) return;
+        if (!File.Exists(path) || !MediaPlayerLauncher.IsVideo(path)) return;
+
+        var videos = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+        if (string.IsNullOrEmpty(videos)) return;
+        if (IsSameOrSubPath(videos, path)) return;   // it is in the Videos folder already: nothing to suggest
+
+        var target = SmartName.MoveTarget(Path.GetFileNameWithoutExtension(path));
+        if (target == null) return;
+
+        var dir        = Path.GetDirectoryName(path)!;
+        var name       = Path.GetFileName(path);
+        var suggested  = target.Value.FolderName.Length > 0
+            ? Path.Combine(videos, target.Value.Subfolder, target.Value.FolderName)   // a show: TV Shows\Show Name
+            : Path.Combine(videos, target.Value.Subfolder);                           // a movie: Movies
+        var chosen     = Views.MoveFolderDialog.Ask(Application.Current?.MainWindow, name, dir, suggested);
+        if (chosen == null) return;
+
+        try { Directory.CreateDirectory(chosen); }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"The folder could not be made: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // Subtitles, poster ... : do they follow? (Cancel: the file stays where it is.)
+        if (!AskAboutRelated(new[] { (path, Path.Combine(chosen, name)) }, null, rename: false, out var relatedMoves, out var notDone))
+            return;
+
+        TransferResult result;
+        _pasting = true;
+        try { result = await RunTransferAsync(new List<string> { path }, chosen, move: true); }
+        finally { _pasting = false; }
+
+        if (result.Failed.Count > 0)
+            MessageBox.Show($"The file could not be moved: {result.Failed[0].Reason}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+
+        LibraryService.Move(result.Done);
+        var movedFrom = new HashSet<string>(result.Done.Select(m => m.From), StringComparer.OrdinalIgnoreCase);
+        var followers = relatedMoves.Where(r => movedFrom.Contains(r.Owner)).ToList();
+        if (followers.Count > 0 || notDone.Count > 0) MoveRelated(followers, notDone, rename: false);
+
+        Refresh();
+        RefreshTreeFolder(chosen);
+    }
+
+    /// <summary>
     /// Runs the transfer and, when it takes longer than half a second, shows the progress window (a quick one finishes before a
     /// window would be worth the flicker, as in Explorer). The window is modal: nothing else can be changed meanwhile.
     /// </summary>

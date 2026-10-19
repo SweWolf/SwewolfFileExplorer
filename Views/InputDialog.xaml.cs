@@ -7,6 +7,9 @@ public partial class InputDialog : Window
 {
     public string InputText { get; private set; } = "";
 
+    /// <summary>"Use Smart Name" was shown and checked when OK was clicked.</summary>
+    public bool SmartNameChecked { get; private set; }
+
     private readonly Func<string, string?>? _validate;
 
     /// <param name="validate">
@@ -109,6 +112,7 @@ public partial class InputDialog : Window
         }
 
         InputText    = full;
+        SmartNameChecked = SmartCheckBox.Visibility == Visibility.Visible && SmartCheckBox.IsChecked == true;
         DialogResult = true;
     }
 }

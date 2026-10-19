@@ -46,6 +46,12 @@ public class AppSettings
     /// <summary>Do not show the extension of special shell and system file types (.lnk, .url ...), as Windows does: "Photos", not "Photos.lnk".</summary>
     public bool HideShellExtensions { get; set; } = true;
 
+    /// <summary>
+    /// After a video file is renamed with "Use Smart Name", offer to move it into Movies or TV Shows\Show Name in the
+    /// user's Videos folder (TeraTool did). Off to begin with (Settings > File Names).
+    /// </summary>
+    public bool SuggestMoveAfterSmartRename { get; set; } = false;
+
     /// <summary>The poster named in a video's .nfo file may be downloaded for the preview picture (no window for it: settings.json only).</summary>
     public bool DownloadPosterFromNfo { get; set; } = true;
 

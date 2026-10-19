@@ -67,6 +67,22 @@ public static class SmartName
         return Clean(result);
     }
 
+    private static readonly Regex TvNameRx    = new(@"^(?<title>.+?)(?: \((?:19|20|21)\d\d\))? - s\d{2}e\d{2,3}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex MovieNameRx = new(@"^.+ \((?:19|20|21)\d\d\)$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Where a video with this name (without extension) belongs in the Videos folder, as TeraTool did after a smart rename:
+    /// "Title - s01e02" goes to <c>TV Shows\Title</c> (a folder for the show), "Title (Year)" to <c>Movies</c> itself (no folder of
+    /// its own: <c>FolderName</c> is empty); null for any other name.
+    /// </summary>
+    public static (string Subfolder, string FolderName)? MoveTarget(string baseName)
+    {
+        var tv = TvNameRx.Match(baseName);
+        if (tv.Success) return ("TV Shows", Clean(tv.Groups["title"].Value));
+        if (MovieNameRx.IsMatch(baseName)) return ("Movies", "");
+        return null;
+    }
+
     /// <summary>Leaves out what a file name cannot hold.</summary>
     private static string Clean(string text)
     {

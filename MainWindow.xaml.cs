@@ -2265,6 +2265,17 @@ public partial class MainWindow : Window
             name => FolderTabViewModel.CheckNewName(item.FullPath, Real(name)),
             caseButtons: !isNew, keepExtension: !item.IsDirectory && item.DisplayName == item.Name, smartName: smart, smartApplies: smartApplies, currentName: isNew ? null : item.Name) { Owner = this };
         if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
+        {
             VM.RenameItem(item, Real(dlg.InputText));
+
+            // A video renamed with Use Smart Name: offer to move it to its place in the Videos folder (if the setting is on).
+            if (dlg.SmartNameChecked && !item.IsDirectory)
+            {
+                var newPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(item.FullPath)!, Real(dlg.InputText).Trim());
+                bool samePath = string.Equals(newPath, item.FullPath, StringComparison.OrdinalIgnoreCase);   // already named so: just the move
+                if (System.IO.File.Exists(newPath) && (samePath || !System.IO.File.Exists(item.FullPath)))   // the rename did happen
+                    VM.OfferMoveAfterSmartRename(newPath);
+            }
+        }
     }
 }

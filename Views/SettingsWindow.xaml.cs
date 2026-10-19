@@ -17,6 +17,7 @@ public partial class SettingsWindow : Window
         HiddenExtensionsBox.Text  = current.HiddenExtensions;
         HiddenExtensionsInArchivesBox.Text = current.HiddenExtensionsInArchives;
         HideShellExtensionsBox.IsChecked   = current.HideShellExtensions;
+        SuggestMoveBox.IsChecked           = current.SuggestMoveAfterSmartRename;
     }
 
     private void OkButton_Click(object sender, RoutedEventArgs e)
@@ -28,6 +29,7 @@ public partial class SettingsWindow : Window
         settings.HiddenExtensions = string.Join(";", HiddenItems.Parse(HiddenExtensionsBox.Text));   // tidied: no dots or blanks
         settings.HiddenExtensionsInArchives = string.Join(";", HiddenItems.Parse(HiddenExtensionsInArchivesBox.Text));
         settings.HideShellExtensions = HideShellExtensionsBox.IsChecked == true;
+        settings.SuggestMoveAfterSmartRename = SuggestMoveBox.IsChecked == true;
         AppSettingsStore.Save(settings);
 
         ThemeService.Apply(settings.Style);
