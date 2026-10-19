@@ -377,6 +377,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         path = path.Trim();
 
+        // shell:sendto, shell:startup, shell:appdata ... : Windows' names for its special folders, as in Explorer's address bar.
+        if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!KnownFolders.TryResolveShellPath(path, out var resolved, out var shellError)) { StatusText = shellError; return; }
+            path = resolved;
+        }
+
         // %APPDATA%, %TEMP%, %USERPROFILE% ...: Windows' variables, also with a path after them (%APPDATA%\Microsoft).
         // A name that does not exist stays as typed and ends as "Path not found". A folder really named like that wins.
         if (path.Contains('%') && !Directory.Exists(path))
