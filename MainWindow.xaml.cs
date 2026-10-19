@@ -901,7 +901,11 @@ public partial class MainWindow : Window
         }
         else
         {
-            PositionText.Text = selected.Count > 1 ? $"{selected.Count} items selected" : "";
+            // Nothing selected: how many items the list has; several: how many are selected (the status bar no longer says it).
+            var count = FileListView.Items.Count;
+            PositionText.Text = selected.Count > 1 ? $"{selected.Count} items selected"
+                              : count > 0          ? $"{count} {(count == 1 ? "item" : "items")}"
+                              :                      "";
             ShowThumbnail(null);
             ShowPlot(null);
         }

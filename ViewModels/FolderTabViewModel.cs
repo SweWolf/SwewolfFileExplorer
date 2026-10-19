@@ -908,7 +908,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 vm.LoadIconAsync();
             }
 
-            StatusText = $"{CurrentItems.Count} item(s)";
+            StatusText = "";
             UpdateReadState(path);
         }
         catch (Exception ex)
@@ -1171,7 +1171,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 catch { }
             }
 
-            StatusText = $"{CurrentItems.Count} item(s)";
+            StatusText = "";
             EnsureTags();
             UpdateReadState(path);
         }
@@ -1439,7 +1439,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             catch { /* nothing remembered */ }
             Application.Current?.Dispatcher.InvokeAsync(() =>
             {
-                StatusText = $"{CurrentItems.Count} item(s)";
+                StatusText = "";
                 UpdateReadState(_currentPath);
             });
         });
@@ -2012,9 +2012,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         StatusText = items.Count switch
         {
-            0 => _unavailable ? UnavailableText(FolderPath) : $"{CurrentItems.Count} item(s)",
-            1 => "1 item selected",
-            _ => $"{items.Count} items selected"
+            0 => _unavailable ? UnavailableText(FolderPath) : "",   // what is selected / how many items: the info panel says
+            _ => ""
         };
 
         DeleteCommand.RaiseCanExecuteChanged();

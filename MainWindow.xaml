@@ -772,7 +772,9 @@
             </Border>
 
             <!-- Status bar: under the list and the info panel, as what it says is about the list -->
-            <StatusBar Grid.Column="2" Grid.Row="3" MinHeight="24">
+            <!-- Only there while it has a message (an error, "Marking as read..."): the number of items is in the info panel -->
+            <StatusBar Grid.Column="2" Grid.Row="3" MinHeight="24"
+                       Visibility="{Binding StatusText, Converter={StaticResource TextToVisibility}}">
                 <StatusBarItem>
                     <!-- The status bar has no theme of its own: without this the text is black on the dark styles. -->
                     <TextBlock Text="{Binding StatusText}" FontSize="12"
