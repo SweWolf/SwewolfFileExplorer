@@ -984,12 +984,12 @@ public partial class MainWindow : Window
 
     // ── The height of the info panel (a divider above it) ────────────────────
 
-    private const double InfoPanelMinHeight = 117;   // 1 (top line) + 8 + 100 (the preview box) + 8
+    private const double InfoPanelMinHeight = 141;   // 1 (top line) + 8 + 24 (the info line) + 100 (the preview box) + 8
 
     /// <summary>The preview box is as high as the panel allows and 1.6 times as wide (160 x 100 at the smallest panel).</summary>
     private void FitPreviewBox()
     {
-        double height = Math.Max(100, InfoPanel.ActualHeight - 17);   // minus the line and the padding
+        double height = Math.Max(100, InfoPanel.ActualHeight - 17 - 24);   // minus the line, the padding and the info line
         PreviewBox.Height = height;
         PreviewBox.Width  = Math.Round(height * 1.6);
         ThumbnailDecodeWidth = (int)Math.Max(320, PreviewBox.Width * 2);

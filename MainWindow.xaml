@@ -298,7 +298,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" MinHeight="90"/>                       <!-- the file list -->
                 <RowDefinition Height="Auto"/>                                   <!-- the divider -->
-                <RowDefinition x:Name="InfoRow" Height="117" MinHeight="117"/>   <!-- the info panel: dragged taller with the divider -->
+                <RowDefinition x:Name="InfoRow" Height="141" MinHeight="141"/>   <!-- the info panel: dragged taller with the divider -->
                 <RowDefinition Height="Auto"/>                                   <!-- the status bar -->
             </Grid.RowDefinitions>
 
@@ -697,15 +697,19 @@
                     Background="{DynamicResource PaneBrush}"
                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0">
                 <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="24"/>   <!-- the info line: which file, how many hidden items -->
+                        <RowDefinition Height="*"/>    <!-- the preview picture and the plot -->
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" MinWidth="220"/>
+                        <ColumnDefinition Width="Auto" MinWidth="220"/>   <!-- (nothing yet: room for information to the left of the picture) -->
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <!-- The plot from the video's .nfo file, to the right of the preview picture, only when there is one
                          (it takes no space otherwise). A long plot scrolls; the whole text is also in the tooltip. -->
-                    <Grid x:Name="PlotArea" Grid.Column="2" Margin="16,0,0,0" Background="Transparent" Visibility="Collapsed"
+                    <Grid x:Name="PlotArea" Grid.Row="1" Grid.Column="2" Margin="16,0,0,0" Background="Transparent" Visibility="Collapsed"
                           PreviewMouseLeftButtonDown="PlotArea_PreviewMouseLeftButtonDown">
                         <Grid.ContextMenu>
                             <ContextMenu>
@@ -723,10 +727,12 @@
                                    HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"/>
                     </Grid>
 
-                    <StackPanel Grid.Column="0">
+                    <!-- A row of its own above the picture and the plot: where the selected file is in the list (or how many are
+                         selected / in the folder), and the hidden-items link well to the right of it -->
+                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" VerticalAlignment="Top">
                         <TextBlock x:Name="PositionText" FontSize="12"/>
 
-                        <TextBlock FontSize="12" Margin="0,6,0,0"
+                        <TextBlock FontSize="12" Margin="84,0,16,0"
                                    Visibility="{Binding HasHiddenItems, Converter={StaticResource BoolToVisibility}}"
                                    ToolTip="Show or hide the hidden and system items of this folder">
                             <Hyperlink Command="{Binding ToggleHiddenCommand}">
@@ -738,7 +744,7 @@
                     <!-- A click opens the picture in the picture viewer (the picture of a picture file, the cover built into a
                          music file, the preview picture of a video). The transparent border is there so that the right-click
                          menu (Choose / No / Automatic preview picture) also works on an empty square. -->
-                    <Border x:Name="PreviewBox" Grid.Column="1" Width="160" Height="100" Background="Transparent"
+                    <Border x:Name="PreviewBox" Grid.Row="1" Grid.Column="1" Width="160" Height="100" Background="Transparent"
                             HorizontalAlignment="Left" VerticalAlignment="Top"
                             ContextMenuOpening="PreviewBox_ContextMenuOpening">
                         <Border.ContextMenu>

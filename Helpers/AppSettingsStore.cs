@@ -18,7 +18,7 @@ public class AppSettings
     public double TreeFontSize { get; set; } = DefaultFontSize;
 
     /// <summary>The height of the info panel under the file list (the preview picture, the plot): dragged with the divider above it.</summary>
-    public const double DefaultInfoPanelHeight = 117;
+    public const double DefaultInfoPanelHeight = 141;
     public double InfoPanelHeight { get; set; } = DefaultInfoPanelHeight;
 
     /// <summary>
