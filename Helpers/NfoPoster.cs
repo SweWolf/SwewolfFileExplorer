@@ -11,8 +11,9 @@ namespace SwewolfFileExplorer.Helpers;
 /// and fetches it. Two layouts are known:
 ///   &lt;thumb aspect="poster" preview="small address"&gt;address&lt;/thumb&gt;      (the address is the full picture; preview a smaller one)
 ///   &lt;art&gt;&lt;poster&gt;address&lt;/poster&gt;&lt;/art&gt;
-/// and the old plain &lt;thumb&gt;address&lt;/thumb&gt; (no aspect). An address is a web address, or a path of a file (full, or from the
-/// folder of the .nfo file). Fanart and other aspects (banner, landscape) are not posters and are not used.
+/// and the old plain &lt;thumb&gt;address&lt;/thumb&gt; (no aspect), all directly under the root element only: an actor's &lt;thumb&gt; is a
+/// portrait, not a poster. An address is a web address, or a path of a file (full, or from the folder of the .nfo file).
+/// Fanart, season posters and other aspects (banner, landscape) are not posters and are not used.
 /// The full pictures are tried first, in the order they are written, then the previews.
 /// </summary>
 public static class NfoPoster
@@ -37,35 +38,52 @@ public static class NfoPoster
             var text = File.ReadAllText(nfoPath);
             var doc = TryParse(text);
 
-            if (doc != null)
+            // Only the picture of the video itself counts. A &lt;thumb&gt; inside &lt;actor&gt; is the actor's portrait, one inside
+            // &lt;fanart&gt; is a backdrop, a season poster belongs to a season: none of them are the poster (found with Jellyfin's
+            // .nfo files, where every actor has a &lt;thumb&gt; and the poster is in &lt;art&gt;&lt;poster&gt;).
+            // Order: &lt;thumb aspect="poster"&gt;, then &lt;art&gt;&lt;poster&gt;, then an old plain &lt;thumb&gt; with no aspect.
+            var postersThumbs = new List<string>(); var postersArt = new List<string>(); var plainThumbs = new List<string>();
+
+            if (doc?.Root != null)
             {
-                foreach (var thumb in doc.Descendants("thumb"))
+                foreach (var thumb in doc.Root.Elements("thumb"))
                 {
+                    if (thumb.Attribute("season") != null) continue;   // the poster of a season
+
                     var aspect = (string?)thumb.Attribute("aspect") ?? "";
                     if (aspect.Length != 0 && !aspect.Equals("poster", StringComparison.OrdinalIgnoreCase)) continue;
 
-                    Add(full, thumb.Value);
+                    Add(aspect.Length == 0 ? plainThumbs : postersThumbs, thumb.Value);
                     Add(previews, (string?)thumb.Attribute("preview"));
                 }
-                foreach (var art in doc.Descendants("art"))
-                    foreach (var poster in art.Elements("poster"))
-                        Add(full, poster.Value);
+                foreach (var poster in doc.Root.Elements("art").Elements("poster"))
+                    Add(postersArt, poster.Value);
             }
             else
             {
-                // Not valid XML (a web address above it, a stray character ...): look for the same tags in the text.
-                foreach (Match m in Regex.Matches(text, @"<thumb(?<attrs>[^>]*)>(?<value>[^<]*)</thumb>", RegexOptions.IgnoreCase))
+                // Not valid XML (a web address above it, a stray character ...): the same tags found in the text, with what
+                // belongs to actors, fanart and seasons cut out first.
+                var top = Regex.Replace(text, @"<(actor|fanart|namedseason|set|resume)\b[^>]*>.*?</\1>", "",
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+                foreach (Match m in Regex.Matches(top, @"<thumb(?<attrs>[^>]*)>(?<value>[^<]*)</thumb>", RegexOptions.IgnoreCase))
                 {
                     var attrs = m.Groups["attrs"].Value;
+                    if (Regex.IsMatch(attrs, @"\bseason\s*=", RegexOptions.IgnoreCase)) continue;
+
                     var aspect = Regex.Match(attrs, @"aspect\s*=\s*""(?<a>[^""]*)""", RegexOptions.IgnoreCase).Groups["a"].Value;
                     if (aspect.Length != 0 && !aspect.Equals("poster", StringComparison.OrdinalIgnoreCase)) continue;
 
-                    Add(full, m.Groups["value"].Value);
+                    Add(aspect.Length == 0 ? plainThumbs : postersThumbs, m.Groups["value"].Value);
                     Add(previews, Regex.Match(attrs, @"preview\s*=\s*""(?<p>[^""]*)""", RegexOptions.IgnoreCase).Groups["p"].Value);
                 }
-                foreach (Match m in Regex.Matches(text, @"<art>.*?<poster>(?<value>[^<]*)</poster>", RegexOptions.IgnoreCase | RegexOptions.Singleline))
-                    Add(full, m.Groups["value"].Value);
+                foreach (Match m in Regex.Matches(top, @"<art>.*?<poster>(?<value>[^<]*)</poster>", RegexOptions.IgnoreCase | RegexOptions.Singleline))
+                    Add(postersArt, m.Groups["value"].Value);
             }
+
+            full.AddRange(postersThumbs);
+            full.AddRange(postersArt);
+            full.AddRange(plainThumbs);
         }
         catch
         {
