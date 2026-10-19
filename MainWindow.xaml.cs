@@ -998,7 +998,7 @@ public partial class MainWindow : Window
     private void InfoDivider_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
     {
         var grid = (Grid)InfoPanel.Parent;
-        double room = grid.ActualHeight - grid.RowDefinitions[0].MinHeight - InfoDivider.ActualHeight - grid.RowDefinitions[3].ActualHeight;
+        double room = grid.ActualHeight - grid.RowDefinitions[0].MinHeight - grid.RowDefinitions[1].ActualHeight - grid.RowDefinitions[3].ActualHeight;
         double height = Math.Clamp(InfoRow.ActualHeight - e.VerticalChange, InfoPanelMinHeight, Math.Max(InfoPanelMinHeight, room));
         InfoRow.Height = new GridLength(height);
     }

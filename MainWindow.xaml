@@ -683,12 +683,14 @@
             <!-- 117 = 1 (top line) + 8 + 100 (the preview box) + 8: with 116 the bottom line of the box was cut off -->
             <!-- The divider above the info panel: drag it up to make the panel (and the preview picture) bigger. A Thumb, not a
                  GridSplitter: the list row is a star row and the panel row a fixed one, which a GridSplitter mixes up. -->
-            <Thumb x:Name="InfoDivider" Grid.Column="2" Grid.Row="1" Height="5" Cursor="SizeNS"
-                   DragDelta="InfoDivider_DragDelta" DragCompleted="InfoDivider_DragCompleted"
-                   ToolTip="Drag to change the height of the preview panel">
+            <!-- It is not drawn (no band: the user wanted the line only, as under the tree): it is an invisible strip over the top
+                 5 px of the panel, whose own 1 px top border is the line. The row between the list and the panel is empty. -->
+            <Thumb x:Name="InfoDivider" Grid.Column="2" Grid.Row="2" Height="5" Cursor="SizeNS"
+                   VerticalAlignment="Top" Panel.ZIndex="2"
+                   DragDelta="InfoDivider_DragDelta" DragCompleted="InfoDivider_DragCompleted">
                 <Thumb.Template>
                     <ControlTemplate TargetType="Thumb">
-                        <Border Background="{DynamicResource SplitterBrush}"/>
+                        <Border Background="Transparent"/>
                     </ControlTemplate>
                 </Thumb.Template>
             </Thumb>
@@ -774,6 +776,21 @@
                                        IsHitTestVisible="False"/>
                         </Grid>
                     </Border>
+
+                    <!-- A second line, under the info line (File 12/17 ...), that does the same as the one above the panel: drag it to
+                         change the height of the panel. The info line itself keeps its height. It lies over the bottom of the info
+                         line's row, so nothing moves, and reaches to the edges of the panel (the panel has a padding). -->
+                    <Thumb x:Name="InfoLineDivider" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Height="5" Cursor="SizeNS"
+                           VerticalAlignment="Bottom" Margin="-10,0,-10,0"
+                           DragDelta="InfoDivider_DragDelta" DragCompleted="InfoDivider_DragCompleted">
+                        <Thumb.Template>
+                            <ControlTemplate TargetType="Thumb">
+                                <!-- Only the 1 px line (as above the panel and under the tree); the rest of the 5 px is the grip -->
+                                <Border Background="Transparent"
+                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1"/>
+                            </ControlTemplate>
+                        </Thumb.Template>
+                    </Thumb>
                 </Grid>
             </Border>
 
