@@ -21,6 +21,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // The height of the info panel as the user left it; the preview box follows the panel's size.
+        InfoRow.Height = new GridLength(Math.Max(InfoPanelMinHeight, AppSettingsStore.Current.InfoPanelHeight));
+        InfoPanel.SizeChanged += (_, _) => FitPreviewBox();
         TreeColumn.Width = _treeWidth;
         DataContext = new MainViewModel();
         VM.FolderCreated += OnFolderCreated;
@@ -971,7 +975,39 @@ public partial class MainWindow : Window
         ShowThumbnail(item);   // a poster may be named in the changed file
     }
 
-    private const int ThumbnailDecodeWidth = 320;   // twice the size shown, so it stays sharp on a high-DPI screen
+    // Twice the width of the preview box (so it stays sharp on a high-DPI screen); the box is 160 px wide until the panel is dragged taller.
+    private int ThumbnailDecodeWidth = 320;
+
+    // ── The height of the info panel (a divider above it) ────────────────────
+
+    private const double InfoPanelMinHeight = 117;   // 1 (top line) + 8 + 100 (the preview box) + 8
+
+    /// <summary>The preview box is as high as the panel allows and 1.6 times as wide (160 x 100 at the smallest panel).</summary>
+    private void FitPreviewBox()
+    {
+        double height = Math.Max(100, InfoPanel.ActualHeight - 17);   // minus the line and the padding
+        PreviewBox.Height = height;
+        PreviewBox.Width  = Math.Round(height * 1.6);
+        ThumbnailDecodeWidth = (int)Math.Max(320, PreviewBox.Width * 2);
+    }
+
+    private void InfoDivider_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+    {
+        var grid = (Grid)InfoPanel.Parent;
+        double room = grid.ActualHeight - grid.RowDefinitions[0].MinHeight - InfoDivider.ActualHeight - grid.RowDefinitions[3].ActualHeight;
+        double height = Math.Clamp(InfoRow.ActualHeight - e.VerticalChange, InfoPanelMinHeight, Math.Max(InfoPanelMinHeight, room));
+        InfoRow.Height = new GridLength(height);
+    }
+
+    // The new height is remembered, and the preview is decoded again at the new size (it was made for the old one).
+    private void InfoDivider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        FitPreviewBox();
+        var settings = AppSettingsStore.Current;
+        settings.InfoPanelHeight = InfoRow.Height.Value;
+        AppSettingsStore.Save(settings);
+        UpdateInfoPanel();
+    }
 
     // What the preview shows, so that a click on it can open it in the viewer: the item it is of and, for a video or music
     // file, where its preview picture came from.

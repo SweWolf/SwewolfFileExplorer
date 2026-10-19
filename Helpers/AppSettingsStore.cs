@@ -17,6 +17,10 @@ public class AppSettings
     public double ListFontSize { get; set; } = DefaultFontSize;
     public double TreeFontSize { get; set; } = DefaultFontSize;
 
+    /// <summary>The height of the info panel under the file list (the preview picture, the plot): dragged with the divider above it.</summary>
+    public const double DefaultInfoPanelHeight = 117;
+    public double InfoPanelHeight { get; set; } = DefaultInfoPanelHeight;
+
     /// <summary>The window color scheme: "Light", "Dark", "System" (follow Windows) or "Cyber Cyan" (light blue on black).</summary>
     public string Style { get; set; } = "System";
 

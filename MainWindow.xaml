@@ -296,13 +296,14 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*" MinHeight="90"/>                       <!-- the file list -->
+                <RowDefinition Height="Auto"/>                                   <!-- the divider -->
+                <RowDefinition x:Name="InfoRow" Height="117" MinHeight="117"/>   <!-- the info panel: dragged taller with the divider -->
+                <RowDefinition Height="Auto"/>                                   <!-- the status bar -->
             </Grid.RowDefinitions>
 
             <!-- Navigation tree: header (up, sort order, hide) above the tree -->
-            <DockPanel x:Name="TreePane" Grid.Column="0" Grid.RowSpan="3">
+            <DockPanel x:Name="TreePane" Grid.Column="0" Grid.RowSpan="4">
 
                 <Border DockPanel.Dock="Top" Background="{DynamicResource PaneBrush}"
                         BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,1" Padding="4,3">
@@ -528,7 +529,7 @@
                 </TreeView>
             </DockPanel>
 
-            <GridSplitter x:Name="TreeSplitter" Grid.Column="1" Grid.RowSpan="3"
+            <GridSplitter x:Name="TreeSplitter" Grid.Column="1" Grid.RowSpan="4"
                           Width="4"
                           HorizontalAlignment="Stretch"
                           Background="{DynamicResource SplitterBrush}"/>
@@ -680,7 +681,19 @@
 
             <!-- Under the list: which item is selected, the hidden items, and a preview of a picture -->
             <!-- 117 = 1 (top line) + 8 + 100 (the preview box) + 8: with 116 the bottom line of the box was cut off -->
-            <Border Grid.Column="2" Grid.Row="1" Height="117" Padding="10,8"
+            <!-- The divider above the info panel: drag it up to make the panel (and the preview picture) bigger. A Thumb, not a
+                 GridSplitter: the list row is a star row and the panel row a fixed one, which a GridSplitter mixes up. -->
+            <Thumb x:Name="InfoDivider" Grid.Column="2" Grid.Row="1" Height="5" Cursor="SizeNS"
+                   DragDelta="InfoDivider_DragDelta" DragCompleted="InfoDivider_DragCompleted"
+                   ToolTip="Drag to change the height of the preview panel">
+                <Thumb.Template>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="{DynamicResource SplitterBrush}"/>
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <Border x:Name="InfoPanel" Grid.Column="2" Grid.Row="2" Padding="10,8"
                     Background="{DynamicResource PaneBrush}"
                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0">
                 <Grid>
@@ -754,7 +767,7 @@
             </Border>
 
             <!-- Status bar: under the list and the info panel, as what it says is about the list -->
-            <StatusBar Grid.Column="2" Grid.Row="2" MinHeight="24">
+            <StatusBar Grid.Column="2" Grid.Row="3" MinHeight="24">
                 <StatusBarItem>
                     <!-- The status bar has no theme of its own: without this the text is black on the dark styles. -->
                     <TextBlock Text="{Binding StatusText}" FontSize="12"
