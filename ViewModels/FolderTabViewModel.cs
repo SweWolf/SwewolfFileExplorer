@@ -957,6 +957,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
         catch { return null; }
     }
 
+    /// <summary>Looks for the picture of the current folder again (a picture was chosen for it, or the choice was removed).</summary>
+    public void RefreshFolderPicture()
+    {
+        if (!string.IsNullOrEmpty(_currentPath) && !_noFolderShown) UpdateFolderPicture(_currentPath);
+    }
+
     /// <summary>Looks for the picture of <paramref name="path"/> in the background; the old one goes at once, as it is not this folder's.</summary>
     private void UpdateFolderPicture(string path)
     {

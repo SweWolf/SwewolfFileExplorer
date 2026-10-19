@@ -1084,18 +1084,71 @@ public partial class MainWindow : Window
 
     private void PreviewBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        var item = PreviewMenuTarget();
-        if (item == null) { e.Handled = true; return; }   // no menu where there is nothing to choose
+        var item      = PreviewMenuTarget();               // a video or music file: its own preview picture
+        var candidate = FolderPictureCandidate();          // a picture file in this folder that the preview shows
+        bool hasFolderChoice = !string.IsNullOrEmpty(VM.CurrentPath) && LibraryStore.GetFolderPicture(VM.CurrentPath) != null;
 
-        var choice = LibraryStore.GetPreviewChoice(item.FullPath);
-        PreviewChooseItem.Visibility = Visibility.Visible;
-        PreviewNoneItem.Visibility   = choice is { None: true } ? Visibility.Collapsed : Visibility.Visible;
-        PreviewAutoItem.Visibility   = choice != null ? Visibility.Visible : Visibility.Collapsed;
+        if (item == null && candidate == null && !hasFolderChoice) { e.Handled = true; return; }   // no menu where there is nothing to choose
+
+        Visibility V(bool show) => show ? Visibility.Visible : Visibility.Collapsed;
+
+        // The preview picture of a video or music file.
+        var choice = item == null ? null : LibraryStore.GetPreviewChoice(item.FullPath);
+        PreviewChooseItem.Visibility = V(item != null);
+        PreviewNoneItem.Visibility   = V(item != null && choice is not { None: true });
+        PreviewAutoItem.Visibility   = V(item != null && choice != null);
 
         // Save As only when there is a picture to save.
-        var save = _previewSource != null ? Visibility.Visible : Visibility.Collapsed;
-        PreviewSaveItem.Visibility      = save;
-        PreviewSaveSeparator.Visibility = save;
+        bool save = item != null && _previewSource != null;
+        PreviewSaveItem.Visibility      = V(save);
+        PreviewSaveSeparator.Visibility = V(save);
+
+        // The picture of the folder (the one under the tree).
+        FolderPictureSeparator.Visibility = V(item != null && (candidate != null || hasFolderChoice));
+        FolderPictureSetItem.Visibility   = V(candidate != null);
+        FolderPictureAutoItem.Visibility  = V(hasFolderChoice);
+    }
+
+    /// <summary>
+    /// The picture file that Set as Folder Picture would choose: the picture file selected (it shows itself), or the picture file
+    /// beside a video that its preview shows (a poster next to it) when that file is in the same folder. Its name alone is kept,
+    /// so a picture from inside the file, a frame of a video, or a file elsewhere cannot be chosen (no file would be made for it).
+    /// Null in an archive (read-only) and when nothing like that is shown.
+    /// </summary>
+    private string? FolderPictureCandidate()
+    {
+        if (_previewItem is not { IsDirectory: false, IsInArchive: false } item || string.IsNullOrEmpty(VM.CurrentPath)) return null;
+
+        string? file = _previewSource == null
+            ? (ThumbnailLoader.IsImage(item.FullPath) ? item.FullPath : null)
+            : _previewSource.File;
+        if (file == null) return null;
+
+        var folder = System.IO.Path.GetDirectoryName(file);
+        return string.Equals(folder?.TrimEnd('\\', '/'), VM.CurrentPath.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase) ? file : null;
+    }
+
+    private void FolderPictureSet_Click(object sender, RoutedEventArgs e)
+    {
+        if (FolderPictureCandidate() is not { } file) return;
+
+        var name = System.IO.Path.GetFileName(file);
+        var folder = VM.CurrentPath;
+        LibraryService.Queue(() => LibraryStore.SetFolderPicture(folder, name));
+        RefreshFolderPictureSoon();
+    }
+
+    private void FolderPictureAuto_Click(object sender, RoutedEventArgs e)
+    {
+        var folder = VM.CurrentPath;
+        LibraryService.Queue(() => LibraryStore.SetFolderPicture(folder, null));
+        RefreshFolderPictureSoon();
+    }
+
+    // The folder picture is looked for again once the choice is written (the library writes in the background, in order).
+    private void RefreshFolderPictureSoon()
+    {
+        Task.Run(() => LibraryService.WaitForQueued()).ContinueWith(_ => Dispatcher.InvokeAsync(() => VM.RefreshFolderPicture()));
     }
 
     /// <summary>

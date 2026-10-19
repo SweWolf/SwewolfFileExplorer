@@ -266,6 +266,8 @@ public class MainViewModel : INotifyPropertyChanged
     public void SetRating(IReadOnlyCollection<string> paths, int? value)         => _activeTab.SetRating(paths, value);
     public void SetExpectation(IReadOnlyCollection<string> paths, double? value) => _activeTab.SetExpectation(paths, value);
 
+    public void RefreshFolderPicture() => _activeTab.RefreshFolderPicture();
+
     // Tags of the folder (its desktop.ini, read only)
     public string FolderTagsText       => _activeTab.FolderTagsText;
     public bool HasFolderTags          => _activeTab.HasFolderTags;

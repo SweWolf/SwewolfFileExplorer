@@ -12,6 +12,7 @@ public sealed record FolderCover(BitmapSource Image, string? Path, byte[]? Data)
 
 /// <summary>
 /// Finds the picture for a folder, in this order (a starting point, meant to be tweaked):
+///  0. The picture the user chose for the folder (right-click the preview: Set as Folder Picture), kept in the library by name.
 ///  1. A picture in the folder with a cover-like name, best first: Folder, Cover, Front, Poster, AlbumArt (also
 ///     Windows Media Player's AlbumArt_{...}_Large), Album, Thumb, Thumbnail, or a name equal to the folder's.
 ///     (TeraTool only looked for Folder.jpg.) Hidden files count: Folder.jpg is usually hidden.
@@ -49,6 +50,15 @@ public static class FolderCoverFinder
     private static FolderCover? FromFolder(string folder, int decodeWidth, CancellationToken token)
     {
         if (!Directory.Exists(folder)) return null;
+
+        // 0. The picture the user chose for this folder (Set as Folder Picture; the library keeps its name only). If it is gone
+        //    or cannot be read, the automatic search below goes on as if nothing was chosen.
+        if (LibraryStore.GetFolderPicture(folder) is { Length: > 0 } chosen)
+        {
+            var file = Path.Combine(folder, chosen);
+            if (File.Exists(file) && ThumbnailLoader.Load(file, decodeWidth) is { } picked)
+                return new FolderCover(picked, file, null);
+        }
 
         var files = Directory.EnumerateFiles(folder).ToList();   // hidden files included
         var name  = Path.GetFileName(folder.TrimEnd('\\', '/'));

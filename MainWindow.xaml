@@ -748,6 +748,11 @@
                                 <MenuItem x:Name="PreviewAutoItem"   Header="Use Automatic Preview Picture" Click="PreviewAuto_Click"/>
                                 <Separator x:Name="PreviewSaveSeparator"/>
                                 <MenuItem x:Name="PreviewSaveItem"   Header="Save Preview Picture As..." Click="PreviewSave_Click"/>
+                                <Separator x:Name="FolderPictureSeparator"/>
+                                <MenuItem x:Name="FolderPictureSetItem"  Header="Set as Folder Picture" Click="FolderPictureSet_Click"
+                                          ToolTip="Show this picture under the folder tree for this folder. Only its name is kept in the library; no file is made."/>
+                                <MenuItem x:Name="FolderPictureAutoItem" Header="Use Automatic Folder Picture" Click="FolderPictureAuto_Click"
+                                          ToolTip="Forget the chosen picture of this folder: the program looks for one itself again"/>
                             </ContextMenu>
                         </Border.ContextMenu>
                         <Grid>
