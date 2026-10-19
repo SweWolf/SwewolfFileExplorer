@@ -2005,18 +2005,36 @@ public partial class MainWindow : Window
         };
     }
 
-    private void OpenTerminal(object sender, string? folder)
+    /// <summary>
+    /// Opens the terminal the menu item stands for. As the administrator (Windows asks first) when the item was right-clicked, or
+    /// clicked with Shift held: no extra question and no extra items in the menu.
+    /// </summary>
+    private void OpenTerminal(object sender, string? folder, bool admin = false)
     {
         if (folder == null || sender is not MenuItem { Tag: string tag } || !Enum.TryParse<TerminalKind>(tag, out var kind)) return;
 
-        try { TerminalLauncher.Open(kind, folder); }
+        try { TerminalLauncher.Open(kind, folder, admin); }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == TerminalLauncher.UserDeclined)
+        {
+            // The user said no to Windows' question: nothing to say.
+        }
         catch (Exception ex)
         {
             MessageBox.Show(this, $"Cannot open it in \"{folder}\":\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
-    private void TreeCtxTerminal_Click(object sender, RoutedEventArgs e) => OpenTerminal(sender, _treeMenuNode?.FullPath);
+    private void TreeCtxTerminal_Click(object sender, RoutedEventArgs e) =>
+        OpenTerminal(sender, _treeMenuNode?.FullPath, admin: Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+
+    /// <summary>A right-click on a menu item (WPF does nothing with it by itself): the administrator's version, and the menu closes.</summary>
+    private void TreeCtxTerminal_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        var folder = _treeMenuNode?.FullPath;
+        if (sender is MenuItem { Parent: ContextMenu menu }) menu.IsOpen = false;
+        OpenTerminal(sender, folder, admin: true);
+    }
 
     /// <summary>The folder a terminal opens in from the list's menu: the selected folder, else the folder shown (on the disk only).</summary>
     private string? ListTerminalFolder()
@@ -2028,7 +2046,16 @@ public partial class MainWindow : Window
         return !string.IsNullOrEmpty(path) && System.IO.Directory.Exists(path) ? path : null;
     }
 
-    private void CtxTerminal_Click(object sender, RoutedEventArgs e) => OpenTerminal(sender, ListTerminalFolder());
+    private void CtxTerminal_Click(object sender, RoutedEventArgs e) =>
+        OpenTerminal(sender, ListTerminalFolder(), admin: Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+
+    private void CtxTerminal_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        var folder = ListTerminalFolder();   // before the menu closes: the folder depends on what is selected
+        if (sender is MenuItem { Parent: ContextMenu menu }) menu.IsOpen = false;
+        OpenTerminal(sender, folder, admin: true);
+    }
 
     private void TreeContextMenu_Opened(object sender, RoutedEventArgs e)
     {

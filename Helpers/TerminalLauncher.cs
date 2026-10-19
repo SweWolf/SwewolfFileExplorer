@@ -8,9 +8,9 @@ namespace SwewolfFileExplorer.Helpers;
 public enum TerminalKind { WindowsTerminal, PowerShell, CommandPrompt }
 
 /// <summary>
-/// Opens a terminal in a folder: Windows Terminal, Windows PowerShell or the Command Prompt. Which ones are installed is looked at
-/// once per run (Windows Terminal comes with Windows 11 but is not on every Windows 10); a program that is not there is not
-/// offered. The icon is the program's own, read from its file.
+/// Opens a terminal in a folder: Windows Terminal, Windows PowerShell or the Command Prompt, also as the administrator (Windows
+/// asks the user first). Which ones are installed is looked at once per run (Windows Terminal comes with Windows 11 but is not on
+/// every Windows 10); a program that is not there is not offered. The icon is the program's own, read from its file.
 /// </summary>
 public static class TerminalLauncher
 {
@@ -58,7 +58,9 @@ public static class TerminalLauncher
 
     private static string? Existing(string path) => File.Exists(path) ? path : null;
 
-    /// <summary>The icon of the program (null if it has none that can be read).</summary>
+    // ── Icons ─────────────────────────────────────────────────────────────────
+
+    /// <summary>The icon of the program (null if it has no icon that can be read).</summary>
     public static ImageSource? GetIcon(TerminalKind kind)
     {
         lock (Icons)
@@ -102,24 +104,50 @@ public static class TerminalLauncher
         return null;
     }
 
-    /// <summary>Opens the terminal in <paramref name="folder"/> (a folder on the disk). Throws if it cannot be started.</summary>
-    public static void Open(TerminalKind kind, string folder)
+    // ── Starting ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Opens the terminal in <paramref name="folder"/> (a folder on the disk), as the administrator if asked (Windows shows its
+    /// question first; when the user says no, a <see cref="System.ComponentModel.Win32Exception"/> with <see cref="UserDeclined"/>
+    /// is thrown). Throws if it cannot be started.
+    /// </summary>
+    public static void Open(TerminalKind kind, string folder, bool admin = false)
     {
         var exe = FindExe(kind) ?? throw new FileNotFoundException("That program is not installed.");
 
-        if (kind == TerminalKind.WindowsTerminal)
+        if (kind == TerminalKind.WindowsTerminal && !admin)
         {
             // wt -d <folder>: the arguments are quoted by .NET, so a folder with spaces, or the root of a drive, is safe.
             var info = new ProcessStartInfo(exe) { UseShellExecute = false };
             info.ArgumentList.Add("-d");
             info.ArgumentList.Add(folder);
             Process.Start(info)?.Dispose();
+            return;
         }
-        else
+
+        // PowerShell and the Command Prompt: started in the folder, in a console window of their own (Windows opens it in Windows
+        // Terminal if that is the default). As the administrator ("runas") a program may start in System32 whatever the working
+        // folder is, so the folder is also given as an argument; ShellExecute takes the arguments as one text, hence the quoting.
+        var start = new ProcessStartInfo(exe) { WorkingDirectory = folder, UseShellExecute = true };
+        if (admin) start.Verb = "runas";
+
+        var path = folder.Length > 3 ? folder.TrimEnd('\\') : folder;   // not "D:" for a drive's root
+        switch (kind)
         {
-            // PowerShell and the Command Prompt: started in the folder, in a console window of their own (Windows opens it in
-            // Windows Terminal if that is the default).
-            Process.Start(new ProcessStartInfo(exe) { WorkingDirectory = folder, UseShellExecute = true })?.Dispose();
+            case TerminalKind.WindowsTerminal:   // only as the administrator (the other way is above)
+                start.Arguments = path.Contains(' ') ? $"-d \"{path}\"" : $"-d {path}";   // a drive's root has no space, so it is never quoted (a closing \ would escape the quote)
+                break;
+            case TerminalKind.PowerShell when admin:
+                start.Arguments = $"-NoExit -Command Set-Location -LiteralPath '{folder.Replace("'", "''")}'";
+                break;
+            case TerminalKind.CommandPrompt when admin:
+                start.Arguments = $"/k cd /d \"{path}\"";
+                break;
         }
+
+        Process.Start(start)?.Dispose();
     }
+
+    /// <summary>The error number of "the user said no in the UAC question".</summary>
+    public const int UserDeclined = 1223;
 }

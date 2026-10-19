@@ -56,7 +56,7 @@
             </StackPanel>
         </GroupBox>
 
-        <GroupBox Header="Terminal Menu" Padding="8" Margin="0,8,0,0">
+        <GroupBox Header="Terminal Menu (Right-Click an Item to Open It as the Administrator)" Padding="8" Margin="0,8,0,0">
             <StackPanel>
                 <CheckBox x:Name="TerminalBox" Content="Open in Terminal"
                           ToolTip="Show Open in Terminal (Windows Terminal) in the right-click menu of a folder"/>
