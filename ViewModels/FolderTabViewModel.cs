@@ -1224,6 +1224,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     private static bool OpenFile(string path)
     {
+        // A .nfo file: Windows gives them to System Information, but almost all are text or XML; those go to the text editor.
+        if (NfoOpener.TryOpenInTextEditor(path)) return true;
+
         try
         {
             Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });

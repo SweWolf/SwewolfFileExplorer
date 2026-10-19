@@ -21,6 +21,12 @@ public class AppSettings
     public const double DefaultInfoPanelHeight = 117;
     public double InfoPanelHeight { get; set; } = DefaultInfoPanelHeight;
 
+    /// <summary>
+    /// The text editor that opens .nfo files (text and XML ones; settings.json only, no window for it). Empty = automatic: Visual
+    /// Studio Code if the registry knows it, else Notepad.
+    /// </summary>
+    public string TextEditorPath { get; set; } = "";
+
     /// <summary>The window color scheme: "Light", "Dark", "System" (follow Windows) or "Cyber Cyan" (light blue on black).</summary>
     public string Style { get; set; } = "System";
 
