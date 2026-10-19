@@ -487,6 +487,12 @@
                                       ToolTip="Your rating of this folder, 1 to 10. Leave it empty to remove it."/>
                             <MenuItem Header="Expectation..."  Click="TreeCtxExpectation_Click" InputGestureText="Ctrl+E"
                                       ToolTip="How good you expect this folder to be, 1 to 10 (decimals allowed). Leave it empty to remove it."/>
+                            <!-- Open a terminal in this folder: which of the three are shown is set in Settings; one that is not
+                                 installed is never shown. The icons are set in code. -->
+                            <Separator x:Name="TreeTerminalSeparator"/>
+                            <MenuItem x:Name="TreeTerminalItem"   Header="Open in Terminal"       Tag="WindowsTerminal" Click="TreeCtxTerminal_Click"/>
+                            <MenuItem x:Name="TreePowerShellItem" Header="Open in PowerShell"      Tag="PowerShell"      Click="TreeCtxTerminal_Click"/>
+                            <MenuItem x:Name="TreeCommandItem"    Header="Open in Command Prompt"  Tag="CommandPrompt"   Click="TreeCtxTerminal_Click"/>
                             <Separator/>
                             <MenuItem Header="Refresh"         Click="TreeCtxRefresh_Click"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click"/>
@@ -678,6 +684,11 @@
                                   ToolTip="Your rating of the selected items, 1 to 10. Leave it empty to remove it."/>
                         <MenuItem Header="Expectation..." Click="CtxExpectation_Click" InputGestureText="Ctrl+E"
                                   ToolTip="How good you expect the selected items to be, 1 to 10 (decimals allowed). Leave it empty to remove it."/>
+                        <!-- Open a terminal in the selected folder, or in this folder (see the tree's menu) -->
+                        <Separator x:Name="ListTerminalSeparator"/>
+                        <MenuItem x:Name="ListTerminalItem"   Header="Open in Terminal"       Tag="WindowsTerminal" Click="CtxTerminal_Click"/>
+                        <MenuItem x:Name="ListPowerShellItem" Header="Open in PowerShell"      Tag="PowerShell"      Click="CtxTerminal_Click"/>
+                        <MenuItem x:Name="ListCommandItem"    Header="Open in Command Prompt"  Tag="CommandPrompt"   Click="CtxTerminal_Click"/>
                         <Separator/>
                         <MenuItem Header="Delete"     Click="CtxDelete_Click"    InputGestureText="Del"/>
                         <MenuItem Header="Rename"     Click="CtxRename_Click"    InputGestureText="F2"/>

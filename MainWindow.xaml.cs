@@ -1701,6 +1701,8 @@ public partial class MainWindow : Window
         // Read the SendTo folder each time, so new shortcuts show up at once.
         FillSendToMenu(SendToMenu, hasSelection && !inArchive ? SendToHelper.GetEntries() : new());
 
+        ShowTerminalItems(ListTerminalSeparator, TerminalItems(ListTerminalItem, ListPowerShellItem, ListCommandItem), ListTerminalFolder());
+
         var menu = (ContextMenu)sender;
         foreach (var mi in menu.Items.OfType<MenuItem>())
         {
@@ -1970,12 +1972,71 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    // ── Open in Terminal / PowerShell / Command Prompt ───────────────────────
+
+    /// <summary>
+    /// Shows the terminal items of a menu that are switched on in Settings and installed, with the program's icon; all hidden (and
+    /// the separator above them) when <paramref name="folder"/> is null (not a folder on the disk).
+    /// </summary>
+    private static void ShowTerminalItems(Separator separator, (MenuItem Item, TerminalKind Kind, bool On)[] items, string? folder)
+    {
+        bool any = false;
+        foreach (var (item, kind, on) in items)
+        {
+            bool show = folder != null && on && TerminalLauncher.IsInstalled(kind);
+            item.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (!show) continue;
+
+            any = true;
+            if (item.Icon == null && TerminalLauncher.GetIcon(kind) is { } icon)
+                item.Icon = new Image { Source = icon, Width = 16, Height = 16 };
+        }
+        separator.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static (MenuItem, TerminalKind, bool)[] TerminalItems(MenuItem terminal, MenuItem powerShell, MenuItem command)
+    {
+        var s = AppSettingsStore.Current;
+        return new[]
+        {
+            (terminal,   TerminalKind.WindowsTerminal, s.ShowOpenInTerminal),
+            (powerShell, TerminalKind.PowerShell,      s.ShowOpenInPowerShell),
+            (command,    TerminalKind.CommandPrompt,   s.ShowOpenInCommandPrompt),
+        };
+    }
+
+    private void OpenTerminal(object sender, string? folder)
+    {
+        if (folder == null || sender is not MenuItem { Tag: string tag } || !Enum.TryParse<TerminalKind>(tag, out var kind)) return;
+
+        try { TerminalLauncher.Open(kind, folder); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Cannot open it in \"{folder}\":\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void TreeCtxTerminal_Click(object sender, RoutedEventArgs e) => OpenTerminal(sender, _treeMenuNode?.FullPath);
+
+    /// <summary>The folder a terminal opens in from the list's menu: the selected folder, else the folder shown (on the disk only).</summary>
+    private string? ListTerminalFolder()
+    {
+        if (VM.InArchive) return null;
+        var path = FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true } dir
+            ? dir.FullPath
+            : VM.CurrentPath;
+        return !string.IsNullOrEmpty(path) && System.IO.Directory.Exists(path) ? path : null;
+    }
+
+    private void CtxTerminal_Click(object sender, RoutedEventArgs e) => OpenTerminal(sender, ListTerminalFolder());
+
     private void TreeContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         if (_treeMenuNode == null) return;
 
         string path       = _treeMenuNode.FullPath;
         bool realFolder   = System.IO.Directory.Exists(path);
+        ShowTerminalItems(TreeTerminalSeparator, TerminalItems(TreeTerminalItem, TreePowerShellItem, TreeCommandItem), realFolder ? path : null);
         bool canChange    = CanChangeFolder(path);   // a drive cannot be cut, deleted or renamed
 
         var menu = (ContextMenu)sender;

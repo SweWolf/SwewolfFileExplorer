@@ -18,6 +18,19 @@ public partial class SettingsWindow : Window
         HiddenExtensionsInArchivesBox.Text = current.HiddenExtensionsInArchives;
         HideShellExtensionsBox.IsChecked   = current.HideShellExtensions;
         SuggestMoveBox.IsChecked           = current.SuggestMoveAfterSmartRename;
+        TerminalBox.IsChecked              = current.ShowOpenInTerminal;
+        PowerShellBox.IsChecked            = current.ShowOpenInPowerShell;
+        CommandPromptBox.IsChecked         = current.ShowOpenInCommandPrompt;
+
+        // A program that is not installed is never offered in the menu, so its box cannot do anything.
+        foreach (var (box, kind, name) in new[]
+                 { (TerminalBox, TerminalKind.WindowsTerminal, "Windows Terminal"), (PowerShellBox, TerminalKind.PowerShell, "Windows PowerShell"),
+                   (CommandPromptBox, TerminalKind.CommandPrompt, "The Command Prompt") })
+        {
+            if (TerminalLauncher.IsInstalled(kind)) continue;
+            box.IsEnabled = false;
+            box.ToolTip   = $"{name} is not installed on this computer, so it is not shown in the menu.";
+        }
     }
 
     private void OkButton_Click(object sender, RoutedEventArgs e)
@@ -30,6 +43,9 @@ public partial class SettingsWindow : Window
         settings.HiddenExtensionsInArchives = string.Join(";", HiddenItems.Parse(HiddenExtensionsInArchivesBox.Text));
         settings.HideShellExtensions = HideShellExtensionsBox.IsChecked == true;
         settings.SuggestMoveAfterSmartRename = SuggestMoveBox.IsChecked == true;
+        settings.ShowOpenInTerminal      = TerminalBox.IsChecked == true;
+        settings.ShowOpenInPowerShell    = PowerShellBox.IsChecked == true;
+        settings.ShowOpenInCommandPrompt = CommandPromptBox.IsChecked == true;
         AppSettingsStore.Save(settings);
 
         ThemeService.Apply(settings.Style);

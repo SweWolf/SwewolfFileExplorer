@@ -56,6 +56,17 @@
             </StackPanel>
         </GroupBox>
 
+        <GroupBox Header="Terminal Menu" Padding="8" Margin="0,8,0,0">
+            <StackPanel>
+                <CheckBox x:Name="TerminalBox" Content="Open in Terminal"
+                          ToolTip="Show Open in Terminal (Windows Terminal) in the right-click menu of a folder"/>
+                <CheckBox x:Name="PowerShellBox" Content="Open in PowerShell" Margin="0,6,0,0"
+                          ToolTip="Show Open in PowerShell in the right-click menu of a folder"/>
+                <CheckBox x:Name="CommandPromptBox" Content="Open in Command Prompt" Margin="0,6,0,0"
+                          ToolTip="Show Open in Command Prompt in the right-click menu of a folder"/>
+            </StackPanel>
+        </GroupBox>
+
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="OK" Width="80" Margin="0,0,6,0" IsDefault="True" Click="OkButton_Click"
                     BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"/>

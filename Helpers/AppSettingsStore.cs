@@ -46,6 +46,15 @@ public class AppSettings
     /// <summary>Do not show the extension of special shell and system file types (.lnk, .url ...), as Windows does: "Photos", not "Photos.lnk".</summary>
     public bool HideShellExtensions { get; set; } = true;
 
+    /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
+    public bool ShowOpenInTerminal { get; set; } = true;
+
+    /// <summary>Show "Open in PowerShell" in the right-click menus of folders.</summary>
+    public bool ShowOpenInPowerShell { get; set; } = true;
+
+    /// <summary>Show "Open in Command Prompt" in the right-click menus of folders.</summary>
+    public bool ShowOpenInCommandPrompt { get; set; } = true;
+
     /// <summary>
     /// After a video file is renamed with "Use Smart Name", offer to move it into Movies or TV Shows\Show Name in the
     /// user's Videos folder (TeraTool did). Off to begin with (Settings > File Names).
