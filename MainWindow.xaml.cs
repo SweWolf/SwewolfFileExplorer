@@ -846,7 +846,7 @@ public partial class MainWindow : Window
         if (VM.ConsumeProgrammaticTreeSelection(item)) return;
 
         if (!string.IsNullOrEmpty(item.FullPath))
-            VM.Navigate(item.FullPath);
+            VM.NavigateAsync(item.FullPath);   // read in the background: a slow folder must not freeze the window
         else
             VM.ShowNoFolder();   // This PC / Quick Access: not a folder, so the list is emptied
     }

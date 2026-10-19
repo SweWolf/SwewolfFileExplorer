@@ -318,6 +318,61 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     public void Navigate(string? path, bool addToHistory = true)
     {
+        _navVersion++;   // a slow listing that is still being read for an earlier click is no longer wanted
+        NavigateCore(path, addToHistory, null);
+    }
+
+    private int _navVersion;
+
+    /// <summary>What a folder holds, read with no UI work: the listing, so that a slow folder can be waited for in the background.</summary>
+    private sealed record FolderListing(DirectoryInfo[] Dirs, FileInfo[] Files, int TreeHidden, bool ShowFolders, Exception? Error);
+
+    /// <summary>
+    /// The listing of a real folder: its subfolders (only when the list shows folders), its files, and (when asked) how many hidden
+    /// subfolders the tree has to leave out. Touches the disk only; safe on any thread. Throws what the disk throws.
+    /// </summary>
+    private static FolderListing ReadListing(string path, bool showFolders, bool countTreeHidden)
+    {
+        var dirInfo = new DirectoryInfo(path);
+        int treeHidden = countTreeHidden ? TreeItemViewModel.CountHiddenIn(path) : -1;
+        var dirs  = showFolders ? dirInfo.GetDirectories().OrderBy(d => d.Name).ToArray() : Array.Empty<DirectoryInfo>();
+        var files = dirInfo.GetFiles().OrderBy(f => f.Name).ToArray();
+        return new FolderListing(dirs, files, treeHidden, showFolders, null);
+    }
+
+    /// <summary>
+    /// Navigate for a click on a folder of the tree: the folder is read on a background thread, so a folder that answers slowly
+    /// (a cloud drive, a disk that has gone to sleep, a stuck network share) cannot freeze the window. The status bar says
+    /// "Reading folder..." meanwhile and the old list stays; another click drops this one. (found 2026-10-19: the whole program
+    /// hung for minutes inside Windows' folder listing, on the UI thread.) Anything that is not a plain folder goes the normal way.
+    /// </summary>
+    public async void NavigateAsync(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+        path = path.Trim();
+
+        if (path.Contains('%') || !Directory.Exists(path))   // variables, packed files, missing folders: Navigate knows what to say
+        {
+            Navigate(path);
+            return;
+        }
+
+        int version = ++_navVersion;
+        bool showFolders = _shared.ShowFolders;
+        StatusText = "Reading folder...";
+
+        var listing = await Task.Run(() =>
+        {
+            try { return ReadListing(path, showFolders, countTreeHidden: true); }
+            catch (Exception ex) { return new FolderListing(Array.Empty<DirectoryInfo>(), Array.Empty<FileInfo>(), 0, showFolders, ex); }
+        });
+
+        if (version != _navVersion) return;   // another navigation started meanwhile
+        NavigateCore(path, true, listing);
+    }
+
+    private void NavigateCore(string? path, bool addToHistory, FolderListing? listing)
+    {
         if (string.IsNullOrWhiteSpace(path)) return;
 
         path = path.Trim();
@@ -372,7 +427,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         ApplyFolderSort();
         OnPropertyChanged(nameof(TreeSortIndex));   // the tree header shows this folder's tree sort order
         OnPropertyChanged(nameof(TreeSortDirectionIndex));
-        LoadItems(path);
+        LoadItems(path, listing);
         UpdateFolderPicture(path);
         UpdateFolderTags(path);
         UpdateNavState();
@@ -864,9 +919,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
     }
 
-    private void UpdateTreeHidden(string path)
+    private void UpdateTreeHidden(string path, int? known = null)
     {
-        _treeHiddenCount = TreeItemViewModel.CountHiddenIn(path);
+        _treeHiddenCount = known ?? TreeItemViewModel.CountHiddenIn(path);
         OnPropertyChanged(nameof(HasTreeHiddenFolders));
         OnPropertyChanged(nameof(TreeHiddenText));
     }
@@ -1086,7 +1141,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         EnsureTags();   // when the tags are in, TagsLoaded lets the window sort again if it is sorted by a tag column
     }
 
-    private void LoadItems(string path)
+    private void LoadItems(string path, FolderListing? preread = null)
     {
         _tagsCts?.Cancel();   // the tags of the folder we leave are no longer wanted
         _tagsCts = null;
@@ -1094,7 +1149,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         CurrentItems.Clear();
         _hiddenCount = 0;
         ClearReadState();
-        UpdateTreeHidden(path);
+        UpdateTreeHidden(path, preread?.TreeHidden);
 
         _inArchive = ArchiveSupport.IsInside(path);
         OnPropertyChanged(nameof(InArchive));
@@ -1110,12 +1165,15 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         try
         {
-            var dirInfo = new DirectoryInfo(path);
+            // Read here, or already read in the background (a click in the tree). If the "Folders" button was toggled while it was
+            // being read, the listing is read again here.
+            var listing = preread != null && preread.ShowFolders == _shared.ShowFolders
+                ? preread
+                : ReadListing(path, _shared.ShowFolders, countTreeHidden: false);
+            if (listing.Error != null) throw listing.Error;
 
             // Folders first (sorted)
-            var folders = _shared.ShowFolders
-                ? dirInfo.GetDirectories().OrderBy(d => d.Name)
-                : Enumerable.Empty<DirectoryInfo>();
+            var folders = listing.Dirs;
 
             foreach (var dir in folders)
             {
@@ -1143,7 +1201,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             }
 
             // Files (sorted)
-            foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name))
+            foreach (var file in listing.Files)
             {
                 try
                 {
