@@ -916,7 +916,8 @@ public partial class MainWindow : Window
         if (item == null || item.IsDirectory || item.IsInArchive
             || !(MediaPlayerLauncher.IsVideo(item.FullPath) || AudioTagReader.HasTags(item.FullPath)))
         {
-            PlotScroll.Visibility = Visibility.Collapsed;
+            _plotItem = null;
+            PlotArea.Visibility = Visibility.Collapsed;   // not a file that has a plot: no area, no hint, no space
             return;
         }
 
@@ -924,16 +925,50 @@ public partial class MainWindow : Window
         var plot = await Task.Run(() => NfoPoster.Plot(path));
         if (version != _plotVersion) return;
 
+        _plotItem = item;
+        PlotArea.Visibility = Visibility.Visible;
+
         if (plot == null)
         {
+            // No plot: only a faint hint (the area is where a double-click adds one).
             PlotScroll.Visibility = Visibility.Collapsed;
+            PlotHint.Visibility   = Visibility.Visible;
             return;
         }
 
+        PlotHint.Visibility = Visibility.Collapsed;
         PlotText.Text = plot;
         PlotText.ToolTip = new ToolTip { Content = new TextBlock { Text = plot, TextWrapping = TextWrapping.Wrap, MaxWidth = 640 } };
         PlotScroll.ScrollToTop();
         PlotScroll.Visibility = Visibility.Visible;
+    }
+
+    private FileItemViewModel? _plotItem;   // the file whose plot (or hint) is shown
+
+    // A double-click in the plot area (also where there is only the hint) opens Edit Plot.
+    private void PlotArea_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2) return;
+        e.Handled = true;
+        EditPlot();
+    }
+
+    private void PlotEdit_Click(object sender, RoutedEventArgs e) => EditPlot();
+
+    private void EditPlot()
+    {
+        if (_plotItem == null) return;
+        var item = _plotItem;
+
+        var window = new PlotEditWindow(item.FullPath) { Owner = this };
+        if (window.ShowDialog() != true || !window.Saved) return;
+
+        // A .nfo file may have been made: the folder is read again (the selection stays), and the plot is read again.
+        var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
+        VM.RefreshCommand.Execute(null);
+        ReselectInList(selected);
+        ShowPlot(item);
+        ShowThumbnail(item);   // a poster may be named in the changed file
     }
 
     private const int ThumbnailDecodeWidth = 320;   // twice the size shown, so it stays sharp on a high-DPI screen

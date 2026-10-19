@@ -692,10 +692,23 @@
 
                     <!-- The plot from the video's .nfo file, to the right of the preview picture, only when there is one
                          (it takes no space otherwise). A long plot scrolls; the whole text is also in the tooltip. -->
-                    <ScrollViewer x:Name="PlotScroll" Grid.Column="2" Margin="16,0,0,0" Visibility="Collapsed"
-                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <TextBlock x:Name="PlotText" FontSize="12" TextWrapping="Wrap"/>
-                    </ScrollViewer>
+                    <Grid x:Name="PlotArea" Grid.Column="2" Margin="16,0,0,0" Background="Transparent" Visibility="Collapsed"
+                          PreviewMouseLeftButtonDown="PlotArea_PreviewMouseLeftButtonDown">
+                        <Grid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Edit Plot..." Click="PlotEdit_Click"
+                                          ToolTip="Change the plot of this file, which is kept in its .nfo file (a double-click does the same)"/>
+                            </ContextMenu>
+                        </Grid.ContextMenu>
+                        <ScrollViewer x:Name="PlotScroll" Visibility="Collapsed"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <TextBlock x:Name="PlotText" FontSize="12" TextWrapping="Wrap"/>
+                        </ScrollViewer>
+                        <!-- Where there is no plot yet: a hint, so the user sees that a double-click adds one -->
+                        <TextBlock x:Name="PlotHint" FontSize="12" Text="Double-click to add a plot" Visibility="Collapsed"
+                                   Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                                   HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"/>
+                    </Grid>
 
                     <StackPanel Grid.Column="0">
                         <TextBlock x:Name="PositionText" FontSize="12"/>

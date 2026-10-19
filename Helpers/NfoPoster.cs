@@ -35,7 +35,7 @@ public static class NfoPoster
         var previews = new List<string>();
         try
         {
-            var text = File.ReadAllText(nfoPath);
+            var text = TextFiles.ReadAllText(nfoPath);
             var doc = TryParse(text);
 
             // Only the picture of the video itself counts. A &lt;thumb&gt; inside &lt;actor&gt; is the actor's portrait, one inside
@@ -130,7 +130,7 @@ public static class NfoPoster
                 var info = new FileInfo(nfo);
                 if (info.Length is 0 or > 2 * 1024 * 1024) continue;   // an .nfo is small
 
-                var text = File.ReadAllText(nfo);
+                var text = TextFiles.ReadAllText(nfo);
                 var doc = TryParse(text);
 
                 string? plot = null;
