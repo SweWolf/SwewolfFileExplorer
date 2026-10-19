@@ -463,6 +463,8 @@
                                       ToolTip="Make this folder the top of the folder tree in this tab. Not remembered."/>
                             <MenuItem Header="Reset Tree Root" Click="TreeCtxResetRoot_Click"
                                       ToolTip="Show the whole computer in the folder tree again"/>
+                            <MenuItem Header="Send to" x:Name="TreeSendToMenu" PreviewMouseRightButtonUp="TreeSendToMenu_RightClick"
+                                      ToolTip="Right-click to edit this menu"/>
                             <Separator/>
                             <MenuItem Header="Cut"             Click="TreeCtxCut_Click"/>
                             <MenuItem Header="Copy"            Click="TreeCtxCopy_Click"/>

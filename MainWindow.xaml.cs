@@ -1699,7 +1699,7 @@ public partial class MainWindow : Window
         bool inArchive    = VM.InArchive;   // read-only: files can be opened and copied out, nothing else
 
         // Read the SendTo folder each time, so new shortcuts show up at once.
-        FillSendToMenu(SendToMenu, hasSelection && !inArchive ? SendToHelper.GetEntries() : new());
+        FillSendToMenu(SendToMenu, hasSelection && !inArchive ? SendToHelper.GetEntries() : new(), SendToItem_Click);
 
         ShowTerminalItems(ListTerminalSeparator, TerminalItems(ListTerminalItem, ListPowerShellItem, ListCommandItem), ListTerminalFolder());
 
@@ -1739,10 +1739,15 @@ public partial class MainWindow : Window
     /// shortcuts can be added and removed. WPF does nothing with a right-click on a menu item, so this one makes the small menu itself,
     /// where the mouse is, after the big one has closed.
     /// </summary>
-    private void SendToMenu_RightClick(object sender, MouseButtonEventArgs e)
+    private void SendToMenu_RightClick(object sender, MouseButtonEventArgs e) => EditSendToMenu(e, FileContextMenu);
+
+    /// <summary>The same for the "Send to" of the tree's menu.</summary>
+    private void TreeSendToMenu_RightClick(object sender, MouseButtonEventArgs e) => EditSendToMenu(e, TreeContextMenu);
+
+    private void EditSendToMenu(MouseButtonEventArgs e, ContextMenu bigMenu)
     {
         e.Handled = true;
-        FileContextMenu.IsOpen = false;
+        bigMenu.IsOpen = false;
 
         var edit = new MenuItem { Header = "Edit Send To Menu" };
         edit.Click += (_, _) =>
@@ -1755,7 +1760,7 @@ public partial class MainWindow : Window
         new ContextMenu { Items = { edit }, Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, IsOpen = true };
     }
 
-    private void FillSendToMenu(MenuItem parent, List<SendToEntry> entries)
+    private void FillSendToMenu(MenuItem parent, List<SendToEntry> entries, RoutedEventHandler click)
     {
         parent.Items.Clear();
         foreach (var entry in entries)
@@ -1768,9 +1773,9 @@ public partial class MainWindow : Window
             };
 
             if (entry.Children != null)
-                FillSendToMenu(item, entry.Children);
+                FillSendToMenu(item, entry.Children, click);
             else
-                item.Click += SendToItem_Click;
+                item.Click += click;
 
             parent.Items.Add(item);
         }
@@ -1788,6 +1793,26 @@ public partial class MainWindow : Window
         try
         {
             SendToHelper.SendTo(target, files);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot send to '{System.IO.Path.GetFileNameWithoutExtension(target)}': {ex.Message}",
+                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        VM.RefreshCommand.Execute(null);
+    }
+
+    /// <summary>Send to from the tree's menu: the folder under the mouse is what is sent.</summary>
+    private void TreeSendToItem_Click(object sender, RoutedEventArgs e)
+    {
+        var target = (string)((MenuItem)sender).Tag;
+        var folder = _treeMenuNode?.FullPath;
+        if (folder == null) return;
+
+        try
+        {
+            SendToHelper.SendTo(target, new[] { folder });
         }
         catch (Exception ex)
         {
@@ -2087,6 +2112,9 @@ public partial class MainWindow : Window
         ShowTerminalItems(TreeTerminalSeparator, TerminalItems(TreeTerminalItem, TreePowerShellItem, TreeCommandItem), realFolder ? path : null);
         bool canChange    = CanChangeFolder(path);   // a drive cannot be cut, deleted or renamed
 
+        // Read the SendTo folder each time, so new shortcuts show up at once (as in the list's menu). Not for a drive.
+        FillSendToMenu(TreeSendToMenu, canChange ? SendToHelper.GetEntries() : new(), TreeSendToItem_Click);
+
         var menu = (ContextMenu)sender;
         foreach (var mi in menu.Items.OfType<MenuItem>())
         {
@@ -2094,6 +2122,7 @@ public partial class MainWindow : Window
             {
                 "Set as Tree Root"   => !(VM.HasTreeRoot && SharedState.Key(path).Equals(SharedState.Key(VM.TreeRootPath!), StringComparison.OrdinalIgnoreCase)),
                 "Reset Tree Root"    => VM.HasTreeRoot,
+                "Send to"    => canChange,
                 "Cut"        => canChange,
                 "Paste"      => realFolder && FileClipboard.HasFiles(),
                 "Delete"     => canChange,
