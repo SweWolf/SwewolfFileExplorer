@@ -1,0 +1,59 @@
+# TeraTool features: what is done and what is left
+
+The list comes from the specification of the predecessor, TeraTool (`G:\My Drive\TeraTool_spec\TeraTool_Specification.md`), compared with
+what SweWolf File Explorer does (made 2026-10-19). `[x]` = built, `[ ]` = not built. The numbers are the ones used when the list was made, so
+"item 8" means the same thing in a conversation. The "?" marks were not checked in the code at the time.
+
+## Viewing and playing
+
+- [ ] **1. Slideshow and play modes.** Slideshow, Single, Repeat, Demo Play and Intro Play, with seconds per picture. The countdown and the
+  end-of-list choice of the picture viewer are already there and were made for this.
+- [ ] **2. Bookmarks.** A global list of file plus start point, an "Add Bookmark" command and a Bookmarks view.
+- [ ] **3. Playlists and link collections.** `.m3u` and the "folder as playlist" idea.
+- [ ] **4. Picture viewer extras.** A small popup menu, the folder name shown when a slideshow crosses into another folder, a mouse wheel that
+  can be set to zoom or to go to the next picture.
+- [ ] **5. Text editor and hex editor.** Today `.nfo` and text files open in VS Code or Notepad.
+
+## File operations
+
+- [x] **6. Smart rename.** The Rename box (F2): the extension in a box of its own, Upper / Lower / Proper Case, "Use Smart Name"
+  (`Artist - Title` for music; `Title (Year)` and `Title - s01e02` for video), the old name shown above. Not done: smart rename of several files at
+  once, and the `/r "file"` command line (item 21).
+- [ ] **7a. Move to Folder (the M key).** Pick a folder and move the selected files there.
+- [x] **7b. Offer to move a video after a smart rename.** Setting "Auto-Suggest File Move When Renaming Video Files" (off by default): a
+  movie goes to `Videos\Movies`, an episode to `Videos\TV Shows\<Show>`; the folder can be changed.
+- [ ] **8. Add enumeration.** Number the selected files 01, 02, 03 and so on.
+- [ ] **9. Delete folders that contain no files** (recursively).
+- [ ] **10. Delete small images.** Remove the pictures below a size in pixels.
+- [ ] **11. Set folder date.** Set the modified date of a folder by hand.
+- [ ] **12. Extract with 7-Zip.** An explicit "Extract Here". Today a file is only unpacked to the temp folder when it is opened or copied.
+- [ ] **13. Open in Windows Explorer.** ? Not checked. (The Windows menu under "More Options" has what Explorer offers.)
+
+## List behavior
+
+- [ ] **14. Sort options.** Shuffle, a natural (number-aware) name sort ?, a "lock sort" toggle, and manual row order with Move Up / Down.
+- [ ] **15. Position and Info columns.** Percent watched; the library already has what it needs.
+- [ ] **16. Hide instead of delete.** A per-file "hide" flag.
+- [ ] **17. Set Tags (write).** Edit the tags of a folder, with search by tag. Reading them from `desktop.ini` is done; where to write them is not decided.
+- [ ] **18. Auto-refresh timer.** The list is only read again on F5 and when the window comes to the front.
+- [ ] **19. Go to time / Clear resume point.** Belongs in the media player; not known whether the explorer needs a menu item.
+
+## Covers and miscellaneous
+
+- [ ] **20. Cycle through cover candidates, or download covers automatically.**
+- [ ] **21. `/r "file"` command line.** A rename-only start, used from Send To.
+- [ ] **22. Mouse wheel behavior option.** Scroll, zoom or navigate.
+- [ ] **23. A file or folder on the command line for other file types** than pictures (open the player or the default program).
+
+## Left out on purpose
+
+Flash, VLC, RealPlayer and the web browser wrapper, the downloader and its list editor, the PDF "send keys" trick, the screen-capture class, and
+the INI settings file (settings live in `settings.json`).
+
+## Also built (not in TeraTool)
+
+Tabs, workspaces and sessions (Save Workspace suggests a name), the tree root, "More Options" (the real Windows menu), copy and move with a
+progress window and Cancel, type-ahead in the file list, the Size column right-aligned, the info panel with its own info line and two drag
+lines, Open in Terminal / PowerShell / Command Prompt (right-click for the administrator), reading a folder clicked in the tree in the background,
+hidden extensions and folders, RAR / 7z / zip browsing, previews of video, music and RAW pictures, plots from `.nfo` files, and the library
+database that also serves SweWolf Media Player. See `CLAUDE.md` for the details of each.
