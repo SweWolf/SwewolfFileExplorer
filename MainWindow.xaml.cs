@@ -2065,7 +2065,7 @@ public partial class MainWindow : Window
     private void RenameTreeFolder(TreeItemViewModel node)
     {
         var dlg = new InputDialog("Rename Folder", "Enter new name:", node.Name,
-            name => FolderTabViewModel.CheckNewName(node.FullPath, name)) { Owner = this };
+            name => FolderTabViewModel.CheckNewName(node.FullPath, name), currentName: node.Name) { Owner = this };
         if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
             VM.RenameFolder(node.FullPath, dlg.InputText);
     }
@@ -2255,10 +2255,11 @@ public partial class MainWindow : Window
         // A file whose extension is not shown is renamed without it: the extension is put back (as Explorer does).
         string Real(string typed) => item.IsDirectory ? typed : ShellExtensions.RestoreExtension(item.Name, typed);
         // Smart name: only for a music or video file on the disk (not new, not in an archive), and only when it has a better name.
-        var smart = !isNew && !item.IsDirectory && !item.IsInArchive ? SmartName.Suggest(item.FullPath) : null;
+        var smartApplies = !isNew && !item.IsDirectory && !item.IsInArchive && SmartName.Applies(item.Name);
+        var smart = smartApplies ? SmartName.Suggest(item.FullPath) ?? item.Name : null;   // no better name: the present one
         var dlg = new InputDialog(title, prompt, item.DisplayName,
             name => FolderTabViewModel.CheckNewName(item.FullPath, Real(name)),
-            caseButtons: !isNew, keepExtension: !item.IsDirectory && item.DisplayName == item.Name, smartName: smart) { Owner = this };
+            caseButtons: !isNew, keepExtension: !item.IsDirectory && item.DisplayName == item.Name, smartName: smart, smartApplies: smartApplies, currentName: isNew ? null : item.Name) { Owner = this };
         if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
             VM.RenameItem(item, Real(dlg.InputText));
     }

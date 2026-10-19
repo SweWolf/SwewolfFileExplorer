@@ -16,6 +16,9 @@ public static class SmartName
     private static readonly Regex YearRx    = new(@"(?<!\d)(19\d\d|20\d\d|21\d\d)(?!\d)", RegexOptions.Compiled);
     private static readonly Regex EpisodeRx = new(@"(?<![a-z0-9])s(\d{1,2})e(\d{1,3})(?![a-z0-9])", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    /// <summary>Whether a file of this name can have a smart name at all: a video, or a music file whose tags are read.</summary>
+    public static bool Applies(string fileName) => MediaPlayerLauncher.IsVideo(fileName) || AudioTagReader.HasTags(fileName);
+
     /// <summary>The suggested file name (with its extension) for a file on the disk; null when there is nothing better to offer.</summary>
     public static string? Suggest(string path)
     {

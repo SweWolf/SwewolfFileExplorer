@@ -22,12 +22,15 @@ public partial class InputDialog : Window
     /// A file whose name is shown with its extension: the extension gets a box of its own after a dot (when the name has one),
     /// so it is not changed by accident, and the case buttons leave it alone.
     /// </param>
+    /// <param name="currentName">Rename: the present name, shown above in a read-only box.</param>
+    /// <param name="smartApplies">The file is a music or video file: "Use Smart Name" is shown (always checked at the start; with no <paramref name="smartName"/> the present name is the smart name).</param>
     /// <param name="smartName">
     /// A suggested name (SmartName.Suggest). When given, a "Use Smart Name" box is shown, checked: the text starts as the
     /// suggestion; unchecking it brings the original name back.
     /// </param>
     public InputDialog(string title, string prompt, string defaultValue = "", Func<string, string?>? validate = null,
-                       bool caseButtons = false, bool keepExtension = false, string? smartName = null)
+                       bool caseButtons = false, bool keepExtension = false, string? smartName = null, string? currentName = null,
+                       bool smartApplies = false)
     {
         _validate       = validate;
         _original       = defaultValue;
@@ -36,6 +39,11 @@ public partial class InputDialog : Window
         InitializeComponent();
         Title           = title;
         PromptText.Text = prompt;
+        if (currentName != null)
+        {
+            CurrentNameBox.Text    = currentName;
+            CurrentPanel.Visibility = Visibility.Visible;
+        }
         if (_splitExtension)
         {
             DotText.Visibility = ExtTextBox.Visibility = Visibility.Visible;
@@ -43,14 +51,14 @@ public partial class InputDialog : Window
         }
         SetName(defaultValue);
 
-        if (caseButtons || smartName != null)
+        if (caseButtons || smartApplies)
         {
             ExtrasPanel.Visibility = Visibility.Visible;
             Width = 624;   // file names can be long (420, then 520, now 20 % wider again: the user's request)
-            if (smartName != null)
+            if (smartApplies)
             {
                 SmartCheckBox.Visibility = Visibility.Visible;
-                SmartCheckBox.IsChecked  = true;   // sets the text through SmartCheckBox_Changed
+                SmartCheckBox.IsChecked = true;   // sets the text through SmartCheckBox_Changed
             }
         }
         Loaded += (_, _) => { InputTextBox.SelectAll(); InputTextBox.Focus(); };
