@@ -1921,12 +1921,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     private void Paste() => PasteInto(_currentPath);
 
-    /// <summary>Pastes what is on the clipboard into <paramref name="destination"/>, a folder of the disk.</summary>
-    public void PasteInto(string destination)
-    {
-        if (FileClipboard.Get() is not var (sources, isCut)) return;
+    private bool _pasting;   // a paste is going on (its window may not be up yet): another one waits for the user to ask again
 
-        var moved = new List<(string From, string To)>();
+    /// <summary>
+    /// Pastes what is on the clipboard into <paramref name="destination"/>, a folder of the disk. The files are copied or moved on
+    /// a background thread; a long one shows a progress window (file n of N, a bar, Cancel). See <see cref="FileTransfer"/>.
+    /// </summary>
+    public async void PasteInto(string destination)
+    {
+        if (_pasting) return;
+        if (FileClipboard.Get() is not var (sources, isCut)) return;
 
         // Cut video or music files: do the files that belong to them follow? Asked before anything is moved; Cancel stops the paste.
         var relatedMoves = new List<RelatedMove>();
@@ -1942,44 +1946,45 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 return;
         }
 
+        // What there really is to do.
+        var toDo = new List<string>();
         foreach (var src in sources)
         {
-            try
+            var name = Path.GetFileName(src.TrimEnd('\\', '/'));
+
+            if (Directory.Exists(src) && IsSameOrSubPath(src, destination))
             {
-                var name = Path.GetFileName(src.TrimEnd('\\', '/'));
-
-                if (Directory.Exists(src) && IsSameOrSubPath(src, destination))
-                {
-                    MessageBox.Show(
-                        $"Cannot {(isCut ? "move" : "copy")} '{name}' into itself or one of its subfolders.",
-                        AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-                    continue;
-                }
-
-                // Cutting an item and pasting it where it already is changes nothing.
-                if (isCut && IsSamePath(Path.GetDirectoryName(src), destination))
-                    continue;
-
-                var dest = GetUniqueDestPath(destination, name!);
-
-                if (Directory.Exists(src))
-                {
-                    if (isCut) { MoveDirectory(src, dest); moved.Add((src, dest)); }
-                    else       CopyDirectory(src, dest);
-                }
-                else if (File.Exists(src))
-                {
-                    if (isCut) { File.Move(src, dest); moved.Add((src, dest)); }
-                    else       File.Copy(src, dest);
-                }
+                MessageBox.Show(
+                    $"Cannot {(isCut ? "move" : "copy")} '{name}' into itself or one of its subfolders.",
+                    AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                continue;
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Paste error: {ex.Message}", AppInfo.Name,
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+
+            // Cutting an item and pasting it where it already is changes nothing.
+            if (isCut && IsSamePath(Path.GetDirectoryName(src), destination))
+                continue;
+
+            if (Directory.Exists(src) || File.Exists(src)) toDo.Add(src);
         }
 
+        var result = new TransferResult(new(), new(), false, 0);
+        if (toDo.Count > 0)
+        {
+            _pasting = true;
+            try { result = await RunTransferAsync(toDo, destination, isCut); }
+            finally { _pasting = false; }
+        }
+
+        if (result.Failed.Count > 0)
+        {
+            var lines = result.Failed.Take(8).Select(f => $"{f.Name}: {f.Reason}");
+            var more  = result.Failed.Count > 8 ? $"{Environment.NewLine}... and {result.Failed.Count - 8} more." : "";
+            MessageBox.Show($"These could not be {(isCut ? "moved" : "copied")}:{Environment.NewLine}{Environment.NewLine}"
+                            + string.Join(Environment.NewLine, lines) + more,
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        var moved = isCut ? result.Done : new List<(string From, string To)>();
         LibraryService.Move(moved);   // what is remembered about the moved items (to another drive too) goes along
 
         // The files that belong to a moved video or music file (nothing if nothing was moved).
@@ -1988,28 +1993,43 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var followers = relatedMoves.Where(r => movedFrom.Contains(r.Owner)).ToList();
         if (followers.Count > 0 || notDone.Count > 0) MoveRelated(followers, notDone, rename: false);
 
-        if (isCut)
+        if (isCut && !result.Canceled)
         {
-            FileClipboard.Clear();   // what was cut is moved: there is nothing left to paste
+            FileClipboard.Clear();   // what was cut is moved: there is nothing left to paste (after a Cancel the rest can be pasted again)
             PasteCommand.RaiseCanExecuteChanged();
         }
 
         Refresh();
         RefreshTreeFolder(destination);   // the folder pasted into need not be the current one
+
+        if (result.Canceled)
+            StatusText = $"{(isCut ? "Move" : "Copy")} canceled: {result.Done.Count} of {result.Total} items were done.";
     }
 
-    /// <summary>Moves a folder. To another drive that means copying it and then deleting the original.</summary>
-    private static void MoveDirectory(string src, string dest)
+    /// <summary>
+    /// Runs the transfer and, when it takes longer than half a second, shows the progress window (a quick one finishes before a
+    /// window would be worth the flicker, as in Explorer). The window is modal: nothing else can be changed meanwhile.
+    /// </summary>
+    private async Task<TransferResult> RunTransferAsync(List<string> sources, string destination, bool move)
     {
-        if (string.Equals(Path.GetPathRoot(Path.GetFullPath(src)), Path.GetPathRoot(Path.GetFullPath(dest)),
-                StringComparison.OrdinalIgnoreCase))
+        var progress = new TransferProgress();
+        using var cts = new CancellationTokenSource();
+        var task = FileTransfer.RunAsync(sources, destination, move, progress, cts.Token);
+
+        if (await Task.WhenAny(task, Task.Delay(500)) != task)
         {
-            Directory.Move(src, dest);
-            return;
+            var what   = move ? "Moving" : "Copying";
+            var target = Path.GetFileName(destination.TrimEnd('\\', '/'));
+            if (string.IsNullOrEmpty(target)) target = destination;   // a drive: D:\\
+            var thing  = sources.Count == 1 ? $"'{Path.GetFileName(sources[0].TrimEnd('\\', '/'))}'" : $"{sources.Count} items";
+
+            var dlg = new Views.ProgressDialog(what, $"{what} {thing} to '{target}'", progress, () => cts.Cancel())
+                      { Owner = Application.Current?.MainWindow };
+            _ = task.ContinueWith(_ => dlg.Dispatcher.BeginInvoke(new Action(dlg.Finish)), TaskScheduler.Default);
+            dlg.ShowDialog();
         }
 
-        CopyDirectory(src, dest);
-        Directory.Delete(src, recursive: true);
+        return await task;
     }
 
     private static string NormalizePath(string path) =>
@@ -2028,31 +2048,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                p.StartsWith(f + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string GetUniqueDestPath(string destDir, string name)
-    {
-        var path = Path.Combine(destDir, name);
-        if (!File.Exists(path) && !Directory.Exists(path)) return path;
-
-        var ext             = Path.GetExtension(name);
-        var nameWithoutExt  = Path.GetFileNameWithoutExtension(name);
-        int i               = 1;
-
-        do
-        {
-            path = Path.Combine(destDir, $"{nameWithoutExt} ({i++}){ext}");
-        } while (File.Exists(path) || Directory.Exists(path));
-
-        return path;
-    }
-
-    private static void CopyDirectory(string src, string dest)
-    {
-        Directory.CreateDirectory(dest);
-        foreach (var file in Directory.GetFiles(src))
-            File.Copy(file, Path.Combine(dest, Path.GetFileName(file)));
-        foreach (var dir in Directory.GetDirectories(src))
-            CopyDirectory(dir, Path.Combine(dest, Path.GetFileName(dir)));
-    }
+    private static string GetUniqueDestPath(string destDir, string name) => FileTransfer.GetUniqueDestPath(destDir, name);
 
     // ── Selection ────────────────────────────────────────────────────────────
 
