@@ -715,10 +715,10 @@
                         </Grid.ContextMenu>
                         <ScrollViewer x:Name="PlotScroll" Visibility="Collapsed"
                                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <TextBlock x:Name="PlotText" FontSize="12" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="PlotText" FontSize="14" TextWrapping="Wrap"/>
                         </ScrollViewer>
                         <!-- Where there is no plot yet: a hint, so the user sees that a double-click adds one -->
-                        <TextBlock x:Name="PlotHint" FontSize="12" Text="Double-click to add a plot" Visibility="Collapsed"
+                        <TextBlock x:Name="PlotHint" FontSize="14" Text="Double-click to add a plot" Visibility="Collapsed"
                                    Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
                                    HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"/>
                     </Grid>
