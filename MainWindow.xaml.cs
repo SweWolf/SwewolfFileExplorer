@@ -1548,6 +1548,32 @@ public partial class MainWindow : Window
         FileListView.ScrollIntoView(item);
     }
 
+    private readonly TypeAhead _typeAhead = new();
+
+    /// <summary>
+    /// A letter typed in the list goes to the next item whose name starts with it (again: the one after that; several letters quickly:
+    /// the first name that starts with all of them), as in Windows Explorer. The name is the one the list shows.
+    /// </summary>
+    private void FileListView_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        var typed = e.Text;
+        if (string.IsNullOrEmpty(typed) || typed.Any(char.IsControl)) return;
+
+        var items = FileListView.Items.OfType<FileItemViewModel>().ToList();
+        if (items.Count == 0) return;
+
+        int current = FileListView.SelectedItem is FileItemViewModel sel ? items.IndexOf(sel) : -1;
+        int found = _typeAhead.Next(items.Select(i => i.DisplayName).ToList(), current, typed, DateTime.UtcNow);
+        e.Handled = true;
+        if (found < 0) return;
+
+        var item = items[found];
+        FileListView.SelectedItem = item;   // only this one (any other selected items are let go, as in Explorer)
+        FileListView.ScrollIntoView(item);
+        FileListView.UpdateLayout();
+        (FileListView.ItemContainerGenerator.ContainerFromItem(item) as ListViewItem)?.Focus();   // the arrow keys go on from here
+    }
+
     private void FileListView_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Return && FileListView.SelectedItem is FileItemViewModel openItem)

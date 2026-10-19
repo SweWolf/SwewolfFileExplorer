@@ -548,7 +548,8 @@
                       PreviewMouseDown="FileListView_PreviewMouseDown"
                       AllowDrop="True" DragOver="FileListView_DragOver" Drop="FileListView_Drop"
                       MouseDoubleClick="FileListView_MouseDoubleClick"
-                      KeyDown="FileListView_KeyDown">
+                      KeyDown="FileListView_KeyDown"
+                      PreviewTextInput="FileListView_PreviewTextInput">
 
                 <!-- The Fluent theme makes the rows 40 px high: closer together, so more files fit on the screen -->
                 <ListView.ItemContainerStyle>
