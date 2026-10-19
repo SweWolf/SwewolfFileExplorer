@@ -556,6 +556,7 @@
                     <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
                         <Setter Property="MinHeight" Value="26"/>
                         <Setter Property="Padding"   Value="4,1"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>   <!-- a cell fills its column: the Size column is right-aligned -->
                         <Style.Triggers>
                             <!-- A file that was never opened in the app: bold and/or italic, as chosen in Settings -->
                             <DataTrigger Binding="{Binding IsUnread}" Value="True">
@@ -617,9 +618,21 @@
                         <GridViewColumn Header="Type" Width="130" x:Name="TypeColumn"
                                         DisplayMemberBinding="{Binding TypeName}"/>
 
-                        <GridViewColumn Header="Size" Width="90" x:Name="SizeColumn"
-                                        DisplayMemberBinding="{Binding Size,
-                                            Converter={StaticResource FileSizeConverter}}"/>
+                        <!-- Sizes are right-aligned, so the digits line up (as in Explorer), and so is the header. The header is aligned by its
+                             template, not by a style for GridViewColumnHeader (a style replaces the theme's own one: the header turned white). -->
+                        <GridViewColumn Header="Size" Width="90" x:Name="SizeColumn">
+                            <GridViewColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" HorizontalAlignment="Right" TextAlignment="Right"/>
+                                </DataTemplate>
+                            </GridViewColumn.HeaderTemplate>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Size, Converter={StaticResource FileSizeConverter}}"
+                                               TextAlignment="Right" Margin="0,0,11,0"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
 
                         <!-- The tags of music files, as in TeraTool. Hidden until chosen (More... in the header menu). -->
                         <GridViewColumn Header="Artist" Width="160" x:Name="ArtistColumn"
