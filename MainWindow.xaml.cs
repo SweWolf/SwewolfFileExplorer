@@ -655,19 +655,33 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Asks for a name (it becomes a file name). Null if canceled.</summary>
-    private string? AskName(string title, string prompt)
+    /// <summary>Asks for a name (it becomes a file name), starting with <paramref name="suggestion"/>. Null if canceled.</summary>
+    private string? AskName(string title, string prompt, string suggestion = "")
     {
-        var dialog = new InputDialog(title, prompt, "", WorkspaceStore.CheckName) { Owner = this };
+        var dialog = new InputDialog(title, prompt, suggestion, WorkspaceStore.CheckName) { Owner = this };
         return dialog.ShowDialog() == true ? dialog.InputText.Trim() : null;
     }
 
     private bool Confirm(string text) =>
         MessageBox.Show(this, text, AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
 
+    // The workspace opened or saved last in this run: Save Workspace suggests its name again (a workspace that exists asks before it is replaced).
+    private string? _lastWorkspaceName;
+
+    /// <summary>
+    /// The name Save Workspace starts with: the workspace opened or saved last, else (none yet in this run) the name of the tab
+    /// that is open, without what a file name cannot hold.
+    /// </summary>
+    private string SuggestedWorkspaceName()
+    {
+        var name = _lastWorkspaceName ?? VM.ActiveTab.Title ?? "";
+        var invalid = System.IO.Path.GetInvalidFileNameChars();
+        return new string(name.Where(c => Array.IndexOf(invalid, c) < 0).ToArray()).Trim();
+    }
+
     private void WorkspaceSave_Click(object sender, RoutedEventArgs e)
     {
-        var name = AskName("Save Workspace", "Name of the workspace:");
+        var name = AskName("Save Workspace", "Name of the workspace:", SuggestedWorkspaceName());
         if (name == null) return;
 
         var file = WorkspaceStore.PathFor(StoreKind.Workspace, name);
@@ -675,7 +689,10 @@ public partial class MainWindow : Window
             return;
 
         if (WorkspaceStore.Write(file, StoreKind.Workspace, VM.CaptureState()))
+        {
+            _lastWorkspaceName = name;
             FlashTitle($"{BaseTitle} - Workspace saved: {name}");
+        }
         else
             MessageBox.Show(this, $"The workspace could not be saved to:\n{file}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
     }
@@ -793,6 +810,7 @@ public partial class MainWindow : Window
             }
             VM.RestoreTabs(data, replace);
             if (kind == StoreKind.Session) VM.Session.Start(file);
+            else _lastWorkspaceName = System.IO.Path.GetFileNameWithoutExtension(file);   // Save Workspace suggests it
         }
         finally
         {
