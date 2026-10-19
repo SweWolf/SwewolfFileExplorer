@@ -2254,8 +2254,11 @@ public partial class MainWindow : Window
                             :                    ("Rename File",   "Enter new name:");
         // A file whose extension is not shown is renamed without it: the extension is put back (as Explorer does).
         string Real(string typed) => item.IsDirectory ? typed : ShellExtensions.RestoreExtension(item.Name, typed);
+        // Smart name: only for a music or video file on the disk (not new, not in an archive), and only when it has a better name.
+        var smart = !isNew && !item.IsDirectory && !item.IsInArchive ? SmartName.Suggest(item.FullPath) : null;
         var dlg = new InputDialog(title, prompt, item.DisplayName,
-            name => FolderTabViewModel.CheckNewName(item.FullPath, Real(name))) { Owner = this };
+            name => FolderTabViewModel.CheckNewName(item.FullPath, Real(name)),
+            caseButtons: !isNew, keepExtension: !item.IsDirectory && item.DisplayName == item.Name, smartName: smart) { Owner = this };
         if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
             VM.RenameItem(item, Real(dlg.InputText));
     }

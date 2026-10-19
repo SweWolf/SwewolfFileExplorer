@@ -16,17 +16,42 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="6"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="12"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <TextBlock x:Name="PromptText" Grid.Row="0" TextWrapping="Wrap"/>
 
-        <TextBox x:Name="InputTextBox"
-                 Grid.Row="2"
-                 Padding="3"/>
+        <!-- Rename of a file: the name and, in a box of its own after the dot, the extension (so it is not messed up by accident). -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="InputTextBox" Grid.Column="0" Padding="3"/>
+            <TextBlock x:Name="DotText" Grid.Column="1" Text="." Margin="4,0" VerticalAlignment="Bottom" FontWeight="Bold"
+                       Visibility="Collapsed"/>
+            <TextBox x:Name="ExtTextBox" Grid.Column="2" Width="80" Padding="3" Visibility="Collapsed"
+                     ToolTip="The extension (file type) of the file. Change it only if you know what it does."/>
+        </Grid>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+        <!-- Only for Rename: the smart name of a music or video file, and the case buttons. Collapsed otherwise. -->
+        <StackPanel x:Name="ExtrasPanel" Grid.Row="3" Margin="0,8,0,0" Visibility="Collapsed">
+            <CheckBox x:Name="SmartCheckBox" Content="Use Smart Name" Margin="0,0,0,8" Visibility="Collapsed"
+                      ToolTip="Artist - Title from the tags of a music file, or Title (Year) / Title - s01e02 from the name of a video."
+                      Checked="SmartCheckBox_Changed" Unchecked="SmartCheckBox_Changed"/>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Upper Case"  MinWidth="100" Padding="12,4" Margin="0,0,6,0" Click="UpperButton_Click"
+                        ToolTip="Make the name (not the extension) all capitals"/>
+                <Button Content="Lower Case"  MinWidth="100" Padding="12,4" Margin="0,0,6,0" Click="LowerButton_Click"
+                        ToolTip="Make the name (not the extension) all lowercase"/>
+                <Button Content="Proper Case" MinWidth="100" Padding="12,4" Click="ProperButton_Click"
+                        ToolTip="Capitalize the first letter of each word"/>
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="OK"
                     Width="80" Margin="0,0,6,0"
                     IsDefault="True"
