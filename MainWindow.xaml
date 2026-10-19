@@ -668,7 +668,8 @@
                         <MenuItem Header="Open"       Click="CtxOpen_Click"/>
                         <MenuItem Header="Open With..." Click="CtxOpenWith_Click"/>
                         <MenuItem Header="Open in New Tab" Click="CtxOpenInNewTab_Click"/>
-                        <MenuItem Header="Send to"    x:Name="SendToMenu"/>
+                        <MenuItem Header="Send to"    x:Name="SendToMenu" PreviewMouseRightButtonUp="SendToMenu_RightClick"
+                                  ToolTip="Right-click to edit this menu"/>
                         <Separator/>
                         <MenuItem Header="Cut"        Click="CtxCut_Click"       InputGestureText="Ctrl+X"/>
                         <MenuItem Header="Copy"       Click="CtxCopy_Click"      InputGestureText="Ctrl+C"/>

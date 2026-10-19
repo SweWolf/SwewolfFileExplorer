@@ -1734,6 +1734,27 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// A right-click on "Send to" offers "Edit Send To Menu": the SendTo folder (what <c>shell:sendto</c> is) opens in a new tab, where
+    /// shortcuts can be added and removed. WPF does nothing with a right-click on a menu item, so this one makes the small menu itself,
+    /// where the mouse is, after the big one has closed.
+    /// </summary>
+    private void SendToMenu_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        FileContextMenu.IsOpen = false;
+
+        var edit = new MenuItem { Header = "Edit Send To Menu" };
+        edit.Click += (_, _) =>
+        {
+            var folder = Environment.GetFolderPath(Environment.SpecialFolder.SendTo);
+            if (System.IO.Directory.Exists(folder)) VM.OpenNewTab(folder, activate: true);
+            else MessageBox.Show(this, $"The Send To folder was not found:\n{folder}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+
+        new ContextMenu { Items = { edit }, Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, IsOpen = true };
+    }
+
     private void FillSendToMenu(MenuItem parent, List<SendToEntry> entries)
     {
         parent.Items.Clear();
