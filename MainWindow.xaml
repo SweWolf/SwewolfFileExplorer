@@ -687,7 +687,15 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" MinWidth="220"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
+
+                    <!-- The plot from the video's .nfo file, to the right of the preview picture, only when there is one
+                         (it takes no space otherwise). A long plot scrolls; the whole text is also in the tooltip. -->
+                    <ScrollViewer x:Name="PlotScroll" Grid.Column="2" Margin="16,0,0,0" Visibility="Collapsed"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock x:Name="PlotText" FontSize="12" TextWrapping="Wrap"/>
+                    </ScrollViewer>
 
                     <StackPanel Grid.Column="0">
                         <TextBlock x:Name="PositionText" FontSize="12"/>

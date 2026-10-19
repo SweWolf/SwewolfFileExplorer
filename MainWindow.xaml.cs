@@ -893,12 +893,47 @@ public partial class MainWindow : Window
             int position = FileListView.Items.IndexOf(item) + 1;   // in the order the list shows
             PositionText.Text = $"{(item.IsDirectory ? "Folder" : "File")} {position}/{FileListView.Items.Count}";
             ShowThumbnail(item);
+            ShowPlot(item);
         }
         else
         {
             PositionText.Text = selected.Count > 1 ? $"{selected.Count} items selected" : "";
             ShowThumbnail(null);
+            ShowPlot(null);
         }
+    }
+
+    private int _plotVersion;
+
+    /// <summary>
+    /// The plot from the .nfo file of the selected video or music file, to the right of the preview picture; nothing (and no
+    /// space) when there is none. Read in the background; a late answer for a file no longer selected is ignored.
+    /// </summary>
+    private async void ShowPlot(FileItemViewModel? item)
+    {
+        int version = ++_plotVersion;
+
+        if (item == null || item.IsDirectory || item.IsInArchive
+            || !(MediaPlayerLauncher.IsVideo(item.FullPath) || AudioTagReader.HasTags(item.FullPath)))
+        {
+            PlotScroll.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        string path = item.FullPath;
+        var plot = await Task.Run(() => NfoPoster.Plot(path));
+        if (version != _plotVersion) return;
+
+        if (plot == null)
+        {
+            PlotScroll.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PlotText.Text = plot;
+        PlotText.ToolTip = new ToolTip { Content = new TextBlock { Text = plot, TextWrapping = TextWrapping.Wrap, MaxWidth = 640 } };
+        PlotScroll.ScrollToTop();
+        PlotScroll.Visibility = Visibility.Visible;
     }
 
     private const int ThumbnailDecodeWidth = 320;   // twice the size shown, so it stays sharp on a high-DPI screen

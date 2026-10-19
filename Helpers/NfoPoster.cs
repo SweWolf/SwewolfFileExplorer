@@ -97,6 +97,67 @@ public static class NfoPoster
         }
     }
 
+    /// <summary>
+    /// The plot of the video from its .nfo file (<c>&lt;plot&gt;</c>, else the short <c>&lt;outline&gt;</c>), for the movie and for a TV
+    /// episode alike; null if there is no .nfo or it says none. Line breaks inside the text are kept, other spaces tidied.
+    /// </summary>
+    public static string? Plot(string mediaPath)
+    {
+        foreach (var nfo in NfoFilesOf(mediaPath))
+        {
+            try
+            {
+                if (!File.Exists(nfo)) continue;
+
+                var info = new FileInfo(nfo);
+                if (info.Length is 0 or > 2 * 1024 * 1024) continue;   // an .nfo is small
+
+                var text = File.ReadAllText(nfo);
+                var doc = TryParse(text);
+
+                string? plot = null;
+                if (doc != null)
+                {
+                    plot = doc.Descendants("plot").Select(e => e.Value).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))
+                        ?? doc.Descendants("outline").Select(e => e.Value).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+                }
+                else
+                {
+                    // Not valid XML: the same tags found in the text.
+                    foreach (var tag in new[] { "plot", "outline" })
+                    {
+                        var m = Regex.Match(text, $@"<{tag}>(?<v>.*?)</{tag}>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                        if (m.Success && !string.IsNullOrWhiteSpace(m.Groups["v"].Value)) { plot = System.Net.WebUtility.HtmlDecode(m.Groups["v"].Value); break; }
+                    }
+                }
+
+                var tidy = Tidy(plot);
+                if (tidy != null) return tidy;
+            }
+            catch
+            {
+                // an .nfo that cannot be read has no plot for us
+            }
+        }
+        return null;
+    }
+
+    // Each line trimmed, runs of spaces made one, no empty lines at the ends and no more than one in a row.
+    private static string? Tidy(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        var lines = new List<string>();
+        foreach (var raw in text.Replace("\r", "").Split('\n'))
+        {
+            var line = Regex.Replace(raw.Trim(), @"[ \t]+", " ");
+            if (line.Length == 0 && (lines.Count == 0 || lines[^1].Length == 0)) continue;
+            lines.Add(line);
+        }
+        while (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
+        return lines.Count == 0 ? null : string.Join("\n", lines);
+    }
+
     /// <summary>True for an address on the web (not a file path).</summary>
     public static bool IsWebAddress(string address) =>
         address.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || address.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
