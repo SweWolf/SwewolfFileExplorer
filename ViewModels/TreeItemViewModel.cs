@@ -173,6 +173,27 @@ public class TreeItemViewModel : INotifyPropertyChanged
         catch { return 0; }
     }
 
+    /// <summary>
+    /// What the tree would show under the real folder <paramref name="folder"/>: the names of its subfolders and packed files, with a mark
+    /// for the hidden ones, from one listing. Two equal answers mean the tree is up to date. Safe on any thread; "" if it cannot be read.
+    /// </summary>
+    public static string ChildrenSignature(string folder)
+    {
+        try
+        {
+            var names = new List<string>();
+            foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos())
+            {
+                bool isFolder = (entry.Attributes & FileAttributes.Directory) != 0;
+                if (!isFolder && !ArchiveSupport.IsArchiveName(entry.Name)) continue;
+                names.Add(entry.Name + ((entry.Attributes & HiddenAttributes) != 0 ? "*" : "") + (isFolder ? "/" : ""));
+            }
+            names.Sort(StringComparer.OrdinalIgnoreCase);
+            return string.Join("\n", names);
+        }
+        catch { return ""; }
+    }
+
     /// <summary>True if <paramref name="path"/> is a real folder with the Hidden or System attribute.</summary>
     public static bool IsHiddenFolder(string path) => Directory.Exists(path) && IsHiddenPath(path);
 

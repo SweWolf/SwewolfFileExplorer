@@ -55,6 +55,7 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Expectation,  "Expectation",   ExpectationColumn, visible: false)
         });
         VM.TagsLoaded += () => { if (IsTagColumn(_sortColumn)) ApplySort(_sortColumn, _sortAscending); QueueAutoFit(); };
+        VM.ItemsChangedInPlace += () => { if (_sortColumn != SortColumn.None) ApplySort(_sortColumn, _sortAscending); };   // a file changed size or date: the order may too
 
         VM.PropertyChanged += (_, e) =>
         {

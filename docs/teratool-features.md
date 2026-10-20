@@ -7,7 +7,7 @@ what SweWolf File Explorer does (made 2026-10-19). `[x]` = built, `[ ]` = not bu
 ## Viewing and playing
 
 - [ ] **1. Slideshow and play modes.** Slideshow, Single, Repeat, Demo Play and Intro Play, with seconds per picture. The countdown and the
-  end-of-list choice of the picture viewer are already there and were made for this.
+  end-of-list choice of the picture viewer are already there and were made for this. A plan (phases, the named pipe to the media player, open decisions) is in `slideshow-and-play-modes-plan.md`.
 - [ ] **2. Bookmarks.** A global list of file plus start point, an "Add Bookmark" command and a Bookmarks view.
 - [ ] **3. Playlists and link collections.** `.m3u` and the "folder as playlist" idea.
 - [ ] **4. Picture viewer extras.** A small popup menu, the folder name shown when a slideshow crosses into another folder, a mouse wheel that
@@ -35,7 +35,7 @@ what SweWolf File Explorer does (made 2026-10-19). `[x]` = built, `[ ]` = not bu
 - [ ] **15. Position and Info columns.** Percent watched; the library already has what it needs.
 - [ ] **16. Hide instead of delete.** A per-file "hide" flag.
 - [x] **17. Set Tags (write).** "Set Tags..." in the tree's menu and a double-click on the Tags line; written to the folder's `desktop.ini`, as TeraTool did. Not done: search by tag.
-- [ ] **18. Auto-refresh timer.** The list is only read again on F5 and when the window comes to the front.
+- [x] **18. Auto-refresh.** Done with a file system watcher instead of a timer (2026-10-20): the list of the active tab follows changes made by other programs, in place. `AppSettings.WatchFolders` (settings.json) turns it off; no settings window yet.
 - [ ] **19. Go to time / Clear resume point.** Belongs in the media player; not known whether the explorer needs a menu item.
 
 ## Covers and miscellaneous

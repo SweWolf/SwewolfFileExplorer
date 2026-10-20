@@ -552,6 +552,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void ShowNoFolder()
     {
         _noFolderShown = true;
+        StopWatching();
         _tagsCts?.Cancel();
         _tagsCts = null;
         _coverCts?.Cancel();
@@ -1273,6 +1274,20 @@ public class FolderTabViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(InArchive));
         RaiseAllCanExecuteChanged();   // nothing can be deleted or pasted in an archive
 
+        if (_isActive)
+        {
+            // The folder is watched once the list is filled (see below); an archive is not watched.
+            if (_inArchive) StopWatching();
+            else
+            {
+                StartWatching(path);
+                // Its tree node may be out of date: a folder made inside it by another program while it was not the one shown
+                // (found by the user: only F5 showed it). The in-place sync looks at the node once, in the background.
+                _treeSeen = null;
+                SyncListInPlace();
+            }
+        }
+
         if (_inArchive)
         {
             LoadArchiveItems(path);
@@ -1301,17 +1316,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                     if (hidden) _hiddenCount++;
                     if (hidden && !_showHidden) continue;
 
-                    var vm = new FileItemViewModel
-                    {
-                        Name         = dir.Name,
-                        FullPath     = dir.FullName,
-                        IsDirectory  = true,
-                        IsHidden     = hidden,
-                        DateModified = dir.LastWriteTime,
-                        DateCreated  = dir.CreationTime,
-                        TypeName     = "File folder",
-                        Size         = -1
-                    };
+                    var vm = NewDirItem(dir, hidden);
                     CurrentItems.Add(vm);
                     vm.LoadIconAsync();
                 }
@@ -1330,17 +1335,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                     if (hidden) _hiddenCount++;
                     if (hidden && !_showHidden) continue;
 
-                    var vm = new FileItemViewModel
-                    {
-                        Name         = file.Name,
-                        FullPath     = file.FullName,
-                        IsDirectory  = false,
-                        IsHidden     = hidden,
-                        DateModified = file.LastWriteTime,
-                        DateCreated  = file.CreationTime,
-                        TypeName     = IconHelper.GetTypeNameForName(file.Name),   // from the extension, kept per extension: no disk access per file (Google Drive took 6 ms each)
-                        Size         = file.Length
-                    };
+                    var vm = NewFileItem(file, hidden);
                     CurrentItems.Add(vm);
                     vm.LoadIconAsync();
                 }
@@ -1362,6 +1357,352 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         OnPropertyChanged(nameof(HasHiddenItems));
         OnPropertyChanged(nameof(HiddenText));
+    }
+
+    private static FileItemViewModel NewDirItem(DirectoryInfo dir, bool hidden) => new()
+    {
+        Name         = dir.Name,
+        FullPath     = dir.FullName,
+        IsDirectory  = true,
+        IsHidden     = hidden,
+        DateModified = dir.LastWriteTime,
+        DateCreated  = dir.CreationTime,
+        TypeName     = "File folder",
+        Size         = -1
+    };
+
+    private static FileItemViewModel NewFileItem(FileInfo file, bool hidden) => new()
+    {
+        Name         = file.Name,
+        FullPath     = file.FullName,
+        IsDirectory  = false,
+        IsHidden     = hidden,
+        DateModified = file.LastWriteTime,
+        DateCreated  = file.CreationTime,
+        TypeName     = IconHelper.GetTypeNameForName(file.Name),   // from the extension, kept per extension: no disk access per file (Google Drive took 6 ms each)
+        Size         = file.Length
+    };
+
+    // ── The folder shown is watched: the list follows changes made by other programs ──────────────────────────
+
+    // Only the active tab watches its folder (one watcher at a time); a tab that becomes active brings its list up to date at once.
+    // A change is not applied to the list one event at a time: the events of a burst (a download, a copy of 400 files) are
+    // collected, the folder is read once on a background thread and the list is **brought in line in place** (items added, removed
+    // or updated; no reload, so the selection, the scroll position and the sort stay). See AppSettings.WatchFolders.
+    private FileSystemWatcher? _watcher;
+    private FileSystemWatcher? _treeWatcher;   // folders made, renamed and deleted at any depth below the folder shown (names of folders only)
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _dirtyParents = new(StringComparer.OrdinalIgnoreCase);
+    private string? _watchedPath;
+    private bool _isActive;
+    private bool _syncing, _syncAgain;
+    private System.Windows.Threading.DispatcherTimer? _watchTimer;
+    private DateTime _watchBurstStart;
+
+    private static readonly TimeSpan WatchQuiet   = TimeSpan.FromMilliseconds(600);   // no event for this long: apply
+    private static readonly TimeSpan WatchMaxWait = TimeSpan.FromSeconds(3);          // events never stop (a growing log): apply anyway
+
+    /// <summary>Raised after the list was brought in line in place with values that may change the order (size, dates): the window sorts again.</summary>
+    public event Action? ItemsChangedInPlace;
+
+    /// <summary>Called by MainViewModel when this tab becomes the active tab (true) or stops being it (false).</summary>
+    public void SetActive(bool active)
+    {
+        if (_isActive == active) return;
+        _isActive = active;
+        if (!active) { StopWatching(); return; }
+
+        StartWatchingCurrent();
+        SyncListInPlace();   // the folder may have changed while this tab was in the background
+    }
+
+    private void StartWatchingCurrent()
+    {
+        if (!_isActive || !AppSettingsStore.Current.WatchFolders || _noFolderShown || _unavailable || _inArchive
+            || string.IsNullOrEmpty(_currentPath) || !Directory.Exists(_currentPath))
+        {
+            StopWatching();
+            return;
+        }
+        StartWatching(_currentPath);
+    }
+
+    private void StartWatching(string path)
+    {
+        if (_watcher != null && string.Equals(_watchedPath, path, StringComparison.OrdinalIgnoreCase)) return;
+        StopWatching();
+        try
+        {
+            var w = new FileSystemWatcher(path)
+            {
+                NotifyFilter          = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Size
+                                        | NotifyFilters.LastWrite | NotifyFilters.Attributes,
+                IncludeSubdirectories = false,
+                InternalBufferSize    = 64 * 1024,
+            };
+            w.Created += OnWatched;
+            w.Deleted += OnWatched;
+            w.Changed += OnWatched;
+            w.Renamed += OnWatched;
+            w.Error   += (_, _) => OnWatched(null, null);   // too many changes for the buffer: read the folder again
+            w.EnableRaisingEvents = true;
+            _watcher     = w;
+            _watchedPath = path;
+
+            // The second watcher is for the tree: a folder made inside a folder that the tree shows (not the one shown) gives that node an
+            // expand arrow, or takes it away. Folder names only, so the files of the subtree cost nothing; one watch for the whole subtree.
+            var t = new FileSystemWatcher(path)
+            {
+                NotifyFilter          = NotifyFilters.DirectoryName,
+                IncludeSubdirectories = true,
+                InternalBufferSize    = 64 * 1024,
+            };
+            t.Created += OnTreeWatched;
+            t.Deleted += OnTreeWatched;
+            t.Renamed += OnTreeWatched;
+            t.EnableRaisingEvents = true;
+            _treeWatcher = t;
+        }
+        catch
+        {
+            // A place that cannot be watched (some network shares, no access): the list is then read on F5 and on activation, as before.
+            _watcher = null;
+            _watchedPath = null;
+        }
+    }
+
+    private void StopWatching()
+    {
+        _watchTimer?.Stop();
+        _dirtyParents.Clear();
+        var t = _treeWatcher;
+        _treeWatcher = null;
+        if (t != null) { t.EnableRaisingEvents = false; t.Dispose(); }
+        var w = _watcher;
+        _watcher = null;
+        _watchedPath = null;
+        if (w == null) return;
+        w.EnableRaisingEvents = false;
+        w.Dispose();
+    }
+
+    private void OnTreeWatched(object? sender, FileSystemEventArgs e)
+    {
+        // The folder that holds the one that came, went or was renamed: its node in the tree is the one to look at.
+        try
+        {
+            var parent = Path.GetDirectoryName(e.FullPath);
+            if (!string.IsNullOrEmpty(parent)) _dirtyParents[parent] = 0;
+            if (e is RenamedEventArgs r && Path.GetDirectoryName(r.OldFullPath) is { Length: > 0 } oldParent) _dirtyParents[oldParent] = 0;
+        }
+        catch { /* not a usable path */ }
+        Application.Current?.Dispatcher.BeginInvoke(new Action(KickWatch), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// The node of a folder that is already in the tree below the folder shown, found without expanding anything (null if the tree does not
+    /// have it: nobody sees such a folder, so there is nothing to update).
+    /// </summary>
+    private TreeItemViewModel? FindLoadedNode(string path)
+    {
+        if (string.IsNullOrEmpty(_currentPath)) return null;
+        var node = ResolveNode(_currentPath);   // the folder shown: the way to it is expanded already
+        if (node == null || !NodeIs(node, _currentPath)) return null;
+
+        var relative = Path.GetRelativePath(_currentPath, path);
+        if (relative == ".") return node;
+        if (relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative)) return null;
+
+        foreach (var segment in relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var wanted = Path.Combine(node.FullPath, segment);
+            node = node.Children.FirstOrDefault(c => NodeIs(c, wanted));
+            if (node == null) return null;
+        }
+        return node;
+    }
+
+    /// <summary>The folders that changed below the folder shown: each of their nodes in the tree reads its subfolders again, in place (a node that is not expanded only checks whether it has an expand arrow).</summary>
+    private void SyncDirtyTreeNodes()
+    {
+        if (_dirtyParents.IsEmpty) return;
+        var parents = _dirtyParents.Keys.ToList();
+        _dirtyParents.Clear();
+
+        foreach (var parent in parents)
+        {
+            try { FindLoadedNode(parent)?.SyncChildren(); }
+            catch { /* a folder that went away meanwhile */ }
+        }
+    }
+
+    private void OnWatched(object? sender, FileSystemEventArgs? e)
+    {
+        // The temporary files of our own paste: they are renamed to the real name when complete, and that is what shows.
+        if (e?.Name != null && e.Name.EndsWith(".swewolf-part", StringComparison.OrdinalIgnoreCase)) return;
+        Application.Current?.Dispatcher.BeginInvoke(new Action(KickWatch), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private void KickWatch()
+    {
+        if (!_isActive || _watcher == null) return;
+
+        var now = DateTime.UtcNow;
+        if (_watchTimer == null || !_watchTimer.IsEnabled) _watchBurstStart = now;
+
+        _watchTimer ??= new System.Windows.Threading.DispatcherTimer();
+        _watchTimer.Stop();
+        // Wait until it is quiet, but never longer than WatchMaxWait since the burst began.
+        var left = WatchMaxWait - (now - _watchBurstStart);
+        _watchTimer.Interval = left < WatchQuiet ? (left > TimeSpan.FromMilliseconds(50) ? left : TimeSpan.FromMilliseconds(50)) : WatchQuiet;
+        _watchTimer.Tick -= WatchTimerTick;
+        _watchTimer.Tick += WatchTimerTick;
+        _watchTimer.Start();
+    }
+
+    private void WatchTimerTick(object? sender, EventArgs e)
+    {
+        _watchTimer?.Stop();
+        SyncListInPlace();
+        SyncDirtyTreeNodes();
+    }
+
+    /// <summary>Reads the folder in the background and brings the list in line with it in place. Never touches an archive, This PC or an unavailable tab.</summary>
+    private async void SyncListInPlace()
+    {
+        var path = _currentPath;
+        if (!_isActive || string.IsNullOrEmpty(path) || _noFolderShown || _unavailable || _inArchive) return;
+        if (_syncing) { _syncAgain = true; return; }
+
+        _syncing = true;
+        try
+        {
+            int version = _navVersion;
+            bool showFolders = _shared.ShowFolders;
+            FolderListing listing;
+            string treeSignature;
+            try
+            {
+                // The list and the tree are two views of the folder: what the tree shows (subfolders, packed files) is not what the list shows.
+                (listing, treeSignature) = await Task.Run(() => (ReadListing(path, showFolders, countTreeHidden: true), TreeItemViewModel.ChildrenSignature(path)));
+            }
+            catch (DirectoryNotFoundException) { FolderIsGone(path); return; }
+            catch { return; }   // no access, a drive that went away: the list stays as it is
+
+            // Another folder was opened, the Folders button toggled or the tab left meanwhile: this answer is old.
+            if (version != _navVersion || !string.Equals(path, _currentPath, StringComparison.OrdinalIgnoreCase)
+                || showFolders != _shared.ShowFolders || !_isActive || _inArchive) return;
+
+            ApplyListing(path, listing, treeSignature);
+        }
+        finally
+        {
+            _syncing = false;
+            if (_syncAgain) { _syncAgain = false; KickWatch(); }
+        }
+    }
+
+    /// <summary>The folder shown was deleted or renamed by another program: go to the nearest folder above that is left.</summary>
+    private void FolderIsGone(string path)
+    {
+        if (Directory.Exists(path)) return;
+        var left = path;
+        while (!string.IsNullOrEmpty(left) && !Directory.Exists(left)) left = Path.GetDirectoryName(left) ?? "";
+        if (left != "") Navigate(left, addToHistory: false);
+        else StatusText = $"The folder no longer exists: {path}";
+    }
+
+    private (string Path, string Signature)? _treeSeen;   // what the tree was last brought in line with
+
+    private void ApplyListing(string path, FolderListing listing, string treeSignature)
+    {
+        // What the list should hold: the same choices as LoadItems (hidden items, packed files, the Folders button).
+        var wanted = new Dictionary<string, (FileSystemInfo Info, bool Hidden)>(StringComparer.OrdinalIgnoreCase);
+        int hiddenCount = 0;
+
+        foreach (var dir in listing.Dirs)
+        {
+            bool hidden = (dir.Attributes & HiddenAttributes) != 0;
+            if (hidden) hiddenCount++;
+            if (hidden && !_showHidden) continue;
+            wanted[dir.Name] = (dir, hidden);
+        }
+        foreach (var file in listing.Files)
+        {
+            if (!_shared.ShowFolders && ArchiveSupport.IsArchiveName(file.Name)) continue;
+            bool hidden = HiddenItems.IsHiddenFile(file.Attributes, file.Name);
+            if (hidden) hiddenCount++;
+            if (hidden && !_showHidden) continue;
+            wanted[file.Name] = (file, hidden);
+        }
+
+        bool structural = false, valuesChanged = false;
+        var changedFiles = new List<FileItemViewModel>();
+        var present = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in CurrentItems.ToList())
+        {
+            if (!wanted.TryGetValue(item.Name, out var w) || w.Info is DirectoryInfo != item.IsDirectory || w.Hidden != item.IsHidden)
+            {
+                CurrentItems.Remove(item);   // gone, or turned into something else (a hidden one when hidden ones are not shown)
+                structural = true;
+                continue;
+            }
+
+            present.Add(item.Name);
+            if (w.Info is FileInfo f)
+            {
+                if (item.Size != f.Length || item.DateModified != f.LastWriteTime || item.DateCreated != f.CreationTime)
+                {
+                    item.Size = f.Length;
+                    item.DateModified = f.LastWriteTime;
+                    item.DateCreated = f.CreationTime;
+                    changedFiles.Add(item);
+                    valuesChanged = true;
+                }
+            }
+            else if (item.DateModified != w.Info.LastWriteTime)
+            {
+                item.DateModified = w.Info.LastWriteTime;
+                valuesChanged = true;
+            }
+        }
+
+        // New items: folders first, then files, as LoadItems does (the sort then places them).
+        foreach (var (name, w) in wanted.OrderByDescending(x => x.Value.Info is DirectoryInfo).ThenBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            if (present.Contains(name)) continue;
+            var vm = w.Info is DirectoryInfo d ? NewDirItem(d, w.Hidden) : NewFileItem((FileInfo)w.Info, w.Hidden);
+            CurrentItems.Add(vm);
+            vm.LoadIconAsync();
+            structural = true;
+        }
+
+        if (hiddenCount != _hiddenCount)
+        {
+            _hiddenCount = hiddenCount;
+            OnPropertyChanged(nameof(HasHiddenItems));
+            OnPropertyChanged(nameof(HiddenText));
+        }
+
+        if (structural)
+        {
+            EnsureTags();
+            UpdateReadState(path);
+            UpdateFolderPicture(path);
+        }
+
+        // The tree: a folder or a packed file (a zip) that came, went, was renamed or got hidden under the folder shown. Decided from the
+        // folder's own subfolders and packed files, not from the list (which hides folders and packed files unless the Folders button is
+        // on). SyncChildren works in place: the nodes that stay keep their place, what is expanded below them, and the selection.
+        if (_treeSeen is not { } seen || !string.Equals(seen.Path, path, StringComparison.OrdinalIgnoreCase) || seen.Signature != treeSignature)
+        {
+            _treeSeen = (path, treeSignature);
+            UpdateTreeHidden(path, listing.TreeHidden);
+            var node = ResolveNode(path);
+            if (node != null && NodeIs(node, path)) node.SyncChildren();
+        }
+        if (changedFiles.Count > 0) ReloadTags(changedFiles);   // a changed music file may have other tags now
+        if (valuesChanged) ItemsChangedInPlace?.Invoke();
     }
 
     // ── Item actions ─────────────────────────────────────────────────────────
@@ -1395,6 +1736,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
             MarkRead(new[] { item }, read: true);
             LibraryService.SetLastOpened(item.FullPath);   // "Jump to Last Opened File" finds it
         }
+        else if (!item.IsInArchive && !File.Exists(path))
+        {
+            Refresh();   // the file is gone: the list no longer shows it
+        }
     }
 
     /// <summary>The window was activated: something may have been marked in another program (the media player).</summary>
@@ -1416,7 +1761,22 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Cannot open: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+            // The user said no to the "run as administrator" question of Windows: not an error.
+            if (ex is System.ComponentModel.Win32Exception { NativeErrorCode: 1223 }) return false;
+
+            // The file is gone (deleted or renamed by another program): say which file, nothing about this program.
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                MessageBox.Show($"The file \"{name}\" was not found. It may have been moved, renamed or deleted.",
+                    AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            // Windows' own text ("The system cannot find the file specified.") without the program, folder and path the framework adds.
+            var reason = ex is System.ComponentModel.Win32Exception w ? new System.ComponentModel.Win32Exception(w.NativeErrorCode).Message : ex.Message;
+            MessageBox.Show($"Cannot open \"{name}\": {reason}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
             return false;
         }
     }

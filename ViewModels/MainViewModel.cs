@@ -30,6 +30,7 @@ public class MainViewModel : INotifyPropertyChanged
         Tabs.CollectionChanged += (_, _) => Session.TouchStructure();
 
         _activeTab = AddTab(null);   // starts on This PC
+        _activeTab.SetActive(true);
 
         // A new tab starts on the default node, This PC (a setting for that may come later), not in the folder of the active tab.
         NewTabCommand      = new RelayCommand(_ => OpenNewTab("", activate: true));
@@ -69,6 +70,7 @@ public class MainViewModel : INotifyPropertyChanged
             if (value == null || value == _activeTab) return;
 
             ActiveTabChanging?.Invoke();
+            _activeTab.SetActive(false);   // the folder of the tab we leave is no longer watched
             _activeTab = value;
 
             // Every binding (address bar, list, tree, commands) now reads the new tab.
@@ -76,6 +78,7 @@ public class MainViewModel : INotifyPropertyChanged
             _activeTab.RaiseAllCanExecuteChanged();
             ActiveTabChanged?.Invoke();
 
+            _activeTab.SetActive(true);           // watches its folder and brings its list up to date
             _activeTab.RaisePendingSelection();   // a tab restored from a workspace or session selects its file now
             Session.TouchStructure();             // which tab is active is saved too
         }
@@ -97,6 +100,7 @@ public class MainViewModel : INotifyPropertyChanged
         tab.SortChanged    += () => { if (tab == _activeTab) SortChanged?.Invoke(); };
         tab.FolderCreated  += item => { if (tab == _activeTab) FolderCreated?.Invoke(item); };
         tab.TagsLoaded += () => { if (tab == _activeTab) TagsLoaded?.Invoke(); };
+        tab.ItemsChangedInPlace += () => { if (tab == _activeTab) ItemsChangedInPlace?.Invoke(); };
         tab.SelectPathRequested += path => { if (tab == _activeTab) SelectPathRequested?.Invoke(path); };
         // The tree sort order is shared: the other tabs' trees show the same folder in the same order.
         tab.TreeSortChanged += path => { foreach (var t in Tabs) t.ResortTree(path); };
@@ -367,6 +371,9 @@ public class MainViewModel : INotifyPropertyChanged
 
     /// <summary>The tags of the music files in the list have been read.</summary>
     public event Action? TagsLoaded;
+
+    /// <summary>The list was brought in line with the disk in place (a file changed size or date): the window sorts again.</summary>
+    public event Action? ItemsChangedInPlace;
 
     /// <summary>Tells whether a column that needs the tags of music files is in use; if so the active tab reads them.</summary>
     public void SetTagColumnsVisible(bool visible)
