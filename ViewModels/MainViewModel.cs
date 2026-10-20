@@ -90,7 +90,7 @@ public class MainViewModel : INotifyPropertyChanged
             if (s == _activeTab) OnPropertyChanged(e.PropertyName);
 
             // A session follows every tab: the folder it shows (the title changes when a navigation succeeded) and its root.
-            if (e.PropertyName is nameof(FolderTabViewModel.Title) or nameof(FolderTabViewModel.HasTreeRoot))
+            if (e.PropertyName is nameof(FolderTabViewModel.Title) or nameof(FolderTabViewModel.CustomTitle) or nameof(FolderTabViewModel.HasTreeRoot))
                 Session.TouchStructure();
         };
         tab.SelectionRemembered += Session.TouchSelection;

@@ -17,6 +17,10 @@ public sealed class TabState
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Root { get; set; }
 
+    /// <summary>The name the user gave the tab (Rename Tab); null for the folder's name. Older files and older versions of the program have none.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; set; }
+
     /// <summary>The file that was selected (sessions only).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SelectedFile { get; set; }

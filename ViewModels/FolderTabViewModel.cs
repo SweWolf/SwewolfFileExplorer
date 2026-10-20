@@ -41,11 +41,36 @@ public class FolderTabViewModel : INotifyPropertyChanged
         set { _currentPath = value; OnPropertyChanged(); }
     }
 
-    /// <summary>The text on the tab: the folder name. Set when a navigation succeeds, not while typing.</summary>
-    public string Title
+    /// <summary>
+    /// The text on the tab: the name the user gave the tab (<see cref="CustomTitle"/>), else the folder name. Changes when a
+    /// navigation succeeds, not while typing. A tab whose folder is not there says "(unavailable)" after either.
+    /// </summary>
+    public string Title => _title;
+
+    private string _baseTitle = "";      // the folder name, or "This PC"
+    private string? _customTitle;        // the user's own text for the tab, if any
+
+    /// <summary>The name the user gave this tab (it stays when another folder is opened in the tab); null for the folder name. Saved in workspaces and sessions.</summary>
+    public string? CustomTitle => _customTitle;
+
+    /// <summary>What a rename box starts with: the user's own name, else the name of the folder.</summary>
+    public string TitleForEditing => _customTitle ?? _baseTitle;
+
+    /// <summary>Gives the tab a name of its own (empty or null: the folder name again). The folder is not renamed.</summary>
+    public void SetCustomTitle(string? title)
     {
-        get => _title;
-        private set { _title = value; OnPropertyChanged(); }
+        title = title?.Trim();
+        _customTitle = string.IsNullOrEmpty(title) ? null : title;
+        UpdateTitle();
+        OnPropertyChanged(nameof(CustomTitle));
+    }
+
+    private void UpdateTitle()
+    {
+        var title = (_customTitle ?? _baseTitle) + (_unavailable ? " (unavailable)" : "");
+        if (title == _title) return;
+        _title = title;
+        OnPropertyChanged(nameof(Title));
     }
 
     public override string ToString() => Title;   // what accessibility tools read for the tab
@@ -250,7 +275,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         _unavailable = false;
         FolderPath  = "";
         CurrentPath = "";
-        Title       = "This PC";
+        _baseTitle  = "This PC";
+        UpdateTitle();
 
         if (_thisPcNode != null && !_thisPcNode.IsSelected)
         {
@@ -430,7 +456,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         FolderPath   = path;
         LastSelectedPath = null;   // a new folder: nothing is selected in it yet
         CurrentPath = path;
-        Title       = GetTabTitle(path);
+        _baseTitle  = GetTabTitle(path);
+        UpdateTitle();
         ApplyFolderSort();
         OnPropertyChanged(nameof(TreeSortIndex));   // the tree header shows this folder's tree sort order
         OnPropertyChanged(nameof(TreeSortDirectionIndex));
@@ -645,6 +672,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         Path         = FolderPath,
         Root         = RootPath ?? _pendingRoot,
         SelectedFile = LastSelectedPath,
+        Name         = _customTitle,
     };
 
     /// <summary>
@@ -674,6 +702,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         LastSelectedPath = state.SelectedFile;
         _pendingSelect   = state.SelectedFile;
+
+        if (!string.IsNullOrWhiteSpace(state.Name)) SetCustomTitle(state.Name);   // the name the user gave the tab
     }
 
     /// <summary>A tab for a folder that is not there now: empty, with a note, and the path kept (Go or F5 tries again).</summary>
@@ -682,7 +712,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         _unavailable = true;
         FolderPath   = path;
         CurrentPath  = path;
-        Title        = GetTabTitle(path) + " (unavailable)";
+        _baseTitle   = GetTabTitle(path);
+        UpdateTitle();   // " (unavailable)" is added to it
         CurrentItems.Clear();
         SetFolderMarks(default);
         StatusText   = UnavailableText(path);
