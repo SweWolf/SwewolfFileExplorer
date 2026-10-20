@@ -16,6 +16,9 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // The data folders of the first versions had spaces in their name: moved to the new name before anything is read.
+        SwewolfFileExplorer.Helpers.AppInfo.MigrateFolders();
+
         foreach (var arg in e.Args)
         {
             try

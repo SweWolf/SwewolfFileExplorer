@@ -77,12 +77,12 @@ public class AppSettings
     public string HiddenShellMenuItems { get; set; } = "cut;copy;delete;rename;properties;open;copyaspath;paste;undo;Add to Favorites";
 }
 
-/// <summary>Saves <see cref="AppSettings"/> in %AppData%\SweWolfSoftware\SweWolf File Explorer\settings.json.</summary>
+/// <summary>Saves <see cref="AppSettings"/> in %AppData%\SweWolfSoftware\SwewolfFileExplorer\settings.json.</summary>
 public static class AppSettingsStore
 {
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "SweWolfSoftware", AppInfo.Name, "settings.json");
+        "SweWolfSoftware", AppInfo.FolderName, "settings.json");
 
     private static AppSettings? _current;
 

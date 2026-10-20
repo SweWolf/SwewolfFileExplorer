@@ -18,7 +18,7 @@ namespace SwewolfFileExplorer.Helpers;
 /// </summary>
 internal static class LogFiles
 {
-    private static string AppFolderName => AppInfo.Name;   // "SweWolf File Explorer"
+    private static string AppFolderName => AppInfo.FolderName;   // "SwewolfFileExplorer"
 
     internal static string LogFolder => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

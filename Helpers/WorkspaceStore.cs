@@ -66,7 +66,7 @@ public static class WorkspaceStore
     {
         var folder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "SweWolfSoftware", AppInfo.Name, kind == StoreKind.Workspace ? "Workspaces" : "Sessions");
+            "SweWolfSoftware", AppInfo.FolderName, kind == StoreKind.Workspace ? "Workspaces" : "Sessions");
         try { Directory.CreateDirectory(folder); } catch { }
         return folder;
     }

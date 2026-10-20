@@ -14,7 +14,7 @@ namespace SwewolfFileExplorer.Helpers;
 ///
 /// ffmpeg is looked for next to this EXE, then in the PATH (as the sibling apps do); without it this gives nothing. Nothing is
 /// written beside the video: the JPEG comes back through the standard output, and is kept in the program's own cache folder
-/// (%LocalAppData%\SweWolfSoftware\SweWolf File Explorer\PreviewCache), named after a hash of the path, size and date of the
+/// (%LocalAppData%\SweWolfSoftware\SwewolfFileExplorer\PreviewCache), named after a hash of the path, size and date of the
 /// file, so ffmpeg runs once per file and a changed file gets a new frame.
 /// </summary>
 public static class FfmpegFrame
@@ -30,7 +30,7 @@ public static class FfmpegFrame
     private static bool _searched;
 
     public static string CacheFolder => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SweWolfSoftware", AppInfo.Name, "PreviewCache");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SweWolfSoftware", AppInfo.FolderName, "PreviewCache");
 
     /// <summary>Only for tests: use this ffmpeg instead of looking for one ("" = pretend there is none).</summary>
     public static string? FfmpegOverride { get; set; }
