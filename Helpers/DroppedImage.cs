@@ -35,7 +35,12 @@ public static class DroppedImage
     {
         try
         {
-            if (data.GetDataPresent(DataFormats.FileDrop)) return false;   // files from Explorer
+            // Files from Explorer are another matter. But Firefox puts a FileDrop (a temporary file) on its picture drags too, next to
+            // its virtual file and its web address: a drag that carries those is from a browser. (Found 2026-10-19: Firefox pictures
+            // were refused for that reason.)
+            bool fromBrowser = data.GetDataPresent("FileGroupDescriptorW") || data.GetDataPresent("text/x-moz-url")
+                            || data.GetDataPresent("UniformResourceLocatorW");
+            if (data.GetDataPresent(DataFormats.FileDrop) && !fromBrowser) return false;
 
             if (data.GetDataPresent("FileGroupDescriptorW"))
             {
@@ -64,9 +69,14 @@ public static class DroppedImage
         string? name = ReadDescriptorName(data);
         string? url  = ReadUrl(data);
 
+        // The virtual file's bytes: Chrome lists it as item 0, Firefox as "any" (-1): ask for both.
         byte[]? bytes = null;
-        try { bytes = ReadFileContents(data, 0); } catch { /* the address is the other way */ }
-        if (bytes is { Length: 0 }) bytes = null;
+        foreach (var index in new[] { 0, -1 })
+        {
+            try { bytes = ReadFileContents(data, index); } catch { /* the next way, or the address */ }
+            if (bytes is { Length: > 0 }) break;
+            bytes = null;
+        }
 
         if (bytes == null && url == null) return null;
         return new Payload(name ?? "", bytes, url);
