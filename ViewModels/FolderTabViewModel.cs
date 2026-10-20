@@ -470,8 +470,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     public async void NavigateAsync(string? path)
     {
+        path = CleanTypedPath(path);
         if (string.IsNullOrWhiteSpace(path)) return;
-        path = path.Trim();
 
         if (path.Contains('%') || !Directory.Exists(path))   // variables, packed files, missing folders: Navigate knows what to say
         {
@@ -493,11 +493,21 @@ public class FolderTabViewModel : INotifyPropertyChanged
         NavigateCore(path, true, listing);
     }
 
+    /// <summary>
+    /// A path as the user typed or pasted it, made usable: spaces at the ends and **every double quote** are removed (a path copied from
+    /// Explorer's "Copy as path" comes in quotes, and a quote at only one end is a common slip; a Windows path can never contain
+    /// a quote, so nothing real is lost). Curly quotes (from a document or a web page) count as quotes.
+    /// </summary>
+    public static string CleanTypedPath(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        return text.Replace("\"", "").Replace("\u201C", "").Replace("\u201D", "").Replace("\u201E", "").Trim();
+    }
+
     private void NavigateCore(string? path, bool addToHistory, FolderListing? listing)
     {
+        path = CleanTypedPath(path);
         if (string.IsNullOrWhiteSpace(path)) return;
-
-        path = path.Trim();
 
         // shell:sendto, shell:startup, shell:appdata ... : Windows' names for its special folders, as in Explorer's address bar.
         if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
@@ -859,7 +869,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     public bool SetTreeRoot(string? path)
     {
-        path = path?.Trim().Trim('"');
+        path = CleanTypedPath(path);
         if (string.IsNullOrEmpty(path)) return false;
 
         string root;
