@@ -2010,6 +2010,7 @@ public partial class MainWindow : Window
                 "Copy"       => hasSelection,
                 "Paste"      => canPaste,
                 "Copy as Path" => hasSelection,
+                "Create Shortcut..." => hasSelection && !inArchive,   // a shortcut cannot point inside a compressed file
                 "Mark as Read" or "Mark as Unread" => hasSelection,
                 "Rating..." or "Expectation..." => hasSelection,
                 "Delete"     => hasSelection && !inArchive,
@@ -2606,6 +2607,7 @@ public partial class MainWindow : Window
                 "Add to Bookmarks" => realFolder,   // not inside a compressed file
                 "Set Tags..." => canChange,   // a folder on the disk, not a drive
                 "Cut"        => canChange,
+                "Create Shortcut..." => realFolder,   // a drive too
                 "Paste"      => realFolder && FileClipboard.HasFiles(),
                 "Delete"     => canChange,
                 "Rename"     => canChange,
@@ -2708,6 +2710,60 @@ public partial class MainWindow : Window
     private void TreeCtxPaste_Click(object sender, RoutedEventArgs e)
     {
         if (_treeMenuNode != null) VM.PasteInto(_treeMenuNode.FullPath);
+    }
+
+    // ── Create Shortcut... ─────────────────────────────────────────────────────
+
+    private void CtxCreateShortcut_Click(object sender, RoutedEventArgs e) =>
+        CreateShortcutsFor(FileListView.SelectedItems.OfType<FileItemViewModel>().Where(i => !i.IsInArchive).Select(i => i.FullPath).ToList());
+
+    private void TreeCtxCreateShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) CreateShortcutsFor(new[] { _treeMenuNode.FullPath });
+    }
+
+    /// <summary>
+    /// Asks in which folder (the folder shown is suggested; Windows' own Create Shortcut always uses the item's folder) and makes a shortcut
+    /// to each item there. The ones that cannot be made are listed at the end. If the folder is the one shown, the list is read again and the
+    /// new shortcuts are selected.
+    /// </summary>
+    private void CreateShortcutsFor(IReadOnlyList<string> targets)
+    {
+        targets = targets.Where(t => System.IO.File.Exists(t) || System.IO.Directory.Exists(t)).ToList();
+        if (targets.Count == 0) return;
+
+        string NameOf(string t) => System.IO.Path.GetFileName(t.TrimEnd(System.IO.Path.DirectorySeparatorChar)) is { Length: > 0 } n ? n : t;
+        var what = targets.Count == 1 ? $"\"{NameOf(targets[0])}\"" : $"these {targets.Count} items";
+        var suggested = VM.HasFolder && !VM.InArchive && System.IO.Directory.Exists(VM.CurrentPath)
+            ? VM.CurrentPath
+            : Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+
+        var folder = CreateShortcutToDialog.Ask(this, what, suggested);
+        if (folder == null) return;
+
+        var result = ShortcutMaker.CreateAll(targets, folder, Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+            confirmOverwrite: lnk => MessageBox.Show(this,
+                $"A shortcut with this name already exists in this folder:\n\n{System.IO.Path.GetFileName(lnk)}\n\nDo you want to overwrite it?",
+                "Create Shortcut", MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) == MessageBoxResult.OK,
+            useDesktop: inFolder => MessageBox.Show(this,
+                $"You do not have permission to make a shortcut in this folder:\n\n{inFolder}\n\nDo you want to make it on the Desktop instead?",
+                "Create Shortcut", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
+        var made = result.Made;
+        var errors = result.Errors;
+
+        if (errors.Count > 0)
+            MessageBox.Show(this, "These shortcuts could not be made:\n\n" + string.Join("\n", errors.Take(8)) + (errors.Count > 8 ? $"\n... and {errors.Count - 8} more." : ""),
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+
+        if (made.Count == 0) return;
+
+        // The folder shown: the new shortcuts appear and are selected (the folder watcher would show them a moment later anyway).
+        if (VM.HasFolder && !VM.InArchive && made.Any(m => string.Equals(System.IO.Path.GetDirectoryName(m)?.TrimEnd('\\'), VM.CurrentPath.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)))
+        {
+            VM.RefreshCommand.Execute(null);
+            ReselectInList(made);
+        }
+        FlashTitle($"{BaseTitle} - {(made.Count == 1 ? "Shortcut made" : $"{made.Count} shortcuts made")}");
     }
 
     private void TreeCtxCopyPath_Click(object sender, RoutedEventArgs e)
