@@ -1711,6 +1711,8 @@ public partial class MainWindow : Window
                 "Open"       => hasSelection,
                 "Open With..." => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false },
                 "Send to"    => hasSelection && !inArchive,
+                "Open in Windows Explorer" => ListExplorerTarget() is { } explorerTarget
+                                              && (System.IO.File.Exists(explorerTarget) || System.IO.Directory.Exists(explorerTarget)),
                 "Open in New Tab" => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true },
                 "Cut"        => hasSelection && !inArchive,
                 "Copy"       => hasSelection,
@@ -2018,6 +2020,50 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    // ── Open in Windows Explorer ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Shows <paramref name="path"/> in Windows' own File Explorer: a folder is opened, a file is shown selected in its folder
+    /// (<c>explorer /select,</c>). Nothing happens for a path that is not on the disk (inside a compressed file).
+    /// </summary>
+    private void OpenInWindowsExplorer(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+
+        bool isFile   = System.IO.File.Exists(path);
+        bool isFolder = !isFile && System.IO.Directory.Exists(path);
+        if (!isFile && !isFolder) return;
+
+        // The arguments are one text: a path with spaces is quoted, a drive's root ("D:\") never is (its closing backslash would
+        // escape the quote).
+        string arg = path.Contains(' ') ? $"\"{path}\"" : path;
+        try
+        {
+            // Maximized (the user's wish; a setting for it may come later).
+            Process.Start(new ProcessStartInfo("explorer.exe", isFile ? $"/select,{arg}" : arg)
+            {
+                UseShellExecute = true,
+                WindowStyle     = ProcessWindowStyle.Maximized,
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Windows Explorer could not be opened:\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void TreeCtxExplorer_Click(object sender, RoutedEventArgs e) => OpenInWindowsExplorer(_treeMenuNode?.FullPath);
+
+    /// <summary>From the list's menu: the selected item (one), else the folder shown.</summary>
+    private string? ListExplorerTarget()
+    {
+        if (VM.InArchive) return null;
+        if (FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel item) return item.FullPath;
+        return VM.CurrentPath;
+    }
+
+    private void CtxExplorer_Click(object sender, RoutedEventArgs e) => OpenInWindowsExplorer(ListExplorerTarget());
+
     // ── Open in Terminal / PowerShell / Command Prompt ───────────────────────
 
     /// <summary>
@@ -2123,6 +2169,7 @@ public partial class MainWindow : Window
                 "Set as Tree Root"   => !(VM.HasTreeRoot && SharedState.Key(path).Equals(SharedState.Key(VM.TreeRootPath!), StringComparison.OrdinalIgnoreCase)),
                 "Reset Tree Root"    => VM.HasTreeRoot,
                 "Send to"    => canChange,
+                "Open in Windows Explorer" => realFolder || System.IO.File.Exists(path),   // a packed file is shown selected in its folder
                 "Cut"        => canChange,
                 "Paste"      => realFolder && FileClipboard.HasFiles(),
                 "Delete"     => canChange,

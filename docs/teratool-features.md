@@ -27,7 +27,7 @@ what SweWolf File Explorer does (made 2026-10-19). `[x]` = built, `[ ]` = not bu
 - [ ] **10. Delete small images.** Remove the pictures below a size in pixels.
 - [ ] **11. Set folder date.** Set the modified date of a folder by hand.
 - [ ] **12. Extract with 7-Zip.** An explicit "Extract Here". Today a file is only unpacked to the temp folder when it is opened or copied.
-- [ ] **13. Open in Windows Explorer.** ? Not checked. (The Windows menu under "More Options" has what Explorer offers.)
+- [x] **13. Open in Windows Explorer.** In the right-click menus of the tree and the list; a selected file is shown selected in its folder.
 
 ## List behavior
 
