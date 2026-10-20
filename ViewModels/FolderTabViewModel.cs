@@ -1628,54 +1628,74 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void DeleteFolder(string path) =>
         DeleteEntries(new() { (path, Path.GetFileName(path.TrimEnd('\\', '/')), true) }, permanent: false);
 
-    private void DeleteEntries(List<(string Path, string Name, bool IsDirectory)> items, bool permanent)
-    {
-        if (items.Count == 0) return;
+    private bool _deleting;
 
-        var names  = items.Count == 1 ? $"'{items[0].Name}'" : $"{items.Count} items";
-        var result = permanent
-            ? MessageBox.Show(
-                $"Are you sure you want to permanently delete {names}?\nThis cannot be undone.",
-                "Confirm Permanent Delete",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning,
-                MessageBoxResult.No)
-            : MessageBox.Show(
+    private static string? ParentFolder(string path) =>
+        Path.GetDirectoryName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+    /// <summary>
+    /// Deletes the items (to the Recycle Bin, or for good) on a background thread with a progress window (after half a second) and a
+    /// Cancel button: see <see cref="FileDelete"/>. Items that cannot reach the Recycle Bin (a drive with none, a file bigger than the
+    /// bin's limit) are said so in the question, as they would be deleted for good.
+    /// </summary>
+    private async void DeleteEntries(List<(string Path, string Name, bool IsDirectory)> items, bool permanent)
+    {
+        if (items.Count == 0 || _deleting) return;
+
+        var names = items.Count == 1 ? $"'{items[0].Name}'" : $"{items.Count} items";
+        var nl2   = Environment.NewLine;
+
+        // What would not go to the Recycle Bin (a folder: only the drive is looked at, its size is not known).
+        var noBin = permanent ? new List<string>() : items
+            .Select(i => FileReplace.WhyNotRecycled(i.Path, i.IsDirectory ? 0 : SafeLength(i.Path)))
+            .Where(r => r != null).Select(r => r!).ToList();
+
+        MessageBoxResult result;
+        if (permanent)
+            result = MessageBox.Show(
+                $"Are you sure you want to permanently delete {names}?{nl2}This cannot be undone.",
+                "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        else if (noBin.Count > 0)
+            result = MessageBox.Show(
+                $"{(items.Count == 1 ? "This item" : $"{noBin.Count} of these {items.Count} items")} cannot be moved to the Recycle Bin ({noBin[0]}).{nl2}"
+                + $"{(items.Count == 1 ? "It" : "They")} would be deleted permanently. This cannot be undone.{nl2}{nl2}Delete {names} anyway?",
+                "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        else
+            result = MessageBox.Show(
                 $"Are you sure you want to move {names} to the Recycle Bin?",
-                "Confirm Delete",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+                "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
         if (result != MessageBoxResult.Yes) return;
 
-        var recycle = permanent ? RecycleOption.DeletePermanently : RecycleOption.SendToRecycleBin;
-        var deleted = new List<string>();
+        var entries = items.Select(i => new FileDelete.Item(i.Path, i.Name, i.IsDirectory)).ToList();
 
-        foreach (var item in items)
+        TransferResult outcome;
+        _deleting = true;
+        try
         {
-            try
-            {
-                // UIOption.OnlyErrorDialogs: no progress dialog, but a failed recycle
-                // (e.g. a network drive with no Recycle Bin) is reported, not silently permanent.
-                if (item.IsDirectory)
-                    FileSystem.DeleteDirectory(item.Path, UIOption.OnlyErrorDialogs, recycle);
-                else
-                    FileSystem.DeleteFile(item.Path, UIOption.OnlyErrorDialogs, recycle);
+            // Windows' own Recycle Bin call deletes for good what cannot go to the bin (the user said yes to that above).
+            outcome = await RunWithProgressAsync((progress, token) => FileDelete.RunAsync(entries, permanent, progress, token),
+                                                 "Deleting", names, ParentFolder(items[0].Path) ?? "", heading: $"Deleting {names}",
+                                                 icon: IconHelper.GetRecycleBinIcon(full: true));
+        }
+        finally { _deleting = false; }
 
-                if (!File.Exists(item.Path) && !Directory.Exists(item.Path)) deleted.Add(item.Path);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Cannot delete '{item.Name}': {ex.Message}", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+        var deleted = outcome.Done.Select(d => d.From).ToList();
+
+        if (outcome.Failed.Count > 0)
+        {
+            var lines = outcome.Failed.Take(8).Select(f => $"{f.Name}: {f.Reason}");
+            var more  = outcome.Failed.Count > 8 ? $"{nl2}... and {outcome.Failed.Count - 8} more." : "";
+            MessageBox.Show($"These could not be deleted:{nl2}{nl2}" + string.Join(nl2, lines) + more,
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         // What is remembered about them (read marks, ratings ...) goes with them. A restore from the Recycle Bin starts over.
         LibraryService.Forget(deleted);
 
-        foreach (var item in items)
-            RefreshTreeFolder(Path.GetDirectoryName(item.Path.TrimEnd('\\', '/')));
+        // Once for each folder the items were in: reading the same folder for every one of 400 files took minutes on a slow drive.
+        foreach (var parent in items.Select(i => ParentFolder(i.Path)).Distinct(StringComparer.OrdinalIgnoreCase))
+            RefreshTreeFolder(parent);
 
         // The folder shown may be one of those deleted (or inside one): go to the nearest folder that is left.
         if (!Directory.Exists(_currentPath) && !ArchiveSupport.IsInside(_currentPath))
@@ -1688,6 +1708,15 @@ public class FolderTabViewModel : INotifyPropertyChanged
         {
             Refresh();
         }
+
+        if (outcome.Canceled)
+            StatusText = $"Delete canceled: {outcome.Done.Count} of {outcome.Total} items were deleted.";
+    }
+
+
+    private static long SafeLength(string path)
+    {
+        try { return new FileInfo(path).Length; } catch { return 0; }
     }
 
     /// <summary>Renames a folder of the tree (its right-click menu).</summary>
@@ -2208,7 +2237,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }));
 
     private static async Task<TransferResult> RunWithProgressAsync(Func<TransferProgress, CancellationToken, Task<TransferResult>> work,
-                                                                   string what, string thing, string destination, ConflictPolicy? policy = null)
+                                                                   string what, string thing, string destination, ConflictPolicy? policy = null,
+                                                                   string? heading = null, System.Windows.Media.ImageSource? icon = null)
     {
         var progress = new TransferProgress();
         using var cts = new CancellationTokenSource();
@@ -2223,7 +2253,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             var target = Path.GetFileName(destination.TrimEnd('\\', '/'));
             if (string.IsNullOrEmpty(target)) target = destination;   // a drive: D:\\
 
-            var dlg = new Views.ProgressDialog(what, $"{what} {thing} to '{target}'", progress, () => cts.Cancel())
+            var dlg = new Views.ProgressDialog(what, heading ?? $"{what} {thing} to '{target}'", progress, () => cts.Cancel(), icon)
                       { Owner = Application.Current?.MainWindow };
             _ = task.ContinueWith(_ => dlg.Dispatcher.BeginInvoke(new Action(dlg.Finish)), TaskScheduler.Default);
             dlg.ShowDialog();

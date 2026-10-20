@@ -32,6 +32,37 @@ public static class IconHelper
     [DllImport("user32.dll")]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct SHSTOCKICONINFO
+    {
+        public uint cbSize;
+        public IntPtr hIcon;
+        public int iSysImageIndex;
+        public int iIcon;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string szPath;
+    }
+
+    [DllImport("shell32.dll")]
+    private static extern int SHGetStockIconInfo(int siid, uint uFlags, ref SHSTOCKICONINFO psii);
+
+    private const int SIID_RECYCLER = 31, SIID_RECYCLERFULL = 32;
+
+    /// <summary>The Recycle Bin's own icon, empty or full as Windows draws it (for the window of a delete); null if Windows has none.</summary>
+    public static ImageSource? GetRecycleBinIcon(bool full)
+    {
+        var info = new SHSTOCKICONINFO { cbSize = (uint)Marshal.SizeOf<SHSTOCKICONINFO>() };
+        if (SHGetStockIconInfo(full ? SIID_RECYCLERFULL : SIID_RECYCLER, 0x100 /* SHGSI_ICON */, ref info) != 0 || info.hIcon == IntPtr.Zero)
+            return null;
+        try
+        {
+            var source = Imaging.CreateBitmapSourceFromHIcon(info.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            source.Freeze();
+            return source;
+        }
+        finally { DestroyIcon(info.hIcon); }
+    }
+
     private const uint SHGFI_ICON            = 0x000000100;
     private const uint SHGFI_SMALLICON       = 0x000000001;
     private const uint SHGFI_TYPENAME        = 0x000000400;

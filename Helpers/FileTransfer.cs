@@ -11,6 +11,7 @@ public sealed class TransferProgress
 
     public bool Preparing { get; set; } = true;   // counting what there is to do
     public string CurrentName { get; set; } = "";
+    public string ItemWord { get; set; } = "File";   // "File 3 of 12" (a delete says "Item")
     public int FileIndex { get => Volatile.Read(ref _fileIndex); set => Volatile.Write(ref _fileIndex, value); }
     public int FileTotal { get => Volatile.Read(ref _fileTotal); set => Volatile.Write(ref _fileTotal, value); }
     public long BytesDone { get => Interlocked.Read(ref _bytesDone); set => Interlocked.Exchange(ref _bytesDone, value); }

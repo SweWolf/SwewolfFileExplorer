@@ -16,12 +16,13 @@ public partial class ProgressDialog : Window
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private bool _finished, _canceling;
 
-    public ProgressDialog(string title, string heading, TransferProgress progress, Action cancel)
+    public ProgressDialog(string title, string heading, TransferProgress progress, Action cancel, System.Windows.Media.ImageSource? icon = null)
     {
         _progress = progress;
         _cancel   = cancel;
         InitializeComponent();
         Title            = title;
+        if (icon != null) Icon = icon;   // a delete shows the Recycle Bin
         HeadingText.Text = heading;
         Update();
         _timer.Tick += (_, _) => Update();
@@ -50,7 +51,7 @@ public partial class ProgressDialog : Window
             return;
         }
 
-        FileCountText.Text = $"File {Math.Min(_progress.FileIndex, _progress.FileTotal)} of {_progress.FileTotal}";
+        FileCountText.Text = $"{_progress.ItemWord} {Math.Min(_progress.FileIndex, _progress.FileTotal)} of {_progress.FileTotal}";
         FileNameText.Text  = _progress.CurrentName;
 
         long total = _progress.BytesTotal;
