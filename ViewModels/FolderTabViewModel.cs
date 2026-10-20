@@ -1654,16 +1654,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (permanent)
             result = MessageBox.Show(
                 $"Are you sure you want to permanently delete {names}?{nl2}This cannot be undone.",
-                "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+                "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No, IconHelper.GetRecycleBinIcon(full: true));
         else if (noBin.Count > 0)
             result = MessageBox.Show(
                 $"{(items.Count == 1 ? "This item" : $"{noBin.Count} of these {items.Count} items")} cannot be moved to the Recycle Bin ({noBin[0]}).{nl2}"
                 + $"{(items.Count == 1 ? "It" : "They")} would be deleted permanently. This cannot be undone.{nl2}{nl2}Delete {names} anyway?",
-                "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+                "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No, IconHelper.GetRecycleBinIcon(full: true));
         else
             result = MessageBox.Show(
                 $"Are you sure you want to move {names} to the Recycle Bin?",
-                "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.None, IconHelper.GetRecycleBinIcon(full: true));
 
         if (result != MessageBoxResult.Yes) return;
 

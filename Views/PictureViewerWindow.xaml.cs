@@ -451,7 +451,7 @@ public partial class PictureViewerWindow : Window
         ShowCursor();
         var answer = MessageBox.Show(this,
             $"Are you sure you want to move '{Path.GetFileName(path)}' to the Recycle Bin?",
-            AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question);
+            AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.None, IconHelper.GetRecycleBinIcon(full: true));
         if (answer != MessageBoxResult.Yes) return;
 
         try

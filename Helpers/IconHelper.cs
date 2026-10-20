@@ -47,12 +47,16 @@ public static class IconHelper
     private static extern int SHGetStockIconInfo(int siid, uint uFlags, ref SHSTOCKICONINFO psii);
 
     private const int SIID_RECYCLER = 31, SIID_RECYCLERFULL = 32;
+    public const int SIID_HELP = 23, SIID_WARNING = 78, SIID_INFO = 79, SIID_ERROR = 80;
 
     /// <summary>The Recycle Bin's own icon, empty or full as Windows draws it (for the window of a delete); null if Windows has none.</summary>
-    public static ImageSource? GetRecycleBinIcon(bool full)
+    public static ImageSource? GetRecycleBinIcon(bool full) => GetStockIcon(full ? SIID_RECYCLERFULL : SIID_RECYCLER);
+
+    /// <summary>One of Windows' stock icons (SIID_*: the Recycle Bin, the icons of a message box ...), 32 px; null if Windows has none.</summary>
+    public static ImageSource? GetStockIcon(int siid)
     {
         var info = new SHSTOCKICONINFO { cbSize = (uint)Marshal.SizeOf<SHSTOCKICONINFO>() };
-        if (SHGetStockIconInfo(full ? SIID_RECYCLERFULL : SIID_RECYCLER, 0x100 /* SHGSI_ICON */, ref info) != 0 || info.hIcon == IntPtr.Zero)
+        if (SHGetStockIconInfo(siid, 0x100 /* SHGSI_ICON */, ref info) != 0 || info.hIcon == IntPtr.Zero)
             return null;
         try
         {
