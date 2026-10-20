@@ -17,6 +17,12 @@ public class AppSettings
     public double ListFontSize { get; set; } = DefaultFontSize;
     public double TreeFontSize { get; set; } = DefaultFontSize;
 
+    /// <summary>
+    /// The columns of the list are sized to their widest text after the list is filled, when the font size changes and when a column
+    /// is shown (the user: always on for now; a setting may come: settings.json only, no window yet).
+    /// </summary>
+    public bool AutoFitColumns { get; set; } = true;
+
     /// <summary>The height of the info panel under the file list (the preview picture, the plot): dragged with the divider above it.</summary>
     public const double DefaultInfoPanelHeight = 141;
     public double InfoPanelHeight { get; set; } = DefaultInfoPanelHeight;

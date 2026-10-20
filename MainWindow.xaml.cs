@@ -53,17 +53,20 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Rating,       "Rating",        RatingColumn, visible: false),
             new ColumnInfo(SortColumn.Expectation,  "Expectation",   ExpectationColumn, visible: false)
         });
-        VM.TagsLoaded += () => { if (IsTagColumn(_sortColumn)) ApplySort(_sortColumn, _sortAscending); };
+        VM.TagsLoaded += () => { if (IsTagColumn(_sortColumn)) ApplySort(_sortColumn, _sortAscending); QueueAutoFit(); };
 
         VM.PropertyChanged += (_, e) =>
         {
             // An empty name means "everything changed" (another tab became active).
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.ShowTree))
                 UpdateTreePane();
+
+            // The text of the list got bigger or smaller (Ctrl + wheel, or another tab with another size): so do the columns.
+            if (e.PropertyName == nameof(MainViewModel.ListFontSize)) QueueAutoFit();
         };
 
         // The info panel under the list follows the items (a folder was loaded, a sort order was applied).
-        ((INotifyCollectionChanged)FileListView.Items).CollectionChanged += (_, _) => QueueInfoUpdate();
+        ((INotifyCollectionChanged)FileListView.Items).CollectionChanged += (_, _) => { QueueInfoUpdate(); QueueAutoFit(); };
 
         LoadColumnLayout();
         ApplySort(VM.SortColumn, VM.SortAscending);
@@ -400,6 +403,7 @@ public partial class MainWindow : Window
                 info.Visible = item.IsChecked;
                 ApplyColumns();
                 SaveColumnLayout();
+                QueueAutoFit();   // a column that was just shown gets the width of its text
             };
             menu.Items.Add(item);
         }
@@ -642,13 +646,38 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Gives each shown column the width of its widest text (header included), growing or shrinking it.</summary>
-    private void AutoFitColumns()
-    {
-        SyncLayoutFromGrid();
+    private bool _autoFitQueued;
 
-        var typeface = new Typeface(FileListView.FontFamily, FileListView.FontStyle,
-                                    FileListView.FontWeight, FileListView.FontStretch);
+    /// <summary>
+    /// Sizes the columns to their text once the current burst of changes is over (a folder fills the list item by item, the tags
+    /// come later). Switched on and off by <see cref="AppSettings.AutoFitColumns"/>.
+    /// </summary>
+    private void QueueAutoFit()
+    {
+        if (_autoFitQueued || !AppSettingsStore.Current.AutoFitColumns) return;
+        _autoFitQueued = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _autoFitQueued = false;
+            AutoFitColumns(automatic: true);
+        }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Gives each shown column the width of its widest text (header included), growing or shrinking it. Ctrl + numeric plus does it
+    /// by hand (and saves the layout); <paramref name="automatic"/> is the same after a folder was read or the font size changed:
+    /// it only sets the widths (the layout is saved with the next change and when the window closes).
+    /// </summary>
+    private void AutoFitColumns(bool automatic = false)
+    {
+        if (!automatic) SyncLayoutFromGrid();
+        if (!FileListView.IsLoaded) return;
+
+        // Measured in the style of the unread files (bold and/or italic, as set in Settings): they are the widest.
+        var unread = UnreadStyle.Instance;
+        var typeface = new Typeface(FileListView.FontFamily,
+                                    unread.Style == FontStyles.Italic ? FontStyles.Italic : FileListView.FontStyle,
+                                    unread.Weight == FontWeights.Bold ? FontWeights.Bold : FileListView.FontWeight, FileListView.FontStretch);
         double dpi = VisualTreeHelper.GetDpi(FileListView).PixelsPerDip;
 
         double TextWidth(string text) => string.IsNullOrEmpty(text) ? 0 :
@@ -659,7 +688,7 @@ public partial class MainWindow : Window
         var sizeConverter = new FileSizeConverter();
         string Cell(ColumnInfo col, FileItemViewModel item) => col.Key switch
         {
-            SortColumn.Name         => item.Name,
+            SortColumn.Name         => item.DisplayName,
             SortColumn.DateModified => item.DateModified.ToString("MM/dd/yyyy  HH:mm", CultureInfo.InvariantCulture),
             SortColumn.DateCreated  => item.DateCreated.ToString("MM/dd/yyyy  HH:mm", CultureInfo.InvariantCulture),
             SortColumn.Type         => item.TypeName,
@@ -667,6 +696,11 @@ public partial class MainWindow : Window
             SortColumn.Length       => item.LengthText,
             SortColumn.Bitrate      => item.BitrateText,
             SortColumn.Dimensions   => item.DimensionsText,
+            SortColumn.Artist       => item.Artist,
+            SortColumn.Title        => item.Title,
+            SortColumn.TrackNumber  => item.TrackText,
+            SortColumn.Rating       => item.RatingText,
+            SortColumn.Expectation  => item.ExpectationText,
             _                       => ""
         };
 
@@ -675,14 +709,27 @@ public partial class MainWindow : Window
             // The header gets room for the sort arrow too, so sorting does not clip it.
             double width = TextWidth(col.Title + " ▲") + 16;
 
-            foreach (var item in VM.CurrentItems)
+            // Only the longest texts are measured (by number of characters): a folder of thousands of files would take too long
+            // otherwise, and the widest text is among the longest.
+            var longest = VM.CurrentItems.Select(item => Cell(col, item)).Where(t => t.Length > 0).Distinct()
+                              .OrderByDescending(t => t.Length).Take(30);
+            foreach (var text in longest)
             {
                 // Cell padding; the Name cell also holds the 16 px icon and its 5 px margin.
-                double w = TextWidth(Cell(col, item)) + 14 + (col.Key == SortColumn.Name ? 21 : 0);
+                double w = TextWidth(text) + 14 + (col.Key == SortColumn.Name ? 21 : 0);
                 if (w > width) width = w;
             }
 
+            // A very long name must not push the other columns out of the window.
+            if (col.Key == SortColumn.Name) width = Math.Min(width, Math.Max(300, FileListView.ActualWidth * 0.6));
+
             col.Width = Math.Ceiling(width);
+        }
+
+        if (automatic)
+        {
+            foreach (var col in _layout.Where(c => c.Visible)) col.Column.Width = col.Width;   // no rebuild of the columns, no save
+            return;
         }
 
         ApplyColumns();
@@ -1849,6 +1896,7 @@ public partial class MainWindow : Window
         info.Visible = true;
         ApplyColumns();
         SaveColumnLayout();
+        QueueAutoFit();
     }
 
     // ── Context menu ──────────────────────────────────────────────────────────
