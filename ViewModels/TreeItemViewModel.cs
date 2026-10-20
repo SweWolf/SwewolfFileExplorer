@@ -25,6 +25,12 @@ public class TreeItemViewModel : INotifyPropertyChanged
     /// <summary>A hidden or system folder, in the tree only because the user asked for the hidden folders: shown faded.</summary>
     public bool IsHidden { get; }
 
+    /// <summary>The bookmark (its shortcut, or a group's folder) this node stands for: only in the "Bookmarks" part of the tree.</summary>
+    public BookmarkEntry? Bookmark { get; init; }
+
+    /// <summary>The "Bookmarks" node itself, at the top of the tree.</summary>
+    public bool IsBookmarksRoot { get; init; }
+
     public override string ToString() => Name;   // what accessibility tools read for the node
 
     public bool IsExpanded

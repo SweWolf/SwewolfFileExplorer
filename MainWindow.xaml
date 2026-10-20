@@ -477,6 +477,8 @@
                             <MenuItem Header="Open in New Tab" Click="TreeCtxOpenInNewTab_Click"/>
                             <MenuItem Header="Open in Windows Explorer" Click="TreeCtxExplorer_Click"
                                       ToolTip="Open this folder in Windows' own File Explorer"/>
+                            <MenuItem Header="Add to Bookmarks" Click="TreeCtxBookmark_Click"
+                                      ToolTip="Keep a shortcut to this folder in the Bookmarks at the top of the tree"/>
                             <MenuItem Header="Set as Tree Root" Click="TreeCtxSetRoot_Click"
                                       ToolTip="Make this folder the top of the folder tree in this tab. Not remembered."/>
                             <MenuItem Header="Reset Tree Root" Click="TreeCtxResetRoot_Click"
@@ -716,6 +718,8 @@
                         <MenuItem Header="Open"       Click="CtxOpen_Click"/>
                         <MenuItem Header="Open With..." Click="CtxOpenWith_Click"/>
                         <MenuItem Header="Open in New Tab" Click="CtxOpenInNewTab_Click"/>
+                        <MenuItem Header="Add to Bookmarks" Click="CtxBookmark_Click" InputGestureText="Ctrl+D"
+                                  ToolTip="Keep a shortcut to the selected folders and files (or to this folder) in the Bookmarks at the top of the tree"/>
                         <MenuItem Header="Open in Windows Explorer" Click="CtxExplorer_Click"
                                   ToolTip="Open this folder in Windows' own File Explorer (a selected file is shown selected in its folder)"/>
                         <MenuItem Header="Send to"    x:Name="SendToMenu" PreviewMouseRightButtonUp="SendToMenu_RightClick"

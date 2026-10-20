@@ -377,6 +377,12 @@ public class MainViewModel : INotifyPropertyChanged
 
     public void Navigate(string? path, bool addToHistory = true) => _activeTab.Navigate(path, addToHistory);
     public void OfferMoveAfterSmartRename(string path)            => _activeTab.OfferMoveAfterSmartRename(path);
+    /// <summary>The Bookmarks folder changed (one was added, renamed or removed): every tab's tree reads it again.</summary>
+    public void ReloadBookmarks() { foreach (var tab in Tabs) tab.ReloadBookmarks(); }
+
+    /// <summary>Reads the Bookmarks folder again in the tabs where something in it changed since (also from Windows Explorer).</summary>
+    public void ReloadBookmarksIfChanged() { foreach (var tab in Tabs) tab.ReloadBookmarksIfChanged(); }
+
     public void NavigateAsync(string? path)                       => _activeTab.NavigateAsync(path);   // a click in the tree: slow folders are read in the background
     public void ShowNoFolder()                                    => _activeTab.ShowNoFolder();
     public void OpenItem(FileItemViewModel item)                  => _activeTab.OpenItem(item);

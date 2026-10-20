@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ToggleFilterBar()), Key.F, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => BookmarkSelectionOrFolder()), Key.D, ModifierKeys.Control));
 
         // The height of the info panel as the user left it; the preview box follows the panel's size.
         InfoRow.Height = new GridLength(Math.Max(InfoPanelMinHeight, AppSettingsStore.Current.InfoPanelHeight));
@@ -92,6 +93,7 @@ public partial class MainWindow : Window
         {
             if (_refreshOnActivate) { _refreshOnActivate = false; RefreshKeepingSelection(); }
             VM.RefreshReadState();
+            VM.ReloadBookmarksIfChanged();   // a bookmark added, renamed or removed in Windows Explorer
 
             // The player (another process) may have set the preview picture of the selected video while this window was
             // in the background: look for it again now, so it shows without F5 or selecting another file.
@@ -1033,6 +1035,13 @@ public partial class MainWindow : Window
         // The tab selected this node itself, to follow a navigation: nothing to navigate to.
         if (VM.ConsumeProgrammaticTreeSelection(item)) return;
 
+        // A bookmark of a file: its folder is opened and the file selected.
+        if (item.Bookmark is { IsFile: true } && !string.IsNullOrEmpty(item.FullPath))
+        {
+            GoToFile(item.FullPath);
+            return;
+        }
+
         if (!string.IsNullOrEmpty(item.FullPath))
             VM.NavigateAsync(item.FullPath);   // read in the background: a slow folder must not freeze the window
         else
@@ -1596,10 +1605,47 @@ public partial class MainWindow : Window
     /// <summary>A picture opens in the picture viewer of this app (not in the program Windows has for it); anything else as usual.</summary>
     private void OpenItem(FileItemViewModel item)
     {
+        // A bookmark (a shortcut in the Bookmarks folder) opens what it points to, the way this program opens it: a folder in a
+        // new tab, video and music in SweWolf Media Player, a picture in the viewer.
+        if (!item.IsDirectory && !item.IsInArchive && BookmarkStore.TargetOfBookmarkFile(item.FullPath) is { } target)
+        {
+            OpenBookmarkTarget(target);
+            return;
+        }
+
         if (!item.IsDirectory && ThumbnailLoader.IsImage(item.FullPath))
             OpenInViewer(item);
         else
             VM.OpenItem(item);
+    }
+
+    private void OpenBookmarkTarget(string target)
+    {
+        if (System.IO.Directory.Exists(target))
+        {
+            VM.OpenNewTab(target, activate: true);
+            return;
+        }
+
+        if (!System.IO.File.Exists(target))
+        {
+            MessageBox.Show(this, $"\"{target}\" is not there any more. The drive may not be connected.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var name = System.IO.Path.GetFileName(target);
+        if (ThumbnailLoader.IsImage(target))
+        {
+            var viewer = CreateViewer(QuickPictureList(System.IO.Path.GetDirectoryName(target) ?? "", target), target, owner: this);
+            viewer.ShowDialog();
+            AfterViewer(viewer);
+        }
+        else if (MediaPlayerLauncher.IsMedia(name))
+        {
+            if (MediaPlayerLauncher.Open(target, null) == LaunchResult.UseDefaultProgram) FolderTabViewModel.OpenFile(target);
+        }
+        else
+            FolderTabViewModel.OpenFile(target);
     }
 
     private void OpenInViewer(FileItemViewModel item)
@@ -1920,6 +1966,7 @@ public partial class MainWindow : Window
                 "Open"       => hasSelection,
                 "Open With..." => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false },
                 "Send to"    => hasSelection && !inArchive,
+                "Add to Bookmarks" => !inArchive && (hasSelection || System.IO.Directory.Exists(VM.CurrentPath)),
                 "Open in Windows Explorer" => ListExplorerTarget() is { } explorerTarget
                                               && (System.IO.File.Exists(explorerTarget) || System.IO.Directory.Exists(explorerTarget)),
                 "Open in New Tab" => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true },
@@ -2199,6 +2246,14 @@ public partial class MainWindow : Window
                 ? VisualTreeHelper.GetParent(element)
                 : LogicalTreeHelper.GetParent(element);
 
+        // The Bookmarks part of the tree has a menu of its own (a bookmark is a shortcut: Delete and Cut must not touch the folder it points to).
+        if ((element as TreeViewItem)?.DataContext is TreeItemViewModel { IsBookmarksRoot: true } or TreeItemViewModel { Bookmark: not null })
+        {
+            e.Handled = true;
+            ShowBookmarkMenu((TreeItemViewModel)((TreeViewItem)element!).DataContext);
+            return;
+        }
+
         // Quick Access and This PC are not folders: no menu.
         if ((element as TreeViewItem)?.DataContext is TreeItemViewModel { FullPath.Length: > 0 } node)
         {
@@ -2227,6 +2282,136 @@ public partial class MainWindow : Window
 
         new PictureViewerWindow(new[] { file }, file) { Owner = this }.ShowDialog();
         e.Handled = true;
+    }
+
+    // ── Bookmarks (shortcuts in the Bookmarks folder, under the "Bookmarks" node of the tree) ──
+
+    /// <summary>Bookmarks these folders and files (Ctrl+D: the folder shown). Says what happened in the title bar.</summary>
+    private void AddBookmarks(IEnumerable<string> paths)
+    {
+        var list = paths.Where(p => !string.IsNullOrEmpty(p)).ToList();
+        if (list.Count == 0)
+        {
+            FlashTitle($"{BaseTitle} - Open a folder first, then bookmark it");
+            return;
+        }
+
+        int added = 0;
+        string? lastAdded = null, lastAlready = null;
+        var problems = new List<string>();
+        foreach (var path in list)
+        {
+            var entry = BookmarkStore.Add(path, out var already, out var error);
+            if (entry == null) problems.Add(error);
+            else if (already)  lastAlready = entry.Name;
+            else               { added++; lastAdded = entry.Name; }
+        }
+
+        if (added > 0) VM.ReloadBookmarks();
+
+        if (problems.Count > 0)
+            MessageBox.Show(this, $"The bookmark could not be made:\n{problems[0]}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        else if (added == 1)
+            FlashTitle($"{BaseTitle} - Bookmark added: {lastAdded}");
+        else if (added > 1)
+            FlashTitle($"{BaseTitle} - {added} bookmarks added");
+        else if (lastAlready != null)
+            FlashTitle($"{BaseTitle} - \"{lastAlready}\" is bookmarked already");
+    }
+
+    private void TreeCtxBookmark_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) AddBookmarks(new[] { _treeMenuNode.FullPath });
+    }
+
+    private void CtxBookmark_Click(object sender, RoutedEventArgs e) => BookmarkSelectionOrFolder(menu: true);
+
+    /// <summary>Ctrl+D and the list's menu: the selected files and folders of the list, or the folder shown when nothing is selected (or the list does not have the focus).</summary>
+    private void BookmarkSelectionOrFolder(bool menu = false)
+    {
+        var selected = menu || FileListView.IsKeyboardFocusWithin
+            ? FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList()
+            : new List<string>();
+        AddBookmarks(selected.Count > 0 ? selected : new[] { VM.CurrentPath });
+    }
+
+    /// <summary>A click on the bookmark of a file: its folder is opened and the file selected.</summary>
+    private void GoToFile(string path)
+    {
+        var folder = System.IO.Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(folder)) return;
+
+        VM.Navigate(folder);
+        var item = VM.CurrentItems.FirstOrDefault(i => string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase));
+        if (item == null) return;   // the file is gone, or hidden: the folder is open
+        FileListView.SelectedItem = item;
+        FileListView.ScrollIntoView(item);
+        FileListView.Focus();
+    }
+
+    /// <summary>
+    /// The right-click menu of a node in the Bookmarks part of the tree, made here in code (as the tab's menu: handlers in XAML styles
+    /// broke the window's loading once). Rename and Remove change the shortcut, never the folder it points to.
+    /// </summary>
+    private void ShowBookmarkMenu(TreeItemViewModel node)
+    {
+        var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
+        var entry = node.Bookmark;
+
+        if (entry != null)
+        {
+            if (!entry.IsGroup && entry.Target != null && entry.Available && !entry.IsFile)
+            {
+                var newTab = new MenuItem { Header = "Open in New Tab" };
+                newTab.Click += (_, _) => VM.OpenNewTab(entry.Target, activate: false);
+                menu.Items.Add(newTab);
+            }
+
+            var rename = new MenuItem { Header = entry.IsGroup ? "Rename Group..." : "Rename Bookmark...",
+                                        ToolTip = "Change the name of the bookmark. The folder it points to keeps its name." };
+            rename.Click += (_, _) =>
+            {
+                var dlg = new InputDialog("Rename Bookmark", "Name of the bookmark:", entry.Name,
+                    hint: "This only changes the name of the bookmark (its shortcut), not the name of the folder or file it points to.")
+                    { Owner = this, Width = 520 };
+                if (dlg.ShowDialog() != true) return;
+
+                if (BookmarkStore.Rename(entry, dlg.InputText, out var error)) VM.ReloadBookmarks();
+                else MessageBox.Show(this, error, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            };
+            menu.Items.Add(rename);
+
+            var remove = new MenuItem { Header = entry.IsGroup ? "Remove Group" : "Remove Bookmark",
+                                        ToolTip = "Remove the bookmark. Its shortcut goes to the Recycle Bin; the folder it points to is not touched." };
+            remove.Click += (_, _) =>
+            {
+                if (BookmarkStore.Remove(entry, out var error))
+                {
+                    VM.ReloadBookmarks();
+                    FlashTitle($"{BaseTitle} - Bookmark removed: {entry.Name}");
+                }
+                else MessageBox.Show(this, error, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            };
+            menu.Items.Add(remove);
+            menu.Items.Add(new Separator());
+        }
+        else
+        {
+            var addCurrent = new MenuItem { Header = "Add This Folder to Bookmarks", InputGestureText = "Ctrl+D" };
+            addCurrent.Click += (_, _) => AddBookmarks(new[] { VM.CurrentPath });
+            menu.Items.Add(addCurrent);
+            menu.Items.Add(new Separator());
+        }
+
+        var show = new MenuItem { Header = "Show Bookmarks Folder", ToolTip = "Open the folder where the shortcuts are kept, in a new tab" };
+        show.Click += (_, _) =>
+        {
+            try { System.IO.Directory.CreateDirectory(BookmarkStore.Folder); } catch { /* shown as not found */ }
+            VM.OpenNewTab(BookmarkStore.Folder, activate: true);
+        };
+        menu.Items.Add(show);
+
+        menu.IsOpen = true;
     }
 
     // ── Open in Windows Explorer ──────────────────────────────────────────────
@@ -2379,6 +2564,7 @@ public partial class MainWindow : Window
                 "Reset Tree Root"    => VM.HasTreeRoot,
                 "Send to"    => canChange,
                 "Open in Windows Explorer" => realFolder || System.IO.File.Exists(path),   // a packed file is shown selected in its folder
+                "Add to Bookmarks" => realFolder,   // not inside a compressed file
                 "Set Tags..." => canChange,   // a folder on the disk, not a drive
                 "Cut"        => canChange,
                 "Paste"      => realFolder && FileClipboard.HasFiles(),

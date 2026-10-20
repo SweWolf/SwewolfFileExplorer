@@ -299,6 +299,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     private void InitializeTree()
     {
+        // Bookmarks: the shortcuts in the Bookmarks folder, read in the background (a disk that is not connected must not hold up the start).
+        var bookmarks = _bookmarksNode = new TreeItemViewModel("Bookmarks", BookmarkStore.Folder, null, isVirtual: true, sortOf: _shared.GetTreeSort,
+                                                               showHiddenOf: _shared.ShowsHiddenInTree) { IsBookmarksRoot = true };
+        try { Directory.CreateDirectory(BookmarkStore.Folder); } catch { /* a click then says it is not there */ }
+        bookmarks.IsExpanded = true;
+        TreeItems.Add(bookmarks);
+        ReloadBookmarks();
+
         // Quick Access
         var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
         quickAccess.IsExpanded = true;
@@ -327,6 +335,75 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         TreeItems.Add(thisPC);
+    }
+
+    // ── Bookmarks (shortcuts in the Bookmarks folder) ────────────────────────
+
+    private TreeItemViewModel? _bookmarksNode;
+    private int _bookmarkVersion;
+    private string _bookmarkSnapshot = "";
+
+    /// <summary>Reads the Bookmarks folder in the background and puts what is in it under the "Bookmarks" node of this tab's tree.</summary>
+    public void ReloadBookmarks()
+    {
+        var node = _bookmarksNode;
+        if (node == null) return;
+
+        int version    = ++_bookmarkVersion;
+        var dispatcher = Application.Current.Dispatcher;
+        _ = Task.Run(() =>
+        {
+            var snapshot = BookmarkStore.Snapshot();
+            var entries  = BookmarkStore.Read(checkAvailable: true);   // may be slow for a disk that is not there
+
+            dispatcher.InvokeAsync(() =>
+            {
+                if (version != _bookmarkVersion || node != _bookmarksNode) return;   // a newer read, or the tree was rebuilt
+
+                node.Children.Clear();
+                foreach (var entry in entries) if (IsTreeBookmark(entry)) node.Children.Add(MakeBookmarkNode(entry));
+                _bookmarkSnapshot = snapshot;
+
+                // The selected node may have been one of the old bookmark nodes: the tree follows the folder again.
+                if (FindSelectedNode(TreeItems) == null && !string.IsNullOrEmpty(_currentPath)) SelectInTree(_currentPath);
+            });
+        });
+    }
+
+    /// <summary>Reads the Bookmarks folder again if something in it changed (also from Windows Explorer) since it was read last.</summary>
+    public void ReloadBookmarksIfChanged()
+    {
+        if (BookmarkStore.Snapshot() != _bookmarkSnapshot) ReloadBookmarks();
+    }
+
+    /// <summary>Only folders and groups are in the tree; a bookmark of a file is seen in the list when "Bookmarks" (or its group) is clicked.</summary>
+    private static bool IsTreeBookmark(BookmarkEntry entry) => entry.IsGroup || (entry.Target != null && !entry.IsFile);
+
+    private TreeItemViewModel MakeBookmarkNode(BookmarkEntry entry)
+    {
+        // A group: a folder of bookmarks. No path of its own, so a click on it shows nothing.
+        if (entry.IsGroup)
+        {
+            var group = new TreeItemViewModel(entry.Name, entry.Path, IconHelper.GetIconForName("folder", true), isVirtual: true,
+                                              sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree) { Bookmark = entry };
+            foreach (var child in entry.Children) if (IsTreeBookmark(child)) group.Children.Add(MakeBookmarkNode(child));
+            return group;
+        }
+
+        // A shortcut that points to nothing usable.
+        if (entry.Target == null)
+            return new TreeItemViewModel(entry.Name, "", IconHelper.GetIconForName("folder", true), isVirtual: true, isHidden: true) { Bookmark = entry };
+
+        // A file: no children; a click goes to its folder and selects it (see the window).
+        if (entry.IsFile)
+            return new TreeItemViewModel(entry.Name, entry.Target, IconHelper.GetIconForName(Path.GetFileName(entry.Target), false), isVirtual: true,
+                                         isHidden: !entry.Available) { Bookmark = entry };
+
+        // A folder, which opens up like any folder of the tree (faded when it is not there: a disk that is not connected).
+        var folder = new TreeItemViewModel(entry.Name, entry.Target, IconHelper.GetIconForName("folder", true), sortOf: _shared.GetTreeSort,
+                                           showHiddenOf: _shared.ShowsHiddenInTree, isHidden: !entry.Available) { Bookmark = entry };
+        if (entry.Available) folder.InitializeLazyLoad();
+        return folder;
     }
 
     private void AddQuickAccessItem(TreeItemViewModel parent, string name, Environment.SpecialFolder folder) =>
@@ -1327,7 +1404,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             UpdateReadState(_currentPath);
     }
 
-    private static bool OpenFile(string path)
+    public static bool OpenFile(string path)
     {
         // A .nfo file: Windows gives them to System Information, but almost all are text or XML; those go to the text editor.
         if (NfoOpener.TryOpenInTextEditor(path)) return true;
