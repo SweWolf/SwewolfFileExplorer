@@ -34,7 +34,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <ProgressBar x:Name="Bar" Grid.Column="0" Height="14" Minimum="0" Maximum="100"/>
-            <TextBlock x:Name="PercentText" Grid.Column="1" Margin="10,0,0,0" MinWidth="110" TextAlignment="Right"/>
+            <TextBlock x:Name="PercentText" Grid.Column="1" Margin="10,0,0,0" MinWidth="200" TextAlignment="Right"/>
         </Grid>
 
         <Button x:Name="CancelButton" Grid.Row="4" Content="Cancel" Width="90" Margin="0,16,0,0"

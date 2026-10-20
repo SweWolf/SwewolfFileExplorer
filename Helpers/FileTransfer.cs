@@ -274,8 +274,11 @@ public static class FileTransfer
         bool keepTemp = false;
         try
         {
+            // A file that is being written to (a log) may grow while it is copied: that is fine, the copy is a snapshot from a moment
+            // while it ran. Shorter than it was when the copy began is not.
+            long expected = new FileInfo(src).Length;
             CopyOne(src, temp, ctx);
-            if (new FileInfo(temp).Length != new FileInfo(src).Length) throw new IOException("the copy is not complete");
+            if (new FileInfo(temp).Length < expected) throw new IOException("the copy is not complete");
 
             if (replace) FileReplace.Remove(final);
             return FileReplace.MoveIntoPlace(temp, final, replace);

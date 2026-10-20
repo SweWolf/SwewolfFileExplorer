@@ -93,6 +93,6 @@ public partial class ProgressDialog : Window
         double size = bytes;
         int unit = 0;
         while (size >= 1024 && unit < units.Length - 1) { size /= 1024; unit++; }
-        return unit == 0 ? $"{bytes} bytes" : $"{size:0.#} {units[unit]}";
+        return unit == 0 ? $"{bytes} bytes" : $"{size:0.0} {units[unit]}";   // always one decimal: "74.0", not "74", so the text keeps its width
     }
 }

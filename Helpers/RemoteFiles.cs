@@ -65,6 +65,7 @@ public static class RemoteFiles
         if (OleGetClipboard(out var data) != 0 || data == null)
             throw new InvalidOperationException("The clipboard is in use by another program. Try again.");
 
+        uint clipboardAtStart = GetClipboardSequenceNumber();
         var entries = ReadDescriptors(data);
         progress.FileTotal  = entries.Count(e => !e.IsDirectory);
         progress.BytesTotal = entries.Where(e => !e.IsDirectory && e.Size > 0).Sum(e => e.Size);
@@ -139,6 +140,13 @@ public static class RemoteFiles
             catch (Exception ex)
             {
                 unit.Failed = true;
+                if (GetClipboardSequenceNumber() != clipboardAtStart)
+                {
+                    // Something else was copied: the other side takes the files back, as in Explorer. The rest cannot be fetched.
+                    failed.Add((segments[^1], "the clipboard changed while copying. Files from the other computer can only be fetched while they are on the clipboard"));
+                    failed.Add(("The remaining files", "not copied"));
+                    break;
+                }
                 failed.Add((segments[^1], ex is IOException or UnauthorizedAccessException ? ex.Message : "could not be read from the clipboard: " + ex.Message));
             }
         }
@@ -272,8 +280,9 @@ public static class RemoteFiles
             output.Dispose();
             output = null;
 
-            // The other side told how big the file is: a different amount means the copy is not complete.
-            if (entry.Size >= 0 && written != entry.Size) throw new IOException("the copy is not complete");
+            // The other side told how big the file was. More arrived: it grew while it was copied (a log); that is fine, the copy is a
+            // snapshot. Less arrived: the file got shorter, or the connection broke.
+            if (entry.Size >= 0 && written < entry.Size) throw new IOException("the file got shorter while it was being copied, or the connection was interrupted");
             if (entry.Written is { } time) File.SetLastWriteTime(temp, time);
 
             if (replace) FileReplace.Remove(final);
@@ -381,6 +390,7 @@ public static class RemoteFiles
         finally { ReleaseStgMedium(ref medium); }
     }
 
+    [DllImport("user32.dll")] private static extern uint GetClipboardSequenceNumber();
     [DllImport("ole32.dll")] private static extern int OleInitialize(IntPtr reserved);
     [DllImport("ole32.dll")] private static extern void OleUninitialize();
     [DllImport("ole32.dll")] private static extern int OleGetClipboard(out ComTypes.IDataObject data);
