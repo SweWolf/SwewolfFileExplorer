@@ -105,6 +105,7 @@
                          ScrollViewer.VerticalScrollBarVisibility="Disabled"
                          AllowDrop="True"
                          PreviewMouseDown="TabStrip_PreviewMouseDown"
+                         PreviewMouseRightButtonUp="TabStrip_PreviewMouseRightButtonUp"
                          PreviewMouseLeftButtonDown="TabStrip_PreviewMouseLeftButtonDown"
                          PreviewMouseMove="TabStrip_PreviewMouseMove"
                          DragOver="TabStrip_DragOver">
@@ -117,17 +118,6 @@
 
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
-                            <!-- A right-click on a tab: give it a name of its own (the folder is not renamed) -->
-                            <Setter Property="ContextMenu">
-                                <Setter.Value>
-                                    <ContextMenu Opened="TabContextMenu_Opened">
-                                        <MenuItem x:Name="TabRenameItem" Header="Rename Tab..." Click="TabCtxRename_Click"
-                                                  ToolTip="Change the text on this tab. The name of the folder stays as it is."/>
-                                        <MenuItem x:Name="TabResetItem" Header="Reset Tab Name" Click="TabCtxReset_Click"
-                                                  ToolTip="Show the name of the folder on this tab again"/>
-                                    </ContextMenu>
-                                </Setter.Value>
-                            </Setter>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">

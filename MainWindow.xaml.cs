@@ -500,29 +500,31 @@ public partial class MainWindow : Window
 
     // ── Rename Tab (the text on the tab; the folder keeps its name) ───────────
 
-    /// <summary>The tab a tab's right-click menu was opened on.</summary>
-    private static FolderTabViewModel? TabOfMenu(object sender) =>
-        ((sender as MenuItem)?.Parent as ContextMenu ?? sender as ContextMenu)?.PlacementTarget is FrameworkElement { DataContext: FolderTabViewModel tab } ? tab : null;
-
-    private void TabContextMenu_Opened(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// A right-click on a tab: a small menu made here, in code (a menu with handlers inside the tab strip's item style made the
+    /// window fail to load: "Set connectionId threw an exception").
+    /// </summary>
+    private void TabStrip_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        var menu = (ContextMenu)sender;
-        bool custom = TabOfMenu(menu)?.CustomTitle != null;
-        foreach (var item in menu.Items.OfType<MenuItem>())
-            if (item.Header is "Reset Tab Name") item.IsEnabled = custom;
+        if (FindItemUnder<FolderTabViewModel>(e.OriginalSource) is not { } tab) return;
+        e.Handled = true;
+
+        var rename = new MenuItem { Header = "Rename Tab...", ToolTip = "Change the text on this tab. The name of the folder stays as it is." };
+        rename.Click += (_, _) => RenameTab(tab);
+
+        var reset = new MenuItem { Header = "Reset Tab Name", ToolTip = "Show the name of the folder on this tab again", IsEnabled = tab.CustomTitle != null };
+        reset.Click += (_, _) => tab.SetCustomTitle(null);
+
+        new ContextMenu { Items = { rename, reset }, Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, IsOpen = true };
     }
 
-    private void TabCtxRename_Click(object sender, RoutedEventArgs e)
+    private void RenameTab(FolderTabViewModel tab)
     {
-        if (TabOfMenu(sender) is not { } tab) return;
-
         var dlg = new InputDialog("Rename Tab",
             "Name of the tab:\nThis only changes the text on the tab, not the name of the folder. Leave it empty to show the name of the folder again.",
             tab.TitleForEditing) { Owner = this, Width = 520 };
         if (dlg.ShowDialog() == true) tab.SetCustomTitle(dlg.InputText);   // saved in a workspace or session with the rest
     }
-
-    private void TabCtxReset_Click(object sender, RoutedEventArgs e) => TabOfMenu(sender)?.SetCustomTitle(null);
 
     private void TabStrip_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
