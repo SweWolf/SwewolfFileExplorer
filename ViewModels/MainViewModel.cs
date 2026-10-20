@@ -221,6 +221,13 @@ public class MainViewModel : INotifyPropertyChanged
         set => _activeTab.CurrentPath = value;
     }
 
+    /// <summary>The text of the address bar (what is typed there); <see cref="CurrentPath"/> is the folder shown.</summary>
+    public string AddressText
+    {
+        get => _activeTab.AddressText;
+        set => _activeTab.AddressText = value;
+    }
+
     public string StatusText => _activeTab.StatusText;
 
     public ObservableCollection<FileItemViewModel> CurrentItems => _activeTab.CurrentItems;
@@ -237,6 +244,9 @@ public class MainViewModel : INotifyPropertyChanged
     public RelayCommand CopyCommand            => _activeTab.CopyCommand;
     public RelayCommand CutCommand             => _activeTab.CutCommand;
     public RelayCommand PasteCommand           => _activeTab.PasteCommand;
+    public RelayCommand PasteKeyCommand        => _activeTab.PasteKeyCommand;
+    public bool HasFolder                      => _activeTab.HasFolder;
+    public void PasteFromKeyboard(string? destination) => _activeTab.PasteFromKeyboard(destination);
     public RelayCommand ToggleHiddenCommand    => _activeTab.ToggleHiddenCommand;
     public RelayCommand CopyPathCommand        => _activeTab.CopyPathCommand;
 

@@ -219,7 +219,8 @@
                         </Style>
                     </Border.Style>
                     <TextBox x:Name="AddressBar"
-                             Text="{Binding CurrentPath, UpdateSourceTrigger=PropertyChanged}"
+                             Text="{Binding AddressText, UpdateSourceTrigger=PropertyChanged}"
+                             PreviewKeyDown="AddressBar_PreviewKeyDown"
                              Width="456"
                              VerticalContentAlignment="Center"
                              Padding="4,3"
@@ -477,7 +478,7 @@
                             <MenuItem Header="Open in New Tab" Click="TreeCtxOpenInNewTab_Click"/>
                             <MenuItem Header="Open in Windows Explorer" Click="TreeCtxExplorer_Click"
                                       ToolTip="Open this folder in Windows' own File Explorer"/>
-                            <MenuItem Header="Add to Bookmarks" Click="TreeCtxBookmark_Click"
+                            <MenuItem Header="Add to Bookmarks" Click="TreeCtxBookmark_Click" InputGestureText="Ctrl+D"
                                       ToolTip="Keep a shortcut to this folder in the Bookmarks at the top of the tree"/>
                             <MenuItem Header="Set as Tree Root" Click="TreeCtxSetRoot_Click"
                                       ToolTip="Make this folder the top of the folder tree in this tab. Not remembered."/>
@@ -486,16 +487,16 @@
                             <MenuItem Header="Send to" x:Name="TreeSendToMenu" PreviewMouseRightButtonUp="TreeSendToMenu_RightClick"
                                       ToolTip="Right-click to edit this menu"/>
                             <Separator/>
-                            <MenuItem Header="Cut"             Click="TreeCtxCut_Click"/>
-                            <MenuItem Header="Copy"            Click="TreeCtxCopy_Click"/>
-                            <MenuItem Header="Paste"           Click="TreeCtxPaste_Click"
+                            <MenuItem Header="Cut"             Click="TreeCtxCut_Click"   InputGestureText="Ctrl+X"/>
+                            <MenuItem Header="Copy"            Click="TreeCtxCopy_Click"  InputGestureText="Ctrl+C"/>
+                            <MenuItem Header="Paste"           Click="TreeCtxPaste_Click" InputGestureText="Ctrl+V"
                                       ToolTip="Paste into this folder"/>
-                            <MenuItem Header="Copy as Path"    Click="TreeCtxCopyPath_Click"
+                            <MenuItem Header="Copy as Path"    Click="TreeCtxCopyPath_Click" InputGestureText="Ctrl+Shift+C"
                                       ToolTip="Copy the full path of this folder as text, in quotes"/>
                             <Separator/>
-                            <MenuItem Header="Delete"          Click="TreeCtxDelete_Click"/>
-                            <MenuItem Header="Rename"          Click="TreeCtxRename_Click"/>
-                            <MenuItem Header="New Folder"      Click="TreeCtxNewFolder_Click"
+                            <MenuItem Header="Delete"          Click="TreeCtxDelete_Click" InputGestureText="Del"/>
+                            <MenuItem Header="Rename"          Click="TreeCtxRename_Click" InputGestureText="F2"/>
+                            <MenuItem Header="New Folder"      Click="TreeCtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"
                                       ToolTip="Make a new folder inside this folder"/>
                             <Separator/>
                             <MenuItem Header="Mark as Read"    Click="TreeCtxMarkRead_Click"
@@ -521,8 +522,8 @@
                             <MenuItem x:Name="TreeCommandItem"    Header="Open in Command Prompt"  Tag="CommandPrompt"   Click="TreeCtxTerminal_Click" PreviewMouseRightButtonUp="TreeCtxTerminal_RightClick"
                                       ToolTip="Right-click to open it as the administrator"/>
                             <Separator/>
-                            <MenuItem Header="Refresh"         Click="TreeCtxRefresh_Click"/>
-                            <MenuItem Header="Properties"      Click="TreeCtxProperties_Click"/>
+                            <MenuItem Header="Refresh"         Click="TreeCtxRefresh_Click" InputGestureText="F5"/>
+                            <MenuItem Header="Properties"      Click="TreeCtxProperties_Click" InputGestureText="Alt+Enter"/>
                             <Separator/>
                             <MenuItem Header="More Options"    Click="TreeCtxMoreOptions_Click"
                                       ToolTip="The full Windows menu of this folder, with the add-ons. Shift + right-click opens it at once."/>
@@ -587,6 +588,7 @@
                       x:Name="FileListView"
                       ItemsSource="{Binding CurrentItems}"
                       SelectionMode="Extended"
+                      IsTextSearchEnabled="False"
                       FontSize="{Binding ListFontSize}"
                       PreviewMouseWheel="List_PreviewMouseWheel"
                       BorderThickness="0"
@@ -621,7 +623,7 @@
                     <KeyBinding Key="Back"    Command="{Binding UpCommand}"/>
                     <KeyBinding Key="C" Modifiers="Ctrl" Command="{Binding CopyCommand}"/>
                     <KeyBinding Key="X" Modifiers="Ctrl" Command="{Binding CutCommand}"/>
-                    <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding PasteCommand}"/>
+                    <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding PasteKeyCommand}"/>
                     <KeyBinding Key="C" Modifiers="Ctrl+Shift" Command="{Binding CopyPathCommand}"/>
                 </ListView.InputBindings>
 

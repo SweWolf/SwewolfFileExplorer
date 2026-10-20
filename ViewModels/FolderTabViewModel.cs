@@ -35,10 +35,24 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     // ── Bindable properties ──────────────────────────────────────────────────
 
+    /// <summary>
+    /// The folder shown. It changes only when a navigation succeeds. (It used to be the text of the address bar, which changed with every
+    /// key typed there: F5, Paste, New Folder and the folder watcher then acted on half-typed text.) What the address bar shows and
+    /// the user types is <see cref="AddressText"/>.
+    /// </summary>
     public string CurrentPath
     {
         get => _currentPath;
-        set { _currentPath = value; OnPropertyChanged(); }
+        set { _currentPath = value; _addressText = value; OnPropertyChanged(); OnPropertyChanged(nameof(AddressText)); }
+    }
+
+    private string _addressText = "";
+
+    /// <summary>The text of the address bar: the folder shown until the user types something else. Esc puts <see cref="CurrentPath"/> back.</summary>
+    public string AddressText
+    {
+        get => _addressText;
+        set { if (_addressText == value) return; _addressText = value; OnPropertyChanged(); }
     }
 
     /// <summary>
@@ -99,13 +113,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     /// <summary>
     /// Takes over the sort order remembered for the current folder. If there is none: Name, ascending, for a real folder;
-    /// for an archive no sort at all, so the files show in the order they are stored in it, until a header is clicked.
+    /// for a zip / cbz no sort at all, so the files show in the order they are stored in it, until a header is clicked (a RAR, cbr or
+    /// 7z is sorted by name: see <see cref="ArchiveSupport.ShowsStoredOrder"/>).
     /// </summary>
     private void ApplyFolderSort()
     {
         var (column, ascending) = _shared.TryGetFolderSort(_currentPath, out var s)
             ? s
-            : (ArchiveSupport.IsInside(_currentPath) ? SortColumn.None : SortColumn.Name, true);
+            : (ArchiveSupport.ShowsStoredOrder(_currentPath) ? SortColumn.None : SortColumn.Name, true);
 
         SortColumn    = column;
         SortAscending = ascending;
@@ -233,6 +248,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public RelayCommand CopyCommand      { get; }
     public RelayCommand CutCommand       { get; }
     public RelayCommand PasteCommand     { get; }
+
+    /// <summary>Ctrl+V: always runs, and says why when there is nothing to paste or nowhere to paste it (PasteCommand, which the menus use to enable "Paste", just stays disabled).</summary>
+    public RelayCommand PasteKeyCommand  { get; }
     public RelayCommand CopyPathCommand  { get; }
 
     // ── Constructor ──────────────────────────────────────────────────────────
@@ -247,14 +265,15 @@ public class FolderTabViewModel : INotifyPropertyChanged
         ForwardCommand   = new RelayCommand(_ => GoForward(),     _ => _forwardHistory.Count > 0);
         UpCommand        = new RelayCommand(_ => GoUp(),          _ => CanGoUp());
         RefreshCommand   = new RelayCommand(_ => Refresh());
-        NavigateCommand  = new RelayCommand(_ => Navigate(CurrentPath));
+        NavigateCommand  = new RelayCommand(_ => Navigate(AddressText));   // Enter in the address bar: what was typed
         // An archive is read-only: only copying out of it is possible.
         DeleteCommand    = new RelayCommand(_ => DeleteSelected(), _ => _selectedItems.Count > 0 && !_inArchive);
         PermanentDeleteCommand = new RelayCommand(_ => DeleteSelected(permanent: true), _ => _selectedItems.Count > 0 && !_inArchive);
-        NewFolderCommand = new RelayCommand(_ => CreateNewFolder(), _ => !_inArchive);
+        NewFolderCommand = new RelayCommand(_ => CreateNewFolder(), _ => HasFolder && !_inArchive);
         CopyCommand      = new RelayCommand(_ => CopySelected(),  _ => _selectedItems.Count > 0);
         CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0 && !_inArchive);
-        PasteCommand     = new RelayCommand(_ => Paste(),         _ => !_inArchive && FileClipboard.HasFiles());
+        PasteCommand     = new RelayCommand(_ => Paste(),         _ => HasFolder && !_inArchive && FileClipboard.HasFiles());
+        PasteKeyCommand  = new RelayCommand(_ => PasteFromKeyboard(null));
         ToggleHiddenCommand = new RelayCommand(_ => ToggleHidden());
         CopyPathCommand  = new RelayCommand(_ => CopyPathsAsText(_selectedItems.Select(i => i.FullPath)),
                                             _ => _selectedItems.Count > 0);
@@ -552,6 +571,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void ShowNoFolder()
     {
         _noFolderShown = true;
+        RaiseAllCanExecuteChanged();   // nothing can be pasted or made here (the tab still remembers the folder it came from)
         StopWatching();
         _tagsCts?.Cancel();
         _tagsCts = null;
@@ -574,6 +594,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
     }
 
     private bool _noFolderShown;
+
+    /// <summary>True when a folder is shown. False on This PC and Quick Access (the tab still remembers the folder it came from, but the list is empty and nothing can be done "in" it).</summary>
+    public bool HasFolder => !_noFolderShown && !string.IsNullOrEmpty(_currentPath);
 
     // ── Keeping the tree on the current folder ───────────────────────────────
 
@@ -712,8 +735,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
     // ── Workspaces and sessions: what a tab remembers ────────────────────────
 
     /// <summary>
-    /// The folder of the last successful navigation. <see cref="CurrentPath"/> is the text of the address bar, which changes
-    /// while the user types: a session must not save a half-typed path.
+    /// The folder of the last successful navigation (a session must not save a half-typed path: that is <see cref="AddressText"/>).
+    /// Same as <see cref="CurrentPath"/> since the address bar has a text of its own; kept for the places that mean "committed" explicitly.
     /// </summary>
     public string FolderPath { get; private set; } = "";
 
@@ -2427,6 +2450,35 @@ public class FolderTabViewModel : INotifyPropertyChanged
     }
 
     private void Paste() => PasteInto(_currentPath);
+
+    /// <summary>
+    /// Ctrl+V. The paste goes into <paramref name="destination"/> (a folder of the tree; null = the folder shown). When there is nothing to
+    /// paste, or nowhere to paste it, a message says so (the user: a key that does nothing looks like a fault).
+    /// </summary>
+    public void PasteFromKeyboard(string? destination)
+    {
+        if (_pasting) return;
+
+        destination ??= HasFolder ? _currentPath : null;
+        if (string.IsNullOrEmpty(destination) || (destination == _currentPath && !HasFolder))
+        {
+            MessageBox.Show("Files cannot be pasted here. Open a folder first.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (ArchiveSupport.IsInside(destination) || !Directory.Exists(destination))
+        {
+            MessageBox.Show("Files cannot be pasted here. A compressed file is read-only, and this folder is not on the disk.",
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (!FileClipboard.HasFiles())
+        {
+            MessageBox.Show("There are no files on the clipboard to paste.\nCopy or cut some files first.", AppInfo.Name,
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        PasteInto(destination);
+    }
 
     private bool _pasting;   // a paste is going on (its window may not be up yet): another one waits for the user to ask again
 

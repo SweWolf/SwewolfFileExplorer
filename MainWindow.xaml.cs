@@ -139,7 +139,7 @@ public partial class MainWindow : Window
     private void ToggleFilterBar() => ShowFilterBar(FilterBar.Visibility != Visibility.Visible);
 
     /// <summary>Shows or hides the bar. Hiding it clears the filter, so no file stays hidden without the bar saying so.</summary>
-    private void ShowFilterBar(bool show)
+    private void ShowFilterBar(bool show, bool focusList = true)
     {
         FilterToggle.IsChecked = show;
         FilterBar.Visibility   = show ? Visibility.Visible : Visibility.Collapsed;
@@ -152,7 +152,7 @@ public partial class MainWindow : Window
         else
         {
             FilterBox.Text = "";   // clears the filter (TextChanged)
-            FileListView.Focus();
+            if (focusList) FileListView.Focus();
         }
     }
 
@@ -167,6 +167,19 @@ public partial class MainWindow : Window
     {
         FilterBox.Text = "";
         FilterBox.Focus();
+    }
+
+    /// <summary>
+    /// Esc in the address bar: what was typed is dropped and the folder shown is back in the box, and the focus goes to the list (so the
+    /// next Esc can close the filter bar). Enter navigates, as before (a key binding).
+    /// </summary>
+    private void AddressBar_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || Keyboard.Modifiers != ModifierKeys.None) return;
+
+        VM.AddressText = VM.CurrentPath;
+        FileListView.Focus();
+        e.Handled = true;
     }
 
     private void FilterBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -638,6 +651,14 @@ public partial class MainWindow : Window
         if (e.Key == Key.Tab && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
             (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? VM.PreviousTabCommand : VM.NextTabCommand).Execute(null);
+            e.Handled = true;
+        }
+        // Esc closes the filter bar (and so clears the filter) from anywhere: the file list, the tree, the tabs ... Not from the filter box,
+        // whose first Esc only clears its text, and not from the address bar, which keeps its own Esc. The focus stays where it is.
+        else if (e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None && FilterBar.Visibility == Visibility.Visible
+                 && !FilterBox.IsKeyboardFocusWithin && !AddressBar.IsKeyboardFocusWithin)
+        {
+            ShowFilterBar(false, focusList: false);
             e.Handled = true;
         }
         // F6: into the address bar with its text selected, as in Explorer.
@@ -1966,6 +1987,7 @@ public partial class MainWindow : Window
         bool hasSelection = FileListView.SelectedItem != null;
         bool canPaste     = VM.PasteCommand.CanExecute(null);
         bool inArchive    = VM.InArchive;   // read-only: files can be opened and copied out, nothing else
+        bool hasFolder    = VM.HasFolder;   // false on This PC and Quick Access: the list is empty and there is no folder to act on
 
         // Read the SendTo folder each time, so new shortcuts show up at once.
         FillSendToMenu(SendToMenu, hasSelection && !inArchive ? SendToHelper.GetEntries() : new(), SendToItem_Click);
@@ -1980,7 +2002,7 @@ public partial class MainWindow : Window
                 "Open"       => hasSelection,
                 "Open With..." => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false },
                 "Send to"    => hasSelection && !inArchive,
-                "Add to Bookmarks" => !inArchive && (hasSelection || System.IO.Directory.Exists(VM.CurrentPath)),
+                "Add to Bookmarks" => !inArchive && (hasSelection || (hasFolder && System.IO.Directory.Exists(VM.CurrentPath))),
                 "Open in Windows Explorer" => ListExplorerTarget() is { } explorerTarget
                                               && (System.IO.File.Exists(explorerTarget) || System.IO.Directory.Exists(explorerTarget)),
                 "Open in New Tab" => FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true },
@@ -1992,9 +2014,10 @@ public partial class MainWindow : Window
                 "Rating..." or "Expectation..." => hasSelection,
                 "Delete"     => hasSelection && !inArchive,
                 "Rename"     => hasSelection && !inArchive,
-                "New Folder" => !inArchive,
-                "Properties" => !inArchive,
-                "More Options" => !inArchive && (hasSelection || System.IO.Directory.Exists(VM.CurrentPath)),
+                "New Folder" => !inArchive && hasFolder,
+                "Properties" => !inArchive && (hasSelection || hasFolder),
+                "Jump to Last Opened File" => hasFolder,
+                "More Options" => !inArchive && (hasSelection || (hasFolder && System.IO.Directory.Exists(VM.CurrentPath))),
                 _            => true
             };
 
@@ -2101,8 +2124,9 @@ public partial class MainWindow : Window
         if (VM.InArchive) return;   // what is in an archive is not on the disk: Windows has no properties for it
 
         var paths = FileListView.SelectedItems.Cast<FileItemViewModel>().Select(i => i.FullPath).ToList();
-        if (paths.Count == 0 && !string.IsNullOrEmpty(VM.CurrentPath))
+        if (paths.Count == 0 && VM.HasFolder && !string.IsNullOrEmpty(VM.CurrentPath))
             paths.Add(VM.CurrentPath);
+        if (paths.Count == 0) return;   // This PC: no folder, nothing to show
 
         try
         {
@@ -2346,6 +2370,7 @@ public partial class MainWindow : Window
         var selected = menu || FileListView.IsKeyboardFocusWithin
             ? FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList()
             : new List<string>();
+        if (selected.Count == 0 && !VM.HasFolder) return;   // This PC: no folder shown
         AddBookmarks(selected.Count > 0 ? selected : new[] { VM.CurrentPath });
     }
 
@@ -2467,7 +2492,7 @@ public partial class MainWindow : Window
     {
         if (VM.InArchive) return null;
         if (FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel item) return item.FullPath;
-        return VM.CurrentPath;
+        return VM.HasFolder ? VM.CurrentPath : null;
     }
 
     private void CtxExplorer_Click(object sender, RoutedEventArgs e) => OpenInWindowsExplorer(ListExplorerTarget());
@@ -2542,7 +2567,7 @@ public partial class MainWindow : Window
         if (VM.InArchive) return null;
         var path = FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true } dir
             ? dir.FullPath
-            : VM.CurrentPath;
+            : (VM.HasFolder ? VM.CurrentPath : null);
         return !string.IsNullOrEmpty(path) && System.IO.Directory.Exists(path) ? path : null;
     }
 
@@ -2725,6 +2750,22 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Delete and Ctrl+Shift+C in the tree, as in the tree's menu (the menu shows these keys).
+        if (e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } doomed && CanChangeFolder(doomed.FullPath))
+                VM.DeleteFolder(doomed.FullPath);
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.C && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } pathNode)
+                VM.CopyPathsAsText(new[] { pathNode.FullPath });
+            e.Handled = true;
+            return;
+        }
+
         // Ctrl+C / Ctrl+X / Ctrl+V in the tree work on the selected folder, as the tree's menu does (Cut: not a drive or anything
         // in an archive; Paste: into the folder, if it is a real folder and the clipboard holds files).
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.C or Key.X or Key.V)
@@ -2733,8 +2774,9 @@ public partial class MainWindow : Window
             {
                 if (e.Key == Key.C) VM.PutFolderOnClipboard(selected.FullPath, cut: false);
                 else if (e.Key == Key.X && CanChangeFolder(selected.FullPath)) VM.PutFolderOnClipboard(selected.FullPath, cut: true);
-                else if (e.Key == Key.V && System.IO.Directory.Exists(selected.FullPath) && FileClipboard.HasFiles()) VM.PasteInto(selected.FullPath);
+                else if (e.Key == Key.V) VM.PasteFromKeyboard(selected.FullPath);   // says why when there is nothing to paste or nowhere to paste it
             }
+            else if (e.Key == Key.V) VM.PasteFromKeyboard("");   // This PC, Quick Access: no folder: the message says so
             e.Handled = true;
             return;
         }

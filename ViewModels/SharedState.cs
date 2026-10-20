@@ -79,7 +79,7 @@ public class SharedState
 
     /// <summary>
     /// The tree sort order of the subfolders of <paramref name="path"/>. If none was chosen: Name, ascending;
-    /// inside an archive no sort (<see cref="SortColumn.None"/>): its folders show in the order they are stored in it.
+    /// inside a zip / cbz no sort (<see cref="SortColumn.None"/>): its folders show in the order they are stored in it (RAR, cbr, 7z: by name).
     /// </summary>
     public (SortColumn Column, bool Ascending) GetTreeSort(string path)
     {
@@ -91,7 +91,7 @@ public class SharedState
             LoadPrefs(path, key);
             if (_treeSorts.TryGetValue(key, out var sort)) return sort;
         }
-        return (ArchiveSupport.IsInside(path) ? SortColumn.None : SortColumn.Name, true);
+        return (ArchiveSupport.ShowsStoredOrder(path) ? SortColumn.None : SortColumn.Name, true);
     }
 
     /// <summary>The user chose this order for the subfolders of <paramref name="path"/> in the tree: used now, and remembered.</summary>

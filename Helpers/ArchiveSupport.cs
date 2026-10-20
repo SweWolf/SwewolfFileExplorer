@@ -148,6 +148,21 @@ public static class ArchiveSupport
     /// <summary>True if the path is an archive file, a folder in one, or a file in one.</summary>
     public static bool IsInside(string path) => Locate(path, out _) != null;
 
+    /// <summary>
+    /// True when a folder inside an archive is listed in the order its files are stored, until the user sorts it: **zip and cbz only**
+    /// (TeraTool browsed only those in place, and a zip is usually packed in page order). A RAR, cbr or 7z is listed by name: 7-Zip gives
+    /// them in the order they were added, which for a comic repacked by someone is often not the reading order (a RAR found by the user
+    /// stores pages 000 to 002 after 003 to 039 and ComicInfo.xml). The packed file that holds the folder decides: the last one in the path.
+    /// </summary>
+    public static bool ShowsStoredOrder(string path)
+    {
+        if (!IsInside(path)) return false;
+        var segments = path.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        for (int i = segments.Length - 1; i >= 0; i--)
+            if (IsArchiveName(segments[i])) return HasExtension(segments[i], ZipExtensions);
+        return false;
+    }
+
     /// <summary>True if the path is a folder the app can show: the top of an archive, or a folder inside one.</summary>
     public static bool FolderExists(string path, out string? error)
     {
