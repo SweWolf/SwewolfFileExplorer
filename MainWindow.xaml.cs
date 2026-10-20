@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ToggleFilterBar()), Key.F, ModifierKeys.Control));
 
         // The height of the info panel as the user left it; the preview box follows the panel's size.
         InfoRow.Height = new GridLength(Math.Max(InfoPanelMinHeight, AppSettingsStore.Current.InfoPanelHeight));
@@ -123,6 +124,84 @@ public partial class MainWindow : Window
         ShowRenameDialog(folder, isNew: true);   // the name of a new folder is asked for, not changed
     }
 
+    // ── Filter bar (the list shows only the names that contain what is typed) ──
+
+    private string[] _filterTerms = Array.Empty<string>();
+
+    private void FilterToggle_Click(object sender, RoutedEventArgs e) => ShowFilterBar(FilterToggle.IsChecked == true);
+
+    private void ToggleFilterBar() => ShowFilterBar(FilterBar.Visibility != Visibility.Visible);
+
+    /// <summary>Shows or hides the bar. Hiding it clears the filter, so no file stays hidden without the bar saying so.</summary>
+    private void ShowFilterBar(bool show)
+    {
+        FilterToggle.IsChecked = show;
+        FilterBar.Visibility   = show ? Visibility.Visible : Visibility.Collapsed;
+
+        if (show)
+        {
+            FilterBox.Focus();
+            FilterBox.SelectAll();
+        }
+        else
+        {
+            FilterBox.Text = "";   // clears the filter (TextChanged)
+            FileListView.Focus();
+        }
+    }
+
+    private void FilterBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        // Several words: every one of them must be somewhere in the name.
+        _filterTerms = FilterBox.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        ApplyFilter();
+    }
+
+    private void FilterClear_Click(object sender, RoutedEventArgs e)
+    {
+        FilterBox.Text = "";
+        FilterBox.Focus();
+    }
+
+    private void FilterBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            // The first Esc clears the text, the next closes the bar.
+            if (FilterBox.Text.Length > 0) FilterBox.Text = "";
+            else ShowFilterBar(false);
+            e.Handled = true;
+        }
+        else if (e.Key is Key.Enter or Key.Down)
+        {
+            // On to the list (the first item gets selected if nothing is).
+            FileListView.Focus();
+            if (FileListView.SelectedItem == null && FileListView.Items.Count > 0) FileListView.SelectedIndex = 0;
+            (FileListView.ItemContainerGenerator.ContainerFromIndex(Math.Max(0, FileListView.SelectedIndex)) as ListViewItem)?.Focus();
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Puts the filter on the list's view (a new view for every tab: also called when the sort is applied).</summary>
+    private void ApplyFilter()
+    {
+        if (CollectionViewSource.GetDefaultView(FileListView.ItemsSource) is ListCollectionView view)
+        {
+            var terms = _filterTerms;
+            view.Filter = terms.Length == 0
+                ? null
+                : o => o is FileItemViewModel item && terms.All(t => item.DisplayName.Contains(t, StringComparison.CurrentCultureIgnoreCase));
+        }
+        UpdateFilterCount();
+        QueueInfoUpdate();   // "File 3/12" and the count of items follow
+    }
+
+    /// <summary>"12 of 125" while a filter is on.</summary>
+    private void UpdateFilterCount()
+    {
+        FilterCountText.Text = _filterTerms.Length == 0 ? "" : $"{FileListView.Items.Count} of {VM.CurrentItems.Count}";
+    }
+
     // ── Sorting ───────────────────────────────────────────────────────────────
 
     private SortColumn _sortColumn;
@@ -164,7 +243,7 @@ public partial class MainWindow : Window
                 : info.Title;
         }
 
-        QueueInfoUpdate();   // the position of the selected item changed
+        ApplyFilter();       // a new view (another tab) has no filter yet
     }
 
     // ── Column layout (which columns are shown, in what order) ────────────────
@@ -916,6 +995,7 @@ public partial class MainWindow : Window
     /// <summary>"File 14/17" (the place of the selected item in the list as shown) and the preview of a picture.</summary>
     private void UpdateInfoPanel()
     {
+        UpdateFilterCount();
         var selected = FileListView.SelectedItems;
 
         if (selected.Count == 1 && selected[0] is FileItemViewModel item)

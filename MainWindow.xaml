@@ -285,6 +285,18 @@
                     </StackPanel>
                 </Button>
 
+                <Separator/>
+
+                <!-- A bar above the list where the names can be filtered: only what contains the typed letters is listed -->
+                <ToggleButton x:Name="FilterToggle" Click="FilterToggle_Click"
+                              ToolTip="Filter the List by Name (Ctrl+F)"
+                              Padding="6,4">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F50D;" FontSize="12" Margin="0,0,4,0"/>
+                        <TextBlock Text="Filter" FontSize="12"/>
+                    </StackPanel>
+                </ToggleButton>
+
             </ToolBar>
         </ToolBarTray>
 
@@ -551,8 +563,23 @@
                           HorizontalAlignment="Stretch"
                           Background="{DynamicResource SplitterBrush}"/>
 
-            <!-- File list -->
-            <ListView Grid.Column="2" Grid.Row="0"
+            <!-- File list, with the filter bar above it when it is switched on -->
+            <DockPanel Grid.Column="2" Grid.Row="0">
+            <Border x:Name="FilterBar" DockPanel.Dock="Top" Visibility="Collapsed" Padding="8,5"
+                    Background="{DynamicResource PaneBrush}"
+                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
+                <DockPanel LastChildFill="True">
+                    <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                    <Button x:Name="FilterClearButton" DockPanel.Dock="Right" Content="&#x2715;" FontSize="11" Padding="7,2" Margin="6,0,0,0"
+                            ToolTip="Clear the filter (Esc)" Click="FilterClear_Click"/>
+                    <TextBlock x:Name="FilterCountText" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12"
+                               Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+                    <TextBox x:Name="FilterBox" Padding="3" MinWidth="200"
+                             ToolTip="Only the items whose name contains these letters are shown. Several words: every word must be in the name."
+                             TextChanged="FilterBox_TextChanged" PreviewKeyDown="FilterBox_PreviewKeyDown"/>
+                </DockPanel>
+            </Border>
+            <ListView
                       x:Name="FileListView"
                       ItemsSource="{Binding CurrentItems}"
                       SelectionMode="Extended"
@@ -731,6 +758,7 @@
                 </ListView.ContextMenu>
 
             </ListView>
+            </DockPanel>
 
             <!-- Under the list: which item is selected, the hidden items, and a preview of a picture -->
             <!-- 117 = 1 (top line) + 8 + 100 (the preview box) + 8: with 116 the bottom line of the box was cut off -->
