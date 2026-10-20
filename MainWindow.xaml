@@ -397,13 +397,15 @@
                            MouseLeftButtonDown="FolderPicture_MouseLeftButtonDown"/>
                 </Border>
 
-                <!-- Under the tree: the tags of the current folder, read from its desktop.ini (read only), only when it has some -->
+                <!-- Under the tree: the tags of the current folder, from its desktop.ini, only when it has some (a double-click edits them;
+                     Set Tags... in the tree's menu is the way to give a folder its first tags) -->
                 <Border DockPanel.Dock="Bottom" Padding="10,6"
                         Background="{DynamicResource PaneBrush}"
                         BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
-                        Visibility="{Binding HasFolderTags, Converter={StaticResource BoolToVisibility}}">
+                        Visibility="{Binding HasFolderTags, Converter={StaticResource BoolToVisibility}}"
+                        MouseLeftButtonDown="FolderTags_MouseLeftButtonDown">
                     <TextBlock FontSize="12" Text="{Binding FolderTagsText}" TextWrapping="Wrap"
-                               ToolTip="The tags of this folder, from its desktop.ini (the Windows Tags property). They can only be read here."/>
+                               ToolTip="The tags of this folder, from its desktop.ini (the Windows Tags property). Double-click to change them."/>
                 </Border>
 
                 <!-- Under the tree: the rating and expectation of the current folder, only when it has one (a click edits them, as in TeraTool; Ctrl+R / Ctrl+E set them) -->
@@ -491,6 +493,8 @@
                                       ToolTip="Your rating of this folder, 1 to 10. Leave it empty to remove it."/>
                             <MenuItem Header="Expectation..."  Click="TreeCtxExpectation_Click" InputGestureText="Ctrl+E"
                                       ToolTip="How good you expect this folder to be, 1 to 10 (decimals allowed). Leave it empty to remove it."/>
+                            <MenuItem Header="Set Tags..."     Click="TreeCtxTags_Click"
+                                      ToolTip="The tags of this folder, kept in its desktop.ini like Windows' Tags property. Leave it empty to remove them."/>
                             <!-- Open a terminal in this folder: which of the three are shown is set in Settings; one that is not
                                  installed is never shown. The icons are set in code. -->
                             <Separator x:Name="TreeTerminalSeparator"/>

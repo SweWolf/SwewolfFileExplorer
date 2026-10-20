@@ -1072,6 +1072,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(HasFolderTags));
     }
 
+    /// <summary>The tags of the current folder were changed (Set Tags): read them again.</summary>
+    public void ReloadFolderTags() => UpdateFolderTags(_currentPath);
+
     /// <summary>Reads the tags of the folder in the background (a desktop.ini on a slow drive must not hold up the list); the old ones go at once.</summary>
     private void UpdateFolderTags(string path)
     {

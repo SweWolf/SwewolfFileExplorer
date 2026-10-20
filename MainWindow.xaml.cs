@@ -1631,6 +1631,43 @@ public partial class MainWindow : Window
         if (_treeMenuNode != null) RateFolder(_treeMenuNode.FullPath, rating: false);
     }
 
+    // ── Tags of a folder (its desktop.ini, as in TeraTool's Set Tags) ─────────
+
+    private void TreeCtxTags_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) EditFolderTags(_treeMenuNode.FullPath);
+    }
+
+    /// <summary>A double-click on the "Tags: ..." line under the tree edits the current folder's tags.</summary>
+    private void FolderTags_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2) return;
+        e.Handled = true;
+        EditFolderTags(VM.ActiveTab.FolderPath);
+    }
+
+    /// <summary>Asks for the tags of a folder (the box starts with the present ones; empty removes them) and writes them to its desktop.ini.</summary>
+    private void EditFolderTags(string folder)
+    {
+        if (string.IsNullOrEmpty(folder) || !System.IO.Directory.Exists(folder)) return;   // This PC, a folder in an archive
+
+        var name = System.IO.Path.GetFileName(folder.TrimEnd('\\', '/'));
+        if (name.Length == 0) name = folder;
+
+        var dlg = new InputDialog("Set Tags", $"Tags of \"{name}\" (separated by semicolons):", FolderTagReader.Read(folder) ?? "") { Owner = this, Width = 560 };
+        if (dlg.ShowDialog() != true) return;
+
+        if (!FolderTagWriter.TrySet(folder, dlg.InputText, out var error))
+        {
+            MessageBox.Show(this, $"The tags could not be saved:\n{error}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // The line under the tree is for the current folder only.
+        if (string.Equals(SharedState.Key(folder), SharedState.Key(VM.CurrentPath), StringComparison.OrdinalIgnoreCase))
+            VM.ActiveTab.ReloadFolderTags();
+    }
+
     // The two lines under the tree: a click edits the current folder's value.
     private void FolderRating_Click(object sender, MouseButtonEventArgs e)      => RateFolder(VM.ActiveTab.FolderPath, rating: true);
     private void FolderExpectation_Click(object sender, MouseButtonEventArgs e) => RateFolder(VM.ActiveTab.FolderPath, rating: false);
@@ -2170,6 +2207,7 @@ public partial class MainWindow : Window
                 "Reset Tree Root"    => VM.HasTreeRoot,
                 "Send to"    => canChange,
                 "Open in Windows Explorer" => realFolder || System.IO.File.Exists(path),   // a packed file is shown selected in its folder
+                "Set Tags..." => canChange,   // a folder on the disk, not a drive
                 "Cut"        => canChange,
                 "Paste"      => realFolder && FileClipboard.HasFiles(),
                 "Delete"     => canChange,

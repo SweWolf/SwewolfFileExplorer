@@ -34,7 +34,7 @@ what SweWolf File Explorer does (made 2026-10-19). `[x]` = built, `[ ]` = not bu
 - [ ] **14. Sort options.** Shuffle, a natural (number-aware) name sort ?, a "lock sort" toggle, and manual row order with Move Up / Down.
 - [ ] **15. Position and Info columns.** Percent watched; the library already has what it needs.
 - [ ] **16. Hide instead of delete.** A per-file "hide" flag.
-- [ ] **17. Set Tags (write).** Edit the tags of a folder, with search by tag. Reading them from `desktop.ini` is done; where to write them is not decided.
+- [x] **17. Set Tags (write).** "Set Tags..." in the tree's menu and a double-click on the Tags line; written to the folder's `desktop.ini`, as TeraTool did. Not done: search by tag.
 - [ ] **18. Auto-refresh timer.** The list is only read again on F5 and when the window comes to the front.
 - [ ] **19. Go to time / Clear resume point.** Belongs in the media player; not known whether the explorer needs a menu item.
 
