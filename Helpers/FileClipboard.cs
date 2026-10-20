@@ -59,10 +59,10 @@ public static class FileClipboard
         catch (COMException) { return null; }   // the clipboard is in use by another program
     }
 
-    /// <summary>True if the clipboard holds files (from this app, Explorer or another program).</summary>
+    /// <summary>True if the clipboard holds files (from this app, Explorer or another program) or virtual files (Remote Desktop ...).</summary>
     public static bool HasFiles()
     {
-        try { return Clipboard.ContainsFileDropList(); }
+        try { return Clipboard.ContainsFileDropList() || RemoteFiles.HasVirtualFiles(); }
         catch (COMException) { return false; }
     }
 

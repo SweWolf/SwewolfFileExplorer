@@ -17,26 +17,51 @@ public sealed class TransferProgress
     public long BytesTotal { get => Interlocked.Read(ref _bytesTotal); set => Interlocked.Exchange(ref _bytesTotal, value); }
 }
 
-/// <summary>What was done: the items that were copied or moved (from, to), the ones that failed (name, reason), and whether the user canceled.</summary>
-public sealed record TransferResult(List<(string From, string To)> Done, List<(string Name, string Reason)> Failed, bool Canceled, int Total);
+/// <summary>What was done: the items that were copied or moved (from, to), the ones that failed (name, reason), whether the user canceled, and how many files were skipped at the user's choice.</summary>
+public sealed record TransferResult(List<(string From, string To)> Done, List<(string Name, string Reason)> Failed, bool Canceled, int Total, int Skipped = 0);
 
 /// <summary>
 /// Copies or moves files and folders on a background thread, with progress and a way to cancel (Paste, Cut and Paste).
 ///
 /// The unit is what the user selected (a file or a folder): <b>an item is either done or not done</b>. On Cancel the items that
-/// are finished stay finished, the one being copied is removed again (the half-written file or folder; the original is never
-/// touched until its copy is complete) and the ones not started are left alone. Files are copied with Windows' own
-/// <c>CopyFileEx</c>: it is fast, keeps dates, attributes and security, and reports progress and can be stopped.
+/// are finished stay finished, the one being copied is removed again (the half-written file; for a folder only what this
+/// paste made in it) and the ones not started are left alone. Files are copied with Windows' own
+/// <c>CopyFileEx</c>: it is fast, keeps dates, attributes and security, reports progress and can be stopped.
 /// A move inside one drive is a rename (instant); between drives it is a copy and then a delete of the original.
+///
+/// <b>A name that is taken</b> (see <see cref="ConflictPolicy"/>, <see cref="FileReplace"/>): the user is asked Replace / Keep Both /
+/// Skip / Cancel. Every file is first written under a temporary name in its destination folder and renamed when complete; a replaced
+/// file goes to the Recycle Bin only when the new one is complete. A folder meeting a folder of the same name is merged (the files
+/// inside are asked about one by one); a name taken by something of another kind, or by the source itself, is Keep Both.
 /// </summary>
 public static class FileTransfer
 {
     public static Task<TransferResult> RunAsync(IReadOnlyList<string> sources, string destinationFolder, bool move,
-                                                TransferProgress progress, CancellationToken cancel) =>
-        Task.Run(() => Run(sources, destinationFolder, move, progress, cancel));
+                                                TransferProgress progress, CancellationToken cancel, ConflictPolicy? policy = null) =>
+        Task.Run(() => Run(sources, destinationFolder, move, progress, cancel, policy));
+
+    /// <summary>What one item (a file, or a folder with everything in it) made, and what it copied (for the library and for a move's delete).</summary>
+    private sealed class ItemState
+    {
+        public readonly List<(string Path, bool IsDirectory)> Created = new();   // new files and folders made by this paste (never a replaced file)
+        public readonly List<(string From, string To)> Files = new();            // every file copied or moved, source and destination
+        public int Skipped;
+        public bool Merged;
+    }
+
+    private sealed class Ctx(bool move, TransferProgress progress, CancellationToken cancel, ConflictPolicy? policy)
+    {
+        public readonly bool Move = move;
+        public readonly TransferProgress Progress = progress;
+        public readonly CancellationToken Cancel = cancel;
+        public readonly ConflictPolicy? Policy = policy;
+        public long BytesBefore;
+        public int Skipped;
+        public ItemState Item = new();
+    }
 
     private static TransferResult Run(IReadOnlyList<string> sources, string destinationFolder, bool move,
-                                      TransferProgress progress, CancellationToken cancel)
+                                      TransferProgress progress, CancellationToken cancel, ConflictPolicy? policy)
     {
         var done   = new List<(string, string)>();
         var failed = new List<(string, string)>();
@@ -55,51 +80,75 @@ public static class FileTransfer
         progress.BytesTotal = bytes;
         progress.Preparing  = false;
 
-        long bytesBefore = 0;
+        if (policy != null)
+        {
+            policy.IsMove = move;
+            policy.MultipleFiles = sources.Count > 1 || sources.Any(Directory.Exists);   // one file: nothing to apply "to all"
+        }
+
+        var ctx = new Ctx(move, progress, cancel, policy);
         foreach (var src in sources)
         {
-            if (cancel.IsCancellationRequested) return new TransferResult(done, failed, true, sources.Count);
+            if (cancel.IsCancellationRequested) return new TransferResult(done, failed, true, sources.Count, ctx.Skipped);
 
             var name = Path.GetFileName(src.TrimEnd('\\', '/'));
-            var dest = GetUniqueDestPath(destinationFolder, name);
+            var dest = Path.Combine(destinationFolder, name);
+            ctx.Item = new ItemState();
             try
             {
-                if (move && SameDrive(src, destinationFolder))
+                if (Directory.Exists(src))
                 {
-                    progress.CurrentName = name;
-                    progress.FileIndex++;
-                    if (Directory.Exists(src)) Directory.Move(src, dest); else File.Move(src, dest);
+                    var (final, merged) = ChooseFolderDest(src, dest);
+                    ctx.Item.Merged = merged;
+
+                    if (move && !merged && SameDrive(src, destinationFolder))
+                    {
+                        progress.CurrentName = name;
+                        progress.FileIndex++;
+                        Directory.Move(src, final);
+                        done.Add((src, final));
+                        continue;
+                    }
+
+                    if (!merged) { Directory.CreateDirectory(final); ctx.Item.Created.Add((final, true)); }
+                    CopyDirectory(src, final, ctx);
+
+                    if (move) DeleteCopiedSources(src, ctx, failed);
+
+                    // A folder that arrived whole is one entry for the library; a merged or partly skipped one is its files.
+                    if (!merged && ctx.Item.Skipped == 0) done.Add((src, final));
+                    else done.AddRange(ctx.Item.Files);
                 }
                 else
                 {
-                    if (Directory.Exists(src)) CopyDirectory(src, dest, progress, cancel, ref bytesBefore);
-                    else                       CopyOne(src, dest, progress, cancel, ref bytesBefore);
+                    var final = TransferFile(src, dest, ctx);
+                    if (final == null) continue;   // skipped at the user's choice
 
-                    if (move)   // the copy is complete: now the original goes
+                    if (move && !SameDrive(src, destinationFolder))   // the copy is complete: now the original goes
                     {
-                        try { if (Directory.Exists(src)) Directory.Delete(src, recursive: true); else File.Delete(src); }
+                        try { File.Delete(src); }
                         catch (Exception ex)
                         {
                             failed.Add((name, $"it was copied, but the original could not be deleted: {ex.Message}"));
                             continue;
                         }
                     }
+                    done.Add((src, final));
                 }
-                done.Add((src, dest));
             }
             catch (OperationCanceledException)
             {
-                RemovePartial(dest);
-                return new TransferResult(done, failed, true, sources.Count);
+                Undo(ctx.Item);
+                return new TransferResult(done, failed, true, sources.Count, ctx.Skipped);
             }
             catch (Exception ex)
             {
-                RemovePartial(dest);
+                Undo(ctx.Item);
                 failed.Add((name, ex.Message));
             }
         }
 
-        return new TransferResult(done, failed, false, sources.Count);
+        return new TransferResult(done, failed, false, sources.Count, ctx.Skipped);
     }
 
     // ── Counting ──────────────────────────────────────────────────────────────
@@ -121,60 +170,168 @@ public static class FileTransfer
         }
     }
 
-    // ── Copying ───────────────────────────────────────────────────────────────
+    // ── Folders ───────────────────────────────────────────────────────────────
 
-    private static void CopyDirectory(string src, string dest, TransferProgress progress, CancellationToken cancel, ref long bytesBefore)
+    /// <summary>The folder to copy into: the same-named folder that is there (merge), or the new name when the name is taken by a file or by the source itself.</summary>
+    private static (string Path, bool Merged) ChooseFolderDest(string src, string dest)
     {
-        cancel.ThrowIfCancellationRequested();
-        Directory.CreateDirectory(dest);
+        if (!Directory.Exists(dest) && !File.Exists(dest)) return (dest, false);
+        if (Directory.Exists(dest) && !SamePath(src, dest)) return (dest, true);
+        return (GetUniqueDestPath(Path.GetDirectoryName(dest)!, Path.GetFileName(dest)), false);
+    }
+
+    private static void CopyDirectory(string src, string dest, Ctx ctx)
+    {
+        ctx.Cancel.ThrowIfCancellationRequested();
         var dir = new DirectoryInfo(src);
         foreach (var f in dir.EnumerateFiles())
-            CopyOne(f.FullName, Path.Combine(dest, f.Name), progress, cancel, ref bytesBefore);
+            TransferFile(f.FullName, Path.Combine(dest, f.Name), ctx);
+
         foreach (var d in dir.EnumerateDirectories())
         {
             // A junction or symbolic link is not followed (it could lead back into the folder being copied).
             if ((d.Attributes & FileAttributes.ReparsePoint) != 0) continue;
-            CopyDirectory(d.FullName, Path.Combine(dest, d.Name), progress, cancel, ref bytesBefore);
+
+            var sub = Path.Combine(dest, d.Name);
+            if (File.Exists(sub)) sub = GetUniqueDestPath(dest, d.Name);   // a file of that name: the folder gets another
+            if (!Directory.Exists(sub))
+            {
+                Directory.CreateDirectory(sub);
+                ctx.Item.Created.Add((sub, true));
+            }
+            CopyDirectory(d.FullName, sub, ctx);
         }
     }
 
-    private static void CopyOne(string src, string dest, TransferProgress progress, CancellationToken cancel, ref long bytesBefore)
+    /// <summary>After a folder was moved by copying: deletes the files that were copied, then the folders left empty. Files that were skipped stay, and so do their folders.</summary>
+    private static void DeleteCopiedSources(string srcRoot, Ctx ctx, List<(string, string)> failed)
     {
-        cancel.ThrowIfCancellationRequested();
-        progress.CurrentName = Path.GetFileName(src);
-        progress.FileIndex++;
+        foreach (var (from, _) in ctx.Item.Files)
+        {
+            try { File.Delete(from); }
+            catch (Exception ex) { failed.Add((Path.GetFileName(from), $"it was copied, but the original could not be deleted: {ex.Message}")); }
+        }
+        RemoveEmptyFolders(srcRoot);
+    }
 
-        long before = bytesBefore;
+    private static void RemoveEmptyFolders(string folder)
+    {
+        try
+        {
+            foreach (var d in Directory.EnumerateDirectories(folder))
+                if ((File.GetAttributes(d) & FileAttributes.ReparsePoint) == 0) RemoveEmptyFolders(d);
+            if (!Directory.EnumerateFileSystemEntries(folder).Any()) Directory.Delete(folder);
+        }
+        catch { /* not empty, or in use: it stays */ }
+    }
+
+    // ── One file ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Copies (or, inside one drive, moves) one file to <paramref name="dest"/>, asking what to do if the name is taken.
+    /// Returns where it went, or null if the user skipped it.
+    /// </summary>
+    private static string? TransferFile(string src, string dest, Ctx ctx)
+    {
+        ctx.Cancel.ThrowIfCancellationRequested();
+        var info = new FileInfo(src);
+        ctx.Progress.CurrentName = info.Name;
+        ctx.Progress.FileIndex++;
+
+        var (choice, final, replace) = FileReplace.Decide(ctx.Policy, dest, info.Length, info.LastWriteTime,
+                                                          "Pasted file", SamePath(src, dest));
+        if (choice == ConflictChoice.Cancel) throw new OperationCanceledException();
+        if (choice == ConflictChoice.Skip)
+        {
+            ctx.BytesBefore += info.Length;
+            ctx.Progress.BytesDone = ctx.BytesBefore;
+            ctx.Skipped++;
+            ctx.Item.Skipped++;
+            return null;
+        }
+
+        if (replace) FileReplace.CheckCanReplace(dest);   // before a big copy, not after it
+
+        if (ctx.Move && SameDrive(src, final))
+        {
+            // A rename: instant, so no temporary file is needed.
+            if (replace) FileReplace.Remove(dest);
+            File.Move(src, final);
+        }
+        else
+        {
+            final = CopyViaTemp(src, final, replace, ctx);
+            if (!replace) ctx.Item.Created.Add((final, false));
+        }
+
+        ctx.Item.Files.Add((src, final));
+        return final;
+    }
+
+    private static string CopyViaTemp(string src, string final, bool replace, Ctx ctx)
+    {
+        var temp = FileReplace.TempNameFor(final);
+        bool keepTemp = false;
+        try
+        {
+            CopyOne(src, temp, ctx);
+            if (new FileInfo(temp).Length != new FileInfo(src).Length) throw new IOException("the copy is not complete");
+
+            if (replace) FileReplace.Remove(final);
+            return FileReplace.MoveIntoPlace(temp, final, replace);
+        }
+        catch (FileReplace.KeepTempException) { keepTemp = true; throw; }
+        finally
+        {
+            if (!keepTemp)
+            {
+                try { if (File.Exists(temp)) File.Delete(temp); } catch { /* a leftover .swewolf-part file, ours */ }
+            }
+        }
+    }
+
+    private static void CopyOne(string src, string dest, Ctx ctx)
+    {
+        long before = ctx.BytesBefore;
         int cancelFlag = 0;
         CopyProgressRoutine callback = (total, transferred, _, _, _, _, _, _, _) =>
         {
-            progress.BytesDone = before + transferred;
-            return cancel.IsCancellationRequested ? PROGRESS_CANCEL : PROGRESS_CONTINUE;
+            ctx.Progress.BytesDone = before + transferred;
+            return ctx.Cancel.IsCancellationRequested ? PROGRESS_CANCEL : PROGRESS_CONTINUE;
         };
 
         // COPY_FILE_FAIL_IF_EXISTS (1): never overwrite. COPY_FILE_ALLOW_DECRYPTED_DESTINATION (8): an encrypted file may go to a drive without encryption.
         if (!CopyFileExW(src, dest, callback, IntPtr.Zero, ref cancelFlag, 1 | 8))
         {
             int error = Marshal.GetLastWin32Error();
-            if (error == ERROR_REQUEST_ABORTED || cancel.IsCancellationRequested) throw new OperationCanceledException();
+            if (error == ERROR_REQUEST_ABORTED || ctx.Cancel.IsCancellationRequested) throw new OperationCanceledException();
             throw new IOException(new System.ComponentModel.Win32Exception(error).Message);
         }
 
         GC.KeepAlive(callback);
-        bytesBefore += new FileInfo(src).Length;
-        progress.BytesDone = bytesBefore;
+        ctx.BytesBefore += new FileInfo(src).Length;
+        ctx.Progress.BytesDone = ctx.BytesBefore;
     }
 
-    /// <summary>Removes what an unfinished or failed copy left at <paramref name="dest"/> (a name made new for this copy, so nothing of the user's).</summary>
-    private static void RemovePartial(string dest)
+    /// <summary>
+    /// Removes what an unfinished or failed item made: the files, then the folders, deepest first, and only what this paste created.
+    /// A replaced file is not in the list (the new file is complete and in place, the old one in the Recycle Bin).
+    /// </summary>
+    private static void Undo(ItemState item)
     {
-        try
+        foreach (var (path, isDir) in Enumerable.Reverse(item.Created))
         {
-            if (Directory.Exists(dest)) Directory.Delete(dest, recursive: true);
-            else if (File.Exists(dest)) File.Delete(dest);
+            try
+            {
+                if (!isDir) File.Delete(path);
+                else if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any()) Directory.Delete(path);
+            }
+            catch { /* leave it: better a leftover than touching something else */ }
         }
-        catch { /* nothing more can be done: the next paste gets another name */ }
     }
+
+    private static bool SamePath(string a, string b) =>
+        string.Equals(Path.GetFullPath(a).TrimEnd('\\'), Path.GetFullPath(b).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
 
     // ── Names and drives ──────────────────────────────────────────────────────
 

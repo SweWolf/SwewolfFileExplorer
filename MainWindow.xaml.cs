@@ -616,6 +616,12 @@ public partial class MainWindow : Window
 
     private void FileListView_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
+        // A click on the empty part of the list gives the list the keyboard focus (it stayed in the tree after a click there, so Ctrl+V,
+        // Ctrl+C, Delete ... did nothing). Not for the header or a scroll bar, which have their own handling.
+        if (e.ChangedButton is MouseButton.Left or MouseButton.Right && !FileListView.IsKeyboardFocusWithin
+            && FindItemUnder<FileItemViewModel>(e.OriginalSource) == null && !IsHeaderOrScrollBar(e.OriginalSource))
+            FileListView.Focus();
+
         // Middle-click on a folder opens it in a new tab, behind the current one.
         if (e.ChangedButton != MouseButton.Middle) return;
         if (FindItemUnder<FileItemViewModel>(e.OriginalSource) is { IsDirectory: true } folder)
@@ -739,6 +745,13 @@ public partial class MainWindow : Window
     }
 
     /// <summary>The data item of the list or tab row the mouse is over, or null.</summary>
+    private static bool IsHeaderOrScrollBar(object source)
+    {
+        for (var d = source as DependencyObject; d != null; d = VisualTreeHelper.GetParent(d))
+            if (d is GridViewColumnHeader or System.Windows.Controls.Primitives.ScrollBar) return true;
+        return false;
+    }
+
     private static T? FindItemUnder<T>(object source) where T : class
     {
         for (var d = source as DependencyObject; d != null; d = VisualTreeHelper.GetParent(d))
@@ -2707,6 +2720,20 @@ public partial class MainWindow : Window
         {
             if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } rated)
                 RateFolder(rated.FullPath, rating: e.Key == Key.R);
+            e.Handled = true;
+            return;
+        }
+
+        // Ctrl+C / Ctrl+X / Ctrl+V in the tree work on the selected folder, as the tree's menu does (Cut: not a drive or anything
+        // in an archive; Paste: into the folder, if it is a real folder and the clipboard holds files).
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.C or Key.X or Key.V)
+        {
+            if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } selected)
+            {
+                if (e.Key == Key.C) VM.PutFolderOnClipboard(selected.FullPath, cut: false);
+                else if (e.Key == Key.X && CanChangeFolder(selected.FullPath)) VM.PutFolderOnClipboard(selected.FullPath, cut: true);
+                else if (e.Key == Key.V && System.IO.Directory.Exists(selected.FullPath) && FileClipboard.HasFiles()) VM.PasteInto(selected.FullPath);
+            }
             e.Handled = true;
             return;
         }

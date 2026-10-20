@@ -2048,7 +2048,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public async void PasteInto(string destination)
     {
         if (_pasting) return;
-        if (FileClipboard.Get() is not var (sources, isCut)) return;
+        if (FileClipboard.Get() is not var (sources, isCut))
+        {
+            if (RemoteFiles.HasVirtualFiles()) await PasteRemoteAsync(destination);
+            return;
+        }
 
         // Cut video or music files: do the files that belong to them follow? Asked before anything is moved; Cancel stops the paste.
         var relatedMoves = new List<RelatedMove>();
@@ -2122,6 +2126,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         if (result.Canceled)
             StatusText = $"{(isCut ? "Move" : "Copy")} canceled: {result.Done.Count} of {result.Total} items were done.";
+        else if (result.Skipped > 0)
+            StatusText = $"{result.Skipped} {(result.Skipped == 1 ? "file was" : "files were")} skipped.";
     }
 
     /// <summary>
@@ -2183,18 +2189,39 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// Runs the transfer and, when it takes longer than half a second, shows the progress window (a quick one finishes before a
     /// window would be worth the flicker, as in Explorer). The window is modal: nothing else can be changed meanwhile.
     /// </summary>
-    private async Task<TransferResult> RunTransferAsync(List<string> sources, string destination, bool move)
+    private Task<TransferResult> RunTransferAsync(List<string> sources, string destination, bool move)
+    {
+        var what   = move ? "Moving" : "Copying";
+        var thing  = sources.Count == 1 ? $"'{Path.GetFileName(sources[0].TrimEnd('\\', '/'))}'" : $"{sources.Count} items";
+        var policy = NewConflictPolicy();
+        return RunWithProgressAsync((progress, token) => FileTransfer.RunAsync(sources, destination, move, progress, token, policy), what, thing, destination, policy);
+    }
+
+    /// <summary>The "file exists" question: shown on the UI thread (the copying runs on another), on top of the window that is in front.</summary>
+    private static ConflictPolicy NewConflictPolicy() => new(info =>
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current.MainWindow;
+            var dlg = new Views.ConflictDialog(info) { Owner = owner };
+            dlg.ShowDialog();
+            return (dlg.Choice, dlg.ForAll);
+        }));
+
+    private static async Task<TransferResult> RunWithProgressAsync(Func<TransferProgress, CancellationToken, Task<TransferResult>> work,
+                                                                   string what, string thing, string destination, ConflictPolicy? policy = null)
     {
         var progress = new TransferProgress();
         using var cts = new CancellationTokenSource();
-        var task = FileTransfer.RunAsync(sources, destination, move, progress, cts.Token);
+        var task = work(progress, cts.Token);
 
         if (await Task.WhenAny(task, Task.Delay(500)) != task)
         {
-            var what   = move ? "Moving" : "Copying";
+            // A "file exists" question may be on screen: the progress window waits until it is answered (two windows on top of each other would be confusing).
+            while (policy?.IsAsking == true && !task.IsCompleted) await Task.Delay(100);
+            if (task.IsCompleted) return await task;
+
             var target = Path.GetFileName(destination.TrimEnd('\\', '/'));
             if (string.IsNullOrEmpty(target)) target = destination;   // a drive: D:\\
-            var thing  = sources.Count == 1 ? $"'{Path.GetFileName(sources[0].TrimEnd('\\', '/'))}'" : $"{sources.Count} items";
 
             var dlg = new Views.ProgressDialog(what, $"{what} {thing} to '{target}'", progress, () => cts.Cancel())
                       { Owner = Application.Current?.MainWindow };
@@ -2203,6 +2230,36 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         return await task;
+    }
+
+    /// <summary>
+    /// Paste of files that are not on a disk (Remote Desktop clipboard): see <see cref="RemoteFiles"/>. Always a copy: a Cut on the
+    /// other side is never answered with a delete over there, and the clipboard is left as it is.
+    /// </summary>
+    private async Task PasteRemoteAsync(string destination)
+    {
+        _pasting = true;
+        TransferResult result;
+        var policy = NewConflictPolicy();
+        try { result = await RunWithProgressAsync((progress, token) => RemoteFiles.RunAsync(destination, progress, token, policy),
+                                                  "Copying", "files from the clipboard", destination, policy); }
+        finally { _pasting = false; }
+
+        if (result.Failed.Count > 0)
+        {
+            var lines = result.Failed.Take(8).Select(f => $"{f.Name}: {f.Reason}");
+            var more  = result.Failed.Count > 8 ? $"{Environment.NewLine}... and {result.Failed.Count - 8} more." : "";
+            MessageBox.Show($"These could not be copied:{Environment.NewLine}{Environment.NewLine}" + string.Join(Environment.NewLine, lines) + more,
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        Refresh();
+        RefreshTreeFolder(destination);
+
+        if (result.Canceled)
+            StatusText = $"Copy canceled: {result.Done.Count} of {result.Total} items were done.";
+        else if (result.Skipped > 0)
+            StatusText = $"{result.Skipped} {(result.Skipped == 1 ? "file was" : "files were")} skipped.";
     }
 
     private static string NormalizePath(string path) =>
