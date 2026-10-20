@@ -46,6 +46,9 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Artist,       "Artist",        ArtistColumn, visible: false),
             new ColumnInfo(SortColumn.Title,        "Title",         TitleColumn, visible: false),
             new ColumnInfo(SortColumn.TrackNumber,  "Track Number",  TrackColumn, visible: false),
+            new ColumnInfo(SortColumn.Length,       "Length",        LengthColumn, visible: false),
+            new ColumnInfo(SortColumn.Bitrate,      "Bitrate",       BitrateColumn, visible: false),
+            new ColumnInfo(SortColumn.Dimensions,   "Dimensions",    DimensionsColumn, visible: false),
             new ColumnInfo(SortColumn.Rating,       "Rating",        RatingColumn, visible: false),
             new ColumnInfo(SortColumn.Expectation,  "Expectation",   ExpectationColumn, visible: false)
         });
@@ -137,7 +140,9 @@ public partial class MainWindow : Window
         VM.SetSort(info.Key, ascending);   // remembered for this folder; comes back as SortChanged
     }
 
-    private static bool IsTagColumn(SortColumn key) => key is SortColumn.Artist or SortColumn.Title or SortColumn.TrackNumber;
+    // The columns that need the files to be read (tags, length, bitrate, size in pixels).
+    private static bool IsTagColumn(SortColumn key) =>
+        key is SortColumn.Artist or SortColumn.Title or SortColumn.TrackNumber or SortColumn.Length or SortColumn.Bitrate or SortColumn.Dimensions;
 
     private void ApplySort(SortColumn key, bool ascending)
     {
@@ -544,6 +549,9 @@ public partial class MainWindow : Window
             SortColumn.DateCreated  => item.DateCreated.ToString("MM/dd/yyyy  HH:mm", CultureInfo.InvariantCulture),
             SortColumn.Type         => item.TypeName,
             SortColumn.Size         => sizeConverter.Convert(item.Size, typeof(string), null!, CultureInfo.CurrentCulture) as string ?? "",
+            SortColumn.Length       => item.LengthText,
+            SortColumn.Bitrate      => item.BitrateText,
+            SortColumn.Dimensions   => item.DimensionsText,
             _                       => ""
         };
 

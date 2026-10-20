@@ -2,8 +2,12 @@ using System.IO;
 
 namespace SwewolfFileExplorer.Helpers;
 
-/// <summary>What the tags of a music file say.</summary>
-public record AudioTags(string Artist, string Title, uint TrackNumber);
+/// <summary>
+/// What the tags of a music file say, and what is known about the file itself: its length, its bitrate (kbps; for a video the
+/// whole file's, for a music file the audio's) and, for a video or a picture, its width and height. Zero when not known.
+/// </summary>
+public record AudioTags(string Artist, string Title, uint TrackNumber,
+                        TimeSpan Duration = default, int BitrateKbps = 0, int Width = 0, int Height = 0);
 
 /// <summary>
 /// Reads the tags of a music file with TagLibSharp (mp3, m4a, flac, ogg, opus, wma, wav, ...), for the
@@ -26,12 +30,20 @@ public static class AudioTagReader
 
     public static bool HasTags(string path) => AudioExtensions.Contains(Path.GetExtension(path));
 
-    /// <summary>The artist, title and track number of a music file; null if it has none or cannot be read.</summary>
+    /// <summary>A file of a kind the Length, Bitrate and Dimensions columns can say something about: music, video or a picture.</summary>
+    public static bool HasMediaInfo(string path) =>
+        HasTags(path) || MediaPlayerLauncher.IsVideo(path) || ThumbnailLoader.IsImage(path);
+
+    /// <summary>
+    /// The artist, title and track number of a music file, and its length, bitrate and size in pixels (for the list's columns);
+    /// null if nothing is known or the file cannot be read.
+    /// </summary>
     public static AudioTags? Read(string path)
     {
         try
         {
-            using var file = TagLib.File.Create(path, TagLib.ReadStyle.None);   // None: the tags only, not the audio properties
+            // Average: the tags and the properties of the audio / video / picture (read from the start of the file, not all of it).
+            using var file = TagLib.File.Create(path, TagLib.ReadStyle.Average);
             var tag = file.Tag;
 
             // The artist; many files (an album ripped to flac) only have the album artist, which Explorer shows too.
@@ -41,9 +53,19 @@ public static class AudioTagReader
             var title = (tag.Title ?? "").Trim();
             var track = tag.Track;
 
-            return artist.Length == 0 && title.Length == 0 && track == 0
+            var props    = file.Properties;
+            var duration = props?.Duration ?? TimeSpan.Zero;
+            int width    = props?.VideoWidth  > 0 ? props.VideoWidth  : props?.PhotoWidth  ?? 0;
+            int height   = props?.VideoHeight > 0 ? props.VideoHeight : props?.PhotoHeight ?? 0;
+
+            // A video's bitrate is the whole file's (its size over its length); a music file's is the audio's.
+            int kbps = props?.AudioBitrate ?? 0;
+            if (props?.VideoWidth > 0 && duration.TotalSeconds >= 1)
+                kbps = (int)Math.Round(new FileInfo(path).Length * 8 / duration.TotalSeconds / 1000);
+
+            return artist.Length == 0 && title.Length == 0 && track == 0 && duration == TimeSpan.Zero && kbps == 0 && width == 0
                 ? null
-                : new AudioTags(artist, title, track);
+                : new AudioTags(artist, title, track, duration, kbps, width, height);
         }
         catch
         {

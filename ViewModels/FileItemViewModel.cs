@@ -56,15 +56,40 @@ public class FileItemViewModel : INotifyPropertyChanged
     /// <summary>The tags of this file were asked for already (they are read once, in the background).</summary>
     public bool TagsRequested { get; set; }
 
+    // What is known about the file itself (the Length, Bitrate and Dimensions columns). Zero until read, or when the file has none.
+    public TimeSpan Duration { get; private set; }
+    public int BitrateKbps { get; private set; }
+    public int Width { get; private set; }
+    public int Height { get; private set; }
+
+    /// <summary>"3:45", or "1:02:03" from an hour up.</summary>
+    public string LengthText => Duration < TimeSpan.FromSeconds(0.5) ? ""
+        : Duration.TotalHours >= 1 ? $"{(int)Duration.TotalHours}:{Duration.Minutes:00}:{Duration.Seconds:00}"
+        : $"{Duration.Minutes}:{Duration.Seconds:00}";
+
+    public string BitrateText => BitrateKbps > 0 ? $"{BitrateKbps} kbps" : "";
+
+    public string DimensionsText => Width > 0 && Height > 0 ? $"{Width} x {Height}" : "";
+
+    /// <summary>For sorting by dimensions: the number of pixels.</summary>
+    public long Pixels => (long)Width * Height;
+
     public void SetTags(AudioTags tags)
     {
         Artist      = tags.Artist;
         Title       = tags.Title;
         TrackNumber = tags.TrackNumber;
+        Duration    = tags.Duration;
+        BitrateKbps = tags.BitrateKbps;
+        Width       = tags.Width;
+        Height      = tags.Height;
         OnPropertyChanged(nameof(Artist));
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(TrackNumber));
         OnPropertyChanged(nameof(TrackText));
+        OnPropertyChanged(nameof(LengthText));
+        OnPropertyChanged(nameof(BitrateText));
+        OnPropertyChanged(nameof(DimensionsText));
     }
 
     // The user's own rating and expectation (1-10; kept in the library). None until set; the columns show them.

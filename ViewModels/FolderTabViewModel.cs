@@ -1113,7 +1113,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (!_shared.TagColumnsVisible || _inArchive) return;   // not on the disk: the tags of a file in an archive are not read (yet)
 
         var pending = CurrentItems
-            .Where(i => !i.IsDirectory && !i.TagsRequested && AudioTagReader.HasTags(i.FullPath))
+            .Where(i => !i.IsDirectory && !i.TagsRequested && AudioTagReader.HasMediaInfo(i.FullPath))
             .ToList();
         if (pending.Count == 0) return;
 

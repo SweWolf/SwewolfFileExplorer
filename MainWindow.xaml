@@ -661,6 +661,17 @@
                         <GridViewColumn Header="Track Number" Width="110" x:Name="TrackColumn"
                                         DisplayMemberBinding="{Binding TrackText}"/>
 
+                        <!-- What is known about the file itself (read in the background, like the tags): music, video and pictures.
+                             Left-aligned, header too, like the other columns (only Size is right-aligned). Dimensions is width x height in one column. -->
+                        <GridViewColumn Header="Length" Width="80" x:Name="LengthColumn"
+                                        DisplayMemberBinding="{Binding LengthText}"/>
+
+                        <GridViewColumn Header="Bitrate" Width="100" x:Name="BitrateColumn"
+                                        DisplayMemberBinding="{Binding BitrateText}"/>
+
+                        <GridViewColumn Header="Dimensions" Width="110" x:Name="DimensionsColumn"
+                                        DisplayMemberBinding="{Binding DimensionsText}"/>
+
                         <!-- The user's own rating and expectation (1-10, Ctrl+R and Ctrl+E), as in TeraTool. Hidden until used. -->
                         <GridViewColumn Header="Rating" Width="80" x:Name="RatingColumn"
                                         DisplayMemberBinding="{Binding RatingText}"/>
