@@ -106,6 +106,7 @@
                          AllowDrop="True"
                          PreviewMouseDown="TabStrip_PreviewMouseDown"
                          PreviewMouseRightButtonUp="TabStrip_PreviewMouseRightButtonUp"
+                         KeyDown="TabStrip_KeyDown"
                          PreviewMouseLeftButtonDown="TabStrip_PreviewMouseLeftButtonDown"
                          PreviewMouseMove="TabStrip_PreviewMouseMove"
                          DragOver="TabStrip_DragOver">

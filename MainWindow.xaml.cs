@@ -518,11 +518,19 @@ public partial class MainWindow : Window
         new ContextMenu { Items = { rename, reset }, Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, IsOpen = true };
     }
 
+    /// <summary>F2 with a tab clicked (the tab strip has the focus) renames that tab, as F2 renames a file in the list.</summary>
+    private void TabStrip_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F2) return;
+        e.Handled = true;
+        RenameTab(VM.ActiveTab);
+    }
+
     private void RenameTab(FolderTabViewModel tab)
     {
-        var dlg = new InputDialog("Rename Tab",
-            "Name of the tab:\nThis only changes the text on the tab, not the name of the folder. Leave it empty to show the name of the folder again.",
-            tab.TitleForEditing) { Owner = this, Width = 520 };
+        var dlg = new InputDialog("Rename Tab", "Name of the tab:", tab.TitleForEditing,
+            hint: "This only changes the text on the tab, not the name of the folder. Leave it empty to show the name of the folder again.")
+            { Owner = this, Width = 520 };
         if (dlg.ShowDialog() == true) tab.SetCustomTitle(dlg.InputText);   // saved in a workspace or session with the rest
     }
 

@@ -46,6 +46,10 @@
                      ToolTip="The extension (file type) of the file. Change it only if you know what it does."/>
         </Grid>
 
+        <!-- Under the box: a few words of explanation (Rename Tab). Only when a hint is given. -->
+        <TextBlock x:Name="HintText" Grid.Row="3" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" FontSize="12"
+                   Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+
         <!-- Only for Rename: the smart name of a music or video file, and the case buttons. Collapsed otherwise. -->
         <StackPanel x:Name="ExtrasPanel" Grid.Row="3" Margin="0,8,0,0" Visibility="Collapsed">
             <StackPanel Orientation="Horizontal">
