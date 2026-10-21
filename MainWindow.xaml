@@ -492,6 +492,7 @@
                           ContextMenuOpening="NavigationTree_ContextMenuOpening"
                           AllowDrop="True" DragOver="NavigationTree_DragOver" Drop="NavigationTree_Drop"
                           KeyDown="NavigationTree_KeyDown"
+                          PreviewTextInput="NavigationTree_PreviewTextInput"
                           SelectedItemChanged="NavigationTree_SelectedItemChanged">
 
                     <!-- Right-click on a folder of the tree: the menu works on that folder, which need not be the current one -->

@@ -1617,6 +1617,17 @@ public partial class MainWindow : Window
 
     private void FileListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        // Quick clicks on a scroll bar (to page down) must not open the selected item.
+        for (var d = e.OriginalSource as DependencyObject; d != null && d != FileListView; d = d is Visual or System.Windows.Media.Media3D.Visual3D
+                 ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+        {
+            if (d is System.Windows.Controls.Primitives.ScrollBar)
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
         // A double-click on the Rating or Expectation cell edits it (as in TeraTool); anywhere else it opens the item.
         var column = ColumnUnderMouse(e);
         if (column is SortColumn.Rating or SortColumn.Expectation && FileListView.SelectedItem is FileItemViewModel)
@@ -1856,6 +1867,50 @@ public partial class MainWindow : Window
         FileListView.ScrollIntoView(item);
         FileListView.UpdateLayout();
         (FileListView.ItemContainerGenerator.ContainerFromItem(item) as ListViewItem)?.Focus();   // the arrow keys go on from here
+    }
+
+    private readonly TypeAhead _treeTypeAhead = new();
+
+    /// <summary>
+    /// A letter typed in the tree goes to the next visible node whose name starts with it, as in Windows Explorer: only nodes that are
+    /// already shown count (nothing is expanded by typing), children of expanded nodes included, in the order they appear.
+    /// </summary>
+    private void NavigationTree_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        var typed = e.Text;
+        if (string.IsNullOrEmpty(typed) || typed.Any(char.IsControl)) return;
+
+        var nodes = new List<List<TreeItemViewModel>>();   // each entry: the path from a top node down to the visible node
+        void Walk(IEnumerable<TreeItemViewModel> level, List<TreeItemViewModel> parents)
+        {
+            foreach (var node in level)
+            {
+                var path = new List<TreeItemViewModel>(parents) { node };
+                nodes.Add(path);
+                if (node.IsExpanded) Walk(node.Children, path);
+            }
+        }
+        Walk(VM.TreeItems, new List<TreeItemViewModel>());
+        if (nodes.Count == 0) return;
+
+        int current = NavigationTree.SelectedItem is TreeItemViewModel sel ? nodes.FindIndex(p => p[^1] == sel) : -1;
+        int found = _treeTypeAhead.Next(nodes.Select(p => p[^1].Name).ToList(), current, typed, DateTime.UtcNow);
+        e.Handled = true;
+        if (found < 0) return;
+
+        var target = nodes[found];
+        target[^1].IsSelected = true;
+
+        // Give the node the keyboard focus (the arrow keys go on from here): walk down through the containers.
+        NavigationTree.UpdateLayout();
+        ItemsControl level2 = NavigationTree;
+        foreach (var node in target)
+        {
+            if (level2.ItemContainerGenerator.ContainerFromItem(node) is not TreeViewItem container) return;
+            level2 = container;
+        }
+        ((TreeViewItem)level2).BringIntoView();
+        ((TreeViewItem)level2).Focus();
     }
 
     private void FileListView_KeyDown(object sender, KeyEventArgs e)
