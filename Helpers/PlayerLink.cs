@@ -7,6 +7,7 @@
 //
 // History:
 //   2026-10-20  First version (protocol 1).
+//   2026-10-21  Event "skip" (direction next / previous): the user pressed a track button in the player; the explorer decides what plays.
 
 using System.IO;
 using System.IO.Pipes;
@@ -37,6 +38,9 @@ public sealed class PlayerLink : IDisposable
 
     /// <summary>The player's window closed, or the connection was lost. Raised on a background thread.</summary>
     public event Action? Closed;
+
+    /// <summary>The user pressed Previous / Next Track (a button, Page Up / Page Down or a media key) in the player: true = next. Raised on a background thread.</summary>
+    public event Action<bool>? Skipped;
 
     /// <summary>The player could not play a file (path, message). Raised on a background thread.</summary>
     public event Action<string?, string?>? Error;
@@ -96,6 +100,7 @@ public sealed class PlayerLink : IDisposable
                 {
                     case "ended":  Ended?.Invoke(path); break;
                     case "closed": Closed?.Invoke(); break;
+                    case "skip":   Skipped?.Invoke(root.TryGetProperty("direction", out var d) && d.GetString() == "next"); break;
                     case "error":  Error?.Invoke(path, root.TryGetProperty("message", out var m) ? m.GetString() : null); break;
                 }
             }

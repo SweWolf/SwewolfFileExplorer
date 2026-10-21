@@ -151,13 +151,17 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// A video or music file opened in the list (Enter, double-click): in Slide Show mode the list goes on after it, with no need to press Play.
+    /// A video or music file opened in the list (Enter, double-click): with the Play bar shown and Slide Show mode the list goes on after it, with no need to press Play.
     /// Returns false when this does not apply (Single Play, or not a file on the disk): the caller opens the file as usual.
     /// </summary>
     private bool TryPlayFromItem(FileItemViewModel item)
     {
         if (item.IsDirectory || item.IsInArchive || !MediaPlayerLauncher.IsMedia(item.FullPath)) return false;
         if (AppSettingsStore.Current.PlayMode != 0) return false;
+
+        // Continuous playing is only on while the Play bar is shown (the user's rule, 2026-10-21); with the bar hidden a double-click plays
+        // the one file as before. A list that is already running goes on whatever the bar does (it is not stopped by hiding the bar).
+        if (PlayBar.Visibility != Visibility.Visible && !_playRunning) return false;
 
         if (_playRunning)
         {
@@ -285,6 +289,7 @@ public partial class MainWindow
             _link = new PlayerLink();
             _link.Ended  += ended => { var w = _mediaWait; if (w != null && string.Equals(ended, _mediaWaitPath, StringComparison.OrdinalIgnoreCase)) w.TrySetResult(MediaOutcome.Ended); };
             _link.Closed += () => _mediaWait?.TrySetResult(MediaOutcome.Stop);
+            _link.Skipped += next => _mediaWait?.TrySetResult(next ? MediaOutcome.Next : MediaOutcome.Previous);   // the buttons of the player
             _link.Error  += (_, _) => _mediaWait?.TrySetResult(MediaOutcome.Ended);   // the file could not be played: on to the next one
         }
 
