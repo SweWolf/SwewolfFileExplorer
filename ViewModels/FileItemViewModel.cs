@@ -14,6 +14,9 @@ public class FileItemViewModel : INotifyPropertyChanged
 
     /// <summary>What the list shows: the name, without the extension of a special shell file type (.lnk ...) when the setting hides it.</summary>
     public string DisplayName => IsDirectory ? Name : ShellExtensions.DisplayName(Name);
+
+    /// <summary>The setting that hides extensions changed: the name shown is worked out again.</summary>
+    public void RefreshDisplayName() => OnPropertyChanged(nameof(DisplayName));
     public string FullPath { get; set; } = "";
     public bool IsDirectory { get; set; }
     public string TypeName { get; set; } = "";

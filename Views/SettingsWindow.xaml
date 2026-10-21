@@ -51,6 +51,8 @@
             <StackPanel>
                 <CheckBox x:Name="HideShellExtensionsBox" Content="Hide Extensions for Special Shell and System File Types"
                           ToolTip="As Windows does: a shortcut is shown as Photos, not Photos.lnk. This is about .lnk, .pif, .url, .scf, .desklink, .mapimail, .mydocs, .library-ms and .searchconnector-ms. The files are still listed, and renaming one keeps its extension."/>
+                <CheckBox x:Name="HideKnownExtensionsBox" Content="Hide Extensions for Known File Types" Margin="0,8,0,0"
+                          ToolTip="As Windows' Folder Options: a file is shown as Report, not Report.txt, when Windows knows its type. Off to begin with. The .ext button in the toolbar does the same. Renaming a file keeps its extension."/>
                 <CheckBox x:Name="SuggestMoveBox" Content="Auto-Suggest File Move When Renaming Video Files" Margin="0,8,0,0"
                           ToolTip="After a video file is renamed with Use Smart Name, offers to move it to Movies (a movie) or TV Shows\Show Name (an episode) in your Videos folder, unless it is already in the Videos folder. You can change the folder before the file is moved."/>
             </StackPanel>

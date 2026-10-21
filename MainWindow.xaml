@@ -46,7 +46,7 @@
             </MenuItem>
 
             <!-- Workspace: folders the user saved by hand, opened again in tabs. -->
-            <MenuItem Header="_Workspace">
+            <MenuItem x:Name="WorkspaceRootMenu" Header="_Workspace" SubmenuOpened="WorkspaceRoot_SubmenuOpened">
                 <MenuItem Header="_Save Current Tabs as Workspace..." Click="WorkspaceSave_Click"
                           ToolTip="Save the folders of the open tabs under a name"/>
                 <MenuItem x:Name="WorkspaceOpenMenu" Header="_Open Workspace" SubmenuOpened="WorkspaceMenu_SubmenuOpened">
@@ -59,13 +59,16 @@
                 <MenuItem x:Name="WorkspaceDeleteMenu" Header="_Delete Workspace" SubmenuOpened="WorkspaceMenu_SubmenuOpened">
                     <MenuItem Header="(None)" IsEnabled="False"/>
                 </MenuItem>
+                <!-- Only there when a workspace was opened or saved in this run; its name is in the text (set in code). -->
+                <MenuItem x:Name="WorkspaceShortcutItem" Header="Create Shortcut to Workspace..." Click="WorkspaceShortcut_Click" Visibility="Collapsed"
+                          ToolTip="Make a shortcut that starts this program and opens this workspace"/>
                 <Separator/>
                 <MenuItem Header="Show Workspaces F_older" Click="WorkspaceShowFolder_Click"
                           ToolTip="Show the folder with the workspace files"/>
             </MenuItem>
 
             <!-- Session: the open tabs, remembered all the time. -->
-            <MenuItem Header="_Session">
+            <MenuItem x:Name="SessionRootMenu" Header="_Session" SubmenuOpened="SessionRoot_SubmenuOpened">
                 <MenuItem Header="_Start New Session..." Click="SessionStart_Click"
                           ToolTip="Start remembering the open tabs, the folders and the selected files, under a name"/>
                 <MenuItem x:Name="SessionOpenMenu" Header="_Open Session" SubmenuOpened="SessionMenu_SubmenuOpened">
@@ -80,6 +83,9 @@
                 <MenuItem x:Name="SessionDeleteMenu" Header="_Delete Session" SubmenuOpened="SessionMenu_SubmenuOpened">
                     <MenuItem Header="(None)" IsEnabled="False"/>
                 </MenuItem>
+                <!-- Only there while a session is on; its name is in the text (set in code). -->
+                <MenuItem x:Name="SessionShortcutItem" Header="Create Shortcut to Session..." Click="SessionShortcut_Click" Visibility="Collapsed"
+                          ToolTip="Make a shortcut that starts this program and goes on with this session"/>
                 <Separator/>
                 <MenuItem Header="Show Sessions F_older" Click="SessionShowFolder_Click"
                           ToolTip="Show the folder with the session files"/>
@@ -277,6 +283,13 @@
                         <TextBlock Text="&#x1F4C2;" FontSize="12" Margin="0,0,4,0"/>
                         <TextBlock Text="Folders" FontSize="12"/>
                     </StackPanel>
+                </ToggleButton>
+
+                <!-- Pressed = the extensions of known file types are shown (.txt, .jpg ...): Windows' "Hide extensions for known file types", the other way round -->
+                <ToggleButton IsChecked="{Binding ShowExtensions}"
+                              ToolTip="Show File Name Extensions (.txt, .jpg ...) of Known File Types"
+                              Padding="6,4">
+                    <TextBlock Text=".ext" FontSize="12"/>
                 </ToggleButton>
 
                 <Button Command="{Binding NewFolderCommand}"

@@ -12,6 +12,7 @@ public partial class CreateShortcutWindow : Window
     public CreateShortcutWindow()
     {
         InitializeComponent();
+        LocationGroup.Header = $"Create Shortcut to \"{AppInfo.Name}\" on";
     }
 
     private void OkButton_Click(object sender, RoutedEventArgs e)

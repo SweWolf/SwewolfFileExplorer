@@ -5,7 +5,8 @@ namespace SwewolfFileExplorer.Helpers;
 /// <summary>
 /// The special shell and system file types whose extension Windows never shows (the registry value <c>NeverShowExt</c> of their type):
 /// a shortcut is "Photos", not "Photos.lnk". The list is the one Windows has out of the box; the setting
-/// <see cref="AppSettings.HideShellExtensions"/> turns the hiding on and off here.
+/// <see cref="AppSettings.HideShellExtensions"/> turns the hiding on and off here. This is also the one place that decides whether the extension
+/// of any other known file type is shown: <see cref="AppSettings.HideKnownExtensions"/> (off to begin with: the extensions are shown).
 /// </summary>
 public static class ShellExtensions
 {
@@ -17,9 +18,13 @@ public static class ShellExtensions
     /// <summary>The extension of <paramref name="fileName"/> that is not shown (with its dot), or null if it is shown.</summary>
     public static string? HiddenExtensionOf(string fileName)
     {
-        if (!AppSettingsStore.Current.HideShellExtensions) return null;
         var extension = Path.GetExtension(fileName);
-        return extension.Length > 0 && Extensions.Contains(extension) ? extension : null;
+        if (extension.Length == 0 || extension.Length == fileName.Length) return null;   // no extension; or a name like ".gitignore", which is all extension: it stays
+
+        var settings = AppSettingsStore.Current;
+        if (settings.HideShellExtensions && Extensions.Contains(extension)) return extension;
+        if (settings.HideKnownExtensions && KnownExtensions.IsKnown(extension)) return extension;   // Windows' "Hide extensions for known file types"
+        return null;
     }
 
     /// <summary>What the list shows for a file: its name, without the extension when that is one of the hidden ones.</summary>

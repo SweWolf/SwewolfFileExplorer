@@ -17,6 +17,7 @@ public partial class SettingsWindow : Window
         HiddenExtensionsBox.Text  = current.HiddenExtensions;
         HiddenExtensionsInArchivesBox.Text = current.HiddenExtensionsInArchives;
         HideShellExtensionsBox.IsChecked   = current.HideShellExtensions;
+        HideKnownExtensionsBox.IsChecked   = current.HideKnownExtensions;
         SuggestMoveBox.IsChecked           = current.SuggestMoveAfterSmartRename;
         TerminalBox.IsChecked              = current.ShowOpenInTerminal;
         PowerShellBox.IsChecked            = current.ShowOpenInPowerShell;
@@ -42,6 +43,7 @@ public partial class SettingsWindow : Window
         settings.HiddenExtensions = string.Join(";", HiddenItems.Parse(HiddenExtensionsBox.Text));   // tidied: no dots or blanks
         settings.HiddenExtensionsInArchives = string.Join(";", HiddenItems.Parse(HiddenExtensionsInArchivesBox.Text));
         settings.HideShellExtensions = HideShellExtensionsBox.IsChecked == true;
+        settings.HideKnownExtensions = HideKnownExtensionsBox.IsChecked == true;
         settings.SuggestMoveAfterSmartRename = SuggestMoveBox.IsChecked == true;
         settings.ShowOpenInTerminal      = TerminalBox.IsChecked == true;
         settings.ShowOpenInPowerShell    = PowerShellBox.IsChecked == true;

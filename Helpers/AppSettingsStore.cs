@@ -55,6 +55,12 @@ public class AppSettings
     /// <summary>Do not show the extension of special shell and system file types (.lnk, .url ...), as Windows does: "Photos", not "Photos.lnk".</summary>
     public bool HideShellExtensions { get; set; } = true;
 
+    /// <summary>
+    /// Do not show the extension of known file types (.txt, .jpg ...), as Windows' Folder Options > "Hide extensions for known file types". Off to
+    /// begin with: the extensions are shown (the user's wish; Windows hides them by default). The ".ext" button in the toolbar and Settings > File Names.
+    /// </summary>
+    public bool HideKnownExtensions { get; set; }
+
     /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
     public bool ShowOpenInTerminal { get; set; } = true;
 

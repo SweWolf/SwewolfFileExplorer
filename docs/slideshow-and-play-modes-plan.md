@@ -1,6 +1,6 @@
 # Slideshow and play modes: plan (item 1 of `teratool-features.md`)
 
-Drafted together with the user on 2026-10-20. **Nothing is built yet.** The five decisions at the end are open: the user is thinking them over.
+Drafted together with the user on 2026-10-20. **Nothing is built yet.** The five decisions are made (see "Decisions" at the end); two small questions about the Play bar are still open.
 
 ## What TeraTool did
 
@@ -65,10 +65,20 @@ end-of-list action, "ask first" with its time-out); the empty left column of the
 5. **Later, if wanted:** mixed folders (pictures and videos in one slideshow: the explorer would hand over between its viewer and the player) and `.m3u`
    playlists (item 3).
 
-## Decisions still open (the user is thinking about them)
+## Decisions (the user, 2026-10-20)
 
-1. Where do the controls live (a Play bar like the Filter bar, the info panel, or a menu and a settings window)?
-2. Hybrid playlist, or the explorer decides everything?
-3. Does a click on a new music track keep the player in the background, or bring it to the front (for video, probably the front)?
-4. What is played: the list as shown (sorted and filtered), only files of the same kind as the one started on (pictures, music or video)?
-5. Start with phase 1 (pictures) now?
+1. **Controls: a Play bar like the Filter bar**, shown and hidden by a toolbar button, **below the list** (under the "File 35/100" info line, not above the
+   grid). Like TeraTool's box (Play mode, Time per file (s), End of list action, the "ask first" checkbox with its Time-out (s)), with one change:
+   **Play and Pause are one toggle button**, plus **Previous** and **Next**.
+2. **The explorer decides everything** (as in TeraTool, where it was all one program): the player only says "ended" / "closed" and the explorer picks the next
+   item and sends it. The hybrid (player owns the list) stays a possible later change. Accepted drawback: the music stops when the explorer is closed.
+3. **A new track brings the player to the front** (video must be in front; a setting for it may come later).
+4. **A mix is allowed**: one playlist may hold pictures, music and video. Pictures go to the explorer's own viewer for N seconds, music and video to the
+   player until they end, so the explorer hands over between the two (this is why decision 2 fits).
+5. **Start with phase 1 (pictures)**, look at it, and continue later.
+
+## Questions still open
+
+- Where exactly the Play bar sits: directly under the info line (above the preview picture, which then moves down), or at the very bottom of the pane
+  (under the preview picture, as TeraTool had it).
+- How a running slideshow is paused: the explorer's window is behind the full-screen picture viewer, so the viewer needs keys of its own.

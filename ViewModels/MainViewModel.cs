@@ -339,6 +339,34 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Show the extensions of known file types (.txt, .jpg ...) in the Name column: the toolbar's ".ext" button. The opposite of
+    /// <see cref="AppSettings.HideKnownExtensions"/> (Windows' "Hide extensions for known file types"). Remembered; every tab follows at once.
+    /// </summary>
+    public bool ShowExtensions
+    {
+        get => !_shared.Settings.HideKnownExtensions;
+        set
+        {
+            if (_shared.Settings.HideKnownExtensions == !value) return;
+            _shared.Settings.HideKnownExtensions = !value;
+            AppSettingsStore.Save(_shared.Settings);
+            ExtensionSettingChanged();
+        }
+    }
+
+    /// <summary>The names the lists show are worked out again in every tab (also after Settings changed the setting), and the button follows.</summary>
+    public void ExtensionSettingChanged()
+    {
+        foreach (var tab in Tabs)
+            foreach (var item in tab.CurrentItems) item.RefreshDisplayName();
+        OnPropertyChanged(nameof(ShowExtensions));
+        DisplayNamesChanged?.Invoke();
+    }
+
+    /// <summary>The names shown in the Name column changed (extensions shown or hidden): the window filters and fits the columns again.</summary>
+    public event Action? DisplayNamesChanged;
+
     public double ListFontSize
     {
         get => _shared.Settings.ListFontSize;

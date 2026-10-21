@@ -54,6 +54,7 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Rating,       "Rating",        RatingColumn, visible: false),
             new ColumnInfo(SortColumn.Expectation,  "Expectation",   ExpectationColumn, visible: false)
         });
+        VM.DisplayNamesChanged += () => { ApplyFilter(); QueueAutoFit(); };   // the extensions are shown or hidden: the filter works on the names shown, and the Name column fits them
         VM.TagsLoaded += () => { if (IsTagColumn(_sortColumn)) ApplySort(_sortColumn, _sortAscending); QueueAutoFit(); };
         VM.ItemsChangedInPlace += () => { if (_sortColumn != SortColumn.None) ApplySort(_sortColumn, _sortAscending); };   // a file changed size or date: the order may too
 
@@ -792,7 +793,10 @@ public partial class MainWindow : Window
     {
         // The list of hidden extensions may have changed: read the folder again.
         if (new SettingsWindow { Owner = this }.ShowDialog() == true)
+        {
             VM.RefreshCommand.Execute(null);
+            VM.ExtensionSettingChanged();   // "Hide Extensions for Known File Types" may have changed: every tab and the button follow
+        }
     }
 
     private void MenuAbout_Click(object sender, RoutedEventArgs e) =>
@@ -874,6 +878,7 @@ public partial class MainWindow : Window
 
     // The workspace opened or saved last in this run: Save Workspace suggests its name again (a workspace that exists asks before it is replaced).
     private string? _lastWorkspaceName;
+    private string? _lastWorkspaceFile;   // its file (also one opened from the command line, wherever it lies): "Create Shortcut to Workspace" needs it
 
     /// <summary>
     /// The name Save Workspace starts with: the workspace opened or saved last, else (none yet in this run) the name of the tab
@@ -898,6 +903,7 @@ public partial class MainWindow : Window
         if (WorkspaceStore.Write(file, StoreKind.Workspace, VM.CaptureState()))
         {
             _lastWorkspaceName = name;
+            _lastWorkspaceFile = file;
             FlashTitle($"{BaseTitle} - Workspace saved: {name}");
         }
         else
@@ -1017,7 +1023,11 @@ public partial class MainWindow : Window
             }
             VM.RestoreTabs(data, replace);
             if (kind == StoreKind.Session) VM.Session.Start(file);
-            else _lastWorkspaceName = System.IO.Path.GetFileNameWithoutExtension(file);   // Save Workspace suggests it
+            else
+            {
+                _lastWorkspaceName = System.IO.Path.GetFileNameWithoutExtension(file);   // Save Workspace suggests it
+                _lastWorkspaceFile = file;
+            }
         }
         finally
         {
@@ -2738,10 +2748,16 @@ public partial class MainWindow : Window
             ? VM.CurrentPath
             : Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
 
+        MakeShortcuts(targets.Select(t => new ShortcutSpec(t)).ToList(), what, suggested);
+    }
+
+    /// <summary>Asks in which folder, then makes the shortcuts with the questions about an existing one and about no permission (see <see cref="ShortcutMaker.CreateAll(IReadOnlyList{ShortcutSpec}, string, string, Func{string, bool}, Func{string, bool})"/>).</summary>
+    private void MakeShortcuts(IReadOnlyList<ShortcutSpec> specs, string what, string suggested)
+    {
         var folder = CreateShortcutToDialog.Ask(this, what, suggested);
         if (folder == null) return;
 
-        var result = ShortcutMaker.CreateAll(targets, folder, Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+        var result = ShortcutMaker.CreateAll(specs, folder, Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
             confirmOverwrite: lnk => MessageBox.Show(this,
                 $"A shortcut with this name already exists in this folder:\n\n{System.IO.Path.GetFileName(lnk)}\n\nDo you want to overwrite it?",
                 "Create Shortcut", MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) == MessageBoxResult.OK,
@@ -2764,6 +2780,51 @@ public partial class MainWindow : Window
             ReselectInList(made);
         }
         FlashTitle($"{BaseTitle} - {(made.Count == 1 ? "Shortcut made" : $"{made.Count} shortcuts made")}");
+    }
+
+    // ── Create Shortcut to Workspace / Session ────────────────────────────────
+
+    /// <summary>The item shows only when there is a workspace (opened or saved in this run) and says which.</summary>
+    private void WorkspaceRoot_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource != sender) return;   // the submenus below open too
+        var file = _lastWorkspaceFile;
+        bool has = file != null && System.IO.File.Exists(file);
+        WorkspaceShortcutItem.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
+        if (has) WorkspaceShortcutItem.Header = $"Create Shortcut to Workspace \"{System.IO.Path.GetFileNameWithoutExtension(file).Replace("_", "__")}\"...";
+    }
+
+    /// <summary>The item shows only while a session is on.</summary>
+    private void SessionRoot_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource != sender) return;
+        var file = VM.Session.FilePath;
+        bool has = VM.Session.IsActive && file != null && System.IO.File.Exists(file);
+        SessionShortcutItem.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
+        if (has) SessionShortcutItem.Header = $"Create Shortcut to Session \"{(VM.Session.Name ?? "").Replace("_", "__")}\"...";
+    }
+
+    private void WorkspaceShortcut_Click(object sender, RoutedEventArgs e) => ShortcutToTabSet(_lastWorkspaceFile, "Workspace");
+
+    private void SessionShortcut_Click(object sender, RoutedEventArgs e) => ShortcutToTabSet(VM.Session.FilePath, "Session");
+
+    /// <summary>
+    /// A shortcut that starts this program with the workspace or session file as its argument (the program opens such a file given on the
+    /// command line: a session goes on being saved into it). Named "Name (Workspace)" / "Name (Session)", suggested on the Desktop.
+    /// </summary>
+    private void ShortcutToTabSet(string? file, string kind)
+    {
+        var exe = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(exe) || string.IsNullOrEmpty(file) || !System.IO.File.Exists(file))
+        {
+            MessageBox.Show(this, $"The {kind.ToLowerInvariant()} file was not found.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var name = System.IO.Path.GetFileNameWithoutExtension(file);
+        var spec = new ShortcutSpec(exe, Arguments: $"\"{file}\"", Name: $"{name} ({kind})",
+                                    Description: $"Opens the {kind.ToLowerInvariant()} \"{name}\" in {AppInfo.Name}");
+        MakeShortcuts(new[] { spec }, $"the {kind.ToLowerInvariant()} \"{name}\"", Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
     }
 
     private void TreeCtxCopyPath_Click(object sender, RoutedEventArgs e)
@@ -3011,7 +3072,7 @@ public partial class MainWindow : Window
         string Real(string typed) => item.IsDirectory ? typed : ShellExtensions.RestoreExtension(item.Name, typed);
         // Smart name: only for a music or video file on the disk (not new, not in an archive), and only when it has a better name.
         var smartApplies = !isNew && !item.IsDirectory && !item.IsInArchive && SmartName.Applies(item.Name);
-        var smart = smartApplies ? SmartName.Suggest(item.FullPath) ?? item.Name : null;   // no better name: the present one
+        var smart = smartApplies ? ShellExtensions.DisplayName(SmartName.Suggest(item.FullPath) ?? item.Name) : null;   // no better name: the present one; without a hidden extension, as the box
         var dlg = new InputDialog(title, prompt, item.DisplayName,
             name => FolderTabViewModel.CheckNewName(item.FullPath, Real(name)),
             caseButtons: !isNew, keepExtension: !item.IsDirectory && item.DisplayName == item.Name, smartName: smart, smartApplies: smartApplies, currentName: isNew ? null : item.Name) { Owner = this };

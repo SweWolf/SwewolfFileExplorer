@@ -12,9 +12,11 @@
         ShowInTaskbar="False"
         FocusManager.FocusedElement="{Binding ElementName=DesktopBox}">
 
-    <StackPanel Margin="12" MinWidth="356">
+    <StackPanel Margin="12" MinWidth="430">
 
-        <GroupBox Header="Create Shortcut On" Padding="8">
+        <!-- The header says whose shortcut it is, set in code ("Create Shortcut to "SweWolf File Explorer" on"): the right-click
+             menus have a "Create Shortcut..." of their own, for files and folders, and the two must not be mixed up. -->
+        <GroupBox x:Name="LocationGroup" Header="Create Shortcut on" Padding="8">
             <StackPanel>
                 <CheckBox x:Name="DesktopBox" Content="Desktop" IsChecked="True"/>
                 <CheckBox x:Name="StartMenuBox" Content="Start Menu (Programs)" Margin="0,8,0,0"/>
