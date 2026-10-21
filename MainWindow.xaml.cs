@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         InitPlayBar();
+        InitDragOut();
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => TogglePlayBar()), Key.P, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ToggleFilterBar()), Key.F, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => BookmarkSelectionOrFolder()), Key.D, ModifierKeys.Control));
