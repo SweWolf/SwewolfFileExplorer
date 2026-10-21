@@ -21,6 +21,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitPlayBar();
+        InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => TogglePlayBar()), Key.P, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ToggleFilterBar()), Key.F, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => BookmarkSelectionOrFolder()), Key.D, ModifierKeys.Control));
 
@@ -1232,7 +1234,7 @@ public partial class MainWindow : Window
     /// <summary>The preview box is as high as the panel allows and 1.6 times as wide (160 x 100 at the smallest panel).</summary>
     private void FitPreviewBox()
     {
-        double height = Math.Max(100, InfoPanel.ActualHeight - 17 - 24);   // minus the line, the padding and the info line
+        double height = Math.Max(100, InfoPanel.ActualHeight - 17 - 24 - _playBarHeight);   // minus the line, the padding, the info line and the Play bar
         PreviewBox.Height = height;
         PreviewBox.Width  = Math.Round(height * 1.6);
         ThumbnailDecodeWidth = (int)Math.Max(320, PreviewBox.Width * 2);
@@ -1242,7 +1244,8 @@ public partial class MainWindow : Window
     {
         var grid = (Grid)InfoPanel.Parent;
         double room = grid.ActualHeight - grid.RowDefinitions[0].MinHeight - grid.RowDefinitions[1].ActualHeight - grid.RowDefinitions[3].ActualHeight;
-        double height = Math.Clamp(InfoRow.ActualHeight - e.VerticalChange, InfoPanelMinHeight, Math.Max(InfoPanelMinHeight, room));
+        double min = InfoPanelMinHeight + _playBarHeight;   // the Play bar, when shown, is room of its own
+        double height = Math.Clamp(InfoRow.ActualHeight - e.VerticalChange, min, Math.Max(min, room));
         InfoRow.Height = new GridLength(height);
     }
 
@@ -1251,7 +1254,7 @@ public partial class MainWindow : Window
     {
         FitPreviewBox();
         var settings = AppSettingsStore.Current;
-        settings.InfoPanelHeight = InfoRow.Height.Value;
+        settings.InfoPanelHeight = InfoRow.Height.Value - _playBarHeight;   // without the Play bar: it is hidden when the program starts
         AppSettingsStore.Save(settings);
         UpdateInfoPanel();
     }
@@ -1660,7 +1663,7 @@ public partial class MainWindow : Window
 
         if (!item.IsDirectory && ThumbnailLoader.IsImage(item.FullPath))
             OpenInViewer(item);
-        else
+        else if (!TryPlayFromItem(item))
             VM.OpenItem(item);
     }
 

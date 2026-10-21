@@ -313,6 +313,16 @@
                     </StackPanel>
                 </ToggleButton>
 
+                <!-- Shows and hides the Play bar in the info panel (Ctrl+P): hidden when the program starts -->
+                <ToggleButton x:Name="PlayToggle" Click="PlayToggle_Click"
+                              ToolTip="Show the Play Bar: Slide Show and Play Modes (Ctrl+P)"
+                              Padding="6,4">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x25B6;" FontSize="11" FontFamily="Segoe UI Symbol" Margin="0,1,4,0"/>
+                        <TextBlock Text="Play" FontSize="12"/>
+                    </StackPanel>
+                </ToggleButton>
+
             </ToolBar>
         </ToolBarTray>
 
@@ -807,6 +817,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="24"/>   <!-- the info line: which file, how many hidden items -->
+                        <RowDefinition Height="Auto"/> <!-- the Play bar (hidden until the Play button is pressed) -->
                         <RowDefinition Height="*"/>    <!-- the preview picture and the plot -->
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
@@ -817,7 +828,7 @@
 
                     <!-- The plot from the video's .nfo file, to the right of the preview picture, only when there is one
                          (it takes no space otherwise). A long plot scrolls; the whole text is also in the tooltip. -->
-                    <Grid x:Name="PlotArea" Grid.Row="1" Grid.Column="2" Margin="16,0,0,0" Background="Transparent" Visibility="Collapsed"
+                    <Grid x:Name="PlotArea" Grid.Row="2" Grid.Column="2" Margin="16,0,0,0" Background="Transparent" Visibility="Collapsed"
                           PreviewMouseLeftButtonDown="PlotArea_PreviewMouseLeftButtonDown">
                         <Grid.ContextMenu>
                             <ContextMenu>
@@ -849,10 +860,67 @@
                         </TextBlock>
                     </StackPanel>
 
+                    <!-- The Play bar, as TeraTool's box under the list, with one change: Play and Pause are one button. Under the info line,
+                         above the preview picture; wraps onto a second line in a narrow window. Phase 1 plays pictures (see docs/slideshow-and-play-modes-plan.md). -->
+                    <Border x:Name="PlayBar" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Visibility="Collapsed" Padding="0,2,0,4">
+                        <WrapPanel Orientation="Horizontal">
+                            <Button x:Name="PlayPreviousButton" Click="PlayPrevious_Click" ToolTip="Previous File" Padding="8,2" Margin="0,2,4,2"
+                                    Content="&#x25C0;&#x2502;" FontFamily="Segoe UI Symbol" FontSize="12"/>
+                            <Button x:Name="PlayButton" Click="PlayButton_Click" ToolTip="Play the pictures of the list from the selected one" Padding="12,2" Margin="0,2,4,2" MinWidth="76">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="PlayButtonIcon" Text="&#x25B6;" FontFamily="Segoe UI Symbol" FontSize="11" Margin="0,1,6,0"/>
+                                    <TextBlock x:Name="PlayButtonText" Text="Play" FontSize="12"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="PlayNextButton" Click="PlayNext_Click" ToolTip="Next File" Padding="8,2" Margin="0,2,0,2"
+                                    Content="&#x2502;&#x25B6;" FontFamily="Segoe UI Symbol" FontSize="12"/>
+
+                            <TextBlock Text="Play Mode" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="PlayModeBox" Width="130" FontSize="12" Margin="0,2,0,2" SelectionChanged="PlaySetting_Changed"
+                                      ToolTip="Slide Show: the next picture comes by itself (continues playing). Single Play: the picture opens and stays.">
+                                <ComboBoxItem Content="Slide Show"/>
+                                <ComboBoxItem Content="Single Play"/>
+                            </ComboBox>
+
+                            <TextBlock Text="Time per File (s)" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
+                            <TextBox x:Name="PlaySecondsBox" Width="48" FontSize="12" Margin="0,2,0,2" MaxLength="4" TextAlignment="Right"
+                                     PreviewTextInput="PlayNumber_PreviewTextInput" LostFocus="PlayNumber_LostFocus"
+                                     ToolTip="How many seconds each picture stays in a slide show"/>
+
+                            <TextBlock Text="End of List Action" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="PlayEndBox" Width="160" FontSize="12" Margin="0,2,0,2" SelectionChanged="PlaySetting_Changed"
+                                      ToolTip="What a slide show does after the last picture">
+                                <ComboBoxItem Content="Go to Next Folder"/>
+                                <ComboBoxItem Content="Start from Beginning"/>
+                                <ComboBoxItem Content="Close"/>
+                            </ComboBox>
+
+                            <CheckBox x:Name="PlayAskBox" Content="Ask First" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center"
+                                      Checked="PlaySetting_Changed" Unchecked="PlaySetting_Changed"
+                                      ToolTip="Ask at the end of the list what to do. The action above is taken by itself when the time-out is over."/>
+                            <TextBlock Text="Time-out (s)" FontSize="12" Margin="10,0,6,0" VerticalAlignment="Center"/>
+                            <TextBox x:Name="PlayTimeoutBox" Width="44" FontSize="12" Margin="0,2,0,2" MaxLength="3" TextAlignment="Right"
+                                     PreviewTextInput="PlayNumber_PreviewTextInput" LostFocus="PlayNumber_LostFocus"
+                                     ToolTip="Seconds before the question at the end of the list takes the action above by itself (0 = wait for the answer)"/>
+                        </WrapPanel>
+                    </Border>
+
+                    <!-- The line under the Play bar (the continuous playing row): drag it to change the height of the panel, as the other lines. -->
+                    <Thumb x:Name="PlayLineDivider" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Height="5" Cursor="SizeNS"
+                           VerticalAlignment="Bottom" Margin="-10,0,-10,0" Visibility="Collapsed"
+                           DragDelta="InfoDivider_DragDelta" DragCompleted="InfoDivider_DragCompleted">
+                        <Thumb.Template>
+                            <ControlTemplate TargetType="Thumb">
+                                <Border Background="Transparent"
+                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1"/>
+                            </ControlTemplate>
+                        </Thumb.Template>
+                    </Thumb>
+
                     <!-- A click opens the picture in the picture viewer (the picture of a picture file, the cover built into a
                          music file, the preview picture of a video). The transparent border is there so that the right-click
                          menu (Choose / No / Automatic preview picture) also works on an empty square. -->
-                    <Border x:Name="PreviewBox" Grid.Row="1" Grid.Column="1" Width="160" Height="100" Background="Transparent"
+                    <Border x:Name="PreviewBox" Grid.Row="2" Grid.Column="1" Width="160" Height="100" Background="Transparent"
                             HorizontalAlignment="Left" VerticalAlignment="Top"
                             ContextMenuOpening="PreviewBox_ContextMenuOpening">
                         <Border.ContextMenu>

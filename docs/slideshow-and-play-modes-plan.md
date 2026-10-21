@@ -1,6 +1,6 @@
 # Slideshow and play modes: plan (item 1 of `teratool-features.md`)
 
-Drafted together with the user on 2026-10-20. **Nothing is built yet.** The five decisions are made (see "Decisions" at the end); two small questions about the Play bar are still open.
+Drafted together with the user on 2026-10-20. **Phase 1 (pictures) is built (see the end of this file); the music and video phases are not.** The five decisions are made (see "Decisions" at the end); two small questions about the Play bar are still open.
 
 ## What TeraTool did
 
@@ -77,8 +77,11 @@ end-of-list action, "ask first" with its time-out); the empty left column of the
    player until they end, so the explorer hands over between the two (this is why decision 2 fits).
 5. **Start with phase 1 (pictures)**, look at it, and continue later.
 
-## Questions still open
+## Phase 1 built (2026-10-20)
 
-- Where exactly the Play bar sits: directly under the info line (above the preview picture, which then moves down), or at the very bottom of the pane
-  (under the preview picture, as TeraTool had it).
-- How a running slideshow is paused: the explorer's window is behind the full-screen picture viewer, so the viewer needs keys of its own.
+- **The Play bar:** a "Play" toggle in the toolbar (and Ctrl+P) shows it, under the "File 35/100" line and above the preview picture; hidden at the start.
+  Previous / Play / Next, Play Mode (Slide Show / Single Play), Time per File (s), End of List Action, Ask First, Time-out (s); TeraTool's defaults.
+- **Play** plays the pictures of the list from the selected one in the picture viewer; **the Pause key (and P while a slide show runs) pauses and resumes**;
+  at the end of the list the chosen action is taken (with the question and its countdown when Ask First is on).
+- Answers to the two open questions: the bar sits directly under the info line; the viewer pauses with the Pause key and P.
+- **Next:** phase 2 (one player window through the named pipe; the explorer decides everything), then phases 3 and 4.

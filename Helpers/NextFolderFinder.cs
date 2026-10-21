@@ -23,14 +23,15 @@ public static class NextFolderFinder
     /// <param name="showHiddenOf">True if the tree shows the hidden subfolders of a folder (<c>SharedState.ShowsHiddenInTree</c>).</param>
     /// <param name="root">The root of the tree of the tab, if it has one: the search never goes above it (null = up to the drive).</param>
     public static string? Find(string folder, Func<string, (SortColumn Column, bool Ascending)> sortOf,
-                               Func<string, bool> showHiddenOf, CancellationToken cancel, string? root = null)
+                               Func<string, bool> showHiddenOf, CancellationToken cancel, string? root = null,
+                               Func<string, bool>? isWanted = null)
     {
         try
         {
             foreach (var node in Following(folder, sortOf, showHiddenOf, cancel, root))
             {
                 cancel.ThrowIfCancellationRequested();
-                if (HasPictures(node)) return node.Path;
+                if (HasPictures(node, isWanted ?? ThumbnailLoader.IsImage)) return node.Path;
             }
         }
         catch (OperationCanceledException) { }
@@ -172,18 +173,18 @@ public static class NextFolderFinder
     // ── Is it a folder worth going to? ───────────────────────────────────────
 
     /// <summary>True if the folder (or packed file) holds at least one visible picture directly in it.</summary>
-    private static bool HasPictures(Node node)
+    private static bool HasPictures(Node node, Func<string, bool> isWanted)
     {
         try
         {
             if (node.InArchive || node.IsArchive)
             {
                 return ArchiveSupport.List(node.Path).Any(e =>
-                    !e.IsDirectory && ThumbnailLoader.IsImage(e.Name) && !HiddenItems.IsHiddenInArchive(e.Name));
+                    !e.IsDirectory && isWanted(e.Name) && !HiddenItems.IsHiddenInArchive(e.Name));
             }
 
             return new DirectoryInfo(node.Path).EnumerateFiles().Any(f =>
-                ThumbnailLoader.IsImage(f.Name) && !HiddenItems.IsHiddenFile(f.Attributes, f.Name));
+                isWanted(f.Name) && !HiddenItems.IsHiddenFile(f.Attributes, f.Name));
         }
         catch
         {

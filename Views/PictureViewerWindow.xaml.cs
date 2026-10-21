@@ -47,6 +47,20 @@ public partial class PictureViewerWindow : Window
 
     private bool _fullscreen = true;
 
+    // ── Slide show ─────────────────────────────────────────────────────────
+    // Set by the Explorer's Play bar: the next picture comes by itself every N seconds. The Pause key (and P, while a slide show runs) pauses
+    // and resumes it; Left / Right and the other keys still work and start the count again. At the end of the list: what the Play bar says.
+    /// <summary>How the slide show runs; null = an ordinary viewer (the pictures change when the user asks).</summary>
+    public SlideshowOptions? Slideshow { get; set; }
+
+    /// <summary>True if the slide show ran to the end of the list and closed by itself (end action Close), as opposed to the user closing it.</summary>
+    public bool ReachedEnd { get; private set; }
+
+    private readonly DispatcherTimer _slideTimer = new();
+    private bool _playing;   // a slide show is on (it may be paused)
+    private bool _paused;
+    private bool _closed;    // the window is closing or closed: nothing may be started again (a timer that ticked after the end-of-list question closed it crashed)
+
     private readonly DispatcherTimer _cursorTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _overlayTimer = new() { Interval = TimeSpan.FromMilliseconds(1500) };
     private readonly DispatcherTimer _clickTimer = new();   // a click waits to see if it becomes a double click
@@ -66,6 +80,7 @@ public partial class PictureViewerWindow : Window
         _files = files.ToList();
         _index = Math.Max(0, _files.FindIndex(f => string.Equals(f, current, StringComparison.OrdinalIgnoreCase)));
 
+        _slideTimer.Tick     += (_, _) => { _slideTimer.Stop(); Navigate(+1); };
         _animationTimer.Tick += (_, _) => ShowNextAnimationFrame();
         _cursorTimer.Tick    += (_, _) => HideCursor();
         _overlayTimer.Tick   += (_, _) => { _overlayTimer.Stop(); Overlay.Visibility = Visibility.Collapsed; };
@@ -82,18 +97,38 @@ public partial class PictureViewerWindow : Window
         // No screensaver or sleeping screen while looking at pictures.
         SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED);
         _cursorTimer.Start();
-        ShowCurrent();
+        if (Slideshow != null) _playing = true;
+        ShowCurrent(Slideshow != null ? $"Slide show, {Slideshow.Seconds} s per picture. The Pause key pauses." : null);
         Focus();
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         SetThreadExecutionState(ES_CONTINUOUS);
+        _closed = true;
         StopNextFolderSearch();
+        _slideTimer.Stop();
         _animationTimer.Stop();
         _cursorTimer.Stop();
         _overlayTimer.Stop();
         _clickTimer.Stop();
+    }
+
+    /// <summary>The next picture comes after the time per picture, counted from when this one is on screen (not while paused or while the end-of-list question is open).</summary>
+    private void RestartSlideTimer()
+    {
+        _slideTimer.Stop();
+        if (_closed || !_playing || _paused || _askingAtEnd || Slideshow == null) return;
+        _slideTimer.Interval = TimeSpan.FromSeconds(Math.Max(1, Slideshow.Seconds));
+        _slideTimer.Start();
+    }
+
+    private void TogglePause()
+    {
+        if (!_playing) return;
+        _paused = !_paused;
+        ShowOverlay(_paused ? "Paused" : "Playing");
+        RestartSlideTimer();
     }
 
     // ── Showing a picture ────────────────────────────────────────────────────
@@ -145,6 +180,7 @@ public partial class PictureViewerWindow : Window
         }
 
         UpdateTransform();
+        RestartSlideTimer();   // also after a picture that could not be shown: the slide show goes on to the next one
     }
 
     private void ShowNextAnimationFrame()
@@ -285,7 +321,8 @@ public partial class PictureViewerWindow : Window
         }
         if (next >= _files.Count)
         {
-            AskAtEndOfList();
+            if (_playing) EndOfSlideshow();
+            else AskAtEndOfList();
             return;
         }
 
@@ -345,10 +382,11 @@ public partial class PictureViewerWindow : Window
     /// Past the last picture: a choice, as TeraTool had. Go to the next folder, start again from the first picture, or close.
     /// With no one touching the mouse or keyboard, the next folder is chosen after ten seconds.
     /// </summary>
-    private void AskAtEndOfList()
+    private void AskAtEndOfList(int defaultIndex = 0, int countdownSeconds = 10)
     {
-        if (_askingAtEnd) return;
+        if (_askingAtEnd || _closed) return;
         _askingAtEnd = true;
+        _slideTimer.Stop();   // no picture changes while the question is open
 
         try
         {
@@ -366,10 +404,10 @@ public partial class PictureViewerWindow : Window
             var dialog = new ChoiceDialog(
                 done ? textFor(found) : $"{Intro}\n\nLooking for the next folder...",
                 new[] { "Go to Next Folder", "Start from Beginning", "Close" },
-                defaultIndex: 0, cancelIndex: 2)
+                defaultIndex: defaultIndex, cancelIndex: 2)
             {
                 Owner = this,
-                CountdownSeconds = 10,
+                CountdownSeconds = countdownSeconds,
             };
             dialog.SetButtonEnabled(0, done && found != null);
 
@@ -410,6 +448,48 @@ public partial class PictureViewerWindow : Window
         finally
         {
             _askingAtEnd = false;
+            RestartSlideTimer();   // a slide show goes on after the answer (a new picture restarts it too)
+        }
+    }
+
+    /// <summary>
+    /// A slide show reached the end of the list. With "Ask First" the question comes (its countdown takes the chosen action by itself); without it
+    /// the chosen action is taken at once: the next folder (if there is none, the question explains), start over, or close.
+    /// </summary>
+    private async void EndOfSlideshow()
+    {
+        var options = Slideshow;
+        if (_closed) return;
+        if (options == null) { AskAtEndOfList(); return; }
+
+        if (options.AskFirst)
+        {
+            AskAtEndOfList((int)options.End, options.TimeoutSeconds);
+            return;
+        }
+
+        _slideTimer.Stop();
+        switch (options.End)
+        {
+            case EndOfListAction.StartOver:
+                _index = 0;
+                ShowCurrent("Start of file list");
+                break;
+
+            case EndOfListAction.Close:
+                ReachedEnd = true;   // the playlist of the Play bar goes on after a run of pictures
+                Close();
+                break;
+
+            default:
+                StartNextFolderSearch();
+                var search = _nextFolderTask;
+                string? target = null;
+                try { if (search != null) target = await search; } catch { /* no next folder */ }
+                if (_closed) return;   // closed while looking
+                if (target != null) GoToFolder(target);
+                else AskAtEndOfList(0, 0);   // nowhere to go: the question says so (no countdown)
+                break;
         }
     }
 
@@ -541,6 +621,11 @@ public partial class PictureViewerWindow : Window
             case Key.Right or Key.PageDown or Key.Space or Key.Return when plain:
             case Key.N when plain:
                 Navigate(+1);
+                break;
+
+            case Key.Pause when plain:
+            case Key.P when plain && _playing:   // while a slide show runs P pauses (otherwise it is "previous")
+                TogglePause();
                 break;
 
             case Key.Left or Key.PageUp or Key.Back when plain:

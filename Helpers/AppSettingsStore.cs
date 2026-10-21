@@ -61,6 +61,15 @@ public class AppSettings
     /// </summary>
     public bool HideKnownExtensions { get; set; }
 
+    // The Play bar (slideshow). TeraTool's defaults: every file 10 seconds, at the end go to the next folder, ask first with a 10 second time-out.
+    /// <summary>0 = Slide Show / Continues Playing, 1 = Single Play (a picture opens and stays).</summary>
+    public int PlayMode { get; set; }
+    public int PlaySeconds { get; set; } = 10;
+    /// <summary>What a slideshow does after the last picture: <see cref="EndOfListAction"/> (0 next folder, 1 start over, 2 close).</summary>
+    public int PlayEndAction { get; set; }
+    public bool PlayAskFirst { get; set; } = true;
+    public int PlayTimeout { get; set; } = 10;
+
     /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
     public bool ShowOpenInTerminal { get; set; } = true;
 
