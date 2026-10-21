@@ -42,6 +42,10 @@ public static class AudioTagReader
     {
         try
         {
+            // A Photoshop file: TagLib does not know it, but its header says how big the picture is.
+            if (PsdSupport.IsPsd(path))
+                return PsdSupport.ReadSize(path) is { } size ? new AudioTags("", "", 0, default, 0, size.Width, size.Height) : null;
+
             // Average: the tags and the properties of the audio / video / picture (read from the start of the file, not all of it).
             using var file = TagLib.File.Create(new SharedReadFile(path), TagLib.ReadStyle.Average);
             var tag = file.Tag;

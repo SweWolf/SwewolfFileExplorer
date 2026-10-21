@@ -8,7 +8,7 @@ public static class ThumbnailLoader
 {
     private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".jpg", ".jpeg", ".jpe", ".jfif", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxl", ".svg", ".svgz"
+        ".jpg", ".jpeg", ".jpe", ".jfif", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxl", ".svg", ".svgz", ".psd", ".psb"
     };
 
     /// <summary>
@@ -54,6 +54,9 @@ public static class ThumbnailLoader
             if (RawPreview.IsRaw(path) && RawPreview.Read(stream) is { } raw && LoadBytes(raw.Jpeg, decodeWidth) is { } fromRaw)
                 return fromRaw;
             if (stream.CanSeek) stream.Position = 0;
+
+            // Photoshop: the flattened picture stored in the file, averaged down while it is read (see PsdSupport).
+            if (PsdSupport.IsPsd(path)) return PsdSupport.ToBitmap(stream, decodeWidth);
 
             // SVG: a drawing, drawn at the width asked for, on white (see SvgSupport).
             if (SvgSupport.IsSvg(path))

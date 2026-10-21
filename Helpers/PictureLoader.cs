@@ -31,6 +31,7 @@ public sealed class LoadedPicture
 public static class PictureLoader
 {
     private const int ViewerSvgWidth = 3000;
+    private const int ViewerPsdWidth = 8192;   // a bigger Photoshop picture is averaged down to this (whole-number steps)
 
     /// <summary>Call from any thread. Returns null if the file cannot be read as a picture.</summary>
     public static LoadedPicture? Load(string path)
@@ -44,6 +45,10 @@ public static class PictureLoader
                 // only the bytes of that JPEG are read. Without one, the file is tried like any other (Windows may have a codec).
                 if (RawPreview.IsRaw(path) && RawPreview.Read(file) is { } raw)
                     return LoadRaw(raw);
+
+                // Photoshop: the flattened picture, read straight from the file (a PSD can be hundreds of megabytes, mostly layers).
+                if (PsdSupport.IsPsd(path))
+                    return PsdSupport.ToBitmap(file, ViewerPsdWidth) is { } psdPicture ? new LoadedPicture(psdPicture) : null;
 
                 if (file.CanSeek) file.Position = 0;
                 bytes = new byte[file.Length];
