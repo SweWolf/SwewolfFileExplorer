@@ -46,6 +46,13 @@ public static class AudioTagReader
             if (PsdSupport.IsPsd(path))
                 return PsdSupport.ReadSize(path) is { } size ? new AudioTags("", "", 0, default, 0, size.Width, size.Height) : null;
 
+            // A RAW photo: TagLib reports the little thumbnail (a NEF says 160 x 120, a DNG nothing); the real size is in the TIFF tags.
+            if (RawPreview.IsRaw(path))
+            {
+                using var raw = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                return RawPreview.ReadSize(raw) is { } rawSize ? new AudioTags("", "", 0, default, 0, rawSize.Width, rawSize.Height) : null;
+            }
+
             // Average: the tags and the properties of the audio / video / picture (read from the start of the file, not all of it).
             using var file = TagLib.File.Create(new SharedReadFile(path), TagLib.ReadStyle.Average);
             var tag = file.Tag;

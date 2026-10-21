@@ -62,6 +62,39 @@ public static class RawPreview
         }
     }
 
+    /// <summary>
+    /// The size of the photo itself (not of the little JPEGs in the file), for the Dimensions column: the EXIF "pixel dimensions" when the
+    /// file has them (a NEF: 6016 x 4000), else the biggest full-resolution directory (a DNG: 3456 x 2304). Null if it cannot be told.
+    /// </summary>
+    public static (int Width, int Height)? ReadSize(Stream stream)
+    {
+        try
+        {
+            var walk = new Walk(stream);
+            if (!walk.Run()) return null;
+            // A DNG says what the finished picture is (the sensor is a little bigger: masked borders).
+            if (walk.CropSize is { } crop) return crop;
+
+            var full = walk.ExifSize ?? walk.FullSize;
+            if (full == null) return null;
+
+            // A camera JPEG built into the file that is nearly as big as the sensor data is the camera's own output (a NEF: 6016 x 4000
+            // inside a 6080 x 4012 sensor): that is the size of the photo.
+            long fullArea = (long)full.Value.Width * full.Value.Height;
+            foreach (var candidate in walk.Candidates)
+            {
+                if (walk.Inspect(candidate) is not { } jpeg) continue;
+                long area = (long)jpeg.Width * jpeg.Height;
+                if (area <= fullArea && area * 100 >= fullArea * 90) return jpeg;
+            }
+            return full;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     /// <summary>For tests and diagnostics: every JPEG that can be shown in the file, with its place and size in pixels.</summary>
     public static IReadOnlyList<(long Offset, int Length, int Width, int Height)> ListJpegs(Stream stream)
     {
@@ -88,6 +121,15 @@ public static class RawPreview
 
         public List<Candidate> Candidates { get; } = new();
         public int Orientation { get; private set; } = 1;
+
+        /// <summary>PixelXDimension / PixelYDimension of the EXIF directory: the size of the finished photo.</summary>
+        public (int Width, int Height)? ExifSize { get; private set; }
+
+        /// <summary>The biggest directory that is the full-resolution picture (not a reduced copy), by its own width and length tags.</summary>
+        public (int Width, int Height)? FullSize { get; private set; }
+
+        /// <summary>DNG DefaultCropSize: the size of the finished picture.</summary>
+        public (int Width, int Height)? CropSize { get; private set; }
 
         public Walk(Stream s) => _s = s;
 
@@ -145,6 +187,22 @@ public static class RawPreview
             return values;
         }
 
+        // SHORT, LONG or RATIONAL values as whole numbers (a rational is divided, rounded).
+        private double[] Numbers(Entry e, long baseOffset)
+        {
+            if (e.Type != 5 || e.Count == 0 || e.Count > 16)
+                return Values(e, baseOffset).Select(v => (double)v).ToArray();
+
+            long at = baseOffset + U32(e.ValuePosition);
+            var result = new double[e.Count];
+            for (int i = 0; i < result.Length; i++)
+            {
+                double n = U32(at + i * 8L), d = U32(at + i * 8L + 4);
+                result[i] = d == 0 ? 0 : Math.Round(n / d);
+            }
+            return result;
+        }
+
         // ── The directories ──────────────────────────────────────────────────
 
         private void ParseIfd(long offset, long baseOffset, bool isFirst, bool nikonPreview, int depth)
@@ -155,7 +213,7 @@ public static class RawPreview
             int count = U16(position);
             if (count == 0 || count > 2000 || position + 2 + count * 12L > _s.Length) return;
 
-            uint? jpegOffset = null, jpegLength = null, compression = null;
+            uint? jpegOffset = null, jpegLength = null, compression = null, width = null, height = null, subFileType = null, exifW = null, exifH = null;
             uint[] stripOffsets = Array.Empty<uint>(), stripCounts = Array.Empty<uint>();
             var subIfds = new List<(long Offset, long Base, bool NikonPreview)>();
 
@@ -170,6 +228,15 @@ public static class RawPreview
                         var o = Values(e, baseOffset);
                         if (o.Length > 0 && o[0] is >= 1 and <= 8) Orientation = (int)o[0];
                         break;
+                    case 0x00FE: subFileType  = Values(e, baseOffset).FirstOrDefault(); break;   // 0 = the full-resolution picture, 1 = a reduced copy
+                    case 0x0100: width        = Values(e, baseOffset).FirstOrDefault(); break;
+                    case 0x0101: height       = Values(e, baseOffset).FirstOrDefault(); break;
+                    case 0xC620:                                                                 // DNG DefaultCropSize (two numbers)
+                        var crop = Numbers(e, baseOffset);
+                        if (crop.Length >= 2 && crop[0] > 0 && crop[1] > 0 && CropSize == null) CropSize = ((int)crop[0], (int)crop[1]);
+                        break;
+                    case 0xA002: exifW        = Values(e, baseOffset).FirstOrDefault(); break;   // EXIF PixelXDimension
+                    case 0xA003: exifH        = Values(e, baseOffset).FirstOrDefault(); break;
                     case 0x0103: compression  = Values(e, baseOffset).FirstOrDefault(); break;
                     case 0x0201: jpegOffset   = Values(e, baseOffset).FirstOrDefault(); break;   // JPEGInterchangeFormat
                     case 0x0202: jpegLength   = Values(e, baseOffset).FirstOrDefault(); break;   // ...Length
@@ -189,6 +256,11 @@ public static class RawPreview
                         break;
                 }
             }
+
+            if (exifW is > 0 && exifH is > 0 && ExifSize == null) ExifSize = ((int)exifW.Value, (int)exifH.Value);
+            if (!nikonPreview && width is > 0 && height is > 0 && (subFileType ?? 0) == 0
+                && (FullSize == null || (long)width.Value * height.Value > (long)FullSize.Value.Width * FullSize.Value.Height))
+                FullSize = ((int)width.Value, (int)height.Value);
 
             // A JPEG in this directory: by offset and length, or as the one strip of JPEG-compressed (6 or 7) data.
             if (jpegOffset is { } jo && jpegLength is { } jl)
