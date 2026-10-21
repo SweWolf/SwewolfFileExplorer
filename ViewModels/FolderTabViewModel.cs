@@ -2351,7 +2351,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Cannot rename: {ex.Message}", "Error",
+            // Say who holds the file when it is in use (Windows' Restart Manager), and keep it in the log.
+            var holders = ex is IOException && !item.IsDirectory ? FileLockInfo.WhoUses(item.FullPath) : new List<string>();
+            string who = holders.Count > 0 ? "\n\nIn use by: " + string.Join(", ", holders) : "";
+            LogFiles.AppendError($"Rename failed: {item.FullPath} -> {newName}: {ex.GetType().Name}: {ex.Message}" +
+                                 (holders.Count > 0 ? " In use by: " + string.Join(", ", holders) : ""));
+            MessageBox.Show($"Cannot rename: {ex.Message}{who}", AppInfo.Name,
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }

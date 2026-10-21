@@ -43,7 +43,7 @@ public static class AudioTagReader
         try
         {
             // Average: the tags and the properties of the audio / video / picture (read from the start of the file, not all of it).
-            using var file = TagLib.File.Create(path, TagLib.ReadStyle.Average);
+            using var file = TagLib.File.Create(new SharedReadFile(path), TagLib.ReadStyle.Average);
             var tag = file.Tag;
 
             // The artist; many files (an album ripped to flac) only have the album artist, which Explorer shows too.
@@ -78,7 +78,7 @@ public static class AudioTagReader
     {
         try
         {
-            using var file = TagLib.File.Create(path, TagLib.ReadStyle.None);
+            using var file = TagLib.File.Create(new SharedReadFile(path), TagLib.ReadStyle.None);
             var pictures = file.Tag.Pictures;
             if (pictures == null || pictures.Length == 0) return null;
 
@@ -90,6 +90,23 @@ public static class AudioTagReader
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// TagLib's own file opening shares a file for reading only, so while it reads (a slow drive such as Google Drive can take seconds) the file
+    /// cannot be renamed, moved or deleted: "being used by another process". This opens it the way a well-behaved reader does.
+    /// </summary>
+    private sealed class SharedReadFile : TagLib.File.IFileAbstraction
+    {
+        public SharedReadFile(string path) => Name = path;
+
+        public string Name { get; }
+
+        public Stream ReadStream => new FileStream(Name, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+        public Stream WriteStream => throw new NotSupportedException("The explorer never writes tags.");
+
+        public void CloseStream(Stream stream) => stream.Dispose();
     }
 
     private static string Join(IEnumerable<string>? names) =>
