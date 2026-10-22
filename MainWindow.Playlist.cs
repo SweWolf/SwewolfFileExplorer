@@ -3,11 +3,12 @@ using System.Windows;
 using Microsoft.Win32;
 using SwewolfFileExplorer.Helpers;
 using SwewolfFileExplorer.ViewModels;
+using SwewolfFileExplorer.Views;
 
 namespace SwewolfFileExplorer;
 
 /// <summary>
-/// The playlist bar above the list while an M3U playlist is shown: Add Files, Move Up, Move Down, Save Playlist, Save Playlist As
+/// The playlist buttons in the info line, right of "File 14/15", while an M3U playlist is shown: Add Files, Move Up, Move Down, Save Playlist, Save Playlist As
 /// (as in TeraTool). Moving files gives the playlist an order of its own: the sort by a column ends. Deleting takes entries out of the list
 /// (the files stay) and pasting adds links to the pasted files (see FolderTabViewModel, "Editing a playlist").
 /// </summary>
@@ -16,7 +17,7 @@ public partial class MainWindow
     private void UpdatePlaylistBar()
     {
         bool inPlaylist = VM.InPlaylist;
-        PlaylistBar.Visibility = inPlaylist ? Visibility.Visible : Visibility.Collapsed;
+        PlaylistBar.Visibility = inPlaylist ? Visibility.Visible : Visibility.Collapsed;   // the buttons right of "File 14/15"
         PlaylistSaveButton.IsEnabled = VM.PlaylistDirty;
         UpdatePlaylistMoveButtons();
     }
@@ -26,6 +27,104 @@ public partial class MainWindow
         bool any = FileListView.SelectedItems.Count > 0;
         PlaylistUpButton.IsEnabled   = any;
         PlaylistDownButton.IsEnabled = any;
+    }
+
+    // ── Create Playlist... (the right-click menus of the list and of the tree) ──────────────────
+
+    private void CtxCreatePlaylist_Click(object sender, RoutedEventArgs e)
+    {
+        var folder = VM.CurrentPath;
+        if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) return;
+        CreatePlaylist(folder, FileListView.SelectedItems.OfType<FileItemViewModel>().Where(i => !i.IsDirectory).ToList());
+    }
+
+    private void TreeCtxCreatePlaylist_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode == null || !Directory.Exists(_treeMenuNode.FullPath)) return;
+        CreatePlaylist(_treeMenuNode.FullPath, null);
+    }
+
+    /// <summary>
+    /// Makes an M3U playlist (a .m3u8 file, UTF-8) in <paramref name="folder"/>. First the question what it starts with: all the files that can
+    /// be played in the folder (pictures, music and video; in the order of the list when the folder is the one shown), the selected files
+    /// (<paramref name="selected"/>; the list's menu only), or none; then its name. The new playlist is opened, so files can be added at once.
+    /// </summary>
+    private void CreatePlaylist(string folder, List<FileItemViewModel>? selected)
+    {
+        bool isShown = string.Equals(folder.TrimEnd('\\'), VM.CurrentPath?.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+        bool canSelect = selected is { Count: > 0 };
+
+        var ask = new ChoiceDialog($"Which files should the new playlist start with?\n\nIt is made in this folder:\n{folder}",
+            new[] { "All Files in the Folder", "Selected Files", "No Files", "Cancel" },
+            defaultIndex: canSelect ? 1 : 0, cancelIndex: 3)
+        {
+            Owner = this,
+        };
+        ask.SetButtonEnabled(1, canSelect);
+        ask.ShowDialog();
+        if (ask.Result is < 0 or 3) return;
+
+        var files = new List<string>();
+        if (ask.Result == 0)
+        {
+            if (isShown)
+                files = PlaylistInList();   // the list as shown: sorted, filtered, playable files only
+            else
+            {
+                try
+                {
+                    files = new DirectoryInfo(folder).EnumerateFiles()
+                        .Where(f => (f.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0
+                                    && (ThumbnailLoader.IsImage(f.Name) || MediaPlayerLauncher.IsMedia(f.Name)))
+                        .Select(f => f.FullName)
+                        .OrderBy(f => Path.GetFileName(f), Comparer<string?>.Create(FileItemComparer.NaturalCompare))
+                        .ToList();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, $"The folder could not be read: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+        }
+        else if (ask.Result == 1)
+        {
+            files = selected!.Select(i => i.FullPath).ToList();
+        }
+
+        var name = new InputDialog("Create Playlist", "Name of the playlist:", "Playlist", n => CheckPlaylistName(folder, n)) { Owner = this };
+        if (name.ShowDialog() != true) return;
+
+        var path = Path.Combine(folder, PlaylistFileName(name.InputText));
+        try
+        {
+            PlaylistFile.Write(path, files.Select(f => new PlaylistEntry(f, true)));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"The playlist could not be made: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        VM.ActiveTab.RefreshFolder(folder);   // the playlist shows in the tree
+        VM.Navigate(path);                    // and is opened, ready for more files
+        FlashTitle($"{BaseTitle} - Playlist made: {Path.GetFileName(path)}");
+    }
+
+    /// <summary>"Name" becomes "Name.m3u8"; a name that ends in .m3u or .m3u8 is kept.</summary>
+    private static string PlaylistFileName(string typed)
+    {
+        typed = typed.Trim();
+        return PlaylistFile.IsPlaylistName(typed) ? typed : typed + ".m3u8";
+    }
+
+    private static string? CheckPlaylistName(string folder, string typed)
+    {
+        typed = typed.Trim();
+        if (typed.Length == 0) return "Type a name.";
+        if (typed.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            return "A file name cannot contain any control characters or any of the following characters:\n\\ / : * ? \" < > |";
+        return File.Exists(Path.Combine(folder, PlaylistFileName(typed))) ? "A playlist with this name exists already." : null;
     }
 
     private void PlaylistAdd_Click(object sender, RoutedEventArgs e)
@@ -88,7 +187,9 @@ public partial class MainWindow
         var dialog = new SaveFileDialog
         {
             Title = "Save Playlist As",
-            FileName = Path.GetFileName(current),
+            // The name of the folder the playlist is in (only the last part of the path), with the extension of this playlist.
+            FileName = (Path.GetFileName(Path.GetDirectoryName(current)) is { Length: > 0 } folderName ? folderName : Path.GetFileNameWithoutExtension(current))
+                       + Path.GetExtension(current),
             InitialDirectory = Path.GetDirectoryName(current),
             DefaultExt = ".m3u8",
             AddExtension = true,

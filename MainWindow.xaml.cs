@@ -2100,6 +2100,7 @@ public partial class MainWindow : Window
                 "Paste"      => canPaste,
                 "Copy as Path" => hasSelection,
                 "Create Shortcut..." => hasSelection && !inArchive,   // a shortcut cannot point inside a compressed file
+                "Create Playlist..." => !inArchive && hasFolder && System.IO.Directory.Exists(VM.CurrentPath),
                 "Mark as Read" or "Mark as Unread" => hasSelection,
                 "Rating..." or "Expectation..." => hasSelection,
                 "Delete" or "Remove from Playlist" => hasSelection && (!inArchive || VM.InPlaylist),
@@ -2697,6 +2698,7 @@ public partial class MainWindow : Window
                 "Set Tags..." => canChange,   // a folder on the disk, not a drive
                 "Cut"        => canChange,
                 "Create Shortcut..." => realFolder,   // a drive too
+                "Create Playlist..." => realFolder,
                 "Paste"      => realFolder && FileClipboard.HasFiles(),
                 "Delete"     => canChange,
                 "Rename"     => canChange,

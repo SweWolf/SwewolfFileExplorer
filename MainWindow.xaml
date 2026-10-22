@@ -519,6 +519,8 @@
                                       ToolTip="Copy the full path of this folder as text, in quotes"/>
                             <MenuItem Header="Create Shortcut..." Click="TreeCtxCreateShortcut_Click"
                                       ToolTip="Make a shortcut to this folder in a folder you choose"/>
+                            <MenuItem Header="Create Playlist..." Click="TreeCtxCreatePlaylist_Click"
+                                      ToolTip="Make an M3U playlist in this folder, with all the files or none to start with"/>
                             <Separator/>
                             <MenuItem Header="Delete"          Click="TreeCtxDelete_Click" InputGestureText="Del"/>
                             <MenuItem Header="Rename"          Click="TreeCtxRename_Click" InputGestureText="F2"/>
@@ -596,23 +598,6 @@
 
             <!-- File list, with the filter bar above it when it is switched on -->
             <DockPanel Grid.Column="2" Grid.Row="0">
-            <!-- The playlist bar: only while a playlist is shown (MainWindow.Playlist.cs) -->
-            <Border x:Name="PlaylistBar" DockPanel.Dock="Top" Visibility="Collapsed" Padding="8,5"
-                    Background="{DynamicResource PaneBrush}"
-                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
-                <WrapPanel Orientation="Horizontal">
-                    <Button x:Name="PlaylistAddButton" Content="Add Files..." Padding="10,3" Margin="0,0,6,0" Click="PlaylistAdd_Click"
-                            ToolTip="Add files to the playlist, after the selected one. Copying files and pasting them here (Ctrl+V) does the same."/>
-                    <Button x:Name="PlaylistUpButton" Content="Move Up" Padding="10,3" Margin="0,0,6,0" Click="PlaylistUp_Click"
-                            ToolTip="Move the selected files one place up in the playlist"/>
-                    <Button x:Name="PlaylistDownButton" Content="Move Down" Padding="10,3" Margin="0,0,18,0" Click="PlaylistDown_Click"
-                            ToolTip="Move the selected files one place down in the playlist"/>
-                    <Button x:Name="PlaylistSaveButton" Content="Save Playlist" Padding="10,3" Margin="0,0,6,0" Click="PlaylistSave_Click"
-                            ToolTip="Save the playlist (Ctrl+S)"/>
-                    <Button x:Name="PlaylistSaveAsButton" Content="Save Playlist As..." Padding="10,3" Click="PlaylistSaveAs_Click"
-                            ToolTip="Save the playlist as another file"/>
-                </WrapPanel>
-            </Border>
             <Border x:Name="FilterBar" DockPanel.Dock="Top" Visibility="Collapsed" Padding="8,5"
                     Background="{DynamicResource PaneBrush}"
                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
@@ -777,6 +762,8 @@
                                   ToolTip="Copy the full path of the selected items as text, each in quotes"/>
                         <MenuItem Header="Create Shortcut..." Click="CtxCreateShortcut_Click"
                                   ToolTip="Make a shortcut to the selected items in a folder you choose"/>
+                        <MenuItem Header="Create Playlist..." Click="CtxCreatePlaylist_Click"
+                                  ToolTip="Make an M3U playlist in this folder, with all the files, the selected files or none to start with"/>
                         <Separator/>
                         <MenuItem Header="Mark as Read"   Click="CtxMarkRead_Click"
                                   ToolTip="Remember that the selected files have been opened"/>
@@ -876,6 +863,21 @@
                                 <Run Text="{Binding HiddenText, Mode=OneWay}"/>
                             </Hyperlink>
                         </TextBlock>
+
+                        <!-- The playlist buttons: only while a playlist is shown (MainWindow.Playlist.cs) -->
+                        <StackPanel x:Name="PlaylistBar" Orientation="Horizontal" Margin="130,0,0,0" VerticalAlignment="Top" Visibility="Collapsed">
+                            <Button x:Name="PlaylistAddButton" Content="Add Files..." Height="20" MinHeight="0" Padding="9,0" FontSize="12" Margin="0,0,6,0"
+                                    Click="PlaylistAdd_Click"
+                                    ToolTip="Add files to the playlist, after the selected one. Copying files and pasting them here (Ctrl+V) does the same."/>
+                            <Button x:Name="PlaylistUpButton" Content="&#x25B2;" FontFamily="Segoe UI Symbol" Height="20" MinHeight="0" MinWidth="30" Padding="6,0" FontSize="11" Margin="0,0,3,0"
+                                    Click="PlaylistUp_Click" ToolTip="Move Up (the selected files one place up in the playlist)"/>
+                            <Button x:Name="PlaylistDownButton" Content="&#x25BC;" FontFamily="Segoe UI Symbol" Height="20" MinHeight="0" MinWidth="30" Padding="6,0" FontSize="11" Margin="0,0,12,0"
+                                    Click="PlaylistDown_Click" ToolTip="Move Down (the selected files one place down in the playlist)"/>
+                            <Button x:Name="PlaylistSaveButton" Content="Save Playlist" Height="20" MinHeight="0" Padding="9,0" FontSize="12" Margin="0,0,6,0"
+                                    Click="PlaylistSave_Click" ToolTip="Save the playlist (Ctrl+S)"/>
+                            <Button x:Name="PlaylistSaveAsButton" Content="Save Playlist As..." Height="20" MinHeight="0" Padding="9,0" FontSize="12" Margin="0,0,0,0"
+                                    Click="PlaylistSaveAs_Click" ToolTip="Save the playlist as another file"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- The Play bar, as TeraTool's box under the list, with one change: Play and Pause are one button. Under the info line,
