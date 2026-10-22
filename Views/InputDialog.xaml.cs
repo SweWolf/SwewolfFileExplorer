@@ -25,6 +25,7 @@ public partial class InputDialog : Window
     /// A file whose name is shown with its extension: the extension gets a box of its own after a dot (when the name has one),
     /// so it is not changed by accident, and the case buttons leave it alone.
     /// </param>
+    /// <param name="extensionReadOnly">The extension box can be read but not changed (a playlist keeps its .m3u8).</param>
     /// <param name="hint">A few words of explanation under the box (grey).</param>
     /// <param name="currentName">Rename: the present name, shown above in a read-only box.</param>
     /// <param name="smartApplies">The file is a music or video file: "Use Smart Name" is shown (always checked at the start; with no <paramref name="smartName"/> the present name is the smart name).</param>
@@ -34,7 +35,7 @@ public partial class InputDialog : Window
     /// </param>
     public InputDialog(string title, string prompt, string defaultValue = "", Func<string, string?>? validate = null,
                        bool caseButtons = false, bool keepExtension = false, string? smartName = null, string? currentName = null,
-                       bool smartApplies = false, string? hint = null)
+                       bool smartApplies = false, string? hint = null, bool extensionReadOnly = false)
     {
         _validate       = validate;
         _original       = defaultValue;
@@ -57,6 +58,11 @@ public partial class InputDialog : Window
         {
             DotText.Visibility = ExtTextBox.Visibility = Visibility.Visible;
             ExtTextBox.MaxLength = 20;
+            if (extensionReadOnly)
+            {
+                ExtTextBox.IsReadOnly = true;
+                ExtTextBox.IsTabStop  = false;
+            }
         }
         SetName(defaultValue);
 

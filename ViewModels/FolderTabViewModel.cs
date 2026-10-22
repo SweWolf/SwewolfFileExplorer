@@ -2222,8 +2222,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
     }
 
     /// <summary>Moves a folder of the tree to the Recycle Bin (its right-click menu).</summary>
-    public void DeleteFolder(string path) =>
-        DeleteEntries(new() { (path, Path.GetFileName(path.TrimEnd('\\', '/')), true) }, permanent: false);
+    public void DeleteFolder(string path)
+    {
+        if (_playlistDirty && IsSamePath(path, _currentPath) && !ConfirmLeavePlaylist()) return;   // the playlist shown, with changes not saved
+        DeleteEntries(new() { (path, Path.GetFileName(path.TrimEnd('\\', '/')), Directory.Exists(path)) }, permanent: false);   // (a playlist of the tree is a file)
+    }
 
     private bool _deleting;
 
@@ -2318,7 +2321,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     /// <summary>Renames a folder of the tree (its right-click menu).</summary>
     public void RenameFolder(string path, string newName) =>
-        RenameItem(new FileItemViewModel { Name = Path.GetFileName(path.TrimEnd('\\', '/')), FullPath = path, IsDirectory = true }, newName);
+        RenameItem(new FileItemViewModel { Name = Path.GetFileName(path.TrimEnd('\\', '/')), FullPath = path, IsDirectory = Directory.Exists(path) }, newName);   // (a playlist of the tree is a file)
 
     /// <summary>
     /// What is wrong with <paramref name="newName"/> as the new name of the item at <paramref name="path"/>:
@@ -2496,6 +2499,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         newName = newName.Trim();
         if (string.IsNullOrEmpty(newName) || newName == item.Name) return;
+        if (_playlistDirty && !item.IsDirectory && IsSamePath(item.FullPath, _currentPath) && !ConfirmLeavePlaylist()) return;   // the playlist shown, with changes not saved
 
         var problem = CheckNewName(item.FullPath, newName);
         if (problem != null)
@@ -2526,6 +2530,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 var rest = Path.GetRelativePath(item.FullPath, _currentPath);
                 newCurrent = rest == "." ? newPath : Path.Combine(newPath, rest);
+            }
+            else if (!item.IsDirectory && !sameItem && IsSamePath(item.FullPath, _currentPath))
+            {
+                newCurrent = newPath;   // the playlist shown is renamed: it is open under its new name
             }
 
             if (item.IsDirectory) Directory.Move(item.FullPath, newPath);

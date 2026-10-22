@@ -56,7 +56,7 @@ public partial class MainWindow
 
         var ask = new ChoiceDialog($"Which files should the new playlist start with?\n\nIt is made in this folder:\n{folder}",
             new[] { "All Files in the Folder", "Selected Files", "No Files", "Cancel" },
-            defaultIndex: canSelect ? 1 : 0, cancelIndex: 3)
+            defaultIndex: canSelect ? 1 : 0, cancelIndex: 3, fontSize: 16)
         {
             Owner = this,
         };
@@ -92,7 +92,7 @@ public partial class MainWindow
             files = selected!.Select(i => i.FullPath).ToList();
         }
 
-        var name = new InputDialog("Create Playlist", "Name of the playlist:", "Playlist", n => CheckPlaylistName(folder, n)) { Owner = this };
+        var name = new InputDialog("Create Playlist", "Name of the playlist:", SuggestPlaylistName(folder), n => CheckPlaylistName(folder, n)) { Owner = this };
         if (name.ShowDialog() != true) return;
 
         var path = Path.Combine(folder, PlaylistFileName(name.InputText));
@@ -109,6 +109,18 @@ public partial class MainWindow
         VM.ActiveTab.RefreshFolder(folder);   // the playlist shows in the tree
         VM.Navigate(path);                    // and is opened, ready for more files
         FlashTitle($"{BaseTitle} - Playlist made: {Path.GetFileName(path)}");
+    }
+
+    /// <summary>The name of the folder (only its last part) is the suggested name; "(2)", "(3)" ... if a playlist of that name is there already. "Playlist" for a drive.</summary>
+    private static string SuggestPlaylistName(string folder)
+    {
+        var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(folder));
+        name = string.Concat(name.Where(c => Array.IndexOf(Path.GetInvalidFileNameChars(), c) < 0)).Trim();
+        if (name.Length == 0) name = "Playlist";
+
+        var candidate = name;
+        for (int i = 2; File.Exists(Path.Combine(folder, PlaylistFileName(candidate))); i++) candidate = $"{name} ({i})";
+        return candidate;
     }
 
     /// <summary>"Name" becomes "Name.m3u8"; a name that ends in .m3u or .m3u8 is kept.</summary>

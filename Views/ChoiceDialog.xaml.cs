@@ -40,9 +40,12 @@ public partial class ChoiceDialog : Window
     /// <param name="buttons">The button texts, left to right.</param>
     /// <param name="defaultIndex">The button that has the focus and that the countdown presses.</param>
     /// <param name="cancelIndex">The button that Esc presses; -1 if none.</param>
-    public ChoiceDialog(string message, IList<string> buttons, int defaultIndex = 0, int cancelIndex = -1)
+    /// <param name="fontSize">The size of the text and the buttons (22 for the picture viewer's question; a smaller one for a dialog with several long button texts).</param>
+    public ChoiceDialog(string message, IList<string> buttons, int defaultIndex = 0, int cancelIndex = -1, double fontSize = 22)
     {
         InitializeComponent();
+        FontSize = fontSize;
+        MaxWidth = Math.Max(MinWidth, SystemParameters.WorkArea.Width - 60);   // the buttons all have the width of the widest one: with four long ones the dialog must be allowed to grow
 
         Title = AppInfo.Name;
         MessageText.Text = message;

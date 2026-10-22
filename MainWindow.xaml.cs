@@ -2700,8 +2700,8 @@ public partial class MainWindow : Window
                 "Create Shortcut..." => realFolder,   // a drive too
                 "Create Playlist..." => realFolder,
                 "Paste"      => realFolder && FileClipboard.HasFiles(),
-                "Delete"     => canChange,
-                "Rename"     => canChange,
+                "Delete"     => CanRenameOrDelete(path),
+                "Rename"     => CanRenameOrDelete(path),
                 "New Folder" => realFolder,
                 "Properties" => realFolder || System.IO.File.Exists(path),   // what is in an archive is not on the disk
                 "More Options" => realFolder,
@@ -2924,14 +2924,18 @@ public partial class MainWindow : Window
     }
 
     /// <summary>True for a folder of the disk that may be renamed or deleted: not a drive, and nothing in an archive.</summary>
+    private static bool CanRenameOrDelete(string path) =>
+        CanChangeFolder(path) || PlaylistFile.IsPlaylist(path);   // a playlist of the tree is a file: it can be renamed and deleted too
+
     private static bool CanChangeFolder(string path) =>
         System.IO.Directory.Exists(path)
         && !string.Equals(System.IO.Path.GetPathRoot(path), path, StringComparison.OrdinalIgnoreCase);
 
     private void RenameTreeFolder(TreeItemViewModel node)
     {
-        var dlg = new InputDialog("Rename Folder", "Enter new name:", node.Name,
-            name => FolderTabViewModel.CheckNewName(node.FullPath, name), currentName: node.Name) { Owner = this };
+        bool playlist = PlaylistFile.IsPlaylist(node.FullPath);   // a file: the extension has its own box
+        var dlg = new InputDialog(playlist ? "Rename Playlist" : "Rename Folder", "Enter new name:", node.Name,
+            name => FolderTabViewModel.CheckNewName(node.FullPath, name), keepExtension: playlist, extensionReadOnly: playlist, currentName: node.Name) { Owner = this };
         if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
             VM.RenameFolder(node.FullPath, dlg.InputText);
     }
@@ -2951,7 +2955,7 @@ public partial class MainWindow : Window
         // Delete and Ctrl+Shift+C in the tree, as in the tree's menu (the menu shows these keys).
         if (e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.None)
         {
-            if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } doomed && CanChangeFolder(doomed.FullPath))
+            if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } doomed && CanRenameOrDelete(doomed.FullPath))
                 VM.DeleteFolder(doomed.FullPath);
             e.Handled = true;
             return;
@@ -2981,7 +2985,7 @@ public partial class MainWindow : Window
 
         if (e.Key != Key.F2) return;
 
-        if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } node && CanChangeFolder(node.FullPath))
+        if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } node && CanRenameOrDelete(node.FullPath))
             RenameTreeFolder(node);
 
         e.Handled = true;
