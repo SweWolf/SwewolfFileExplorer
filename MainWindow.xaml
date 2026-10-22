@@ -878,15 +878,18 @@
 
                             <TextBlock Text="Play Mode" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
                             <ComboBox x:Name="PlayModeBox" Width="130" FontSize="12" Margin="0,2,0,2" SelectionChanged="PlaySetting_Changed"
-                                      ToolTip="Slide Show: the next picture comes by itself (continues playing). Single Play: the picture opens and stays.">
+                                      ToolTip="Slide Show: the next file comes by itself (continues playing). Single Play: the file opens and stays. Repeat: the same music or video plays again and again. Demo Play: each music or video file plays for the time below, from 1 minute in. Intro Play: the same, from the start.">
                                 <ComboBoxItem Content="Slide Show"/>
                                 <ComboBoxItem Content="Single Play"/>
+                                <ComboBoxItem Content="Repeat"/>
+                                <ComboBoxItem Content="Demo Play"/>
+                                <ComboBoxItem Content="Intro Play"/>
                             </ComboBox>
 
                             <TextBlock Text="Time per File (s)" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
                             <TextBox x:Name="PlaySecondsBox" Width="48" FontSize="12" Margin="0,2,0,2" MaxLength="4" TextAlignment="Right"
                                      PreviewTextInput="PlayNumber_PreviewTextInput" LostFocus="PlayNumber_LostFocus"
-                                     ToolTip="How many seconds each picture stays in a slide show"/>
+                                     ToolTip="How many seconds each picture stays in a slide show, and how long each music or video file plays in Demo Play and Intro Play (10 if this is not a positive number)"/>
 
                             <TextBlock Text="End of List Action" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
                             <ComboBox x:Name="PlayEndBox" Width="160" FontSize="12" Margin="0,2,0,2" SelectionChanged="PlaySetting_Changed"

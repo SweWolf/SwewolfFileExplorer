@@ -23,6 +23,9 @@ public sealed class BookmarkEntry
     /// <summary>The target is a file, not a folder.</summary>
     public bool IsFile { get; init; }
 
+    /// <summary>The point in a video or music file where this bookmark starts (milliseconds); null for a bookmark of the whole file or folder.</summary>
+    public long? StartMs { get; init; }
+
     public List<BookmarkEntry> Children { get; } = new();
 }
 
@@ -43,7 +46,32 @@ public static class BookmarkStore
     // ── Reading ───────────────────────────────────────────────────────────────
 
     // Where a shortcut points, kept until the shortcut file changes (asking Windows for it costs a moment per file).
-    private static readonly Dictionary<string, (DateTime Written, string? Target)> TargetCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, (DateTime Written, string? Target, long? StartMs)> TargetCache = new(StringComparer.OrdinalIgnoreCase);
+
+    // ── The start point of a bookmark ─────────────────────────────────────────
+    // A shortcut has no field for a time, so it is written in the shortcut's Comment (what Windows shows in its Properties) in plain
+    // words, "Start time: 0:12:34.500" (hours:minutes:seconds.thousandths), so nobody wonders what it is. SweWolf Media Player makes
+    // such shortcuts too (the same text: change both together).
+
+    /// <summary>The text of the Comment for a start point of <paramref name="ms"/> milliseconds.</summary>
+    public static string FormatStartTime(long ms)
+    {
+        var t = TimeSpan.FromMilliseconds(Math.Max(ms, 0));
+        return $"Start time: {(int)t.TotalHours}:{t.Minutes:00}:{t.Seconds:00}.{t.Milliseconds:000}";
+    }
+
+    /// <summary>The start point named in a Comment (milliseconds), or null if it does not begin with "Start time:".</summary>
+    public static long? ParseStartTime(string? comment)
+    {
+        if (string.IsNullOrWhiteSpace(comment)) return null;
+        var m = System.Text.RegularExpressions.Regex.Match(comment,
+            @"^\s*Start\s*time\s*:?\s*(\d+):(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!m.Success) return null;
+
+        long ms = (long.Parse(m.Groups[1].Value) * 3600 + long.Parse(m.Groups[2].Value) * 60 + long.Parse(m.Groups[3].Value)) * 1000;
+        if (m.Groups[4].Success) ms += long.Parse(m.Groups[4].Value.PadRight(3, '0'));
+        return ms;
+    }
 
     /// <summary>
     /// Everything in the Bookmarks folder as a tree of entries. Touches the disk (and, with <paramref name="checkAvailable"/>, the
@@ -75,7 +103,7 @@ public static class BookmarkStore
             foreach (var file in new DirectoryInfo(folder).EnumerateFiles("*.lnk").Where(f => (f.Attributes & FileAttributes.Hidden) == 0)
                                                           .OrderBy(f => f.Name, StringComparer.CurrentCultureIgnoreCase))
             {
-                var target = TargetOf(file, shell);
+                var (target, startMs) = TargetOf(file, (object?)shell);
                 bool exists = false, isFile = false;
                 if (target != null && checkAvailable)
                 {
@@ -94,6 +122,7 @@ public static class BookmarkStore
                     Target    = target,
                     Available = !checkAvailable || exists,
                     IsFile    = isFile,
+                    StartMs   = startMs,
                 });
             }
         }
@@ -101,8 +130,12 @@ public static class BookmarkStore
     }
 
     /// <summary>The bookmark of this shortcut file (a .lnk inside the Bookmarks folder), or null if it is not one.</summary>
-    public static string? TargetOfBookmarkFile(string path)
+    public static string? TargetOfBookmarkFile(string path) => TargetOfBookmarkFile(path, out _);
+
+    /// <summary>The same, and the start point of the bookmark (null if it has none).</summary>
+    public static string? TargetOfBookmarkFile(string path, out long? startMs)
     {
+        startMs = null;
         try
         {
             if (!string.Equals(System.IO.Path.GetExtension(path), ".lnk", StringComparison.OrdinalIgnoreCase)) return null;
@@ -111,17 +144,21 @@ public static class BookmarkStore
             if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return null;
 
             dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
-            return TargetOf(new FileInfo(full), shell);
+            var (target, start) = TargetOf(new FileInfo(full), (object?)shell);
+            startMs = start;
+            return target;
         }
         catch { return null; }
     }
 
-    private static string? TargetOf(FileInfo file, dynamic? shell)
+    private static (string? Target, long? StartMs) TargetOf(FileInfo file, object? shellObject)
     {
+        dynamic? shell = shellObject;   // (a dynamic argument would make the whole call dynamic, which cannot be deconstructed)
         lock (TargetCache)
-            if (TargetCache.TryGetValue(file.FullName, out var cached) && cached.Written == file.LastWriteTimeUtc) return cached.Target;
+            if (TargetCache.TryGetValue(file.FullName, out var cached) && cached.Written == file.LastWriteTimeUtc) return (cached.Target, cached.StartMs);
 
         string? target = null;
+        long? startMs = null;
         try
         {
             if (shell != null)
@@ -129,12 +166,13 @@ public static class BookmarkStore
                 dynamic link = shell.CreateShortcut(file.FullName);
                 string t = link.TargetPath;
                 target = string.IsNullOrWhiteSpace(t) ? null : t;
+                startMs = ParseStartTime((string?)link.Description);
             }
         }
         catch { /* a damaged shortcut: no target */ }
 
-        lock (TargetCache) TargetCache[file.FullName] = (file.LastWriteTimeUtc, target);
-        return target;
+        lock (TargetCache) TargetCache[file.FullName] = (file.LastWriteTimeUtc, target, startMs);
+        return (target, startMs);
     }
 
     /// <summary>
@@ -212,7 +250,7 @@ public static class BookmarkStore
                 var inside = Find(e.Children, target);
                 if (inside != null) return inside;
             }
-            else if (e.Target != null && string.Equals(e.Target.TrimEnd('\\'), target.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+            else if (e.StartMs == null && e.Target != null && string.Equals(e.Target.TrimEnd('\\'), target.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
                 return e;
         }
         return null;

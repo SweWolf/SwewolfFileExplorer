@@ -43,9 +43,6 @@ public class AppSettings
     public bool UnreadBold { get; set; } = true;
     public bool UnreadItalic { get; set; }
 
-    /// <summary>Where SweWolf Media Player is, when it is not next to this EXE or in ..\SwewolfMediaPlayer (asked once, then remembered).</summary>
-    public string MediaPlayerPath { get; set; } = "";
-
     /// <summary>Files with these extensions count as hidden (shown only with "click to show"), like the hidden attribute does.</summary>
     public string HiddenExtensions { get; set; } = HiddenItems.DefaultExtensions;
 

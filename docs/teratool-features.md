@@ -6,10 +6,10 @@ what SweWolf File Explorer does (made 2026-10-19). `[x]` = built, `[ ]` = not bu
 
 ## Viewing and playing
 
-- [ ] **1. Slideshow and play modes.** Slideshow, Single, Repeat, Demo Play and Intro Play, with seconds per picture. The countdown and the
+- [x] **1. Slideshow and play modes.** Done (2026-10-21): the Play bar with slide show of pictures, music and video through SweWolf Media Player, Repeat, Demo Play and Intro Play. Slideshow, Single, Repeat, Demo Play and Intro Play, with seconds per picture. The countdown and the
   end-of-list choice of the picture viewer are already there and were made for this. A plan (phases, the named pipe to the media player, open decisions) is in `slideshow-and-play-modes-plan.md`.
-- [ ] **2. Bookmarks.** A global list of file plus start point, an "Add Bookmark" command and a Bookmarks view.
-- [ ] **3. Playlists and link collections.** `.m3u` and the "folder as playlist" idea.
+- [x] **2. Bookmarks.** Done 2026-10-20 as `.lnk` shortcuts in a Bookmarks node at the top of the tree (Ctrl+D). A start point inside a video or music file is done too (2026-10-21): the player's Add Bookmark button, the time in the shortcut's Comment. Not done: a Bookmarks menu in the menu bar.
+- [ ] **3. Playlists and link collections.** In progress (2026-10-21): `.m3u` / `.m3u8` read-only, shown as folders in the tree; the Play bar plays them. Not done: editing, web links (streams), link collections.
 - [ ] **4. Picture viewer extras.** A small popup menu, the folder name shown when a slideshow crosses into another folder, a mouse wheel that
   can be set to zoom or to go to the next picture.
 - [ ] **5. Text editor and hex editor.** Today `.nfo` and text files open in VS Code or Notepad.

@@ -120,7 +120,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         var (column, ascending) = _shared.TryGetFolderSort(_currentPath, out var s)
             ? s
-            : (ArchiveSupport.ShowsStoredOrder(_currentPath) ? SortColumn.None : SortColumn.Name, true);
+            : (ArchiveSupport.ShowsStoredOrder(_currentPath) || PlaylistFile.IsPlaylistName(_currentPath) ? SortColumn.None : SortColumn.Name, true);   // a playlist: in the order of the list
 
         SortColumn    = column;
         SortAscending = ascending;
@@ -532,7 +532,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             path = expanded;
         }
 
-        if (!Directory.Exists(path))
+        if (!Directory.Exists(path) && !PlaylistFile.IsPlaylist(path))   // a playlist is shown like a folder
         {
             // A packed file, or a folder inside one, is a folder here: it is entered, not opened.
             if (!ArchiveSupport.FolderExists(path, out var archiveError))
@@ -767,7 +767,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public static bool IsAvailable(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return false;
-        try { return Directory.Exists(path) || ArchiveSupport.FolderExists(path, out _); }
+        try { return Directory.Exists(path) || PlaylistFile.IsPlaylist(path) || ArchiveSupport.FolderExists(path, out _); }
         catch { return false; }
     }
 
@@ -878,7 +878,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             root = Path.GetFullPath(path);
             if (root.Length > 3) root = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);   // C:\ keeps its slash
         }
-        else if (File.Exists(path) ? ArchiveSupport.IsArchiveName(path) : ArchiveSupport.FolderExists(path, out _))
+        else if (File.Exists(path) ? ArchiveSupport.IsArchiveName(path) || PlaylistFile.IsPlaylistName(path) : ArchiveSupport.FolderExists(path, out _))
         {
             root = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
@@ -1083,6 +1083,47 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     public bool InArchive => _inArchive;
 
+    private bool _inPlaylist;
+
+    /// <summary>The "folder" shown is an M3U playlist: its files, in the order of the list (read-only; the window opens the Play bar).</summary>
+    public bool InPlaylist => _inPlaylist;
+
+    private void LoadPlaylistItems(string path)
+    {
+        try
+        {
+            foreach (var entry in PlaylistFile.Read(path))
+            {
+                FileItemViewModel vm;
+                if (entry.Exists)
+                {
+                    vm = NewFileItem(new FileInfo(entry.Path), hidden: false);
+                }
+                else
+                {
+                    vm = new FileItemViewModel
+                    {
+                        Name      = System.IO.Path.GetFileName(entry.Path),
+                        FullPath  = entry.Path,
+                        IsHidden  = true,   // dimmed
+                        IsMissing = true,
+                        TypeName  = "Missing file",
+                        Size      = -1,
+                    };
+                }
+                CurrentItems.Add(vm);
+                if (entry.Exists) vm.LoadIconAsync();
+            }
+
+            StatusText = "";
+            EnsureTags();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Cannot read the playlist: {ex.Message}";
+        }
+    }
+
     private void LoadArchiveItems(string path)
     {
         try
@@ -1252,7 +1293,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     public void EnsureTags()
     {
-        if (!_shared.TagColumnsVisible || _inArchive) return;   // not on the disk: the tags of a file in an archive are not read (yet)
+        if (!_shared.TagColumnsVisible || (_inArchive && !_inPlaylist)) return;   // not on the disk: the tags of a file in an archive are not read (yet)
 
         var pending = CurrentItems
             .Where(i => !i.IsDirectory && !i.TagsRequested && AudioTagReader.HasMediaInfo(i.FullPath))
@@ -1303,7 +1344,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
         ClearReadState();
         UpdateTreeHidden(path, preread?.TreeHidden);
 
-        _inArchive = ArchiveSupport.IsInside(path);
+        bool playlist = PlaylistFile.IsPlaylist(path);
+        _inArchive = playlist || ArchiveSupport.IsInside(path);   // a playlist is read-only too
+        if (playlist != _inPlaylist)
+        {
+            _inPlaylist = playlist;
+            OnPropertyChanged(nameof(InPlaylist));
+        }
         OnPropertyChanged(nameof(InArchive));
         RaiseAllCanExecuteChanged();   // nothing can be deleted or pasted in an archive
 
@@ -1319,6 +1366,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 _treeSeen = null;
                 SyncListInPlace();
             }
+        }
+
+        if (playlist)
+        {
+            LoadPlaylistItems(path);
+            OnPropertyChanged(nameof(HasHiddenItems));
+            OnPropertyChanged(nameof(HiddenText));
+            return;
         }
 
         if (_inArchive)
@@ -1362,7 +1417,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 try
                 {
                     // A packed file is a folder here (it is in the tree): listed only when the folders are.
-                    if (!_shared.ShowFolders && ArchiveSupport.IsArchiveName(file.Name)) continue;
+                    if (!_shared.ShowFolders && TreeItemViewModel.IsTreeFile(file.Name)) continue;
 
                     bool hidden = HiddenItems.IsHiddenFile(file.Attributes, file.Name);
                     if (hidden) _hiddenCount++;
@@ -1661,7 +1716,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
         foreach (var file in listing.Files)
         {
-            if (!_shared.ShowFolders && ArchiveSupport.IsArchiveName(file.Name)) continue;
+            if (!_shared.ShowFolders && TreeItemViewModel.IsTreeFile(file.Name)) continue;
             bool hidden = HiddenItems.IsHiddenFile(file.Attributes, file.Name);
             if (hidden) hiddenCount++;
             if (hidden && !_showHidden) continue;
@@ -1743,7 +1798,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void OpenItem(FileItemViewModel item)
     {
         // A packed file opens like a folder (a real one, or a zip inside a zip).
-        if (item.IsDirectory || ArchiveSupport.IsArchiveName(item.Name))
+        if (item.IsDirectory || ArchiveSupport.IsArchiveName(item.Name) || PlaylistFile.IsPlaylistName(item.Name))
         {
             Navigate(item.FullPath);
             return;

@@ -253,6 +253,9 @@ public class MainViewModel : INotifyPropertyChanged
     /// <summary>The folder shown is a packed file or in one: read-only.</summary>
     public bool   InArchive      => _activeTab.InArchive;
 
+    /// <summary>The folder shown is an M3U playlist.</summary>
+    public bool   InPlaylist     => _activeTab.InPlaylist;
+
     public bool   HasHiddenItems => _activeTab.HasHiddenItems;
     public string HiddenText     => _activeTab.HiddenText;
 

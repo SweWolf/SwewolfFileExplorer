@@ -15,13 +15,23 @@ namespace SwewolfFileExplorer;
 /// </summary>
 public partial class MainWindow
 {
+    // The values of AppSettings.PlayMode (the order of the Play Mode box).
+    private const int ModeSlideShow = 0, ModeSingle = 1, ModeRepeat = 2, ModeDemo = 3, ModeIntro = 4;
+
+    /// <summary>Demo Play starts each music or video file this far into it (the player starts at 0 if the file is shorter).</summary>
+    private const long DemoStartMs = 60_000;
+
+    /// <summary>Seconds a file plays in Demo Play and Intro Play: the box "Time per File", and 10 if that is not a positive number.</summary>
+    private static int DemoSeconds => AppSettingsStore.Current.PlaySeconds > 0 ? AppSettingsStore.Current.PlaySeconds : 10;
+
     private double _playBarHeight;   // the room the bar takes in the info panel while it is shown (0 while hidden)
     private bool _playBarReady;      // the controls have been filled from the settings: only then does a change save
 
     private void InitPlayBar()
     {
         var s = AppSettingsStore.Current;
-        PlayModeBox.SelectedIndex = Math.Clamp(s.PlayMode, 0, 1);
+        PlayModeBox.SelectedIndex = ModeSlideShow;   // the program always starts in Slide Show (the mode is not kept between runs)
+        s.PlayMode = ModeSlideShow;
         PlaySecondsBox.Text       = Math.Clamp(s.PlaySeconds, 1, 3600).ToString();
         PlayEndBox.SelectedIndex  = Math.Clamp(s.PlayEndAction, 0, 2);
         PlayAskBox.IsChecked      = s.PlayAskFirst;
@@ -33,12 +43,31 @@ public partial class MainWindow
 
     private void TogglePlayBar() => ShowPlayBar(PlayBar.Visibility != Visibility.Visible);
 
-    private void ShowPlayBar(bool show)
+    // The Play bar was opened by entering a playlist (not by the user): it closes again when a folder is shown.
+    private bool _playBarOpenedByPlaylist;
+
+    private void ShowPlayBar(bool show, bool byPlaylist = false)
     {
+        _playBarOpenedByPlaylist = show && byPlaylist;
+        if (!show) ResetPlayMode();   // closing the bar: the next time it is opened the mode is Slide Show again
         PlayToggle.IsChecked = show;
         PlayBar.Visibility   = show ? Visibility.Visible : Visibility.Collapsed;
         PlayLineDivider.Visibility = PlayBar.Visibility;
         if (!show) ApplyPlayBarSpace(0);   // a collapsed element raises no size change
+    }
+
+    private bool _resetModeAfterRun;
+
+    /// <summary>
+    /// Back to Slide Show: when the Play bar is closed, when a tab is opened, and at the start of the program. A list that is playing keeps its
+    /// mode until it ends.
+    /// </summary>
+    private void ResetPlayMode()
+    {
+        if (_playRunning) { _resetModeAfterRun = true; return; }
+        _resetModeAfterRun = false;
+        if (PlayModeBox.SelectedIndex == ModeSlideShow && AppSettingsStore.Current.PlayMode == ModeSlideShow) return;
+        PlayModeBox.SelectedIndex = ModeSlideShow;   // PlaySetting_Changed saves it and updates the controls
     }
 
     private void PlayToggle_Click(object sender, RoutedEventArgs e) => ShowPlayBar(PlayToggle.IsChecked == true);
@@ -90,11 +119,12 @@ public partial class MainWindow
     /// <summary>Single Play has no time per file and no end of the list: those controls are of no use then.</summary>
     private void UpdatePlayControls()
     {
-        bool slideshow = PlayModeBox.SelectedIndex == 0;
-        PlaySecondsBox.IsEnabled = slideshow;
-        PlayEndBox.IsEnabled     = slideshow;
-        PlayAskBox.IsEnabled     = slideshow;
-        PlayTimeoutBox.IsEnabled = slideshow && PlayAskBox.IsChecked == true;
+        int mode = PlayModeBox.SelectedIndex;
+        bool continuous = mode != ModeSingle;
+        PlaySecondsBox.IsEnabled = mode is ModeSlideShow or ModeDemo or ModeIntro;   // Repeat has no time
+        PlayEndBox.IsEnabled     = continuous;
+        PlayAskBox.IsEnabled     = continuous;
+        PlayTimeoutBox.IsEnabled = continuous && PlayAskBox.IsChecked == true;
     }
 
     // ── Play, Previous, Next ──────────────────────────────────────────────────
@@ -108,7 +138,7 @@ public partial class MainWindow
     /// <summary>Everything the Play bar can play, in the order of the list: pictures, music and video (media only on the disk).</summary>
     private List<string> PlaylistInList() =>
         FileListView.Items.OfType<FileItemViewModel>()
-            .Where(i => !i.IsDirectory && (ThumbnailLoader.IsImage(i.FullPath) || (!i.IsInArchive && MediaPlayerLauncher.IsMedia(i.FullPath))))
+            .Where(i => !i.IsDirectory && !i.IsMissing && (ThumbnailLoader.IsImage(i.FullPath) || (!i.IsInArchive && MediaPlayerLauncher.IsMedia(i.FullPath))))
             .Select(i => i.FullPath)
             .ToList();
 
@@ -132,12 +162,13 @@ public partial class MainWindow
         int start = selected != null ? items.FindIndex(p => string.Equals(p, selected.FullPath, StringComparison.OrdinalIgnoreCase)) : -1;
         if (start < 0) start = 0;
 
-        bool slideshow = AppSettingsStore.Current.PlayMode == 0;
+        bool slideshow = AppSettingsStore.Current.PlayMode != ModeSingle;   // Slide Show, Repeat, Demo Play and Intro Play go on by themselves
         bool anyMedia = items.Any(MediaPlayerLauncher.IsMedia);
 
         if (!slideshow && MediaPlayerLauncher.IsMedia(items[start]))
         {
-            MediaPlayerLauncher.Open(items[start], null);   // Single Play of a video or song: as Enter does
+            // Single Play of a video or song: as Enter does (no player: the file's own program)
+            if (MediaPlayerLauncher.Open(items[start], null) == LaunchResult.UseDefaultProgram) FolderTabViewModel.OpenFile(items[start]);
             return;
         }
 
@@ -157,7 +188,7 @@ public partial class MainWindow
     private bool TryPlayFromItem(FileItemViewModel item)
     {
         if (item.IsDirectory || item.IsInArchive || !MediaPlayerLauncher.IsMedia(item.FullPath)) return false;
-        if (AppSettingsStore.Current.PlayMode != 0) return false;
+        if (AppSettingsStore.Current.PlayMode == ModeSingle) return false;
 
         // Continuous playing is only on while the Play bar is shown (the user's rule, 2026-10-21); with the bar hidden a double-click plays
         // the one file as before. A list that is already running goes on whatever the bar does (it is not stopped by hiding the bar).
@@ -186,7 +217,7 @@ public partial class MainWindow
 
         var viewer = CreateViewer(pictures, start, owner: this);
         var s = AppSettingsStore.Current;
-        if (s.PlayMode == 0)
+        if (s.PlayMode != ModeSingle)
             viewer.Slideshow = new SlideshowOptions(Math.Clamp(s.PlaySeconds, 1, 3600), (EndOfListAction)Math.Clamp(s.PlayEndAction, 0, 2),
                                                     s.PlayAskFirst, Math.Clamp(s.PlayTimeout, 0, 600));
         viewer.ShowDialog();
@@ -195,7 +226,7 @@ public partial class MainWindow
 
     // ── The playlist: the explorer decides everything ─────────────────────────
 
-    private enum MediaOutcome { Ended, Next, Previous, Stop, Jump }
+    private enum MediaOutcome { Ended, Next, Previous, Stop, Jump, Failed }
 
     private bool _resumeAllowed;   // the next file is one the user chose (the first, or a double-click): its resume point may be used or asked about
     private string? _jumpTo;   // a video or song double-clicked while a playlist runs
@@ -223,8 +254,11 @@ public partial class MainWindow
     }
 
     /// <summary>Plays the items in order: a run of pictures in the viewer, a music or video file in the player, until the end of the list.</summary>
+    private bool _runInPlaylist;   // the run in progress plays an M3U playlist (no next folder at its end)
+
     private async Task RunPlaylistAsync(List<string> items, int index)
     {
+        _runInPlaylist = VM.InPlaylist;
         SetPlayButton(true, false);
         _resumeAllowed = true;
         try
@@ -269,7 +303,8 @@ public partial class MainWindow
                     _resumeAllowed = true;
                     continue;
                 }
-                index = outcome == MediaOutcome.Previous ? Math.Max(0, index - 1) : index + 1;
+                bool repeat = AppSettingsStore.Current.PlayMode == ModeRepeat && outcome == MediaOutcome.Ended;   // Repeat: the same file again
+                index = outcome == MediaOutcome.Previous ? Math.Max(0, index - 1) : repeat ? index : index + 1;
             }
         }
         finally
@@ -277,6 +312,7 @@ public partial class MainWindow
             _mediaWait = null;
             _playerPaused = false;
             SetPlayButton(false, false);
+            if (_resetModeAfterRun) ResetPlayMode();
             _link?.Send(new PipeCommand("release"));   // the player's own end actions count again
         }
     }
@@ -290,7 +326,7 @@ public partial class MainWindow
             _link.Ended  += ended => { var w = _mediaWait; if (w != null && string.Equals(ended, _mediaWaitPath, StringComparison.OrdinalIgnoreCase)) w.TrySetResult(MediaOutcome.Ended); };
             _link.Closed += () => _mediaWait?.TrySetResult(MediaOutcome.Stop);
             _link.Skipped += next => _mediaWait?.TrySetResult(next ? MediaOutcome.Next : MediaOutcome.Previous);   // the buttons of the player
-            _link.Error  += (_, _) => _mediaWait?.TrySetResult(MediaOutcome.Ended);   // the file could not be played: on to the next one
+            _link.Error  += (_, _) => _mediaWait?.TrySetResult(MediaOutcome.Failed);   // the file could not be played: on to the next one (Repeat does not repeat it)
         }
 
         _playerPaused = false;
@@ -300,10 +336,22 @@ public partial class MainWindow
         _mediaWait = wait;
         _mediaWaitPath = path;
 
+        // Demo Play: 10 seconds (or the time per file) from 1 minute in; Intro Play: from the start; both ignore the saved resume point.
+        int mode = AppSettingsStore.Current.PlayMode;
+        bool timed = mode is ModeDemo or ModeIntro;
+        long startMs = mode == ModeDemo ? DemoStartMs : 0;
+        bool noResume = timed || !_resumeAllowed;
+
         if (!_link.Connected && !await _link.ConnectAsync(300))
         {
             // No player is running: start it with the file, then take it over (it only reports the end of the file when told to).
-            if (MediaPlayerLauncher.Open(path, null) != LaunchResult.Started) { _mediaWait = null; return MediaOutcome.Stop; }
+            if (MediaPlayerLauncher.Open(path, null, startMs, timed) != LaunchResult.Started)
+            {
+                _mediaWait = null;
+                MessageBox.Show(this, "SweWolf Media Player was not found (next to this program or in ..\\SwewolfMediaPlayer), so a list cannot be played in it.",
+                                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return MediaOutcome.Stop;
+            }
             if (!await _link.ConnectAsync(25000))
             {
                 _mediaWait = null;
@@ -315,14 +363,42 @@ public partial class MainWindow
         }
         else
         {
-            _link.Send(new PipeCommand("play", path, path, NoResume: !_resumeAllowed, Front: true, Playlist: true));
+            _link.Send(new PipeCommand("play", path, path, StartMs: startMs, NoResume: noResume, Front: true, Playlist: true));
         }
 
         _resumeAllowed = false;   // from here on the list plays every file from its start
         SelectInList(path);
-        var outcome = await wait.Task;
+
+        using var limit = new CancellationTokenSource();
+        if (timed) _ = StopAfterAsync(DemoSeconds, wait, limit.Token);
+        MediaOutcome outcome;
+        try { outcome = await wait.Task; }
+        finally { limit.Cancel(); }
         _mediaWait = null;
         return outcome;
+    }
+
+    /// <summary>Demo Play and Intro Play: after the time the file has been playing (a pause does not count) the list goes on with the next file.</summary>
+    private async Task StopAfterAsync(int seconds, TaskCompletionSource<MediaOutcome> wait, CancellationToken cancel)
+    {
+        double played = 0;
+        try
+        {
+            while (!cancel.IsCancellationRequested)
+            {
+                await Task.Delay(100, cancel);
+                if (!_playerPaused) played += 0.1;
+                if (played >= seconds)
+                {
+                    wait.TrySetResult(MediaOutcome.Next);
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // the file ended or the user chose another one first
+        }
     }
 
     /// <summary>The end of the list: asks (or not) and takes the chosen action. Null = stop; otherwise the list to play from its start.</summary>
@@ -330,6 +406,24 @@ public partial class MainWindow
     {
         var s = AppSettingsStore.Current;
         var action = (EndOfListAction)Math.Clamp(s.PlayEndAction, 0, 2);
+
+        // An M3U playlist has nothing after it: no next folder, only Start from Beginning or Close (Go to Next Folder means Close).
+        if (_runInPlaylist)
+        {
+            if (s.PlayAskFirst)
+            {
+                var ask = new ChoiceDialog("This is the last file in the playlist.", new[] { "Start from Beginning", "Close" },
+                                           defaultIndex: action == EndOfListAction.StartOver ? 0 : 1, cancelIndex: 1)
+                {
+                    Owner = this,
+                    CountdownSeconds = Math.Clamp(s.PlayTimeout, 0, 600),
+                };
+                ask.Topmost = true;   // a video may be playing full screen in front of the explorer
+                ask.ShowDialog();
+                action = ask.Result == 0 ? EndOfListAction.StartOver : EndOfListAction.Close;
+            }
+            return action == EndOfListAction.StartOver ? items : null;
+        }
 
         string? next = null;
         string? folder = VM.ActiveTab.CurrentPath;

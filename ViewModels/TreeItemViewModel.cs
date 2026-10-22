@@ -22,6 +22,12 @@ public class TreeItemViewModel : INotifyPropertyChanged
     /// <summary>A packed file (a zip): shown as a folder, after the real folders. What is in it is read from the file.</summary>
     public bool IsArchive { get; }
 
+    /// <summary>An M3U playlist: shown like a packed file (after the folders), but it has no subfolders and no expand arrow.</summary>
+    public bool IsPlaylist { get; init; }
+
+    /// <summary>A file the tree lists next to the folders: a packed file or a playlist.</summary>
+    public static bool IsTreeFile(string name) => ArchiveSupport.IsArchiveName(name) || PlaylistFile.IsPlaylistName(name);
+
     /// <summary>A hidden or system folder, in the tree only because the user asked for the hidden folders: shown faded.</summary>
     public bool IsHidden { get; }
 
@@ -113,7 +119,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
                 if (hidden && !showHidden) continue;
 
                 bool isFolder = (entry.Attributes & FileAttributes.Directory) != 0;
-                if (isFolder || ArchiveSupport.IsArchiveName(entry.Name)) return true;
+                if (isFolder || IsTreeFile(entry.Name)) return true;
             }
             return false;
         }
@@ -142,7 +148,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
         foreach (var entry in new DirectoryInfo(FullPath).EnumerateFileSystemInfos())
         {
             bool isFolder = (entry.Attributes & FileAttributes.Directory) != 0;
-            if (!isFolder && !ArchiveSupport.IsArchiveName(entry.Name)) continue;   // "*.zip" also finds ".zipx": the name decides
+            if (!isFolder && !IsTreeFile(entry.Name)) continue;   // "*.zip" also finds ".zipx": the name decides
 
             bool isHidden = (entry.Attributes & HiddenAttributes) != 0;
             if (isHidden && !showHidden) continue;
@@ -165,7 +171,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
             foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos())   // one listing, attributes included
             {
                 bool isFolder = (entry.Attributes & FileAttributes.Directory) != 0;
-                if ((isFolder || ArchiveSupport.IsArchiveName(entry.Name)) && (entry.Attributes & HiddenAttributes) != 0)
+                if ((isFolder || IsTreeFile(entry.Name)) && (entry.Attributes & HiddenAttributes) != 0)
                     count++;
             }
             return count;
@@ -185,7 +191,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
             foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos())
             {
                 bool isFolder = (entry.Attributes & FileAttributes.Directory) != 0;
-                if (!isFolder && !ArchiveSupport.IsArchiveName(entry.Name)) continue;
+                if (!isFolder && !IsTreeFile(entry.Name)) continue;
                 names.Add(entry.Name + ((entry.Attributes & HiddenAttributes) != 0 ? "*" : "") + (isFolder ? "/" : ""));
             }
             names.Sort(StringComparer.OrdinalIgnoreCase);
@@ -269,15 +275,16 @@ public class TreeItemViewModel : INotifyPropertyChanged
             {
                 if (reuse != null && reuse.TryGetValue(file, out var old)) { nodes.Add(old); continue; }
 
+                bool playlist = PlaylistFile.IsPlaylistName(file);
                 var item = new TreeItemViewModel(
                     Path.GetFileName(file),
                     file,
                     IconHelper.GetIcon(file),
                     sortOf: _sortOf,
-                    isArchive: true,
+                    isArchive: !playlist,
                     showHiddenOf: _showHiddenOf,
-                    isHidden: hidden.Contains(file));
-                item.InitializeLazyLoad();
+                    isHidden: hidden.Contains(file)) { IsPlaylist = playlist };
+                if (!playlist) item.InitializeLazyLoad();   // a playlist has nothing below it
                 nodes.Add(item);
             }
             catch { /* skip inaccessible */ }
@@ -397,8 +404,8 @@ public class TreeItemViewModel : INotifyPropertyChanged
         if (!_childrenLoaded || string.IsNullOrEmpty(FullPath)) return;
 
         var nodes    = Children.Where(c => !string.IsNullOrEmpty(c.FullPath)).ToList();
-        var folders  = nodes.Where(c => !c.IsArchive).ToDictionary(c => c.FullPath);
-        var archives = nodes.Where(c => c.IsArchive).ToDictionary(c => c.FullPath);
+        var folders  = nodes.Where(c => !c.IsArchive && !c.IsPlaylist).ToDictionary(c => c.FullPath);
+        var archives = nodes.Where(c => c.IsArchive || c.IsPlaylist).ToDictionary(c => c.FullPath);
 
         var sorted = SortFolders(folders.Keys).Select(p => folders[p])
             .Concat(SortFolders(archives.Keys).Select(p => archives[p]))

@@ -118,6 +118,9 @@ public class FileItemViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>A line of a playlist whose file is not there: shown dimmed, never played.</summary>
+    public bool IsMissing { get; set; }
+
     /// <summary>A hidden or system item, shown (dimmed) only when the user asked for the hidden items.</summary>
     public bool IsHidden { get; set; }
 

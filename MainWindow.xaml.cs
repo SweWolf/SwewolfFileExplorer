@@ -67,9 +67,18 @@ public partial class MainWindow : Window
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.ShowTree))
                 UpdateTreePane();
 
+            // Entering a playlist opens the Play bar (it is what a playlist is for); leaving it does not close it.
+            if (e.PropertyName == nameof(MainViewModel.InPlaylist))
+            {
+                if (VM.InPlaylist && PlayBar.Visibility != Visibility.Visible) ShowPlayBar(true, byPlaylist: true);
+                else if (!VM.InPlaylist && _playBarOpenedByPlaylist && !_playRunning) ShowPlayBar(false);   // only if the playlist opened it
+            }
+
             // The text of the list got bigger or smaller (Ctrl + wheel, or another tab with another size): so do the columns.
             if (e.PropertyName == nameof(MainViewModel.ListFontSize)) QueueAutoFit();
         };
+
+        VM.Tabs.CollectionChanged += (_, e) => { if (e.Action == NotifyCollectionChangedAction.Add) ResetPlayMode(); };   // a new tab: Slide Show again
 
         // The info panel under the list follows the items (a folder was loaded, a sort order was applied).
         ((INotifyCollectionChanged)FileListView.Items).CollectionChanged += (_, _) => { QueueInfoUpdate(); QueueAutoFit(); };
@@ -1667,9 +1676,9 @@ public partial class MainWindow : Window
     {
         // A bookmark (a shortcut in the Bookmarks folder) opens what it points to, the way this program opens it: a folder in a
         // new tab, video and music in SweWolf Media Player, a picture in the viewer.
-        if (!item.IsDirectory && !item.IsInArchive && BookmarkStore.TargetOfBookmarkFile(item.FullPath) is { } target)
+        if (!item.IsDirectory && !item.IsInArchive && BookmarkStore.TargetOfBookmarkFile(item.FullPath, out var startMs) is { } target)
         {
-            OpenBookmarkTarget(target);
+            OpenBookmarkTarget(target, startMs);
             return;
         }
 
@@ -1679,7 +1688,8 @@ public partial class MainWindow : Window
             VM.OpenItem(item);
     }
 
-    private void OpenBookmarkTarget(string target)
+    /// <summary>Opens what a bookmark points to; <paramref name="startMs"/> is the point in a video or music file where it starts (null: the usual way).</summary>
+    private void OpenBookmarkTarget(string target, long? startMs = null)
     {
         if (System.IO.Directory.Exists(target))
         {
@@ -1702,7 +1712,8 @@ public partial class MainWindow : Window
         }
         else if (MediaPlayerLauncher.IsMedia(name))
         {
-            if (MediaPlayerLauncher.Open(target, null) == LaunchResult.UseDefaultProgram) FolderTabViewModel.OpenFile(target);
+            // With a start point the saved resume point is not used or asked about.
+            if (MediaPlayerLauncher.Open(target, null, startMs ?? 0, noResume: startMs.HasValue) == LaunchResult.UseDefaultProgram) FolderTabViewModel.OpenFile(target);
         }
         else
             FolderTabViewModel.OpenFile(target);
@@ -1794,7 +1805,7 @@ public partial class MainWindow : Window
 
     private PictureViewerWindow CreateViewer(List<string> pictures, string current, Window? owner)
     {
-        var viewer = new PictureViewerWindow(pictures, current);
+        var viewer = new PictureViewerWindow(pictures, current) { IsPlaylist = VM.InPlaylist };
         if (owner != null) viewer.Owner = owner;
 
         // At the end of the list the viewer can go on to the next folder with pictures (tree order, same drive).

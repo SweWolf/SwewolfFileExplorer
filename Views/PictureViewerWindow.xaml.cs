@@ -382,6 +382,9 @@ public partial class PictureViewerWindow : Window
     /// Past the last picture: a choice, as TeraTool had. Go to the next folder, start again from the first picture, or close.
     /// With no one touching the mouse or keyboard, the next folder is chosen after ten seconds.
     /// </summary>
+    /// <summary>The pictures are those of an M3U playlist: there is no folder after it, so the end of the list only offers Start from Beginning or Close.</summary>
+    public bool IsPlaylist { get; set; }
+
     private void AskAtEndOfList(int defaultIndex = 0, int countdownSeconds = 10)
     {
         if (_askingAtEnd || _closed) return;
@@ -390,6 +393,29 @@ public partial class PictureViewerWindow : Window
 
         try
         {
+            if (IsPlaylist)
+            {
+                var ask = new ChoiceDialog("This is the last picture in the playlist.", new[] { "Start from Beginning", "Close" },
+                                           defaultIndex: defaultIndex == (int)EndOfListAction.StartOver ? 0 : 1, cancelIndex: 1)
+                {
+                    Owner = this,
+                    CountdownSeconds = countdownSeconds,
+                };
+                ShowCursor();
+                ask.ShowDialog();
+                if (ask.Result == 0)
+                {
+                    _index = 0;
+                    ShowCurrent("Start of file list");
+                }
+                else
+                {
+                    ReachedEnd = true;
+                    Close();
+                }
+                return;
+            }
+
             StartNextFolderSearch();
             var search = _nextFolderTask;   // null if the Explorer gave no way to look
 
@@ -482,6 +508,12 @@ public partial class PictureViewerWindow : Window
                 break;
 
             default:
+                if (IsPlaylist)   // nothing after a playlist: stop
+                {
+                    ReachedEnd = true;
+                    Close();
+                    break;
+                }
                 StartNextFolderSearch();
                 var search = _nextFolderTask;
                 string? target = null;
