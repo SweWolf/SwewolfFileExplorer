@@ -596,6 +596,23 @@
 
             <!-- File list, with the filter bar above it when it is switched on -->
             <DockPanel Grid.Column="2" Grid.Row="0">
+            <!-- The playlist bar: only while a playlist is shown (MainWindow.Playlist.cs) -->
+            <Border x:Name="PlaylistBar" DockPanel.Dock="Top" Visibility="Collapsed" Padding="8,5"
+                    Background="{DynamicResource PaneBrush}"
+                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
+                <WrapPanel Orientation="Horizontal">
+                    <Button x:Name="PlaylistAddButton" Content="Add Files..." Padding="10,3" Margin="0,0,6,0" Click="PlaylistAdd_Click"
+                            ToolTip="Add files to the playlist, after the selected one. Copying files and pasting them here (Ctrl+V) does the same."/>
+                    <Button x:Name="PlaylistUpButton" Content="Move Up" Padding="10,3" Margin="0,0,6,0" Click="PlaylistUp_Click"
+                            ToolTip="Move the selected files one place up in the playlist"/>
+                    <Button x:Name="PlaylistDownButton" Content="Move Down" Padding="10,3" Margin="0,0,18,0" Click="PlaylistDown_Click"
+                            ToolTip="Move the selected files one place down in the playlist"/>
+                    <Button x:Name="PlaylistSaveButton" Content="Save Playlist" Padding="10,3" Margin="0,0,6,0" Click="PlaylistSave_Click"
+                            ToolTip="Save the playlist (Ctrl+S)"/>
+                    <Button x:Name="PlaylistSaveAsButton" Content="Save Playlist As..." Padding="10,3" Click="PlaylistSaveAs_Click"
+                            ToolTip="Save the playlist as another file"/>
+                </WrapPanel>
+            </Border>
             <Border x:Name="FilterBar" DockPanel.Dock="Top" Visibility="Collapsed" Padding="8,5"
                     Background="{DynamicResource PaneBrush}"
                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">

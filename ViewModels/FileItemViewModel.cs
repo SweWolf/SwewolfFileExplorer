@@ -118,6 +118,9 @@ public class FileItemViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>The #EXTINF line that came before this entry in the playlist file (kept for saving it again); null if none.</summary>
+    public string? PlaylistInfo { get; set; }
+
     /// <summary>A line of a playlist whose file is not there: shown dimmed, never played.</summary>
     public bool IsMissing { get; set; }
 

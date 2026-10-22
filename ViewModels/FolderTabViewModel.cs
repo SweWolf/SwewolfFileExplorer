@@ -267,12 +267,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
         RefreshCommand   = new RelayCommand(_ => Refresh());
         NavigateCommand  = new RelayCommand(_ => Navigate(AddressText));   // Enter in the address bar: what was typed
         // An archive is read-only: only copying out of it is possible.
-        DeleteCommand    = new RelayCommand(_ => DeleteSelected(), _ => _selectedItems.Count > 0 && !_inArchive);
+        DeleteCommand    = new RelayCommand(_ => DeleteSelected(), _ => _selectedItems.Count > 0 && (!_inArchive || _inPlaylist));   // in a playlist: remove from the list
         PermanentDeleteCommand = new RelayCommand(_ => DeleteSelected(permanent: true), _ => _selectedItems.Count > 0 && !_inArchive);
         NewFolderCommand = new RelayCommand(_ => CreateNewFolder(), _ => HasFolder && !_inArchive);
         CopyCommand      = new RelayCommand(_ => CopySelected(),  _ => _selectedItems.Count > 0);
         CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0 && !_inArchive);
-        PasteCommand     = new RelayCommand(_ => Paste(),         _ => HasFolder && !_inArchive && FileClipboard.HasFiles());
+        PasteCommand     = new RelayCommand(_ => Paste(),         _ => HasFolder && (!_inArchive || _inPlaylist) && FileClipboard.HasFiles());   // in a playlist: add entries
         PasteKeyCommand  = new RelayCommand(_ => PasteFromKeyboard(null));
         ToggleHiddenCommand = new RelayCommand(_ => ToggleHidden());
         CopyPathCommand  = new RelayCommand(_ => CopyPathsAsText(_selectedItems.Select(i => i.FullPath)),
@@ -472,6 +472,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         path = CleanTypedPath(path);
         if (string.IsNullOrWhiteSpace(path)) return;
+        if (_playlistDirty && !IsSamePath(path, _currentPath) && !ConfirmLeavePlaylist()) return;
 
         if (path.Contains('%') || !Directory.Exists(path))   // variables, packed files, missing folders: Navigate knows what to say
         {
@@ -508,6 +509,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         path = CleanTypedPath(path);
         if (string.IsNullOrWhiteSpace(path)) return;
+        if (_playlistDirty && !IsSamePath(path, _currentPath) && !ConfirmLeavePlaylist()) return;   // unsaved changes of a playlist
 
         // shell:sendto, shell:startup, shell:appdata ... : Windows' names for its special folders, as in Explorer's address bar.
         if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
@@ -580,6 +582,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     public void ShowNoFolder()
     {
+        if (_playlistDirty && !ConfirmLeavePlaylist()) return;
         _noFolderShown = true;
         RaiseAllCanExecuteChanged();   // nothing can be pasted or made here (the tab still remembers the folder it came from)
         StopWatching();
@@ -962,6 +965,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void Refresh()
     {
         if (string.IsNullOrEmpty(_currentPath) || _noFolderShown) return;
+        if (_playlistDirty) { StatusText = "The playlist has changes that are not saved yet. Save it first."; return; }
 
         // A tab that was "currently unavailable" tries again (the USB drive may be connected now).
         if (_unavailable)
@@ -1098,6 +1102,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 if (entry.Exists)
                 {
                     vm = NewFileItem(new FileInfo(entry.Path), hidden: false);
+                    vm.PlaylistInfo = entry.ExtInf;
                 }
                 else
                 {
@@ -1107,6 +1112,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                         FullPath  = entry.Path,
                         IsHidden  = true,   // dimmed
                         IsMissing = true,
+                        PlaylistInfo = entry.ExtInf,
                         TypeName  = "Missing file",
                         Size      = -1,
                     };
@@ -1122,6 +1128,141 @@ public class FolderTabViewModel : INotifyPropertyChanged
         {
             StatusText = $"Cannot read the playlist: {ex.Message}";
         }
+    }
+
+    // ── Editing a playlist ───────────────────────────────────────────────────
+    // The list of the playlist is CurrentItems in its own order (the playlist has no sort of its own until the user moves something).
+    // Changes are kept in memory until Save Playlist; leaving the playlist with changes asks first.
+
+    private bool _playlistDirty;
+
+    /// <summary>The playlist shown has changes that are not saved.</summary>
+    public bool PlaylistDirty => _playlistDirty;
+
+    private void SetPlaylistDirty(bool value)
+    {
+        if (_playlistDirty == value) return;
+        _playlistDirty = value;
+        OnPropertyChanged(nameof(PlaylistDirty));
+    }
+
+    /// <summary>Puts links to files in the playlist, after <paramref name="after"/> (at the end if null). Folders are not added. Returns how many.</summary>
+    public int AddToPlaylist(IEnumerable<string> paths, FileItemViewModel? after)
+    {
+        if (!_inPlaylist) return 0;
+
+        int at = after != null ? CurrentItems.IndexOf(after) + 1 : 0;
+        if (at <= 0) at = CurrentItems.Count;
+
+        int added = 0;
+        foreach (var path in paths)
+        {
+            if (!File.Exists(path)) continue;
+            var vm = NewFileItem(new FileInfo(path), hidden: false);
+            CurrentItems.Insert(at++, vm);
+            vm.LoadIconAsync();
+            added++;
+        }
+
+        if (added > 0) SetPlaylistDirty(true);
+        return added;
+    }
+
+    private void PasteIntoPlaylist()
+    {
+        if (FileClipboard.Get() is not var (paths, _))
+        {
+            MessageBox.Show("There are no files on the clipboard to add.\nCopy some files first.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var last = _selectedItems.OrderBy(i => CurrentItems.IndexOf(i)).LastOrDefault();
+        StatusText = AddToPlaylist(paths, last) == 0 ? "Only files can be added to a playlist." : "";
+    }
+
+    /// <summary>Takes the entries out of the list (the files are not touched).</summary>
+    public void RemoveFromPlaylist(IEnumerable<FileItemViewModel> items)
+    {
+        bool any = false;
+        foreach (var item in items.ToList())
+            any |= CurrentItems.Remove(item);
+        if (any) SetPlaylistDirty(true);
+    }
+
+    /// <summary>
+    /// The order the grid shows (a sort by a column) becomes the order of the playlist: the user starts to move entries, so the list has an
+    /// order of its own from now on. <paramref name="shownOrder"/> compares two items as the sort does.
+    /// </summary>
+    public void SetPlaylistOrderFrom(System.Collections.IComparer shownOrder)
+    {
+        var order = CurrentItems.Select((item, index) => (item, index))
+                                .OrderBy(x => x.item, Comparer<FileItemViewModel>.Create((a, b) => shownOrder.Compare(a, b)))
+                                .ThenBy(x => x.index)
+                                .Select(x => x.item)
+                                .ToList();
+        for (int i = 0; i < order.Count; i++)
+        {
+            int from = CurrentItems.IndexOf(order[i]);
+            if (from != i) CurrentItems.Move(from, i);
+        }
+    }
+
+    /// <summary>Moves the selected entries one place up (direction -1) or down (+1), the ones that can move. True if something moved.</summary>
+    public bool MovePlaylistItems(IEnumerable<FileItemViewModel> selected, int direction)
+    {
+        var chosen = new HashSet<FileItemViewModel>(selected);
+        bool moved = false;
+
+        if (direction < 0)
+        {
+            for (int i = 1; i < CurrentItems.Count; i++)
+                if (chosen.Contains(CurrentItems[i]) && !chosen.Contains(CurrentItems[i - 1])) { CurrentItems.Move(i, i - 1); moved = true; }
+        }
+        else
+        {
+            for (int i = CurrentItems.Count - 2; i >= 0; i--)
+                if (chosen.Contains(CurrentItems[i]) && !chosen.Contains(CurrentItems[i + 1])) { CurrentItems.Move(i, i + 1); moved = true; }
+        }
+
+        if (moved) SetPlaylistDirty(true);
+        return moved;
+    }
+
+    /// <summary>
+    /// Saves the playlist: in its own file, or (<paramref name="asPath"/>) in another one, which the caller then opens. False after a message
+    /// if it could not be written.
+    /// </summary>
+    public bool SavePlaylist(string? asPath = null)
+    {
+        if (!_inPlaylist) return false;
+        try
+        {
+            PlaylistFile.Write(asPath ?? _currentPath, CurrentItems.Select(i => new PlaylistEntry(i.FullPath, !i.IsMissing, i.PlaylistInfo)));
+            SetPlaylistDirty(false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"The playlist could not be saved.\n\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Before the playlist is left (another folder, the tab or the program closes) with changes that are not saved: asks. False = stay
+    /// (Cancel, or the save failed); true = go on (saved, or the changes were thrown away).
+    /// </summary>
+    public bool ConfirmLeavePlaylist()
+    {
+        if (!_playlistDirty) return true;
+
+        var answer = MessageBox.Show($"Do you want to save the changes to the playlist \"{Path.GetFileName(_currentPath)}\"?",
+            AppInfo.Name, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        if (answer == MessageBoxResult.Cancel) return false;
+        if (answer == MessageBoxResult.Yes) return SavePlaylist();
+
+        SetPlaylistDirty(false);
+        return true;
     }
 
     private void LoadArchiveItems(string path)
@@ -1345,6 +1486,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         UpdateTreeHidden(path, preread?.TreeHidden);
 
         bool playlist = PlaylistFile.IsPlaylist(path);
+        SetPlaylistDirty(false);   // a fresh read
         _inArchive = playlist || ArchiveSupport.IsInside(path);   // a playlist is read-only too
         if (playlist != _inPlaylist)
         {
@@ -2069,8 +2211,15 @@ public class FolderTabViewModel : INotifyPropertyChanged
         });
     }
 
-    public void DeleteSelected(bool permanent = false) =>
+    public void DeleteSelected(bool permanent = false)
+    {
+        if (_inPlaylist)   // the files stay where they are: only the entries leave the list
+        {
+            RemoveFromPlaylist(_selectedItems.ToList());
+            return;
+        }
         DeleteEntries(_selectedItems.Select(i => (i.FullPath, i.Name, i.IsDirectory)).ToList(), permanent);
+    }
 
     /// <summary>Moves a folder of the tree to the Recycle Bin (its right-click menu).</summary>
     public void DeleteFolder(string path) =>
@@ -2519,7 +2668,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
     }
 
-    private void Paste() => PasteInto(_currentPath);
+    private void Paste()
+    {
+        if (_inPlaylist) PasteIntoPlaylist();
+        else PasteInto(_currentPath);
+    }
 
     /// <summary>
     /// Ctrl+V. The paste goes into <paramref name="destination"/> (a folder of the tree; null = the folder shown). When there is nothing to
@@ -2528,6 +2681,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void PasteFromKeyboard(string? destination)
     {
         if (_pasting) return;
+        if (_inPlaylist && destination == null) { PasteIntoPlaylist(); return; }   // a playlist takes links to the files
 
         destination ??= HasFolder ? _currentPath : null;
         if (string.IsNullOrEmpty(destination) || (destination == _currentPath && !HasFolder))

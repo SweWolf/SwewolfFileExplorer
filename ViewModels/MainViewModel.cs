@@ -168,6 +168,7 @@ public class MainViewModel : INotifyPropertyChanged
 
     private void CloseTab(FolderTabViewModel tab)
     {
+        if (!tab.ConfirmLeavePlaylist()) return;   // a playlist with changes that are not saved
         if (Tabs.Count == 1)
         {
             LastTabClosed?.Invoke();
@@ -255,6 +256,9 @@ public class MainViewModel : INotifyPropertyChanged
 
     /// <summary>The folder shown is an M3U playlist.</summary>
     public bool   InPlaylist     => _activeTab.InPlaylist;
+
+    /// <summary>The playlist shown has changes that are not saved.</summary>
+    public bool   PlaylistDirty  => _activeTab.PlaylistDirty;
 
     public bool   HasHiddenItems => _activeTab.HasHiddenItems;
     public string HiddenText     => _activeTab.HiddenText;

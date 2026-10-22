@@ -24,6 +24,7 @@ public partial class MainWindow : Window
         InitPlayBar();
         InitDragOut();
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => TogglePlayBar()), Key.P, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => { if (VM.InPlaylist) VM.ActiveTab.SavePlaylist(); }), Key.S, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ToggleFilterBar()), Key.F, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => BookmarkSelectionOrFolder()), Key.D, ModifierKeys.Control));
 
@@ -68,6 +69,9 @@ public partial class MainWindow : Window
                 UpdateTreePane();
 
             // Entering a playlist opens the Play bar (it is what a playlist is for); leaving it does not close it.
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(MainViewModel.InPlaylist) or nameof(MainViewModel.PlaylistDirty))
+                UpdatePlaylistBar();
+
             if (e.PropertyName == nameof(MainViewModel.InPlaylist))
             {
                 if (VM.InPlaylist && PlayBar.Visibility != Visibility.Visible) ShowPlayBar(true, byPlaylist: true);
@@ -86,8 +90,9 @@ public partial class MainWindow : Window
         LoadColumnLayout();
         ApplySort(VM.SortColumn, VM.SortAscending);
 
-        Closing += (_, _) =>
+        Closing += (_, e) =>
         {
+            if (VM.Tabs.Any(t => !t.ConfirmLeavePlaylist())) { e.Cancel = true; return; }   // a playlist with changes that are not saved
             SaveColumnLayout();
             VM.Session.Flush();   // the last file selected is written before the program ends
         };
@@ -1121,6 +1126,7 @@ public partial class MainWindow : Window
             .ToList();
 
         VM.UpdateSelectedItems(selected);
+        UpdatePlaylistMoveButtons();
         QueueInfoUpdate();
     }
 
@@ -2077,6 +2083,9 @@ public partial class MainWindow : Window
         var menu = (ContextMenu)sender;
         foreach (var mi in menu.Items.OfType<MenuItem>())
         {
+            // In a playlist "Delete" takes the entries out of the list (the files stay).
+            if (mi.Header is "Delete" or "Remove from Playlist") mi.Header = VM.InPlaylist ? "Remove from Playlist" : "Delete";
+
             mi.IsEnabled = mi.Header switch
             {
                 "Open"       => hasSelection,
@@ -2093,7 +2102,7 @@ public partial class MainWindow : Window
                 "Create Shortcut..." => hasSelection && !inArchive,   // a shortcut cannot point inside a compressed file
                 "Mark as Read" or "Mark as Unread" => hasSelection,
                 "Rating..." or "Expectation..." => hasSelection,
-                "Delete"     => hasSelection && !inArchive,
+                "Delete" or "Remove from Playlist" => hasSelection && (!inArchive || VM.InPlaylist),
                 "Rename"     => hasSelection && !inArchive,
                 "New Folder" => !inArchive && hasFolder,
                 "Properties" => !inArchive && (hasSelection || hasFolder),
