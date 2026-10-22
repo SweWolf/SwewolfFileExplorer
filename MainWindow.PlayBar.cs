@@ -16,13 +16,44 @@ namespace SwewolfFileExplorer;
 public partial class MainWindow
 {
     // The values of AppSettings.PlayMode (the order of the Play Mode box).
-    private const int ModeSlideShow = 0, ModeSingle = 1, ModeRepeat = 2, ModeDemo = 3, ModeIntro = 4;
+    private const int ModeSlideShow = 0, ModeSingle = 1, ModeRepeat = 2, ModeDemo = 3, ModeIntro = 4, ModeRandom = 5;
 
     /// <summary>Demo Play starts each music or video file this far into it (the player starts at 0 if the file is shorter).</summary>
     private const long DemoStartMs = 60_000;
 
     /// <summary>Seconds a file plays in Demo Play and Intro Play: the box "Time per File", and 10 if that is not a positive number.</summary>
     private static int DemoSeconds => AppSettingsStore.Current.PlaySeconds > 0 ? AppSettingsStore.Current.PlaySeconds : 10;
+
+    /// <summary>
+    /// Random Order: the files in a random order. <paramref name="first"/> (a file the user chose) plays first and the rest follow in random
+    /// order. <paramref name="notFirst"/> is the file that played last before a new round: with more than two files it is never the first
+    /// again (the same song twice in a row is annoying); with two files that rule would leave no choice, so it is not applied.
+    /// </summary>
+    private static List<string> Shuffled(List<string> items, string? first = null, string? notFirst = null)
+    {
+        var rest = items.ToList();
+        string? head = null;
+        if (first != null)
+        {
+            int at = rest.FindIndex(p => string.Equals(p, first, StringComparison.OrdinalIgnoreCase));
+            if (at >= 0) { head = rest[at]; rest.RemoveAt(at); }
+        }
+
+        for (int i = rest.Count - 1; i > 0; i--)   // Fisher-Yates
+        {
+            int j = Random.Shared.Next(i + 1);
+            (rest[i], rest[j]) = (rest[j], rest[i]);
+        }
+
+        if (head != null) { rest.Insert(0, head); return rest; }
+
+        if (notFirst != null && rest.Count > 2 && string.Equals(rest[0], notFirst, StringComparison.OrdinalIgnoreCase))
+        {
+            int j = Random.Shared.Next(1, rest.Count);
+            (rest[0], rest[j]) = (rest[j], rest[0]);
+        }
+        return rest;
+    }
 
     private double _playBarHeight;   // the room the bar takes in the info panel while it is shown (0 while hidden)
     private bool _playBarReady;      // the controls have been filled from the settings: only then does a change save
@@ -121,7 +152,7 @@ public partial class MainWindow
     {
         int mode = PlayModeBox.SelectedIndex;
         bool continuous = mode != ModeSingle;
-        PlaySecondsBox.IsEnabled = mode is ModeSlideShow or ModeDemo or ModeIntro;   // Repeat has no time
+        PlaySecondsBox.IsEnabled = mode is ModeSlideShow or ModeDemo or ModeIntro or ModeRandom;   // Repeat has no time
         PlayEndBox.IsEnabled     = continuous;
         PlayAskBox.IsEnabled     = continuous;
         PlayTimeoutBox.IsEnabled = continuous && PlayAskBox.IsChecked == true;
@@ -162,8 +193,14 @@ public partial class MainWindow
         int start = selected != null ? items.FindIndex(p => string.Equals(p, selected.FullPath, StringComparison.OrdinalIgnoreCase)) : -1;
         if (start < 0) start = 0;
 
-        bool slideshow = AppSettingsStore.Current.PlayMode != ModeSingle;   // Slide Show, Repeat, Demo Play and Intro Play go on by themselves
+        bool slideshow = AppSettingsStore.Current.PlayMode != ModeSingle;   // Slide Show, Repeat, Demo Play, Intro Play and Random Order go on by themselves
         bool anyMedia = items.Any(MediaPlayerLauncher.IsMedia);
+        bool random = AppSettingsStore.Current.PlayMode == ModeRandom;
+        if (random)
+        {
+            items = Shuffled(items);   // Play scrambles all the files and plays them from the top
+            start = 0;
+        }
 
         if (!slideshow && MediaPlayerLauncher.IsMedia(items[start]))
         {
@@ -172,7 +209,7 @@ public partial class MainWindow
             return;
         }
 
-        if (!slideshow || !anyMedia)
+        if (!slideshow || (!anyMedia && !random))
         {
             PlayPictures(items.Where(ThumbnailLoader.IsImage).ToList(), items[start]);
             return;
@@ -205,6 +242,11 @@ public partial class MainWindow
         var items = PlaylistInList();
         int start = items.FindIndex(p => string.Equals(p, item.FullPath, StringComparison.OrdinalIgnoreCase));
         if (start < 0) return false;
+        if (AppSettingsStore.Current.PlayMode == ModeRandom)   // the file chosen plays first, the others follow in random order
+        {
+            items = Shuffled(items, first: item.FullPath);
+            start = 0;
+        }
         _ = RunPlaylistAsync(items, start);
         return true;
     }
@@ -269,6 +311,8 @@ public partial class MainWindow
                 {
                     var again = await EndOfPlaylistAsync(items);
                     if (again == null) break;
+                    // Random Order: a new round (the folder again, or the next folder) is in a new random order, and does not start with the file that ended the last one.
+                    if (AppSettingsStore.Current.PlayMode == ModeRandom) again = Shuffled(again, notFirst: items.Count > 0 ? items[^1] : null);
                     items = again;
                     index = 0;
                     if (items.Count == 0) break;
@@ -298,7 +342,7 @@ public partial class MainWindow
                 if (outcome == MediaOutcome.Jump)
                 {
                     int jump = items.FindIndex(p => string.Equals(p, _jumpTo, StringComparison.OrdinalIgnoreCase));
-                    if (jump < 0) { items = PlaylistInList(); jump = items.FindIndex(p => string.Equals(p, _jumpTo, StringComparison.OrdinalIgnoreCase)); }
+                    if (jump < 0) { items = PlaylistInList(); if (AppSettingsStore.Current.PlayMode == ModeRandom) items = Shuffled(items, first: _jumpTo); jump = items.FindIndex(p => string.Equals(p, _jumpTo, StringComparison.OrdinalIgnoreCase)); }
                     index = Math.Max(0, jump);
                     _resumeAllowed = true;
                     continue;

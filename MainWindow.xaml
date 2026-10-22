@@ -895,12 +895,13 @@
 
                             <TextBlock Text="Play Mode" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
                             <ComboBox x:Name="PlayModeBox" Width="130" FontSize="12" Margin="0,2,0,2" SelectionChanged="PlaySetting_Changed"
-                                      ToolTip="Slide Show: the next file comes by itself (continues playing). Single Play: the file opens and stays. Repeat: the same music or video plays again and again. Demo Play: each music or video file plays for the time below, from 1 minute in. Intro Play: the same, from the start.">
+                                      ToolTip="Slide Show: the next file comes by itself (continues playing). Single Play: the file opens and stays. Repeat: the same music or video plays again and again. Demo Play: each music or video file plays for the time below, from 1 minute in. Intro Play: the same, from the start. Random Order: Play puts the files in a random order and plays them from the top.">
                                 <ComboBoxItem Content="Slide Show"/>
                                 <ComboBoxItem Content="Single Play"/>
                                 <ComboBoxItem Content="Repeat"/>
                                 <ComboBoxItem Content="Demo Play"/>
                                 <ComboBoxItem Content="Intro Play"/>
+                                <ComboBoxItem Content="Random Order"/>
                             </ComboBox>
 
                             <TextBlock Text="Time per File (s)" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
