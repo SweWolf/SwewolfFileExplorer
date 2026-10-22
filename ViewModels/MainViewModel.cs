@@ -437,6 +437,12 @@ public class MainViewModel : INotifyPropertyChanged
 
     public void NavigateAsync(string? path)                       => _activeTab.NavigateAsync(path);   // a click in the tree: slow folders are read in the background
     public void ShowNoFolder()                                    => _activeTab.ShowNoFolder();
+
+    /// <summary>
+    /// Alt+Home: the active tab goes to the default folder. That is This PC for now (also where a new tab starts); a setting may change it
+    /// later, and this is the one place to do it.
+    /// </summary>
+    public void GoToDefaultFolder() => _activeTab.ShowThisPc();
     public void OpenItem(FileItemViewModel item)                  => _activeTab.OpenItem(item);
     public void RenameItem(FileItemViewModel item, string name)   => _activeTab.RenameItem(item, name);
 

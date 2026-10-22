@@ -43,6 +43,16 @@ public partial class App : Application
             catch { }   // not a path: ignored
         }
 
+        // An unexpected error must leave a trace (Help > Open Log File) instead of the program just disappearing.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            LogFiles.AppendError($"Unexpected error: {args.Exception}");
+            args.Handled = true;
+            MessageBox.Show($"An unexpected error occurred: {args.Exception.Message}\n\nThe details were saved in the log file (Help > Open Log File).",
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) => LogFiles.AppendError($"Fatal error: {args.ExceptionObject}");
+
         // For testing a copy of the app without touching the real library file.
         var testDb = Environment.GetEnvironmentVariable("SWEWOLF_LIBRARY_TEST_DB");
         if (!string.IsNullOrEmpty(testDb)) LibraryService.MainDbFileOverride = testDb;

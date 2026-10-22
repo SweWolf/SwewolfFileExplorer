@@ -290,6 +290,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     public void ShowThisPc()
     {
+        if (_playlistDirty && !ConfirmLeavePlaylist()) return;   // Alt+Home while a playlist has unsaved changes
         ShowNoFolder();
         _unavailable = false;
         FolderPath  = "";
@@ -320,14 +321,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         // Bookmarks: the shortcuts in the Bookmarks folder, read in the background (a disk that is not connected must not hold up the start).
         var bookmarks = _bookmarksNode = new TreeItemViewModel("Bookmarks", BookmarkStore.Folder, null, isVirtual: true, sortOf: _shared.GetTreeSort,
-                                                               showHiddenOf: _shared.ShowsHiddenInTree) { IsBookmarksRoot = true };
+                                                               showHiddenOf: _shared.ShowsHiddenInTree) { IsBookmarksRoot = true, IconShape = "bookmark" };
         try { Directory.CreateDirectory(BookmarkStore.Folder); } catch { /* a click then says it is not there */ }
         bookmarks.IsExpanded = true;
         TreeItems.Add(bookmarks);
         ReloadBookmarks();
 
         // Quick Access
-        var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
+        var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree) { IconShape = "star" };
         quickAccess.IsExpanded = true;
         // The order of Explorer's Quick Access. Downloads is asked of Windows (it is often moved to another drive, and .NET
         // has no entry for it): the folder in the user profile does not have to exist.
@@ -341,7 +342,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         TreeItems.Add(quickAccess);
 
         // This PC
-        var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
+        var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree) { IconShape = "pc" };
         thisPC.IsExpanded = true;
 
         foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))

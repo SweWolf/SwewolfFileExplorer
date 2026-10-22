@@ -19,6 +19,9 @@ public class TreeItemViewModel : INotifyPropertyChanged
     public ImageSource? Icon { get; }
     public ObservableCollection<TreeItemViewModel> Children { get; } = new();
 
+    /// <summary>A drawn icon for the nodes that are no folder: "bookmark", "star" (Quick Access) or "pc" (This PC). Null = <see cref="Icon"/> is used.</summary>
+    public string? IconShape { get; init; }
+
     /// <summary>A packed file (a zip): shown as a folder, after the real folders. What is in it is read from the file.</summary>
     public bool IsArchive { get; }
 

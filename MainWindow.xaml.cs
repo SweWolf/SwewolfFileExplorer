@@ -26,6 +26,7 @@ public partial class MainWindow : Window
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => TogglePlayBar()), Key.P, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => { if (VM.InPlaylist) VM.ActiveTab.SavePlaylist(); }), Key.S, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ToggleFilterBar()), Key.F, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => GoToDefaultFolder()), Key.Home, ModifierKeys.Alt));   // Alt+Home: the default folder
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => BookmarkSelectionOrFolder()), Key.D, ModifierKeys.Control));
 
         // The height of the info panel as the user left it; the preview box follows the panel's size.
@@ -77,6 +78,10 @@ public partial class MainWindow : Window
                 if (VM.InPlaylist && PlayBar.Visibility != Visibility.Visible) ShowPlayBar(true, byPlaylist: true);
                 else if (!VM.InPlaylist && _playBarOpenedByPlaylist && !_playRunning) ShowPlayBar(false);   // only if the playlist opened it
             }
+
+            // Another folder (or another tab): the filter goes away, so a folder never looks empty because of an old filter.
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.CurrentPath))
+                CloseFilterOnFolderChange();
 
             // The text of the list got bigger or smaller (Ctrl + wheel, or another tab with another size): so do the columns.
             if (e.PropertyName == nameof(MainViewModel.ListFontSize)) QueueAutoFit();
@@ -172,6 +177,41 @@ public partial class MainWindow : Window
             FilterBox.Text = "";   // clears the filter (TextChanged)
             if (focusList) FileListView.Focus();
         }
+    }
+
+    /// <summary>
+    /// Alt+Home. When the folder tree has the keyboard focus its focus frame must move with the selection: it stayed on the old folder
+    /// ("CD") while This PC was selected, which looked wrong.
+    /// </summary>
+    private void GoToDefaultFolder()
+    {
+        bool treeHadFocus = NavigationTree.IsKeyboardFocusWithin;
+        VM.GoToDefaultFolder();
+        if (!treeHadFocus) return;
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            var node = NavigationTree.Items.OfType<TreeItemViewModel>().FirstOrDefault(n => n.IsSelected);
+            if (node != null && NavigationTree.ItemContainerGenerator.ContainerFromItem(node) is TreeViewItem item)
+                item.Focus();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private string _lastFolderKey = "";
+
+    /// <summary>
+    /// The filter bar is closed (and the filter cleared) whenever another folder is shown: the user's rule, 2026-10-22, so an old filter is not
+    /// forgotten and a folder does not look empty. A setting for it may come later. A re-read of the same folder (F5) keeps the filter.
+    /// </summary>
+    private void CloseFilterOnFolderChange()
+    {
+        var path = VM.CurrentPath;
+        string key;
+        try { key = string.IsNullOrEmpty(path) ? "" : SharedState.Key(path); }   // This PC has no path (Key throws for an empty one: Alt+Home crashed)
+        catch { key = path ?? ""; }
+        if (key == _lastFolderKey) return;
+        _lastFolderKey = key;
+        if (FilterBar.Visibility == Visibility.Visible) ShowFilterBar(false, focusList: false);
     }
 
     private void FilterBox_TextChanged(object sender, TextChangedEventArgs e)
