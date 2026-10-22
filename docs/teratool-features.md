@@ -9,9 +9,8 @@ what SweWolf File Explorer does (made 2026-10-19). `[x]` = built, `[ ]` = not bu
 - [x] **1. Slideshow and play modes.** Done (2026-10-21): the Play bar with slide show of pictures, music and video through SweWolf Media Player, Repeat, Demo Play and Intro Play. Slideshow, Single, Repeat, Demo Play and Intro Play, with seconds per picture. The countdown and the
   end-of-list choice of the picture viewer are already there and were made for this. A plan (phases, the named pipe to the media player, open decisions) is in `slideshow-and-play-modes-plan.md`.
 - [x] **2. Bookmarks.** Done 2026-10-20 as `.lnk` shortcuts in a Bookmarks node at the top of the tree (Ctrl+D). A start point inside a video or music file is done too (2026-10-21): the player's Add Bookmark button, the time in the shortcut's Comment. Not done: a Bookmarks menu in the menu bar.
-- [ ] **3. Playlists and link collections.** `.m3u` / `.m3u8` shown as folders in the tree, played by the Play bar, and edited (Add Files, Move Up / Down, Save, Save As, remove, paste) as of 2026-10-21. Not done: web links (streams), link collections.
-- [ ] **4. Picture viewer extras.** A small popup menu, the folder name shown when a slideshow crosses into another folder, a mouse wheel that
-  can be set to zoom or to go to the next picture.
+- [x] **3. Playlists and link collections.** Done 2026-10-21 for playlists: `.m3u` / `.m3u8` shown as folders in the tree, played by the Play bar, and created, edited, saved and renamed in the program. Not done: web links (streams) and link collections.
+- [x] **4. Picture viewer extras.** Done (the user, 2026-10-22: "the picture viewer is really great"). The right-click menu is there; the folder name is shown when the viewer goes into another folder (by hand or in a slide show: `GoToFolder`); the mouse wheel goes to the next picture and Ctrl + wheel zooms, which the user wants to stay as it is. Maybe later: a setting that turns the wheel direction round (the user has seen it done the other way).
 - [ ] **5. Text editor and hex editor.** Today `.nfo` and text files open in VS Code or Notepad.
 
 ## File operations
