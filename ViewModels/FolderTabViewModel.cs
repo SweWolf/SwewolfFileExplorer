@@ -2245,27 +2245,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var names = items.Count == 1 ? $"'{items[0].Name}'" : $"{items.Count} items";
         var nl2   = Environment.NewLine;
 
-        // What would not go to the Recycle Bin (a folder: only the drive is looked at, its size is not known).
-        var noBin = permanent ? new List<string>() : items
-            .Select(i => FileReplace.WhyNotRecycled(i.Path, i.IsDirectory ? 0 : SafeLength(i.Path)))
-            .Where(r => r != null).Select(r => r!).ToList();
-
-        MessageBoxResult result;
-        if (permanent)
-            result = MessageBox.Show(
-                $"Are you sure you want to permanently delete {names}?{nl2}This cannot be undone.",
-                "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No, IconHelper.GetRecycleBinIcon(full: true));
-        else if (noBin.Count > 0)
-            result = MessageBox.Show(
-                $"{(items.Count == 1 ? "This item" : $"{noBin.Count} of these {items.Count} items")} cannot be moved to the Recycle Bin ({noBin[0]}).{nl2}"
-                + $"{(items.Count == 1 ? "It" : "They")} would be deleted permanently. This cannot be undone.{nl2}{nl2}Delete {names} anyway?",
-                "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No, IconHelper.GetRecycleBinIcon(full: true));
-        else
-            result = MessageBox.Show(
-                $"Are you sure you want to move {names} to the Recycle Bin?",
-                "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.None, IconHelper.GetRecycleBinIcon(full: true));
-
-        if (result != MessageBoxResult.Yes) return;
+        // The questions (and the flash message when none is needed) are in DeleteConfirm: same rules for the list, the tree and the picture viewer.
+        bool go;
+        _deleting = true;   // a second Delete while folders are being looked at is ignored
+        try { go = await DeleteConfirm.AskAsync(null, items, permanent); }
+        finally { _deleting = false; }
+        if (!go) return;
 
         var entries = items.Select(i => new FileDelete.Item(i.Path, i.Name, i.IsDirectory)).ToList();
 

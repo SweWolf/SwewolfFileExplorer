@@ -32,12 +32,29 @@ public static class ThemedMessageBox
 
     /// <param name="windowIcon">The icon in the title bar; null = the app's own (the delete questions show the Recycle Bin).</param>
     public static MessageBoxResult Show(Window? owner, string text, string caption, MessageBoxButton button, MessageBoxImage image, MessageBoxResult defaultResult,
-                                        ImageSource? windowIcon = null)
+                                        ImageSource? windowIcon = null) =>
+        ShowCore(owner, text, caption, button, image, defaultResult, windowIcon, null, null);
+
+    /// <summary>
+    /// The same box with a check box under the message (e.g. "Don't ask again ..."). <paramref name="isChecked"/> is what the box held when it
+    /// closed; the caller decides whether it counts (it should not when the answer was not Yes / OK).
+    /// </summary>
+    public static MessageBoxResult ShowWithCheckBox(Window? owner, string text, string caption, MessageBoxButton button, MessageBoxImage image,
+                                                    MessageBoxResult defaultResult, ImageSource? windowIcon, string checkBoxText, out bool isChecked)
+    {
+        var check = new System.Runtime.CompilerServices.StrongBox<bool>(false);
+        var result = ShowCore(owner, text, caption, button, image, defaultResult, windowIcon, checkBoxText, check);
+        isChecked = check.Value;
+        return result;
+    }
+
+    private static MessageBoxResult ShowCore(Window? owner, string text, string caption, MessageBoxButton button, MessageBoxImage image, MessageBoxResult defaultResult,
+                                             ImageSource? windowIcon, string? checkText, System.Runtime.CompilerServices.StrongBox<bool>? check)
     {
         var dispatcher = Application.Current?.Dispatcher;
         if (dispatcher == null) return System.Windows.MessageBox.Show(text, caption, button, image, defaultResult);   // no WPF yet: Windows' own box
         if (!dispatcher.CheckAccess())
-            return dispatcher.Invoke(() => Show(owner, text, caption, button, image, defaultResult, windowIcon));
+            return dispatcher.Invoke(() => ShowCore(owner, text, caption, button, image, defaultResult, windowIcon, checkText, check));
 
         // The window in front, if it is on screen (an owner that is not shown yet cannot own a window).
         owner ??= Application.Current!.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive && w.IsVisible)
@@ -46,9 +63,10 @@ public static class ThemedMessageBox
 
         try
         {
-            var box = new Box(owner, text, caption, button, image, defaultResult, windowIcon);
+            var box = new Box(owner, text, caption, button, image, defaultResult, windowIcon, checkText);
             PlaySound(image);
             box.ShowDialog();
+            if (check != null) check.Value = box.IsChecked;
             return box.Result;
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
@@ -76,8 +94,10 @@ public static class ThemedMessageBox
     {
         private readonly MessageBoxButton _buttons;
         public MessageBoxResult Result { get; private set; }
+        public bool IsChecked { get; private set; }
 
-        public Box(Window? owner, string text, string caption, MessageBoxButton buttons, MessageBoxImage image, MessageBoxResult defaultResult, ImageSource? windowIcon)
+        public Box(Window? owner, string text, string caption, MessageBoxButton buttons, MessageBoxImage image, MessageBoxResult defaultResult, ImageSource? windowIcon,
+                   string? checkText = null)
         {
             if (windowIcon != null) Icon = windowIcon;
             _buttons = buttons;
@@ -99,14 +119,25 @@ public static class ThemedMessageBox
             var root = new Grid();
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             // The message, with the icon of Windows beside it.
-            var top = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(24, 24, 24, 24) };
+            var top = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(24, 24, 24, checkText == null ? 24 : 12) };
             var icon = IconFor(image);
             if (icon != null) top.Children.Add(new Image { Source = icon, Width = 32, Height = 32, Margin = new Thickness(0, 0, 18, 0), VerticalAlignment = VerticalAlignment.Top });
             top.Children.Add(new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 520, VerticalAlignment = VerticalAlignment.Center });
             Grid.SetRow(top, 0);
             root.Children.Add(top);
+
+            // An optional check box under the message, in line with the text.
+            if (checkText != null)
+            {
+                var cb = new CheckBox { Content = checkText, MinHeight = 0, Margin = new Thickness(24 + (icon != null ? 50 : 0), 0, 24, 18) };
+                cb.Checked   += (_, _) => IsChecked = true;
+                cb.Unchecked += (_, _) => IsChecked = false;
+                Grid.SetRow(cb, 1);
+                root.Children.Add(cb);
+            }
 
             // The buttons, on a band of their own as in Windows.
             var band = new Border { Padding = new Thickness(16, 12, 16, 12) };
@@ -127,7 +158,7 @@ public static class ThemedMessageBox
                 panel.Children.Add(b);
             }
             band.Child = panel;
-            Grid.SetRow(band, 1);
+            Grid.SetRow(band, 2);
             root.Children.Add(band);
             Content = root;
 

@@ -763,8 +763,9 @@ public partial class MainWindow : Window
                               .OrderByDescending(t => t.Length).Take(30);
             foreach (var text in longest)
             {
-                // Cell padding; the Name cell also holds the 16 px icon and its 5 px margin.
-                double w = TextWidth(text) + 14 + (col.Key == SortColumn.Name ? 21 : 0);
+                // Cell padding (a little more for the slant of italic letters); the Name cell also holds the 16 px icon and its 5 px margin,
+                // the Size cell has the 11 px right margin of its template (it was cut off: "940.6 KI").
+                double w = TextWidth(text) + 16 + (col.Key == SortColumn.Name ? 21 : 0) + (col.Key == SortColumn.Size ? 11 : 0);
                 if (w > width) width = w;
             }
 
@@ -2925,7 +2926,11 @@ public partial class MainWindow : Window
 
     /// <summary>True for a folder of the disk that may be renamed or deleted: not a drive, and nothing in an archive.</summary>
     private static bool CanRenameOrDelete(string path) =>
-        CanChangeFolder(path) || PlaylistFile.IsPlaylist(path);   // a playlist of the tree is a file: it can be renamed and deleted too
+        CanChangeFolder(path) || PlaylistFile.IsPlaylist(path) || IsArchiveFileOnDisk(path);   // a playlist or a zip of the tree is a file: it can be renamed and deleted too
+
+    /// <summary>A packed file itself (D:\Photos\Trip.zip), not something inside it.</summary>
+    private static bool IsArchiveFileOnDisk(string path) =>
+        ArchiveSupport.IsArchiveName(path) && System.IO.File.Exists(path);
 
     private static bool CanChangeFolder(string path) =>
         System.IO.Directory.Exists(path)
@@ -2933,8 +2938,9 @@ public partial class MainWindow : Window
 
     private void RenameTreeFolder(TreeItemViewModel node)
     {
-        bool playlist = PlaylistFile.IsPlaylist(node.FullPath);   // a file: the extension has its own box
-        var dlg = new InputDialog(playlist ? "Rename Playlist" : "Rename Folder", "Enter new name:", node.Name,
+        bool archive  = IsArchiveFileOnDisk(node.FullPath);
+        bool playlist = PlaylistFile.IsPlaylist(node.FullPath) || archive;   // a file: the extension has its own box
+        var dlg = new InputDialog(archive ? "Rename Compressed File" : playlist ? "Rename Playlist" : "Rename Folder", "Enter new name:", node.Name,
             name => FolderTabViewModel.CheckNewName(node.FullPath, name), keepExtension: playlist, extensionReadOnly: playlist, currentName: node.Name) { Owner = this };
         if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
             VM.RenameFolder(node.FullPath, dlg.InputText);

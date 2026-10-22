@@ -548,8 +548,11 @@ public partial class PictureViewerWindow : Window
         ShowCurrent();
     }
 
-    private void DeleteCurrent()
+    private bool _deleteAsking;
+
+    private async void DeleteCurrent()
     {
+        if (_deleteAsking) return;
         if (_files.Count == 0) return;
         string path = CurrentPath;
 
@@ -561,10 +564,12 @@ public partial class PictureViewerWindow : Window
         }
 
         ShowCursor();
-        var answer = MessageBox.Show(this,
-            $"Are you sure you want to move '{Path.GetFileName(path)}' to the Recycle Bin?",
-            AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.None, IconHelper.GetRecycleBinIcon(full: true));
-        if (answer != MessageBoxResult.Yes) return;
+        // The same question and the same "don't ask again" as in the list (DeleteConfirm).
+        bool go;
+        _deleteAsking = true;
+        try { go = await DeleteConfirm.AskAsync(this, new[] { (path, Path.GetFileName(path), false) }, permanent: false); }
+        finally { _deleteAsking = false; }
+        if (!go || _closed || _files.Count == 0 || CurrentPath != path) return;
 
         try
         {
