@@ -303,10 +303,18 @@ public partial class MainWindow
         _runInPlaylist = VM.InPlaylist;
         SetPlayButton(true, false);
         _resumeAllowed = true;
+        bool shuffled = AppSettingsStore.Current.PlayMode == ModeRandom;   // the caller has scrambled the list already
         try
         {
             while (true)
             {
+                // Random Order chosen while the list is playing: the files that are left are scrambled from the next one on (a Play
+                // button that pauses is no way to start over). Leaving Random Order keeps the order the list has by then.
+                bool random = AppSettingsStore.Current.PlayMode == ModeRandom;
+                if (random && !shuffled && index >= 0 && index < items.Count)
+                    items = items.Take(index).Concat(Shuffled(items.Skip(index).ToList(), notFirst: index > 0 ? items[index - 1] : null)).ToList();
+                shuffled = random;
+
                 if (index >= items.Count)
                 {
                     var again = await EndOfPlaylistAsync(items);
