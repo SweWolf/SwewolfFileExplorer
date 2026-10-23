@@ -702,6 +702,23 @@
                             ToolTip="Clear the filter (Esc)" Click="FilterClear_Click"/>
                     <TextBlock x:Name="FilterCountText" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12"
                                Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+                    <!-- The rating filter: right of the name box. The value box is only used by the three comparisons. -->
+                    <ComboBox x:Name="RatingValueBox" DockPanel.Dock="Right" Width="84" MinWidth="84" FontSize="12" Margin="6,0,0,0" SelectedIndex="4"
+                              ToolTip="The rating to compare with (1 to 10)" SelectionChanged="RatingFilter_Changed" IsEnabled="False">
+                        <ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/><ComboBoxItem Content="4"/>
+                        <ComboBoxItem Content="5"/><ComboBoxItem Content="6"/><ComboBoxItem Content="7"/><ComboBoxItem Content="8"/>
+                        <ComboBoxItem Content="9"/><ComboBoxItem Content="10"/>
+                    </ComboBox>
+                    <ComboBox x:Name="RatingModeBox" DockPanel.Dock="Right" Width="120" FontSize="12" Margin="6,0,0,0" SelectedIndex="0"
+                              ToolTip="Show only the items with a certain rating. Items with no rating are hidden by At Least, Exactly and At Most."
+                              SelectionChanged="RatingFilter_Changed">
+                        <ComboBoxItem Content="Any Rating"/>
+                        <ComboBoxItem Content="At Least"/>
+                        <ComboBoxItem Content="Exactly"/>
+                        <ComboBoxItem Content="At Most"/>
+                        <ComboBoxItem Content="Unrated Only"/>
+                    </ComboBox>
+                    <TextBlock Text="Rating:" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="24,0,0,0" FontSize="12"/>
                     <TextBox x:Name="FilterBox" Padding="3" MinWidth="200"
                              ToolTip="Only the items whose name contains these letters are shown. Several words: every word must be in the name."
                              TextChanged="FilterBox_TextChanged" PreviewKeyDown="FilterBox_PreviewKeyDown"/>

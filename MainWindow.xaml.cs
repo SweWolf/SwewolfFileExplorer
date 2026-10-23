@@ -175,6 +175,7 @@ public partial class MainWindow : Window
         else
         {
             FilterBox.Text = "";   // clears the filter (TextChanged)
+            RatingModeBox.SelectedIndex = RatingAny;   // and the rating filter
             if (focusList) FileListView.Focus();
         }
     }
@@ -224,6 +225,7 @@ public partial class MainWindow : Window
     private void FilterClear_Click(object sender, RoutedEventArgs e)
     {
         FilterBox.Text = "";
+        RatingModeBox.SelectedIndex = RatingAny;
         FilterBox.Focus();
     }
 
@@ -265,18 +267,66 @@ public partial class MainWindow : Window
         if (CollectionViewSource.GetDefaultView(FileListView.ItemsSource) is ListCollectionView view)
         {
             var terms = _filterTerms;
-            view.Filter = terms.Length == 0
-                ? null
-                : o => o is FileItemViewModel item && terms.All(t => item.DisplayName.Contains(t, StringComparison.CurrentCultureIgnoreCase));
+            int mode  = _ratingMode;
+            int value = _ratingValue;
+
+            if (terms.Length == 0 && mode == RatingAny)
+            {
+                view.IsLiveFiltering = false;
+                view.Filter = null;
+            }
+            else
+            {
+                view.Filter = o => o is FileItemViewModel item
+                                   && terms.All(t => item.DisplayName.Contains(t, StringComparison.CurrentCultureIgnoreCase))
+                                   && RatingMatches(item.Rating, mode, value);
+
+                // An item rated while the filter is on (here, in the picture viewer) comes or goes at once.
+                if (mode != RatingAny)
+                {
+                    if (!view.LiveFilteringProperties.Contains(nameof(FileItemViewModel.Rating)))
+                        view.LiveFilteringProperties.Add(nameof(FileItemViewModel.Rating));
+                    view.IsLiveFiltering = true;
+                }
+                else
+                {
+                    view.IsLiveFiltering = false;
+                }
+            }
         }
         UpdateFilterCount();
         QueueInfoUpdate();   // "File 3/12" and the count of items follow
     }
 
-    /// <summary>"12 of 125" while a filter is on.</summary>
+    // The rating filter: modes are the order of the choices in RatingModeBox.
+    private const int RatingAny = 0, RatingAtLeast = 1, RatingExactly = 2, RatingAtMost = 3, RatingUnrated = 4;
+    private int _ratingMode = RatingAny;
+    private int _ratingValue = 5;
+
+    private static bool RatingMatches(int? rating, int mode, int value) => mode switch
+    {
+        RatingAtLeast => rating is { } r && r >= value,
+        RatingExactly => rating is { } r && r == value,
+        RatingAtMost  => rating is { } r && r <= value,   // an item with no rating is not "at most": it has none
+        RatingUnrated => rating == null,
+        _             => true,
+    };
+
+    private void RatingFilter_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (RatingModeBox == null || RatingValueBox == null || FileListView == null) return;   // raised while the window is being built (the list comes later in the XAML)
+
+        _ratingMode  = Math.Max(0, RatingModeBox.SelectedIndex);
+        _ratingValue = RatingValueBox.SelectedIndex + 1;
+        RatingValueBox.IsEnabled = _ratingMode is RatingAtLeast or RatingExactly or RatingAtMost;
+        ApplyFilter();
+    }
+
+    /// <summary>"12 of 125" while a filter (name or rating) is on.</summary>
     private void UpdateFilterCount()
     {
-        FilterCountText.Text = _filterTerms.Length == 0 ? "" : $"{FileListView.Items.Count} of {VM.CurrentItems.Count}";
+        bool on = _filterTerms.Length > 0 || _ratingMode != RatingAny;
+        FilterCountText.Text = on ? $"{FileListView.Items.Count} of {VM.CurrentItems.Count}" : "";
     }
 
     // ── Sorting ───────────────────────────────────────────────────────────────
