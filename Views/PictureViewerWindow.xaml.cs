@@ -65,6 +65,7 @@ public partial class PictureViewerWindow : Window
     private readonly DispatcherTimer _overlayTimer = new() { Interval = TimeSpan.FromMilliseconds(1500) };
     private readonly DispatcherTimer _clickTimer = new();   // a click waits to see if it becomes a double click
     private int _pendingClickDirection;
+    private int _pendingClickTimestamp;   // when the click was made (input time), see UserNavigate
 
     // Mouse state for dragging and clicking.
     private Point _pressPoint;
@@ -88,7 +89,7 @@ public partial class PictureViewerWindow : Window
         _clickTimer.Tick     += (_, _) =>
         {
             _clickTimer.Stop();
-            Navigate(_pendingClickDirection);
+            UserNavigate(_pendingClickDirection, _pendingClickTimestamp);
         };
     }
 
@@ -136,6 +137,7 @@ public partial class PictureViewerWindow : Window
     private async void ShowCurrent(string? message = null)
     {
         int version = ++_loadVersion;
+        _loading = true;
         string path = CurrentPath;
         PictureChanged?.Invoke(path);
 
@@ -181,6 +183,14 @@ public partial class PictureViewerWindow : Window
 
         UpdateTransform();
         RestartSlideTimer();   // also after a picture that could not be shown: the slide show goes on to the next one
+
+        // The picture counts as shown when the window has drawn it (a big one takes a moment): keys pressed before that are dropped.
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, () =>
+        {
+            if (version != _loadVersion) return;   // another picture was asked for meanwhile; that one ends the wait
+            _shownAtTick = Environment.TickCount;
+            _loading = false;
+        });
     }
 
     private void ShowNextAnimationFrame()
@@ -308,6 +318,21 @@ public partial class PictureViewerWindow : Window
     private void Viewport_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTransform();
 
     // ── Moving through the list ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Going to the next / previous picture because the user asked (key, wheel, click). While a picture is still being loaded and
+    /// put on screen, and for input made before it was shown, nothing happens: on a slow computer the user would otherwise press
+    /// again and again, think nothing happens, and then fly through all the pictures that were queued. <paramref name="timestamp"/>
+    /// is the input event's own time (<see cref="InputEventArgs.Timestamp"/>, the system's tick count).
+    /// </summary>
+    private void UserNavigate(int direction, int timestamp)
+    {
+        if (_loading || unchecked(timestamp - _shownAtTick) < 0) return;
+        Navigate(direction);
+    }
+
+    private bool _loading;     // a picture is being read, or has been read and is not on screen yet
+    private int _shownAtTick;  // Environment.TickCount of the moment the last picture was on screen
 
     private void Navigate(int direction)
     {
@@ -657,7 +682,7 @@ public partial class PictureViewerWindow : Window
         {
             case Key.Right or Key.PageDown or Key.Space or Key.Return when plain:
             case Key.N when plain:
-                Navigate(+1);
+                UserNavigate(+1, e.Timestamp);
                 break;
 
             case Key.Pause when plain:
@@ -667,7 +692,7 @@ public partial class PictureViewerWindow : Window
 
             case Key.Left or Key.PageUp or Key.Back when plain:
             case Key.P when plain:
-                Navigate(-1);
+                UserNavigate(-1, e.Timestamp);
                 break;
 
             case Key.Home when plain: GoTo(0); break;
@@ -686,6 +711,8 @@ public partial class PictureViewerWindow : Window
             case Key.Subtract or Key.OemMinus: ZoomBy(1 / 1.1);   break;
             case Key.Multiply: ResetView(normalSize: false); break;
             case Key.Divide:   ResetView(normalSize: true);  break;
+
+            case Key.R when plain: AskRating(); break;
 
             case Key.K when ctrl: Rotate(+1); break;
             case Key.L when ctrl: Rotate(-1); break;
@@ -708,7 +735,7 @@ public partial class PictureViewerWindow : Window
         if (Keyboard.Modifiers == ModifierKeys.Control)
             ZoomBy(e.Delta > 0 ? 1.1 : 1 / 1.1, e.GetPosition(Viewport));
         else
-            Navigate(e.Delta < 0 ? +1 : -1);   // wheel down: the next picture
+            UserNavigate(e.Delta < 0 ? +1 : -1, e.Timestamp);   // wheel down: the next picture
 
         e.Handled = true;
     }
@@ -773,6 +800,7 @@ public partial class PictureViewerWindow : Window
 
         // A click: the left third goes back, the rest goes on. It waits a moment, in case it is the first of a double click.
         _pendingClickDirection = _pressPoint.X / Viewport.ActualWidth <= 1.0 / 3 ? -1 : +1;
+        _pendingClickTimestamp = e.Timestamp;
         _clickTimer.Stop();
         _clickTimer.Start();
     }
@@ -817,6 +845,42 @@ public partial class PictureViewerWindow : Window
     private void MenuNormalSize_Click(object sender, RoutedEventArgs e) => ResetView(normalSize: true);
     private void MenuStretch_Click(object sender, RoutedEventArgs e) => ResetView(normalSize: false);
     private void MenuDelete_Click(object sender, RoutedEventArgs e) => DeleteCurrent();
+    private void MenuRating_Click(object sender, RoutedEventArgs e) => AskRating();
+
+    // ── Rating ───────────────────────────────────────────────────────────────
+
+    /// <summary>The rating and expectation of a picture; set by the Explorer (its list follows). Without it the library is read directly.</summary>
+    public Func<string, LibraryStore.Marks>? GetMarks { get; set; }
+
+    /// <summary>Sets (null removes) the rating of a picture; set by the Explorer (its list and column follow). Without it the library is written directly.</summary>
+    public Action<string, int?>? SetRating { get; set; }
+
+    /// <summary>R / "Rating..." in the menu: the same box as the Explorer's Ctrl+R, for the picture shown.</summary>
+    private void AskRating()
+    {
+        string path = CurrentPath;
+        if (path.Length == 0 || _closed) return;
+
+        var marks = GetMarks != null ? GetMarks(path) : LibraryStore.GetMark(path);
+
+        _slideTimer.Stop();   // a slide show waits while the box is open
+        try
+        {
+            var dialog = new InputDialog("Rating", "Rating from 1 to 10. Leave it empty to remove it:", RatingRules.Format(marks.Rating)) { Owner = this };
+            if (dialog.ShowDialog() != true) return;
+
+            var value = RatingRules.ParseRating(dialog.InputText);
+            if (SetRating != null) SetRating(path, value);
+            else LibraryService.Queue(() => LibraryStore.SetRating(new[] { path }, value));
+
+            ShowOverlay(value == null ? "Rating removed" : $"Rating: {RatingRules.Format(value)}");
+        }
+        finally
+        {
+            RestartSlideTimer();
+            ShowCursor();
+        }
+    }
 
     // ── Windows ──────────────────────────────────────────────────────────────
 

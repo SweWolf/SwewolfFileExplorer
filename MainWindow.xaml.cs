@@ -1926,6 +1926,12 @@ public partial class MainWindow : Window
                 ? PicturesInList()
                 : null;
         };
+        viewer.GetMarks  = path => VM.GetMarks(path);
+        viewer.SetRating = (path, value) =>
+        {
+            VM.SetRating(new[] { path }, value);   // the list and the label under the tree follow
+            if (value != null) ShowColumn(SortColumn.Rating);
+        };
         viewer.PictureChanged += path =>
         {
             SelectInList(path);      // the list follows the viewer

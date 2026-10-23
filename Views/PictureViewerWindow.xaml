@@ -32,6 +32,8 @@
                 <MenuItem Header="Normal Size" InputGestureText="Numpad /" Click="MenuNormalSize_Click"/>
                 <MenuItem Header="Stretch" InputGestureText="Numpad *" Click="MenuStretch_Click"/>
                 <Separator/>
+                <MenuItem Header="Rating..." InputGestureText="R" Click="MenuRating_Click"/>
+                <Separator/>
                 <MenuItem Header="Delete" InputGestureText="Del" Click="MenuDelete_Click"/>
             </ContextMenu>
         </Grid.ContextMenu>
