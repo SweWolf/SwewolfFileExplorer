@@ -59,6 +59,7 @@ public partial class MainWindow
             defaultIndex: canSelect ? 1 : 0, cancelIndex: 3, fontSize: 16)
         {
             Owner = this,
+            Title = "Create Playlist",
         };
         ask.SetButtonEnabled(1, canSelect);
         ask.ShowDialog();
