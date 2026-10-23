@@ -148,8 +148,22 @@ public static class PictureLoader
 
     // ── EXIF orientation ─────────────────────────────────────────────────────
 
+    /// <summary>The EXIF orientation (1-8) of the first picture in a stream, read from the metadata only; 1 when there is none or it cannot be read.</summary>
+    internal static int ReadOrientation(Stream stream)
+    {
+        try
+        {
+            var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.DelayCreation | BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.None);
+            return decoder.Frames.Count > 0 ? Query(decoder.Frames[0].Metadata, "System.Photo.Orientation", 1) : 1;
+        }
+        catch
+        {
+            return 1;
+        }
+    }
+
     /// <summary>Turns a photo the right way up, as its camera said (EXIF orientation 1-8).</summary>
-    private static BitmapSource ApplyOrientation(BitmapFrame frame, int orientation)
+    internal static BitmapSource ApplyOrientation(BitmapSource frame, int orientation)
     {
         var transform = new TransformGroup();
         switch (orientation)

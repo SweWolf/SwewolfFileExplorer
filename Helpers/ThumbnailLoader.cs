@@ -96,6 +96,15 @@ public static class ThumbnailLoader
                 if (stream.CanSeek) stream.Position = 0;
             }
 
+            // A photo taken with the camera turned: the picture is stored sideways and the EXIF orientation says how to turn it
+            // (the viewer does this too). Read from the metadata first; a stream that cannot seek is shown as it is stored.
+            int orientation = 1;
+            if (stream.CanSeek)
+            {
+                orientation = PictureLoader.ReadOrientation(stream);
+                stream.Position = 0;
+            }
+
             var bitmap = new BitmapImage();
             bitmap.BeginInit();
             bitmap.StreamSource      = stream;
@@ -103,7 +112,11 @@ public static class ThumbnailLoader
             bitmap.DecodePixelWidth  = decodeWidth;
             bitmap.EndInit();
             bitmap.Freeze();
-            return bitmap;
+
+            if (orientation <= 1) return bitmap;
+            var turned = PictureLoader.ApplyOrientation(bitmap, orientation);
+            if (turned.CanFreeze) turned.Freeze();
+            return turned;
         }
         catch
         {
