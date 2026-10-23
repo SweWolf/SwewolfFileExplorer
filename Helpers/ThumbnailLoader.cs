@@ -17,6 +17,10 @@ public static class ThumbnailLoader
     /// </summary>
     public static bool IsImage(string path) => Extensions.Contains(Path.GetExtension(path)) || RawPreview.IsRaw(path);
 
+    /// <summary>The frame with the most pixels (an .ico holds several sizes), or null if there is none.</summary>
+    public static BitmapFrame? BiggestFrame(BitmapDecoder decoder) =>
+        decoder.Frames.OrderByDescending(f => (long)f.PixelWidth * f.PixelHeight).FirstOrDefault();
+
     /// <summary>The same for a picture that is in memory (a cover embedded in a music file).</summary>
     public static BitmapSource? LoadBytes(byte[] data, int decodeWidth)
     {
@@ -73,6 +77,22 @@ public static class ThumbnailLoader
                 using var copy = new MemoryStream();
                 stream.CopyTo(copy);
                 if (JxlSupport.ToBitmap(copy.ToArray(), decodeWidth) is { } jxl) return jxl;
+                if (stream.CanSeek) stream.Position = 0;
+            }
+
+            // An icon holds several sizes and WPF would give the first (often 16 px): take the biggest one.
+            if (Path.GetExtension(path).Equals(".ico", StringComparison.OrdinalIgnoreCase))
+            {
+                var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                var best = BiggestFrame(decoder);
+                if (best != null)
+                {
+                    BitmapSource result = best;
+                    if (best.PixelWidth > decodeWidth)
+                        result = new TransformedBitmap(best, new System.Windows.Media.ScaleTransform((double)decodeWidth / best.PixelWidth, (double)decodeWidth / best.PixelWidth));
+                    if (result.CanFreeze) result.Freeze();
+                    return result;
+                }
                 if (stream.CanSeek) stream.Position = 0;
             }
 

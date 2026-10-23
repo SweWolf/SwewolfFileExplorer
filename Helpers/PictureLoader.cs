@@ -76,7 +76,8 @@ public static class PictureLoader
                 if (animated != null) return animated;
             }
 
-            var frame = decoder.Frames[0];
+            // An .ico holds several sizes: show the biggest one.
+            var frame = decoder is IconBitmapDecoder ? ThumbnailLoader.BiggestFrame(decoder)! : decoder.Frames[0];
             BitmapSource image = ApplyOrientation(frame, Query(frame.Metadata, "System.Photo.Orientation", 1));
             if (image.CanFreeze) image.Freeze();
             return new LoadedPicture(image);
