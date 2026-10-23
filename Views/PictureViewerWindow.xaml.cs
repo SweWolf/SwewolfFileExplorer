@@ -735,6 +735,15 @@ public partial class PictureViewerWindow : Window
 
     private void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        // A click that only closes the right-click menu does nothing else (the user clicked away to get rid of the menu).
+        // Depending on the order of the events the menu is still open here or was closed a moment ago.
+        if (_menuOpen || Viewport.ContextMenu.IsOpen || Environment.TickCount64 - _menuClosedAt < 200)
+        {
+            _pressed = false;
+            _clickTimer.Stop();
+            return;
+        }
+
         _pressPoint      = e.GetPosition(Viewport);
         _pressOffset     = new Point(_offsetX, _offsetY);
         _pressClickCount = e.ClickCount;
@@ -770,8 +779,24 @@ public partial class PictureViewerWindow : Window
 
     // ── Context menu ─────────────────────────────────────────────────────────
 
-    private void Menu_Opened(object sender, RoutedEventArgs e) => ShowCursor();
-    private void Menu_Closed(object sender, RoutedEventArgs e) => ShowCursor();
+    private void Menu_Opened(object sender, RoutedEventArgs e)
+    {
+        _menuOpen = true;
+        ShowCursor();
+    }
+
+    private void Menu_Closed(object sender, RoutedEventArgs e)
+    {
+        _menuClosedAt = Environment.TickCount64;
+        // Not at once: the click that closed the menu may still be waiting in the input queue, and it must see the menu as open
+        // (the first version looked at IsOpen and a timestamp only, and the click still went on to the next picture).
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () => _menuOpen = false);
+        ShowCursor();
+    }
+
+    private bool _menuOpen;   // the right-click menu is open, or closed so a moment ago that its closing click has not been handled yet
+
+    private long _menuClosedAt = long.MinValue / 2;   // when the right-click menu last closed (TickCount64), see Viewport_MouseLeftButtonDown
 
     /// <summary>
     /// Set by the program when it started with a picture: "Close" in the menu then asks it to get the Explorer ready first (it takes
