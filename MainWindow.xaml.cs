@@ -2420,13 +2420,18 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Opens the file in a program of the user's choice (the Windows "Open with" dialog).</summary>
-    private void CtxOpenWith_Click(object sender, RoutedEventArgs e)
+    private async void CtxOpenWith_Click(object sender, RoutedEventArgs e)
     {
         if (FileListView.SelectedItem is not FileItemViewModel { IsDirectory: false } file) return;
 
         // A file in an archive is first unpacked to the temporary folder: the dialog needs a file on the disk.
         var path = FolderTabViewModel.RealPathOf(file);
         if (path == null) return;
+
+        // The dialog is modal and would keep the menu on screen: close the menu first. The menu fades out (the first
+        // version showed the dialog at once, and the half-faded menu stayed behind it), so wait until it is gone.
+        if (sender is MenuItem { Parent: ContextMenu menu }) menu.IsOpen = false;
+        await Task.Delay(300);
 
         try
         {
