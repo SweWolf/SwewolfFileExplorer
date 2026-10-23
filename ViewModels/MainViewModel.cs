@@ -393,7 +393,11 @@ public class MainViewModel : INotifyPropertyChanged
     public void ExtensionSettingChanged()
     {
         foreach (var tab in Tabs)
-            foreach (var item in tab.CurrentItems) item.RefreshDisplayName();
+            foreach (var item in tab.CurrentItems)
+            {
+                item.RefreshDisplayName();
+                if (!item.IsDirectory) item.TypeName = IconHelper.GetTypeNameForName(item.Name);   // the "registered type names" setting may have changed
+            }
         OnPropertyChanged(nameof(ShowExtensions));
         DisplayNamesChanged?.Invoke();
     }

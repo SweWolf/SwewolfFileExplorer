@@ -200,6 +200,52 @@ public static class IconHelper
         return icon;
     }
 
+    private static bool _useRegisteredTypeNames;
+
+    /// <summary>
+    /// Settings > "Show the Registered Name of the File Type": the Type column says "JPEG Image" (what the extension's own class is called)
+    /// instead of what Windows shows for the user's default app, which can be the plain "JPG File". Changing it forgets the names found.
+    /// </summary>
+    public static bool UseRegisteredTypeNames
+    {
+        get => _useRegisteredTypeNames;
+        set
+        {
+            if (_useRegisteredTypeNames == value) return;
+            _useRegisteredTypeNames = value;
+            lock (NameTypes) NameTypes.Clear();
+        }
+    }
+
+    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
+    private static extern int SHLoadIndirectString(string source, System.Text.StringBuilder output, uint length, IntPtr reserved);
+
+    /// <summary>
+    /// The name the extension's own class gives the type: HKEY_CLASSES_ROOT\.ext names the class (jpegfile), whose FriendlyTypeName or
+    /// default value is the text ("JPEG Image"). Null if the extension has no class or the class has no name.
+    /// </summary>
+    private static string? RegisteredTypeName(string extension)
+    {
+        try
+        {
+            if (extension.Length < 2) return null;
+            using var ext = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(extension);
+            if (ext?.GetValue("") is not string progId || progId.Length == 0) return null;
+
+            using var cls = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(progId);
+            if (cls == null) return null;
+
+            if (cls.GetValue("FriendlyTypeName") is string friendly && friendly.Length > 0)
+            {
+                if (!friendly.StartsWith('@')) return friendly;
+                var text = new System.Text.StringBuilder(260);   // "@C:\Windows\System32\shell32.dll,-30596": a string in a resource
+                if (SHLoadIndirectString(friendly, text, (uint)text.Capacity, IntPtr.Zero) == 0 && text.Length > 0) return text.ToString();
+            }
+            return cls.GetValue("") is string plain && plain.Length > 0 ? plain : null;
+        }
+        catch { return null; }
+    }
+
     /// <summary>"JPG File", "Text Document" ...: the type of a file with this name, without it being on the disk.</summary>
     public static string GetTypeNameForName(string name)
     {
@@ -209,9 +255,13 @@ public static class IconHelper
             if (NameTypes.TryGetValue(key, out var known)) return known;
         }
 
-        var shfi = new SHFILEINFO();
-        SHGetFileInfo("file" + key, FILE_ATTRIBUTE_NORMAL, ref shfi, (uint)Marshal.SizeOf(shfi), SHGFI_TYPENAME | SHGFI_USEFILEATTRIBUTES);
-        string type = shfi.szTypeName ?? "";
+        string? type = _useRegisteredTypeNames ? RegisteredTypeName(key) : null;
+        if (type == null)   // the usual way (and the way when the extension has no class of its own)
+        {
+            var shfi = new SHFILEINFO();
+            SHGetFileInfo("file" + key, FILE_ATTRIBUTE_NORMAL, ref shfi, (uint)Marshal.SizeOf(shfi), SHGFI_TYPENAME | SHGFI_USEFILEATTRIBUTES);
+            type = shfi.szTypeName ?? "";
+        }
 
         lock (NameTypes) NameTypes[key] = type;
         return type;

@@ -19,7 +19,8 @@ public class FileItemViewModel : INotifyPropertyChanged
     public void RefreshDisplayName() => OnPropertyChanged(nameof(DisplayName));
     public string FullPath { get; set; } = "";
     public bool IsDirectory { get; set; }
-    public string TypeName { get; set; } = "";
+    private string _typeName = "";
+    public string TypeName { get => _typeName; set { _typeName = value; OnPropertyChanged(); } }
 
     // These can change while the item is on show (the Properties window edits a file): the cells follow.
     private DateTime _dateModified, _dateCreated;

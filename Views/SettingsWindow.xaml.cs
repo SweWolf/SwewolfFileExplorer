@@ -18,6 +18,7 @@ public partial class SettingsWindow : Window
         HiddenExtensionsInArchivesBox.Text = current.HiddenExtensionsInArchives;
         HideShellExtensionsBox.IsChecked   = current.HideShellExtensions;
         HideKnownExtensionsBox.IsChecked   = current.HideKnownExtensions;
+        RegisteredTypeNamesBox.IsChecked   = current.UseRegisteredTypeNames;
         SuggestMoveBox.IsChecked           = current.SuggestMoveAfterSmartRename;
         TerminalBox.IsChecked              = current.ShowOpenInTerminal;
         PowerShellBox.IsChecked            = current.ShowOpenInPowerShell;
@@ -44,6 +45,8 @@ public partial class SettingsWindow : Window
         settings.HiddenExtensionsInArchives = string.Join(";", HiddenItems.Parse(HiddenExtensionsInArchivesBox.Text));
         settings.HideShellExtensions = HideShellExtensionsBox.IsChecked == true;
         settings.HideKnownExtensions = HideKnownExtensionsBox.IsChecked == true;
+        settings.UseRegisteredTypeNames = RegisteredTypeNamesBox.IsChecked == true;
+        IconHelper.UseRegisteredTypeNames = settings.UseRegisteredTypeNames;   // forgets the type names found so far
         settings.SuggestMoveAfterSmartRename = SuggestMoveBox.IsChecked == true;
         settings.ShowOpenInTerminal      = TerminalBox.IsChecked == true;
         settings.ShowOpenInPowerShell    = PowerShellBox.IsChecked == true;

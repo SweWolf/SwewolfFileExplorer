@@ -26,6 +26,12 @@ public class AppSettings
     /// <summary>The folder shown is watched and the list follows changes made by other programs (settings.json only, no window yet).</summary>
     public bool WatchFolders { get; set; } = true;
 
+    /// <summary>
+    /// The Type column says what the file type itself is called ("JPEG Image"), not what Windows makes of it for the default app of the
+    /// user ("JPG File" when that app names no type). Off = as Windows Explorer shows it.
+    /// </summary>
+    public bool UseRegisteredTypeNames { get; set; }
+
     /// <summary>The picture of the current folder is shown under the tree (the "x" on it hides it; a button in the status line brings it back).</summary>
     public bool ShowFolderPicture { get; set; } = true;
 

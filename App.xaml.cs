@@ -69,6 +69,7 @@ public partial class App : Application
         // Before the main window is created (StartupUri), so it opens in the right colors.
         ThemeService.Initialize();
         ThemeService.Apply(AppSettingsStore.Current.Style);
+        IconHelper.UseRegisteredTypeNames = AppSettingsStore.Current.UseRegisteredTypeNames;
         base.OnStartup(e);
 
         // The main window is made here (not by StartupUri): with a picture on the command line it is not shown at all.
