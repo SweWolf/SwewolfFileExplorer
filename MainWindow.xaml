@@ -407,7 +407,8 @@
                      when the folder has no picture), so the tree does not jump. A click opens it in the viewer. -->
                 <Border DockPanel.Dock="Bottom" Padding="6"
                         Background="{DynamicResource PaneBrush}"
-                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0">
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
+                        Visibility="{Binding ShowFolderPicture, Converter={StaticResource BoolToVisibility}}">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="Height" Value="233"/>
@@ -430,10 +431,45 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <Image Source="{Binding FolderPicture}" Stretch="Uniform" MaxHeight="260"
-                           HorizontalAlignment="Center" Cursor="Hand"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           MouseLeftButtonDown="FolderPicture_MouseLeftButtonDown"/>
+                    <Grid Background="Transparent">
+                        <Grid.ContextMenu>
+                            <ContextMenu Opened="FolderPictureMenu_Opened">
+                                <MenuItem x:Name="FolderPicChooseItem" Header="Choose Folder Picture..." Click="FolderPictureChoose_Click"
+                                          ToolTip="Pick a picture file for this folder (it is remembered in the library; no file is made or changed)"/>
+                                <MenuItem x:Name="FolderPicNoneItem" Header="No Folder Picture" Click="FolderPictureNone_Click"
+                                          ToolTip="Show no picture for this folder"/>
+                                <MenuItem x:Name="FolderPicAutoItem" Header="Use Automatic Folder Picture" Click="FolderPictureAuto_Click"
+                                          ToolTip="Forget the choice: the program looks for a picture itself again"/>
+                            </ContextMenu>
+                        </Grid.ContextMenu>
+                        <Image Source="{Binding FolderPicture}" Stretch="Uniform" MaxHeight="260"
+                               HorizontalAlignment="Center" Cursor="Hand"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               MouseLeftButtonDown="FolderPicture_MouseLeftButtonDown"/>
+                        <!-- The "x" that hides the picture (red under the mouse, as the one above the tree); the button in the status line brings it back -->
+                        <Button Command="{Binding HideFolderPictureCommand}"
+                                ToolTip="Hide the Folder Picture (the button in the status line shows it again)"
+                                Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Focusable="False">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Box" Background="Transparent" CornerRadius="4"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource CloseHoverBrush}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource ClosePressedBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="&#x2715;" FontSize="11" FontFamily="Segoe UI"/>
+                        </Button>
+                    </Grid>
                 </Border>
 
                 <!-- Under the tree: the tags of the current folder, from its desktop.ini, only when it has some (a double-click edits them;
@@ -466,9 +502,42 @@
                 <Border DockPanel.Dock="Bottom" Padding="10,6"
                         Background="{DynamicResource PaneBrush}"
                         BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
-                        Visibility="{Binding FolderStatusText, Converter={StaticResource TextToVisibility}}">
-                    <TextBlock FontSize="12" Text="{Binding FolderStatusText}"
-                               ToolTip="Read means every file in this folder and in all folders below it has been opened. Right-click a folder to mark it."/>
+                        Visibility="{Binding ShowFolderInfoRow, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- Only while the folder picture is hidden: brings it back. A small picture (frame, hill, sun) says what it is. -->
+                        <Button Command="{Binding ShowFolderPictureCommand}" Focusable="False" Padding="3" Margin="0,0,8,0" VerticalAlignment="Center"
+                                ToolTip="Show the Folder Picture">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowFolderPicture}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Box" Background="Transparent" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource TabHoverBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <Canvas Width="16" Height="14">
+                                <Rectangle Canvas.Left="0.5" Canvas.Top="0.5" Width="15" Height="13" RadiusX="2" RadiusY="2" Stroke="#5B9BD5" StrokeThickness="1"/>
+                                <Path Fill="#5B9BD5" Data="M2,12.5 L6,6.5 L9,10 L11,8 L14,12.5 Z"/>
+                                <Ellipse Canvas.Left="10.5" Canvas.Top="2.5" Width="3" Height="3" Fill="#F0B400"/>
+                            </Canvas>
+                        </Button>
+                        <TextBlock FontSize="12" Text="{Binding FolderStatusLine}" VerticalAlignment="Center"
+                                   ToolTip="Read means every file in this folder and in all folders below it has been opened. Right-click a folder to mark it."/>
+                    </StackPanel>
                 </Border>
 
                 <!-- Under the tree: the hidden subfolders of the current folder (docked before the tree, which fills the rest) -->

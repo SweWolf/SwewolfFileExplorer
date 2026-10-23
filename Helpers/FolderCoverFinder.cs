@@ -16,6 +16,7 @@ public sealed record FolderCover(BitmapSource Image, string? Path, byte[]? Data)
 ///  1. A picture in the folder with a cover-like name, best first: Folder, Cover, Front, Poster, AlbumArt (also
 ///     Windows Media Player's AlbumArt_{...}_Large), Album, Thumb, Thumbnail, or a name equal to the folder's.
 ///     (TeraTool only looked for Folder.jpg.) Hidden files count: Folder.jpg is usually hidden.
+///  1b. The folder's own icon from its desktop.ini (IconResource), for a folder Windows gave an icon of its own (Downloads ...).
 ///  2. The cover embedded in the first music files of the folder (up to <see cref="MaxMusicFilesTried"/> of them).
 ///  3. In an archive (zip, cbz, rar ...): the same names (stepping into a single folder inside it, up to 3 levels);
 ///     for a comic book (.cbz / .cbr) the first picture, which is page 1.
@@ -53,9 +54,11 @@ public static class FolderCoverFinder
 
         // 0. The picture the user chose for this folder (Set as Folder Picture; the library keeps its name only). If it is gone
         //    or cannot be read, the automatic search below goes on as if nothing was chosen.
-        if (LibraryStore.GetFolderPicture(folder) is { Length: > 0 } chosen)
+        var choice = LibraryStore.GetFolderPicture(folder);
+        if (choice == "") return null;   // "No Folder Picture": the user wants none
+        if (choice is { Length: > 0 } chosen)
         {
-            var file = Path.Combine(folder, chosen);
+            var file = Path.Combine(folder, chosen);   // a name in the folder, or a full path (Combine keeps a rooted one)
             if (File.Exists(file) && ThumbnailLoader.Load(file, decodeWidth) is { } picked)
                 return new FolderCover(picked, file, null);
         }
@@ -65,12 +68,23 @@ public static class FolderCoverFinder
 
         // 1. A picture with a cover-like name. If the best one cannot be read, the next one is tried.
         var pictures = files.Where(ThumbnailLoader.IsImage).ToList();
+
+        // Windows Media Player leaves AlbumArt_{GUID}_Large.jpg for every album it has seen. With more than one in a folder (a music
+        // library kept in one folder) none of them is the picture of the folder itself, so they are not used.
+        var wmpArt = pictures.Where(IsWmpAlbumArt).ToList();
+        if (wmpArt.Select(WmpAlbumGuid).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            pictures = pictures.Where(f => !Path.GetFileNameWithoutExtension(f).StartsWith("albumart", StringComparison.OrdinalIgnoreCase)).ToList();   // AlbumArtSmall.jpg too
+
         foreach (var picture in Ranked(pictures, name, f => SafeLength(f)))
         {
             token.ThrowIfCancellationRequested();
             var image = ThumbnailLoader.Load(picture, decodeWidth);
             if (image != null) return new FolderCover(image, picture, null);
         }
+
+        // 1b. The folder's own icon from its desktop.ini (what Explorer shows for it, e.g. the green arrow of Downloads): after a picture
+        //     with a cover-like name, before a cover embedded in a music file.
+        if (FromDesktopIni(folder, files) is { } icon) return icon;
 
         // 2. The cover embedded in a music file.
         var music = files.Where(AudioTagReader.HasTags)
@@ -88,6 +102,137 @@ public static class FolderCoverFinder
 
         return null;
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern uint PrivateExtractIcons(string file, int index, int cx, int cy, IntPtr[] icons, int[] ids, uint count, uint flags);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr icon);
+
+    /// <summary>
+    /// The icon a folder's <c>desktop.ini</c> names: <c>IconResource=path,index</c> (or <c>IconFile=</c> and <c>IconIndex=</c>) in
+    /// [.ShellClassInfo]; a negative index is a resource id, as in <c>imageres.dll,-184</c> (the Downloads icon). Drawn at 256 pixels.
+    /// Null when the folder has no desktop.ini, it names no icon, or the icon cannot be read.
+    /// </summary>
+    private static FolderCover? FromDesktopIni(string folder, List<string> files)
+    {
+        try
+        {
+            var ini = files.FirstOrDefault(f => string.Equals(Path.GetFileName(f), "desktop.ini", StringComparison.OrdinalIgnoreCase));
+            if (ini == null || new FileInfo(ini).Length is 0 or > 256 * 1024) return null;
+
+            string? resource = null, iconFile = null, iconIndex = null;
+            bool inSection = false;
+            foreach (var raw in TextFiles.ReadAllText(ini).Split('\n'))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith('['))
+                {
+                    inSection = line.Equals("[.ShellClassInfo]", StringComparison.OrdinalIgnoreCase);
+                    continue;
+                }
+                if (!inSection) continue;
+                var eq = line.IndexOf('=');
+                if (eq <= 0) continue;
+                var key = line[..eq].Trim();
+                var val = line[(eq + 1)..].Trim().Trim('"');
+                if (key.Equals("IconResource", StringComparison.OrdinalIgnoreCase)) resource = val;
+                else if (key.Equals("IconFile", StringComparison.OrdinalIgnoreCase)) iconFile = val;
+                else if (key.Equals("IconIndex", StringComparison.OrdinalIgnoreCase)) iconIndex = val;
+            }
+
+            string? path; int index = 0;
+            if (!string.IsNullOrEmpty(resource))
+            {
+                var comma = resource.LastIndexOf(',');
+                path = comma > 0 ? resource[..comma] : resource;
+                if (comma > 0) int.TryParse(resource[(comma + 1)..].Trim(), out index);
+            }
+            else if (!string.IsNullOrEmpty(iconFile))
+            {
+                path = iconFile;
+                int.TryParse(iconIndex, out index);
+            }
+            else return null;
+
+            path = Environment.ExpandEnvironmentVariables(path!.Trim());
+            if (!Path.IsPathRooted(path))   // next to the desktop.ini, else in System32 (imageres.dll)
+            {
+                var local = Path.Combine(folder, path);
+                path = File.Exists(local) ? local : Path.Combine(Environment.SystemDirectory, path);
+            }
+            if (!File.Exists(path)) return null;
+
+            return ExtractIcon(path, index) is { } image ? new FolderCover(image, null, null) : null;
+        }
+        catch
+        {
+            return null;   // locked, damaged, no such resource
+        }
+    }
+
+    /// <summary>An icon of an exe / dll / ico at 256 pixels (a negative index is a resource id); null if it cannot be read.</summary>
+    private static System.Windows.Media.Imaging.BitmapSource? ExtractIcon(string path, int index)
+    {
+        try
+        {
+            var icons = new IntPtr[1];
+            var ids   = new int[1];
+            if (PrivateExtractIcons(path, index, 256, 256, icons, ids, 1, 0) < 1 || icons[0] == IntPtr.Zero) return null;
+            try
+            {
+                var image = System.Windows.Interop.Imaging.CreateBitmapSourceFromHIcon(icons[0], System.Windows.Int32Rect.Empty,
+                                System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+                image.Freeze();
+                return image;
+            }
+            finally { DestroyIcon(icons[0]); }
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// The picture of a place that is no folder: "pc" (This PC, Windows' own computer icon), "star" (Quick Access, Windows' star) and
+    /// "bookmark" (Bookmarks, a blue ribbon drawn here: Windows has none). Call it on the UI thread (the ribbon is drawn with WPF).
+    /// </summary>
+    public static FolderCover? ForVirtual(string? kind)
+    {
+        var imageres = Path.Combine(Environment.SystemDirectory, "imageres.dll");
+        System.Windows.Media.Imaging.BitmapSource? image = kind switch
+        {
+            "pc"       => ExtractIcon(imageres, -109),
+            "star"     => ExtractIcon(imageres, -1024),
+            "bookmark" => DrawBookmark(),
+            _          => null,
+        };
+        return image == null ? null : new FolderCover(image, null, null);
+    }
+
+    private static System.Windows.Media.Imaging.BitmapSource? DrawBookmark()
+    {
+        try
+        {
+            var visual = new System.Windows.Media.DrawingVisual();
+            using (var dc = visual.RenderOpen())
+            {
+                dc.PushTransform(new System.Windows.Media.ScaleTransform(16, 16));   // the same 16 x 16 drawing as the small icon in the tree
+                dc.DrawGeometry(new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x2F, 0x6F, 0xD6)), null,
+                                System.Windows.Media.Geometry.Parse("M3.5,1.5 H12.5 V14.5 L8,10.8 L3.5,14.5 Z"));
+            }
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(256, 256, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            bitmap.Render(visual);
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch { return null; }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex WmpArt =
+        new(@"^AlbumArt_(\{[0-9A-Fa-f-]+\})_(Large|Small)$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static bool IsWmpAlbumArt(string file) => WmpArt.IsMatch(Path.GetFileNameWithoutExtension(file));
+
+    private static string WmpAlbumGuid(string file) => WmpArt.Match(Path.GetFileNameWithoutExtension(file)).Groups[1].Value;
 
     private static FolderCover? FromArchive(string folder, int decodeWidth)
     {

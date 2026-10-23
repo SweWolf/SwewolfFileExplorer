@@ -1148,7 +1148,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(item.FullPath))
             VM.NavigateAsync(item.FullPath);   // read in the background: a slow folder must not freeze the window
         else
-            VM.ShowNoFolder();   // This PC / Quick Access: not a folder, so the list is emptied
+            VM.ShowNoFolder(item.IconShape);   // This PC / Quick Access: not a folder, so the list is emptied (and they have a picture of their own)
     }
 
     private void TreeItem_Selected(object sender, RoutedEventArgs e)
@@ -1371,6 +1371,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        // A Windows theme pack (a CAB with the wallpapers in it): its first picture says what the theme looks like.
+        if (!item.IsInArchive && ThemePackPreview.Applies(path))
+        {
+            var found = await Task.Run(() => ThemePackPreview.Find(path, ThumbnailDecodeWidth));
+            if (version != _thumbnailVersion) return;
+
+            ThumbnailImage.Source = found?.Image;
+            ShowPreviewFrame(false);
+            if (found != null) { _previewItem = item; _previewSource = found; }
+            return;
+        }
+
         ThumbnailImage.Source = null;
         ShowPreviewFrame(false);
     }
@@ -1445,6 +1457,49 @@ public partial class MainWindow : Window
         var name = System.IO.Path.GetFileName(file);
         var folder = VM.CurrentPath;
         LibraryService.Queue(() => LibraryStore.SetFolderPicture(folder, name));
+        RefreshFolderPictureSoon();
+    }
+
+    // Right-click on the folder picture under the tree: choose a picture file, none, or the automatic one again.
+    private void FolderPictureMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        bool real   = VM.HasFolder && !VM.InArchive && System.IO.Directory.Exists(VM.CurrentPath);
+        var  chosen = real ? LibraryStore.GetFolderPicture(VM.CurrentPath) : null;
+        FolderPicChooseItem.IsEnabled = real;
+        FolderPicNoneItem.IsEnabled   = real;
+        FolderPicNoneItem.Visibility  = chosen == "" ? Visibility.Collapsed : Visibility.Visible;   // already none
+        FolderPicAutoItem.Visibility  = chosen != null ? Visibility.Visible : Visibility.Collapsed;   // only when there is a choice to forget
+    }
+
+    private void FolderPictureChoose_Click(object sender, RoutedEventArgs e)
+    {
+        var folder = VM.CurrentPath;
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title            = "Choose Folder Picture",
+            Filter           = "Pictures|*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.bmp;*.gif;*.tif;*.tiff;*.webp;*.ico|All Files|*.*",
+            InitialDirectory = folder,
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        if (ThumbnailLoader.Load(dialog.FileName, 300) == null)
+        {
+            MessageBox.Show(this, "That file is not a picture the program can show.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // The name only when the picture lies in the folder itself (it then follows a rename of the folder), else its full path.
+        var picture = string.Equals(System.IO.Path.GetDirectoryName(dialog.FileName)?.TrimEnd('\\', '/'), folder.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)
+            ? System.IO.Path.GetFileName(dialog.FileName)
+            : dialog.FileName;
+        LibraryService.Queue(() => LibraryStore.SetFolderPicture(folder, picture));
+        RefreshFolderPictureSoon();
+    }
+
+    private void FolderPictureNone_Click(object sender, RoutedEventArgs e)
+    {
+        var folder = VM.CurrentPath;
+        LibraryService.Queue(() => LibraryStore.SetFolderPicture(folder, ""));   // an empty name: no picture at all
         RefreshFolderPictureSoon();
     }
 
@@ -3223,5 +3278,7 @@ public partial class MainWindow : Window
                     VM.OfferMoveAfterSmartRename(newPath);
             }
         }
+        else if (isNew)
+            VM.ActiveTab.FolderCreationCanceled = true;   // Cancel: the new folder is removed again if it is still empty
     }
 }

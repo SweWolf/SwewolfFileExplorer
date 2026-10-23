@@ -39,7 +39,32 @@ public class MainViewModel : INotifyPropertyChanged
         PreviousTabCommand = new RelayCommand(_ => SwitchTab(-1), _ => Tabs.Count > 1);
         ReopenTabCommand   = new RelayCommand(_ => ReopenTab(),   _ => _closedTabs.Count > 0);
         ToggleTreeCommand  = new RelayCommand(_ => ShowTree = !ShowTree);
+        HideFolderPictureCommand = new RelayCommand(_ => ShowFolderPicture = false);
+        ShowFolderPictureCommand = new RelayCommand(_ => ShowFolderPicture = true);
     }
+
+    public RelayCommand HideFolderPictureCommand { get; }
+    public RelayCommand ShowFolderPictureCommand { get; }
+
+    /// <summary>The picture of the folder under the tree is shown (saved in the settings; the "x" on it hides it).</summary>
+    public bool ShowFolderPicture
+    {
+        get => _shared.Settings.ShowFolderPicture;
+        set
+        {
+            if (_shared.Settings.ShowFolderPicture == value) return;
+            _shared.Settings.ShowFolderPicture = value;
+            AppSettingsStore.Save(_shared.Settings);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowFolderInfoRow));
+        }
+    }
+
+    /// <summary>The line under the tree with the status: there while it has a text, and while the picture is hidden (the button that brings it back is in it).</summary>
+    public bool ShowFolderInfoRow => !string.IsNullOrEmpty(FolderStatusLine) || !ShowFolderPicture;
+
+    /// <summary>"Status: Unread / Partly Read / Read", or "Empty Folder".</summary>
+    public string FolderStatusLine => _activeTab.FolderStatusLine;
 
     public RelayCommand ToggleTreeCommand { get; }
 
@@ -91,6 +116,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             // Only what the active tab shows is of interest to the window.
             if (s == _activeTab) OnPropertyChanged(e.PropertyName);
+            if (s == _activeTab && e.PropertyName == nameof(FolderTabViewModel.FolderStatusLine)) OnPropertyChanged(nameof(ShowFolderInfoRow));
 
             // A session follows every tab: the folder it shows (the title changes when a navigation succeeded) and its root.
             if (e.PropertyName is nameof(FolderTabViewModel.Title) or nameof(FolderTabViewModel.CustomTitle) or nameof(FolderTabViewModel.HasTreeRoot))
@@ -437,7 +463,7 @@ public class MainViewModel : INotifyPropertyChanged
     public void ReloadBookmarksIfChanged() { foreach (var tab in Tabs) tab.ReloadBookmarksIfChanged(); }
 
     public void NavigateAsync(string? path)                       => _activeTab.NavigateAsync(path);   // a click in the tree: slow folders are read in the background
-    public void ShowNoFolder()                                    => _activeTab.ShowNoFolder();
+    public void ShowNoFolder(string? place = null)                => _activeTab.ShowNoFolder(place);
 
     /// <summary>
     /// Alt+Home: the active tab goes to the default folder. That is This PC for now (also where a new tab starts); a setting may change it

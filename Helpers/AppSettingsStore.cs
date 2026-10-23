@@ -26,6 +26,9 @@ public class AppSettings
     /// <summary>The folder shown is watched and the list follows changes made by other programs (settings.json only, no window yet).</summary>
     public bool WatchFolders { get; set; } = true;
 
+    /// <summary>The picture of the current folder is shown under the tree (the "x" on it hides it; a button in the status line brings it back).</summary>
+    public bool ShowFolderPicture { get; set; } = true;
+
     /// <summary>The height of the info panel under the file list (the preview picture, the plot): dragged with the divider above it.</summary>
     public const double DefaultInfoPanelHeight = 141;
     public double InfoPanelHeight { get; set; } = DefaultInfoPanelHeight;

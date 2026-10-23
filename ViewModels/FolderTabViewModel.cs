@@ -279,6 +279,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                                             _ => _selectedItems.Count > 0);
         ToggleTreeHiddenCommand = new RelayCommand(_ => ToggleTreeHidden());
 
+        CurrentItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(FolderStatusLine));   // "Empty Folder"
         InitializeTree();
         if (startPath != null) Navigate(startPath);
         else ShowThisPc();
@@ -291,7 +292,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void ShowThisPc()
     {
         if (_playlistDirty && !ConfirmLeavePlaylist()) return;   // Alt+Home while a playlist has unsaved changes
-        ShowNoFolder();
+        ShowNoFolder("pc");
         _unavailable = false;
         FolderPath  = "";
         CurrentPath = "";
@@ -581,7 +582,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// "This PC" or "Quick Access" was clicked: they are no folder, so the list, the picture and the labels are emptied.
     /// The current folder stays as it is (history, session, Back), but F5 does not bring its files back.
     /// </summary>
-    public void ShowNoFolder()
+    public void ShowNoFolder(string? place = null)
     {
         if (_playlistDirty && !ConfirmLeavePlaylist()) return;
         _noFolderShown = true;
@@ -591,9 +592,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
         _tagsCts?.Cancel();
         _tagsCts = null;
         _coverCts?.Cancel();
-        if (_folderCover != null)
+        var placeCover = FolderCoverFinder.ForVirtual(place);   // This PC, Quick Access: a picture of their own; no folder, so nothing to look up
+        if (_folderCover != null || placeCover != null)
         {
-            _folderCover = null;
+            _folderCover = placeCover;
             OnPropertyChanged(nameof(FolderPicture));
             OnPropertyChanged(nameof(HasFolderPicture));
         }
@@ -1098,6 +1100,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     private void RaiseTreeInfoChanged()
     {
+        OnPropertyChanged(nameof(FolderStatusLine));
         OnPropertyChanged(nameof(HasTreeInfo));
         OnPropertyChanged(nameof(TreeCountsText));
         OnPropertyChanged(nameof(HasTreeHiddenFolders));
@@ -1374,6 +1377,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (!string.IsNullOrEmpty(_currentPath) && !_noFolderShown) UpdateFolderPicture(_currentPath);
     }
 
+    private static bool IsUnderBookmarks(string path)
+    {
+        try
+        {
+            var root = Path.GetFullPath(BookmarkStore.Folder).TrimEnd('\\', '/') + "\\";
+            return (Path.GetFullPath(path).TrimEnd('\\', '/') + "\\").StartsWith(root, StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
     /// <summary>Looks for the picture of <paramref name="path"/> in the background; the old one goes at once, as it is not this folder's.</summary>
     private void UpdateFolderPicture(string path)
     {
@@ -1392,7 +1405,21 @@ public class FolderTabViewModel : INotifyPropertyChanged
         _ = Task.Run(() =>
         {
             var cover = FolderCoverFinder.Find(path, 500, token);   // 500 px: sharp enough for the widest tree pane
-            if (cover == null || token.IsCancellationRequested) return;
+            if (token.IsCancellationRequested) return;
+
+            // The Bookmarks node and its groups: no picture of their own, so the bookmark ribbon (drawn on the UI thread).
+            if (cover == null && IsUnderBookmarks(path))
+            {
+                dispatcher.InvokeAsync(() =>
+                {
+                    if (token.IsCancellationRequested) return;
+                    _folderCover = FolderCoverFinder.ForVirtual("bookmark");
+                    OnPropertyChanged(nameof(FolderPicture));
+                    OnPropertyChanged(nameof(HasFolderPicture));
+                });
+                return;
+            }
+            if (cover == null) return;
 
             dispatcher.InvokeAsync(() =>
             {
@@ -2051,8 +2078,15 @@ public class FolderTabViewModel : INotifyPropertyChanged
             if (_folderStatusText == value) return;
             _folderStatusText = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(FolderStatusLine));
         }
     }
+
+    /// <summary>What the line under the tree says: "Empty Folder" when nothing is in the folder (no files, folders, archive files or hidden items), else the status.</summary>
+    public string FolderStatusLine => IsEmptyFolder ? "Empty Folder" : _folderStatusText;
+
+    private bool IsEmptyFolder =>
+        HasFolder && _treeCounts is { Folders: 0, Archives: 0, HiddenFolders: 0, HiddenArchives: 0 } && CurrentItems.Count == 0 && _hiddenCount == 0;
 
     private void ClearReadState()
     {
@@ -2610,12 +2644,38 @@ public class FolderTabViewModel : INotifyPropertyChanged
             var newItem = CurrentItems.FirstOrDefault(x => x.FullPath == path)
                 ?? new FileItemViewModel { Name = Path.GetFileName(path), FullPath = path, IsDirectory = true };
             FolderCreated?.Invoke(newItem);
+
+            // The name box was canceled: the folder made a moment ago is removed again, but only while it is still empty (another
+            // program may have put something in it). No message: a failure here is not worth the user's attention.
+            if (FolderCreationCanceled)
+            {
+                FolderCreationCanceled = false;
+                RemoveNewFolderIfEmpty(path, parent);
+            }
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Cannot create folder: {ex.Message}", "Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    /// <summary>Set by the window when the name box of a new folder was canceled (it asks for the name inside <see cref="FolderCreated"/>).</summary>
+    public bool FolderCreationCanceled { get; set; }
+
+    private void RemoveNewFolderIfEmpty(string path, string parent)
+    {
+        try
+        {
+            if (!Directory.Exists(path) || Directory.EnumerateFileSystemEntries(path).Any()) return;
+            Directory.Delete(path, recursive: false);   // only an empty folder is deleted, never with contents
+        }
+        catch { return; }
+
+        // We stood in the new folder while its name was asked for: back to the folder it was made in, and the tree is read again.
+        if (IsSamePath(_currentPath, path)) Navigate(parent);
+        Refresh();
+        RefreshTreeFolder(parent);
     }
 
     // ── Clipboard ────────────────────────────────────────────────────────────
@@ -3003,5 +3063,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected void OnPropertyChanged([CallerMemberName] string? name = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        if (name == nameof(HasHiddenItems))   // "Empty Folder" depends on the hidden items too
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FolderStatusLine)));
+    }
 }
