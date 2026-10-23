@@ -1205,9 +1205,12 @@ public partial class MainWindow : Window
         {
             // Nothing selected: how many items the list has; several: how many are selected (the status bar no longer says it).
             var count = FileListView.Items.Count;
-            PositionText.Text = selected.Count > 1 ? $"{selected.Count} items selected"
-                              : count > 0          ? $"{count} {(count == 1 ? "item" : "items")}"
-                              :                      "";
+            // "files" while the list holds only files (the usual case); "items" as soon as a folder is in it (the Folders button, archives).
+            bool onlyFiles = FileListView.Items.OfType<FileItemViewModel>().All(i => !i.IsDirectory);
+            string Word(int n, bool files) => files ? (n == 1 ? "file" : "files") : (n == 1 ? "item" : "items");
+            PositionText.Text = selected.Count > 1 ? $"{selected.Count} {Word(selected.Count, selected.OfType<FileItemViewModel>().All(i => !i.IsDirectory))} selected"
+                              : !VM.HasFolder      ? ""   // This PC, Quick Access: nothing to count
+                              :                      $"{count} {Word(count, onlyFiles)}";   // also "0 files"
             ShowThumbnail(null);
             ShowPlot(null);
         }

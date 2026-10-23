@@ -273,6 +273,8 @@ public class MainViewModel : INotifyPropertyChanged
     public void ResetTreeRoot()           => _activeTab.ResetTreeRoot();
 
     public RelayCommand ToggleTreeHiddenCommand => _activeTab.ToggleTreeHiddenCommand;
+    public bool   HasTreeInfo          => _activeTab.HasTreeInfo;
+    public string TreeCountsText       => _activeTab.TreeCountsText;
     public bool   HasTreeHiddenFolders => _activeTab.HasTreeHiddenFolders;
     public string TreeHiddenText       => _activeTab.TreeHiddenText;
 

@@ -475,13 +475,17 @@
                 <Border DockPanel.Dock="Bottom" Padding="10,6"
                         Background="{DynamicResource PaneBrush}"
                         BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
-                        Visibility="{Binding HasTreeHiddenFolders, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock FontSize="12"
-                               ToolTip="Show or hide the hidden and system subfolders of the current folder in the tree">
-                        <Hyperlink Command="{Binding ToggleTreeHiddenCommand}">
-                            <Run Text="{Binding TreeHiddenText, Mode=OneWay}"/>
-                        </Hyperlink>
-                    </TextBlock>
+                        Visibility="{Binding HasTreeInfo, Converter={StaticResource BoolToVisibility}}">
+                    <WrapPanel>
+                        <TextBlock FontSize="12" Text="{Binding TreeCountsText}" Margin="0,0,5,0"
+                                   ToolTip="How many subfolders and archive files (zip, rar, 7z ...) the current folder has"/>
+                        <TextBlock FontSize="12" Visibility="{Binding HasTreeHiddenFolders, Converter={StaticResource BoolToVisibility}}"
+                                   ToolTip="Click to show or hide the hidden and system subfolders of the current folder in the tree">
+                            <Hyperlink Command="{Binding ToggleTreeHiddenCommand}">
+                                <Run Text="{Binding TreeHiddenText, Mode=OneWay}"/>
+                            </Hyperlink>
+                        </TextBlock>
+                    </WrapPanel>
                 </Border>
 
                 <TreeView x:Name="NavigationTree"
@@ -880,7 +884,7 @@
 
                         <TextBlock FontSize="12" Margin="84,0,16,0"
                                    Visibility="{Binding HasHiddenItems, Converter={StaticResource BoolToVisibility}}"
-                                   ToolTip="Show or hide the hidden and system items of this folder">
+                                   ToolTip="Click to show or hide the hidden and system items of this folder">
                             <Hyperlink Command="{Binding ToggleHiddenCommand}">
                                 <Run Text="{Binding HiddenText, Mode=OneWay}"/>
                             </Hyperlink>

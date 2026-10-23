@@ -448,7 +448,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private int _navVersion;
 
     /// <summary>What a folder holds, read with no UI work: the listing, so that a slow folder can be waited for in the background.</summary>
-    private sealed record FolderListing(DirectoryInfo[] Dirs, FileInfo[] Files, int TreeHidden, bool ShowFolders, Exception? Error);
+    private sealed record FolderListing(DirectoryInfo[] Dirs, FileInfo[] Files, TreeItemViewModel.ChildCounts? Counts, bool ShowFolders, Exception? Error);
 
     /// <summary>
     /// The listing of a real folder: its subfolders (only when the list shows folders), its files, and (when asked) how many hidden
@@ -457,10 +457,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private static FolderListing ReadListing(string path, bool showFolders, bool countTreeHidden)
     {
         var dirInfo = new DirectoryInfo(path);
-        int treeHidden = countTreeHidden ? TreeItemViewModel.CountHiddenIn(path) : -1;
+        var counts = countTreeHidden ? TreeItemViewModel.CountChildren(path) : null;
         var dirs  = showFolders ? dirInfo.GetDirectories().OrderBy(d => d.Name).ToArray() : Array.Empty<DirectoryInfo>();
         var files = dirInfo.GetFiles().OrderBy(f => f.Name).ToArray();
-        return new FolderListing(dirs, files, treeHidden, showFolders, null);
+        return new FolderListing(dirs, files, counts, showFolders, null);
     }
 
     /// <summary>
@@ -488,7 +488,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var listing = await Task.Run(() =>
         {
             try { return ReadListing(path, showFolders, countTreeHidden: true); }
-            catch (Exception ex) { return new FolderListing(Array.Empty<DirectoryInfo>(), Array.Empty<FileInfo>(), 0, showFolders, ex); }
+            catch (Exception ex) { return new FolderListing(Array.Empty<DirectoryInfo>(), Array.Empty<FileInfo>(), null, showFolders, ex); }
         });
 
         if (version != _navVersion) return;   // another navigation started meanwhile
@@ -585,6 +585,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         if (_playlistDirty && !ConfirmLeavePlaylist()) return;
         _noFolderShown = true;
+        RaiseTreeInfoChanged();   // no folder: no count line under the tree
         RaiseAllCanExecuteChanged();   // nothing can be pasted or made here (the tab still remembers the folder it came from)
         StopWatching();
         _tagsCts?.Cancel();
@@ -1007,9 +1008,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         get
         {
             string what = _hiddenCount == 1 ? "hidden item" : "hidden items";
-            return _showHidden
-                ? $"Showing {_hiddenCount} {what} (click to hide)"
-                : $"{_hiddenCount} {what} (click to show)";
+            return _showHidden ? $"Showing {_hiddenCount} {what}" : $"{_hiddenCount} {what}";
         }
     }
 
@@ -1024,20 +1023,38 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     // ── Hidden folders in the tree ───────────────────────────────────────────
 
-    private int _treeHiddenCount;
+    private TreeItemViewModel.ChildCounts? _treeCounts;
+
+    private int _treeHiddenCount => _treeCounts?.Hidden ?? 0;
+
+    /// <summary>True when a real folder is shown: the line under the tree counts its subfolders and archive files (always, even 0).</summary>
+    public bool HasTreeInfo => _treeCounts != null && HasFolder;
 
     /// <summary>True when the current folder has hidden or system subfolders (shown in the tree or not).</summary>
-    public bool HasTreeHiddenFolders => _treeHiddenCount > 0;
+    public bool HasTreeHiddenFolders => HasTreeInfo && _treeHiddenCount > 0;
 
-    /// <summary>The line under the tree: how many subfolders of the current folder are hidden, and what a click does.</summary>
+    /// <summary>"6 subfolders, 2 archive files" (what the tree shows; the hidden ones count when they are shown), with a comma last when the hidden link follows.</summary>
+    public string TreeCountsText
+    {
+        get
+        {
+            if (_treeCounts is not { } c) return "";
+            bool shown    = _shared.ShowsHiddenInTree(_currentPath);
+            int  folders  = c.Folders  + (shown ? c.HiddenFolders  : 0);
+            int  archives = c.Archives + (shown ? c.HiddenArchives : 0);
+            var  text     = $"{folders} {(folders == 1 ? "subfolder" : "subfolders")}";
+            if (archives > 0) text += $", {archives} {(archives == 1 ? "archive file" : "archive files")}";
+            return c.Hidden > 0 ? text + "," : text;
+        }
+    }
+
+    /// <summary>The link under the tree: how many subfolders of the current folder are hidden (the click toggles them).</summary>
     public string TreeHiddenText
     {
         get
         {
             string what = _treeHiddenCount == 1 ? "hidden folder" : "hidden folders";
-            return _shared.ShowsHiddenInTree(_currentPath)
-                ? $"Showing {_treeHiddenCount} {what} (click to hide)"
-                : $"{_treeHiddenCount} {what} (click to show)";
+            return _shared.ShowsHiddenInTree(_currentPath) ? $"Showing {_treeHiddenCount} {what}" : $"{_treeHiddenCount} {what}";
         }
     }
 
@@ -1061,7 +1078,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void SyncTreeHidden(string path)
     {
         SyncHiddenNodes(TreeItems, path);
-        OnPropertyChanged(nameof(TreeHiddenText));
+        RaiseTreeInfoChanged();
     }
 
     private static void SyncHiddenNodes(IEnumerable<TreeItemViewModel> nodes, string path)
@@ -1073,9 +1090,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
     }
 
-    private void UpdateTreeHidden(string path, int? known = null)
+    private void UpdateTreeHidden(string path, TreeItemViewModel.ChildCounts? known = null)
     {
-        _treeHiddenCount = known ?? TreeItemViewModel.CountHiddenIn(path);
+        _treeCounts = known ?? TreeItemViewModel.CountChildren(path);
+        RaiseTreeInfoChanged();
+    }
+
+    private void RaiseTreeInfoChanged()
+    {
+        OnPropertyChanged(nameof(HasTreeInfo));
+        OnPropertyChanged(nameof(TreeCountsText));
         OnPropertyChanged(nameof(HasTreeHiddenFolders));
         OnPropertyChanged(nameof(TreeHiddenText));
     }
@@ -1484,7 +1508,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         CurrentItems.Clear();
         _hiddenCount = 0;
         ClearReadState();
-        UpdateTreeHidden(path, preread?.TreeHidden);
+        UpdateTreeHidden(path, preread?.Counts);
 
         bool playlist = PlaylistFile.IsPlaylist(path);
         SetPlaylistDirty(false);   // a fresh read
@@ -1928,7 +1952,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (_treeSeen is not { } seen || !string.Equals(seen.Path, path, StringComparison.OrdinalIgnoreCase) || seen.Signature != treeSignature)
         {
             _treeSeen = (path, treeSignature);
-            UpdateTreeHidden(path, listing.TreeHidden);
+            UpdateTreeHidden(path, listing.Counts);
             var node = ResolveNode(path);
             if (node != null && NodeIs(node, path)) node.SyncChildren();
         }

@@ -163,23 +163,32 @@ public class TreeItemViewModel : INotifyPropertyChanged
         return (folders, archives, hidden);
     }
 
-    /// <summary>How many hidden and system subfolders (and packed files) the real folder <paramref name="folder"/> has.</summary>
-    public static int CountHiddenIn(string folder)
+    /// <summary>How many subfolders and packed files a folder has, the hidden and system ones counted apart (the line under the tree).</summary>
+    public sealed record ChildCounts(int Folders, int Archives, int HiddenFolders, int HiddenArchives)
+    {
+        public int Hidden => HiddenFolders + HiddenArchives;
+    }
+
+    /// <summary>The counts of the real folder <paramref name="folder"/> (one listing, attributes included); null if it is not a folder or cannot be read.</summary>
+    public static ChildCounts? CountChildren(string folder)
     {
         try
         {
-            if (!Directory.Exists(folder)) return 0;
+            if (!Directory.Exists(folder)) return null;
 
-            int count = 0;
-            foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos())   // one listing, attributes included
+            int folders = 0, archives = 0, hiddenFolders = 0, hiddenArchives = 0;
+            foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos())
             {
                 bool isFolder = (entry.Attributes & FileAttributes.Directory) != 0;
-                if ((isFolder || IsTreeFile(entry.Name)) && (entry.Attributes & HiddenAttributes) != 0)
-                    count++;
+                if (!isFolder && !IsTreeFile(entry.Name)) continue;
+
+                bool hidden = (entry.Attributes & HiddenAttributes) != 0;
+                if (isFolder) { if (hidden) hiddenFolders++;  else folders++; }
+                else          { if (hidden) hiddenArchives++; else archives++; }
             }
-            return count;
+            return new ChildCounts(folders, archives, hiddenFolders, hiddenArchives);
         }
-        catch { return 0; }
+        catch { return null; }
     }
 
     /// <summary>
