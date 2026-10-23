@@ -110,11 +110,10 @@ public class MainViewModel : INotifyPropertyChanged
         return tab;
     }
 
-    /// <summary>Opens <paramref name="path"/> in a new tab, next to the active one.</summary>
+    /// <summary>Opens <paramref name="path"/> in a new tab, furthest to the right (as browsers do; a setting may come later).</summary>
     public void OpenNewTab(string path, bool activate)
     {
-        var tab = AddTab(string.IsNullOrWhiteSpace(path) ? null : path);   // no folder: a tab on This PC
-        Tabs.Move(Tabs.IndexOf(tab), Tabs.IndexOf(_activeTab) + 1);
+        var tab = AddTab(string.IsNullOrWhiteSpace(path) ? null : path);   // no folder: a tab on This PC; AddTab puts it last
         if (activate) ActiveTab = tab;
 
         NextTabCommand.RaiseCanExecuteChanged();
