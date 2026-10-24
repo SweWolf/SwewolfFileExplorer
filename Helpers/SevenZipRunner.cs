@@ -61,7 +61,7 @@ internal static class SevenZipRunner
 
     private static string Require() =>
         Find() ?? throw new ArchiveException(
-            "7-Zip is needed to open this kind of archive (RAR, 7z, CAB, GZ), and it was not found. Install it from www.7-zip.org.");
+            "7-Zip is needed to open this kind of archive (RAR, 7z, CAB, GZ, TAR), and it was not found. Install it from www.7-zip.org.");
 
     private static ProcessStartInfo Create(params string[] arguments)
     {
@@ -111,7 +111,15 @@ internal static class SevenZipRunner
 
         void Flush()
         {
-            if (fields.TryGetValue("Path", out var path) && path.Length > 0 && Get("Alternate Stream") != "+")   // not the hidden NTFS streams
+            string? stored = null;   // the name as 7-Zip must be given it to extract
+            if (fields.TryGetValue("Path", out var path))
+            {
+                stored = path;
+                // A tar made with "tar -C dir ." stores every name with a leading dot-backslash and the folder itself as a single dot: show them without it.
+                while (path.StartsWith(".\\", StringComparison.Ordinal)) path = path[2..];
+                if (path == ".") path = "";
+            }
+            if (path != null && path.Length > 0 && Get("Alternate Stream") != "+")   // not the hidden NTFS streams
             {
                 bool isFolder = Get("Folder") == "+" || Get("Attributes").Contains('D');
                 long.TryParse(Get("Size"), NumberStyles.Integer, CultureInfo.InvariantCulture, out long size);
@@ -119,7 +127,7 @@ internal static class SevenZipRunner
                     ? date
                     : fallbackDate;   // a RAR does not have to store a date
 
-                entries.Add(new RawEntry("", path, isFolder, isFolder ? 0 : size, modified, Get("Encrypted") == "+", path));
+                entries.Add(new RawEntry("", path, isFolder, isFolder ? 0 : size, modified, Get("Encrypted") == "+", stored!));
             }
             fields.Clear();
         }
