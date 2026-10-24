@@ -1019,7 +1019,7 @@
                             </ComboBox>
 
                             <TextBlock Text="Time per File (s)" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
-                            <TextBox x:Name="PlaySecondsBox" Width="48" FontSize="12" Margin="0,2,0,2" MaxLength="4" TextAlignment="Right"
+                            <TextBox x:Name="PlaySecondsBox" Width="80" MinWidth="80" FontSize="12" Margin="0,2,0,2" MaxLength="4" TextAlignment="Right"
                                      PreviewTextInput="PlayNumber_PreviewTextInput" LostFocus="PlayNumber_LostFocus"
                                      ToolTip="How many seconds each picture stays in a slide show, and how long each music or video file plays in Demo Play and Intro Play (10 if this is not a positive number)"/>
 
@@ -1035,7 +1035,7 @@
                                       Checked="PlaySetting_Changed" Unchecked="PlaySetting_Changed"
                                       ToolTip="Ask at the end of the list what to do. The action above is taken by itself when the time-out is over."/>
                             <TextBlock Text="Time-out (s)" FontSize="12" Margin="10,0,6,0" VerticalAlignment="Center"/>
-                            <TextBox x:Name="PlayTimeoutBox" Width="44" FontSize="12" Margin="0,2,0,2" MaxLength="3" TextAlignment="Right"
+                            <TextBox x:Name="PlayTimeoutBox" Width="74" MinWidth="74" FontSize="12" Margin="0,2,0,2" MaxLength="3" TextAlignment="Right"
                                      PreviewTextInput="PlayNumber_PreviewTextInput" LostFocus="PlayNumber_LostFocus"
                                      ToolTip="Seconds before the question at the end of the list takes the action above by itself (0 = wait for the answer)"/>
                         </WrapPanel>

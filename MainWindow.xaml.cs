@@ -110,6 +110,7 @@ public partial class MainWindow : Window
         {
             if (App.StartupFile != null) OpenTabSet(App.StartupFile, atStartup: true);
             else if (App.StartupFolder != null) VM.SetTreeRoot(App.StartupFolder);   // a folder on the command line is the root of the tree
+            else if (App.StartupSelectFile != null) GoToFile(App.StartupSelectFile);
         };
 
         // The media player is another program and marks files read while it plays: look again when the window comes back.
@@ -2005,6 +2006,32 @@ public partial class MainWindow : Window
             .Select(i => i.FullPath)
             .ToList();
 
+    /// <summary>
+    /// A file named on the command line (by SweWolf Media Player and the other sibling programs), and the bookmark of a file: its
+    /// folder is opened and the file is selected and has the focus. Nothing is played or opened. A hidden file is shown (the folder's hidden items are turned on).
+    /// </summary>
+    private void GoToFile(string file)
+    {
+        var folder = System.IO.Path.GetDirectoryName(file);
+        if (string.IsNullOrEmpty(folder)) return;
+
+        VM.Navigate(folder);
+
+        FileItemViewModel? Find() => VM.CurrentItems.FirstOrDefault(i => string.Equals(i.FullPath, file, StringComparison.OrdinalIgnoreCase));
+
+        var item = Find();
+        if (item == null)
+        {
+            VM.ActiveTab.ShowHiddenItems();   // a hidden file would not be listed
+            item = Find();
+        }
+        if (item == null) return;
+
+        FileListView.SelectedItem = item;
+        FileListView.ScrollIntoView(item);
+        FileListView.Focus();
+    }
+
     private void SelectInList(string path)
     {
         var item = FileListView.Items.OfType<FileItemViewModel>()
@@ -2623,20 +2650,6 @@ public partial class MainWindow : Window
             : new List<string>();
         if (selected.Count == 0 && !VM.HasFolder) return;   // This PC: no folder shown
         AddBookmarks(selected.Count > 0 ? selected : new[] { VM.CurrentPath });
-    }
-
-    /// <summary>A click on the bookmark of a file: its folder is opened and the file selected.</summary>
-    private void GoToFile(string path)
-    {
-        var folder = System.IO.Path.GetDirectoryName(path);
-        if (string.IsNullOrEmpty(folder)) return;
-
-        VM.Navigate(folder);
-        var item = VM.CurrentItems.FirstOrDefault(i => string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase));
-        if (item == null) return;   // the file is gone, or hidden: the folder is open
-        FileListView.SelectedItem = item;
-        FileListView.ScrollIntoView(item);
-        FileListView.Focus();
     }
 
     /// <summary>

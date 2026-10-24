@@ -1017,6 +1017,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>Shows the hidden items of this folder, or hides them again. The next folder starts hidden again.</summary>
     public RelayCommand ToggleHiddenCommand { get; private set; } = null!;
 
+    /// <summary>Shows the hidden items of this folder (as a click on the hidden-items line does), if they are not shown already.</summary>
+    public void ShowHiddenItems()
+    {
+        if (!_showHidden) ToggleHidden();
+    }
+
     private void ToggleHidden()
     {
         _showHidden = !_showHidden;

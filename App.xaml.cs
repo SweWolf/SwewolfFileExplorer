@@ -14,34 +14,45 @@ public partial class App : Application
     /// <summary>A folder given on the command line: the Explorer opens it as the root of its tree.</summary>
     public static string? StartupFolder { get; private set; }
 
+    /// <summary>Any other file on the command line (a video, a song ...): the Explorer goes to its folder and selects it. Nothing is played or opened.</summary>
+    public static string? StartupSelectFile { get; private set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         // The data folders of the first versions had spaces in their name: moved to the new name before anything is read.
         SwewolfFileExplorer.Helpers.AppInfo.MigrateFolders();
 
-        foreach (var arg in e.Args)
+        // What the command line names, in this order: a workspace / session file, a folder, a picture (shown first, alone), any other
+        // file (its folder opens with the file selected). The sibling programs send a path, usually in quotes; quotes are not required:
+        // a path with spaces that was not quoted arrives as several arguments, so all of them together are tried as one path last.
+        bool TryArg(string arg)
         {
             try
             {
-                var full = System.IO.Path.GetFullPath(arg.Trim('"'));
+                var full = System.IO.Path.GetFullPath(arg.Trim().Trim('"'));
                 if (full.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && System.IO.File.Exists(full))
                 {
                     StartupFile = full;
-                    break;
+                    return true;
                 }
                 if (System.IO.Directory.Exists(full))
                 {
                     StartupFolder = full;
-                    break;
+                    return true;
                 }
-                if (System.IO.File.Exists(full) && ThumbnailLoader.IsImage(full))
+                if (System.IO.File.Exists(full))
                 {
-                    StartupImage = full;
-                    break;
+                    if (ThumbnailLoader.IsImage(full)) StartupImage = full;
+                    else StartupSelectFile = full;
+                    return true;
                 }
             }
             catch { }   // not a path: ignored
+            return false;
         }
+
+        if (!e.Args.Any(TryArg) && e.Args.Length > 1)
+            TryArg(string.Join(" ", e.Args));
 
         // An unexpected error must leave a trace (Help > Open Log File) instead of the program just disappearing.
         DispatcherUnhandledException += (_, args) =>
