@@ -1396,6 +1396,59 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Double-click on a web address of the right-hand part (Host URL, Referrer URL): open it in the default browser.</summary>
+    private void WebUrlBox_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is TextBox box) OpenWebAddress(box.Text, null);
+        e.Handled = true;
+    }
+
+    /// <summary>Right-click on such an address: Open in the default browser, in any installed browser, or Copy. Built in code each time (the installed browsers are looked up then).</summary>
+    private void WebUrlBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is not TextBox box) return;
+        string url = box.Text;
+        bool isWeb = WebBrowsers.IsWebAddress(url);
+
+        var menu = new ContextMenu();
+        var open = new MenuItem { Header = "Open in Default Browser", IsEnabled = isWeb, ToolTip = "Double-click does the same" };
+        open.Click += (_, _) => OpenWebAddress(url, null);
+        menu.Items.Add(open);
+
+        if (isWeb)
+        {
+            var browsers = WebBrowsers.Installed();
+            if (browsers.Count > 0) menu.Items.Add(new Separator());
+            foreach (var browser in browsers)
+            {
+                var item = new MenuItem { Header = "Open in " + browser.Name.Replace("_", "__") };
+                var chosen = browser;
+                item.Click += (_, _) => OpenWebAddress(url, chosen);
+                menu.Items.Add(item);
+            }
+            menu.Items.Add(new Separator());
+        }
+
+        var copy = new MenuItem { Header = "Copy", InputGestureText = "Ctrl+C", ToolTip = "Copies the whole text" };
+        copy.Click += (_, _) => CopyText(url);
+        menu.Items.Add(copy);
+
+        box.ContextMenu = menu;
+    }
+
+    private void OpenWebAddress(string url, WebBrowsers.Browser? browser)
+    {
+        if (!WebBrowsers.IsWebAddress(url)) return;   // only real web addresses are opened
+        try
+        {
+            if (browser == null) WebBrowsers.OpenInDefault(url); else WebBrowsers.Open(browser, url);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "The address could not be opened: " + ex.Message, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void AiCopyAll_Click(object sender, RoutedEventArgs e)
     {
         if (AiBoxOf(sender) is { } box) CopyText(box.Text);

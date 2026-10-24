@@ -1074,13 +1074,8 @@
                         <TextBox x:Name="WebHostBox" Grid.Row="2" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
                                  Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
                                  VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
-                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown">
-                            <TextBox.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
-                                              ToolTip="Copies the whole text"/>
-                                </ContextMenu>
-                            </TextBox.ContextMenu>
+                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown"
+                                 Cursor="Hand" MouseDoubleClick="WebUrlBox_DoubleClick" ContextMenuOpening="WebUrlBox_ContextMenuOpening">
                         </TextBox>
 
                         <TextBlock x:Name="WebReferrerLabel" Grid.Row="3" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Referrer URL"
@@ -1088,13 +1083,8 @@
                         <TextBox x:Name="WebReferrerBox" Grid.Row="3" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
                                  Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
                                  VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
-                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown">
-                            <TextBox.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
-                                              ToolTip="Copies the whole text"/>
-                                </ContextMenu>
-                            </TextBox.ContextMenu>
+                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown"
+                                 Cursor="Hand" MouseDoubleClick="WebUrlBox_DoubleClick" ContextMenuOpening="WebUrlBox_ContextMenuOpening">
                         </TextBox>
                     </Grid>
 
