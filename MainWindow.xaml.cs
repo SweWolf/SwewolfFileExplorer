@@ -1435,7 +1435,8 @@ public partial class MainWindow : Window
         // The right-hand part: a share of the room next to the AI boxes (2 parts to their 3), but never narrower than 190 px or wider than 560 px.
         // (A column of width 0 must have no minimum either, or it would still take room.)
         InfoRightColumn.MinWidth = right ? 190 : 0;
-        InfoRightColumn.MaxWidth = right ? 560 : double.PositiveInfinity;
+        // With nothing else shown it takes all the room (long web addresses show in full; the line above it runs to the right edge).
+        InfoRightColumn.MaxWidth = right && (ai || plot) ? 560 : double.PositiveInfinity;
         InfoRightColumn.Width    = new GridLength(right ? (ai ? 2 : (plot ? 2 : 1)) : 0, GridUnitType.Star);
     }
 
