@@ -1539,9 +1539,21 @@ public partial class MainWindow : Window
 
         var origin = await Task.Run(() =>
         {
-            if (!wantArchive) return MarkOfTheWeb.Read(path);
-            var archive = ArchiveSupport.DiskArchiveOf(path);
-            return archive == null ? null : MarkOfTheWeb.Read(archive);
+            if (wantArchive)
+            {
+                var archive = ArchiveSupport.DiskArchiveOf(path);
+                return archive == null ? null : MarkOfTheWeb.Read(archive);
+            }
+
+            // The file's own Mark of the Web wins; what it does not say (or all of it, after the file lost it) comes from the library.
+            // What it says is copied to the library, so it is still known when the mark is lost (a USB stick, a zip, a re-saved file).
+            var web = MarkOfTheWeb.Read(path);
+            if (web is { HostUrl: not null } or { ReferrerUrl: not null }) LibraryService.SetItemInfo(path, web.HostUrl, web.ReferrerUrl);
+
+            var saved = LibraryStore.GetItemInfo(path);
+            var host = web?.HostUrl ?? saved?.HostUrl;
+            var referrer = web?.ReferrerUrl ?? saved?.ReferrerUrl;
+            return host == web?.HostUrl && referrer == web?.ReferrerUrl ? web : new WebOrigin(web?.ZoneId, host, referrer);
         });
         if (version != _webVersion) return;
 

@@ -50,6 +50,10 @@ public static class LibraryService
     /// <summary>Remembers, in the background, that this file was the last one opened in its folder (Jump to Last Opened File).</summary>
     public static void SetLastOpened(string filePath) => Queue(() => LibraryStore.SetLastOpened(filePath));
 
+    /// <summary>Remembers where a file came from (its Mark of the Web), in the background. Only where the library file exists already.</summary>
+    public static void SetItemInfo(string filePath, string? hostUrl, string? referrerUrl) =>
+        Queue(() => LibraryStore.SetItemInfo(filePath, hostUrl, referrerUrl));
+
     /// <summary>Waits until everything queued is written: call when the app closes.</summary>
     public static void Flush(int timeoutMilliseconds = 3000)
     {

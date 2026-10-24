@@ -1,4 +1,4 @@
-# Library database (schema version 7)
+# Library database (schema version 8)
 
 SweWolf File Explorer and SweWolf Media Player remember which files were opened ("read") and where a video stopped
 (resume position) in SQLite files. Both apps use the same files, and a separate tool (for example a TeraTool importer)
@@ -41,6 +41,15 @@ CREATE TABLE Rated (
     Name        TEXT NOT NULL COLLATE NOCASE,   -- the name of the file or folder (a drive's root: its own key)
     Rating      INTEGER,                        -- 1..10, whole number; NULL = none
     Expectation REAL,                           -- 1..10, decimals allowed (how good the user expects it to be); NULL = none
+    PRIMARY KEY (Folder, Name)
+) WITHOUT ROWID;
+
+-- schema 8: where a file came from (copied from the Mark of the Web by the explorer, or written by an importer such as a TeraTool one)
+CREATE TABLE ItemInfo (
+    Folder      TEXT NOT NULL COLLATE NOCASE,   -- the key of the folder that holds the file (like Rated.Folder)
+    Name        TEXT NOT NULL COLLATE NOCASE,   -- the file name
+    HostUrl     TEXT,                           -- the address the file was downloaded from; NULL = unknown
+    ReferrerUrl TEXT,                           -- the page that linked to it; NULL = unknown
     PRIMARY KEY (Folder, Name)
 ) WITHOUT ROWID;
 
@@ -117,6 +126,7 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 - **Rating and expectation** (schema 3): set with Ctrl+R / Ctrl+E on files and folders (also inside packed files, which are keyed like
   everything else). A row with neither value is deleted. Sorting treats no value as 0. A rename or move done in the explorer carries them
   along with the read marks.
+- **Where a file came from** (schema 8, `ItemInfo`): the addresses are stored exactly as they are (nothing is cut off). The explorer copies them from the file's Mark of the Web (the NTFS stream `Zone.Identifier`: `HostUrl`, `ReferrerUrl`) when the file is selected, one file at a time, never a whole folder, and only into a library file that exists already (it never creates one on a USB drive just for this). An empty value never replaces a stored one. When showing a file the explorer prefers the Mark of the Web and falls back to this table per field, so a file that lost its mark (copied to exFAT, zipped, re-saved) still shows its addresses. An importer may write rows with the same key rules as `Rated` (`Folder` = key of the folder, `Name` = file name; a row with both values empty need not exist). `Forget` and `Move` carry the rows, for folders everything below them too.
 - **Sort order** (schema 4): saved when the user clicks a column header in the list or chooses the Sort By order of the tree;
   read the first time a folder is shown in a run. `Forget` and `Move` carry the `FolderPrefs` rows with the folder.
 - **Folder picture** (schema 7): the name of a picture file that the user chose (Set as Folder Picture) for the folder; used before the automatic search. Renaming the file in its folder carries the name; moving or deleting it removes the choice; the folder's own rows follow the folder.
