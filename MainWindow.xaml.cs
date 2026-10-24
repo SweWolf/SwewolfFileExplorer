@@ -1257,6 +1257,7 @@ public partial class MainWindow : Window
             ShowThumbnail(item);
             ShowPlot(item);
             ShowAiInfo(item);
+            ShowGps(item);
         }
         else
         {
@@ -1271,6 +1272,7 @@ public partial class MainWindow : Window
             ShowThumbnail(null);
             ShowPlot(null);
             ShowAiInfo(null);
+            ShowGps(null);
         }
     }
 
@@ -1311,6 +1313,49 @@ public partial class MainWindow : Window
         AiNegativeBox.ScrollToHome();
         AiInfoArea.Visibility = Visibility.Visible;
         LayoutInfoColumns();
+    }
+
+    // ── The map symbol (where a picture or video was taken) ───────────────────
+
+    private int _gpsVersion;
+    private GpsPosition? _gps;
+
+    /// <summary>
+    /// A picture or video that says where it was taken gets a small map symbol in the lower right corner of the info panel. Looked for in
+    /// the background when the file is selected (a file that cannot hold a position is not even opened); a late answer for a file no
+    /// longer selected is ignored.
+    /// </summary>
+    private async void ShowGps(FileItemViewModel? item)
+    {
+        int version = ++_gpsVersion;
+        _gps = null;
+        GpsButton.Visibility = Visibility.Collapsed;
+
+        if (item == null || item.IsDirectory || item.IsInArchive || !GpsReader.CanHave(item.FullPath)) return;
+
+        string path = item.FullPath;
+        var position = await Task.Run(() => GpsReader.Read(path));
+        if (version != _gpsVersion || position is not { } found) return;
+
+        _gps = found;
+        GpsButton.ToolTip = $"Taken at {found.Text}. Click to show the place on Google Maps.";
+        GpsButton.Visibility = Visibility.Visible;
+    }
+
+    private void GpsButton_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => OpenGps();
+
+    private void GpsOpen_Click(object sender, RoutedEventArgs e) => OpenGps();
+
+    private void GpsCopy_Click(object sender, RoutedEventArgs e)
+    {
+        if (_gps is { } position) CopyText(position.Text);
+    }
+
+    private void OpenGps()
+    {
+        if (_gps is not { } position) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(position.MapsUrl) { UseShellExecute = true }); }
+        catch { /* no browser: nothing to show */ }
     }
 
     // ── Right-click menu of the AI information boxes ──────────────────────────

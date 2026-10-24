@@ -1014,8 +1014,10 @@
                         </TextBox>
 
                         <TextBlock Grid.Column="4" FontSize="12" FontWeight="Bold" Text="Seed" Margin="0,0,0,2"/>
-                        <TextBox x:Name="AiSeedBox" Grid.Column="4" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
-                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0" PreviewKeyDown="AiSeedBox_PreviewKeyDown">
+                        <TextBox x:Name="AiSeedBox" Grid.Column="4" Grid.Row="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top"
+                                 VerticalScrollBarVisibility="Disabled" Background="Transparent" Padding="2" BorderThickness="0"
+                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown">
                             <TextBox.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
@@ -1024,6 +1026,23 @@
                             </TextBox.ContextMenu>
                         </TextBox>
                     </Grid>
+
+                    <!-- The map symbol in the lower right corner: only when the selected picture or video says where it was taken
+                         (read in the background, MainWindow.ShowGps). A click shows the place on Google Maps; the right-click menu can copy
+                         the coordinates. A Windows symbol font glyph (Segoe Fluent Icons), so it follows the style and needs no picture file. -->
+                    <Border x:Name="GpsButton" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Width="34" Height="34" Margin="0,0,2,0"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="Hand"
+                            Visibility="Collapsed" Panel.ZIndex="3" MouseLeftButtonUp="GpsButton_MouseLeftButtonUp">
+                        <Border.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Show on Google Maps" Click="GpsOpen_Click"/>
+                                <MenuItem Header="Copy Coordinates" Click="GpsCopy_Click"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
+                        <TextBlock Text="&#xE707;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="26"
+                                   Foreground="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
 
                     <!-- A row of its own above the picture and the plot: where the selected file is in the list (or how many are
                          selected / in the folder), and the hidden-items link well to the right of it -->
