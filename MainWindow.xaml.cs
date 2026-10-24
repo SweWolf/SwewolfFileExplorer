@@ -1496,12 +1496,14 @@ public partial class MainWindow : Window
     }
 
     /// <summary>A row of the right-hand part: the value in its text box (and as its tooltip), or the row hidden when there is none.</summary>
-    private static void SetInfoRow(TextBlock label, TextBox box, string? value)
+    private static void SetInfoRow(TextBlock label, TextBox box, string? value, bool openable = false)
     {
         bool has = !string.IsNullOrEmpty(value);
         label.Visibility = box.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
         box.Text    = has ? value! : "";
-        box.ToolTip = has ? value : null;
+        box.ToolTip = !has ? null
+                    : openable && WebBrowsers.IsWebAddress(value) ? "Double-click or right-click to open the URL:" + Environment.NewLine + value
+                    : value;
         if (has) box.ScrollToHome();
     }
 
@@ -1544,8 +1546,8 @@ public partial class MainWindow : Window
         if (version != _webVersion) return;
 
         SetInfoRow(WebZoneLabel,     WebZoneBox,     origin?.ZoneText);
-        SetInfoRow(WebHostLabel,     WebHostBox,     origin?.HostUrl);
-        SetInfoRow(WebReferrerLabel, WebReferrerBox, origin?.ReferrerUrl);
+        SetInfoRow(WebHostLabel,     WebHostBox,     origin?.HostUrl, openable: true);
+        SetInfoRow(WebReferrerLabel, WebReferrerBox, origin?.ReferrerUrl, openable: true);
         LayoutInfoColumns();
     }
 
