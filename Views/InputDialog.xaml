@@ -64,12 +64,12 @@
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="OK"
-                    Width="80" Margin="0,0,6,0"
+                    MinWidth="100" Padding="12,4" Margin="0,0,6,0"
                     IsDefault="True"
                     BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"
                     Click="OkButton_Click"/>
             <Button Content="Cancel"
-                    Width="80"
+                    MinWidth="100" Padding="12,4"
                     IsCancel="True"/>
         </StackPanel>
     </Grid>

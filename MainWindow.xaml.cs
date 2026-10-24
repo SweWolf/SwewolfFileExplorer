@@ -2286,7 +2286,7 @@ public partial class MainWindow : Window
                 "Mark as Read" or "Mark as Unread" => hasSelection,
                 "Rating..." or "Expectation..." => hasSelection,
                 "Delete" or "Remove from Playlist" => hasSelection && (!inArchive || VM.InPlaylist),
-                "Rename"     => hasSelection && !inArchive,
+                "Rename..."  => hasSelection && !inArchive,
                 "Rename All Selected Music Files and Video Files Using Smart Rename" =>
                     !inArchive && FileListView.SelectedItems.OfType<FileItemViewModel>().Any(i => !i.IsDirectory && !i.IsInArchive && SmartName.Applies(i.Name)),
                 "New Folder" => !inArchive && hasFolder,
@@ -2876,7 +2876,7 @@ public partial class MainWindow : Window
                 "Create Playlist..." => realFolder,
                 "Paste"      => realFolder && FileClipboard.HasFiles(),
                 "Delete"     => CanRenameOrDelete(path),
-                "Rename"     => CanRenameOrDelete(path),
+                "Rename..."  => CanRenameOrDelete(path),
                 "New Folder" => realFolder,
                 "Properties" => realFolder || System.IO.File.Exists(path),   // what is in an archive is not on the disk
                 "More Options" => realFolder,

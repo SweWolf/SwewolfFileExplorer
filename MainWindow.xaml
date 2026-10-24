@@ -597,7 +597,7 @@
                                       ToolTip="Make an M3U playlist in this folder, with all the files or none to start with"/>
                             <Separator/>
                             <MenuItem Header="Delete"          Click="TreeCtxDelete_Click" InputGestureText="Del"/>
-                            <MenuItem Header="Rename"          Click="TreeCtxRename_Click" InputGestureText="F2"/>
+                            <MenuItem Header="Rename..."       Click="TreeCtxRename_Click" InputGestureText="F2"/>
                             <MenuItem Header="New Folder"      Click="TreeCtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"
                                       ToolTip="Make a new folder inside this folder"/>
                             <Separator/>
@@ -898,7 +898,7 @@
                                   ToolTip="Right-click to open it as the administrator"/>
                         <Separator/>
                         <MenuItem Header="Delete"     Click="CtxDelete_Click"    InputGestureText="Del"/>
-                        <MenuItem Header="Rename"     Click="CtxRename_Click"    InputGestureText="F2"/>
+                        <MenuItem Header="Rename..."  Click="CtxRename_Click"    InputGestureText="F2"/>
                         <MenuItem Header="Rename All Selected Music Files and Video Files Using Smart Rename" Click="CtxSmartRenameAll_Click"
                                   ToolTip="Every selected music file and video file gets the name that Rename suggests with Use Smart Name (Artist - Title, Title (Year), Title - s01e02). Asks first, and can be undone until another folder is shown."/>
                         <Separator/>
