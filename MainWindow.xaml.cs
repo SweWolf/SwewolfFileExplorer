@@ -1422,6 +1422,8 @@ public partial class MainWindow : Window
             foreach (var browser in browsers)
             {
                 var item = new MenuItem { Header = "Open in " + browser.Name.Replace("_", "__") };
+                if (IconHelper.GetIcon(browser.ExePath) is { } icon)
+                    item.Icon = new Image { Source = icon, Width = 16, Height = 16 };
                 var chosen = browser;
                 item.Click += (_, _) => OpenWebAddress(url, chosen);
                 menu.Items.Add(item);
