@@ -845,6 +845,13 @@
                         <GridViewColumn Header="Dimensions" Width="110" x:Name="DimensionsColumn"
                                         DisplayMemberBinding="{Binding DimensionsText}"/>
 
+                        <!-- Of programs and libraries (exe, dll ...), from their version information, as in Explorer's Details. -->
+                        <GridViewColumn Header="Product Name" Width="150" x:Name="ProductNameColumn"
+                                        DisplayMemberBinding="{Binding ProductName}"/>
+
+                        <GridViewColumn Header="Product Version" Width="120" x:Name="ProductVersionColumn"
+                                        DisplayMemberBinding="{Binding ProductVersion}"/>
+
                         <!-- The user's own rating and expectation (1-10, Ctrl+R and Ctrl+E), as in TeraTool. Hidden until used. -->
                         <GridViewColumn Header="Rating" Width="80" x:Name="RatingColumn"
                                         DisplayMemberBinding="{Binding RatingText}"/>

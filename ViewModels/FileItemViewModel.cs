@@ -66,6 +66,10 @@ public class FileItemViewModel : INotifyPropertyChanged
     public int Width { get; private set; }
     public int Height { get; private set; }
 
+    // Of a program or library: from its version information (the Product name and Product version columns).
+    public string ProductName { get; private set; } = "";
+    public string ProductVersion { get; private set; } = "";
+
     /// <summary>"3:45", or "1:02:03" from an hour up.</summary>
     public string LengthText => Duration < TimeSpan.FromSeconds(0.5) ? ""
         : Duration.TotalHours >= 1 ? $"{(int)Duration.TotalHours}:{Duration.Minutes:00}:{Duration.Seconds:00}"
@@ -87,6 +91,10 @@ public class FileItemViewModel : INotifyPropertyChanged
         BitrateKbps = tags.BitrateKbps;
         Width       = tags.Width;
         Height      = tags.Height;
+        ProductName    = tags.ProductName;
+        ProductVersion = tags.ProductVersion;
+        OnPropertyChanged(nameof(ProductName));
+        OnPropertyChanged(nameof(ProductVersion));
         OnPropertyChanged(nameof(Artist));
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(TrackNumber));

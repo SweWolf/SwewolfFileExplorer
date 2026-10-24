@@ -56,7 +56,9 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Length,       "Length",        LengthColumn, visible: false),
             new ColumnInfo(SortColumn.Bitrate,      "Bitrate",       BitrateColumn, visible: false),
             new ColumnInfo(SortColumn.Dimensions,   "Dimensions",    DimensionsColumn, visible: false),
-            new ColumnInfo(SortColumn.Rating,       "Rating",        RatingColumn, visible: false),
+            new ColumnInfo(SortColumn.ProductName,  "Product Name",  ProductNameColumn, visible: false),
+            new ColumnInfo(SortColumn.ProductVersion, "Product Version", ProductVersionColumn, visible: false),
+            new ColumnInfo(SortColumn.Rating,       "Rating",       RatingColumn, visible: false),
             new ColumnInfo(SortColumn.Expectation,  "Expectation",   ExpectationColumn, visible: false)
         });
         VM.DisplayNamesChanged += () => { ApplyFilter(); QueueAutoFit(); };   // the extensions are shown or hidden: the filter works on the names shown, and the Name column fits them
@@ -349,7 +351,8 @@ public partial class MainWindow : Window
 
     // The columns that need the files to be read (tags, length, bitrate, size in pixels).
     private static bool IsTagColumn(SortColumn key) =>
-        key is SortColumn.Artist or SortColumn.Title or SortColumn.TrackNumber or SortColumn.Length or SortColumn.Bitrate or SortColumn.Dimensions;
+        key is SortColumn.Artist or SortColumn.Title or SortColumn.TrackNumber or SortColumn.Length or SortColumn.Bitrate or SortColumn.Dimensions
+            or SortColumn.ProductName or SortColumn.ProductVersion;
 
     private void ApplySort(SortColumn key, bool ascending)
     {
@@ -835,7 +838,9 @@ public partial class MainWindow : Window
             SortColumn.Length       => item.LengthText,
             SortColumn.Bitrate      => item.BitrateText,
             SortColumn.Dimensions   => item.DimensionsText,
-            SortColumn.Artist       => item.Artist,
+            SortColumn.ProductName  => item.ProductName,
+            SortColumn.ProductVersion => item.ProductVersion,
+            SortColumn.Artist      => item.Artist,
             SortColumn.Title        => item.Title,
             SortColumn.TrackNumber  => item.TrackText,
             SortColumn.Rating       => item.RatingText,

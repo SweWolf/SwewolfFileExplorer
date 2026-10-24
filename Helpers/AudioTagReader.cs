@@ -7,7 +7,8 @@ namespace SwewolfFileExplorer.Helpers;
 /// whole file's, for a music file the audio's) and, for a video or a picture, its width and height. Zero when not known.
 /// </summary>
 public record AudioTags(string Artist, string Title, uint TrackNumber,
-                        TimeSpan Duration = default, int BitrateKbps = 0, int Width = 0, int Height = 0);
+                        TimeSpan Duration = default, int BitrateKbps = 0, int Width = 0, int Height = 0,
+                        string ProductName = "", string ProductVersion = "");
 
 /// <summary>
 /// Reads the tags of a music file with TagLibSharp (mp3, m4a, flac, ogg, opus, wma, wav, ...), for the
@@ -32,7 +33,15 @@ public static class AudioTagReader
 
     /// <summary>A file of a kind the Length, Bitrate and Dimensions columns can say something about: music, video or a picture.</summary>
     public static bool HasMediaInfo(string path) =>
-        HasTags(path) || MediaPlayerLauncher.IsVideo(path) || ThumbnailLoader.IsImage(path);
+        HasTags(path) || MediaPlayerLauncher.IsVideo(path) || ThumbnailLoader.IsImage(path) || HasVersionInfo(path);
+
+    /// <summary>Programs and libraries carry a product name and version (the Product name and Product version columns).</summary>
+    private static readonly HashSet<string> VersionExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".exe", ".dll", ".sys", ".ocx", ".scr", ".cpl", ".drv", ".ax", ".mui"
+    };
+
+    public static bool HasVersionInfo(string path) => VersionExtensions.Contains(Path.GetExtension(path));
 
     /// <summary>
     /// The artist, title and track number of a music file, and its length, bitrate and size in pixels (for the list's columns);
@@ -42,6 +51,16 @@ public static class AudioTagReader
     {
         try
         {
+            // A program or library: the product name and version from its version information (as Explorer's Details columns).
+            if (HasVersionInfo(path))
+            {
+                var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+                var name = (info.ProductName ?? "").Trim();
+                var version = (info.ProductVersion ?? "").Trim();
+                return name.Length == 0 && version.Length == 0 ? null
+                    : new AudioTags("", "", 0, default, 0, 0, 0, name, version);
+            }
+
             // A Photoshop file: TagLib does not know it, but its header says how big the picture is.
             if (PsdSupport.IsPsd(path))
                 return PsdSupport.ReadSize(path) is { } size ? new AudioTags("", "", 0, default, 0, size.Width, size.Height) : null;
