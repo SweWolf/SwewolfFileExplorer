@@ -1548,6 +1548,16 @@ public partial class MainWindow : Window
             // The file's own Mark of the Web wins; what it does not say (or all of it, after the file lost it) comes from the library.
             // What it says is copied to the library, so it is still known when the mark is lost (a USB stick, a zip, a re-saved file).
             var web = MarkOfTheWeb.Read(path);
+
+            // A mark that only says "about:internet" or names this computer's own server (a local program) says nothing true about the
+            // internet: it is left out, Zone ID included, as if the file had no mark.
+            if (web != null && (web.HostUrl != null || web.ReferrerUrl != null))
+            {
+                var hostOk = WebAddresses.IsUseful(web.HostUrl);
+                var refOk  = WebAddresses.IsUseful(web.ReferrerUrl);
+                if (!hostOk && !refOk) web = null;
+                else if (!hostOk || !refOk) web = new WebOrigin(web.ZoneId, hostOk ? web.HostUrl : null, refOk ? web.ReferrerUrl : null);
+            }
             if (web is { HostUrl: not null } or { ReferrerUrl: not null }) LibraryService.SetItemInfo(path, web.HostUrl, web.ReferrerUrl);
 
             var saved = LibraryStore.GetItemInfo(path);

@@ -6,6 +6,21 @@ namespace SwewolfFileExplorer.Helpers;
 /// What Windows' "Mark of the Web" says about a file: the zone it came from and, when the browser (or other program) that saved it
 /// wrote them, the address it was downloaded from and the page that linked to it.
 /// </summary>
+internal static class WebAddresses
+{
+    /// <summary>
+    /// A web address worth showing and keeping: http or https, and not "about:internet" (Edge, when it does not know the address) or this
+    /// computer's own server (localhost, 127.x.x.x, ::1: a local program such as Pinokio, not a download from the internet).
+    /// </summary>
+    public static bool IsUseful(string? url)
+    {
+        if (!Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)) return false;
+        var host = uri.Host;
+        return !(host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase)
+                 || (System.Net.IPAddress.TryParse(host, out var ip) && System.Net.IPAddress.IsLoopback(ip)));
+    }
+}
+
 public sealed record WebOrigin(int? ZoneId, string? HostUrl, string? ReferrerUrl)
 {
     /// <summary>The zone number with its Windows name: "3 - Internet".</summary>
