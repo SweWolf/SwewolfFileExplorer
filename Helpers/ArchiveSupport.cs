@@ -149,6 +149,35 @@ public static class ArchiveSupport
     public static bool IsInside(string path) => Locate(path, out _) != null;
 
     /// <summary>
+    /// The archive file on the disk that a path is, or is inside (for an archive inside an archive: the outer one, the file that really
+    /// lies on the disk); null if the path does not lead into an archive. Cheaper than <see cref="Locate"/>: nothing is opened or read,
+    /// the disk is only asked whether the packed file exists. Used for what belongs to the whole download (its Mark of the Web).
+    /// </summary>
+    public static string? DiskArchiveOf(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return null;
+
+        try
+        {
+            int position = 0;
+            while (position < path.Length)
+            {
+                int next = path.IndexOfAny(Separators, position);
+                int end  = next < 0 ? path.Length : next;
+
+                if (end > position && IsArchiveName(path[position..end]) && File.Exists(path[..end]))
+                    return path[..end];
+
+                if (next < 0) break;
+                position = next + 1;
+            }
+        }
+        catch { /* not a usable path */ }
+
+        return null;
+    }
+
+    /// <summary>
     /// True when a folder inside an archive is listed in the order its files are stored, until the user sorts it: **zip and cbz only**
     /// (TeraTool browsed only those in place, and a zip is usually packed in page order). A RAR, cbr or 7z is listed by name: 7-Zip gives
     /// them in the order they were added, which for a comic repacked by someone is often not the reading order (a RAR found by the user

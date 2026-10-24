@@ -83,7 +83,10 @@ public partial class MainWindow : Window
 
             // Another folder (or another tab): the filter goes away, so a folder never looks empty because of an old filter.
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.CurrentPath))
+            {
                 CloseFilterOnFolderChange();
+                QueueInfoUpdate();   // what the info panel says about an archive as the folder shown follows
+            }
 
             // The text of the list got bigger or smaller (Ctrl + wheel, or another tab with another size): so do the columns.
             if (e.PropertyName == nameof(MainViewModel.ListFontSize)) QueueAutoFit();
@@ -1451,20 +1454,37 @@ public partial class MainWindow : Window
     /// <summary>
     /// What the web says about the selected file: the zone, the address it was downloaded from and the page that linked to it, from the
     /// Mark of the Web that browsers attach to a download (<see cref="MarkOfTheWeb"/>). Read in the background when the file is selected;
-    /// a file without it (most files), a folder or a file in an archive shows nothing.
+    /// a file without it (most files) or a folder on the disk shows nothing. Inside an archive (or with nothing selected while an archive
+    /// is the folder shown) it is the archive file's.
     /// </summary>
     private async void ShowWebOrigin(FileItemViewModel? item)
     {
         int version = ++_webVersion;
 
-        if (item == null || item.IsDirectory || item.IsInArchive)
+        // What to look at: the selected file itself; for a file or folder inside an archive, and when nothing (or several items) is
+        // selected while the folder shown is an archive or inside one, the archive file: everything in it came with that download.
+        bool wantArchive;
+        string? path;
+        if (item != null)
         {
-            ClearWebRows();
-            return;
+            if (item.IsDirectory && !item.IsInArchive) { ClearWebRows(); return; }   // a folder on the disk: nothing to read
+            path = item.FullPath;
+            wantArchive = item.IsInArchive;
+        }
+        else
+        {
+            path = VM.HasFolder ? VM.CurrentPath : null;
+            wantArchive = true;
         }
 
-        string path = item.FullPath;
-        var origin = await Task.Run(() => MarkOfTheWeb.Read(path));
+        if (string.IsNullOrEmpty(path)) { ClearWebRows(); return; }
+
+        var origin = await Task.Run(() =>
+        {
+            if (!wantArchive) return MarkOfTheWeb.Read(path);
+            var archive = ArchiveSupport.DiskArchiveOf(path);
+            return archive == null ? null : MarkOfTheWeb.Read(archive);
+        });
         if (version != _webVersion) return;
 
         SetInfoRow(WebZoneLabel,     WebZoneBox,     origin?.ZoneText);
