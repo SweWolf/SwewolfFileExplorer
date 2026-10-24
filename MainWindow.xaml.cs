@@ -1277,27 +1277,29 @@ public partial class MainWindow : Window
     private int _aiInfoVersion;
 
     /// <summary>
-    /// The prompt, negative prompt and seed that ComfyUI wrote into the selected PNG, to the right of the preview picture; nothing (and no
-    /// space) for any other file. Read in the background; a late answer for a file no longer selected is ignored.
+    /// The prompt, negative prompt and seed that an AI program wrote into the selected PNG (ComfyUI, Automatic1111) or MP4 (Wan2GP), to the
+    /// right of the preview picture and the plot; nothing (and no space) for any other file. Read in the background; a late answer for a
+    /// file no longer selected is ignored.
     /// </summary>
     private async void ShowAiInfo(FileItemViewModel? item)
     {
         int version = ++_aiInfoVersion;
 
-        if (item == null || item.IsDirectory || item.IsInArchive
-            || !string.Equals(System.IO.Path.GetExtension(item.FullPath), ".png", StringComparison.OrdinalIgnoreCase))
+        if (item == null || item.IsDirectory || item.IsInArchive || !AiInfoReader.CanHave(item.FullPath))
         {
             AiInfoArea.Visibility = Visibility.Collapsed;
+            LayoutInfoColumns();
             return;
         }
 
         string path = item.FullPath;
-        var info = await Task.Run(() => ComfyPromptReader.Read(path));
+        var info = await Task.Run(() => AiInfoReader.Read(path));
         if (version != _aiInfoVersion) return;
 
         if (info == null)
         {
-            AiInfoArea.Visibility = Visibility.Collapsed;   // a PNG from somewhere else: no area, no space
+            AiInfoArea.Visibility = Visibility.Collapsed;   // a file from somewhere else: no area, no space
+            LayoutInfoColumns();
             return;
         }
 
@@ -1308,6 +1310,19 @@ public partial class MainWindow : Window
         AiPromptBox.ScrollToHome();
         AiNegativeBox.ScrollToHome();
         AiInfoArea.Visibility = Visibility.Visible;
+        LayoutInfoColumns();
+    }
+
+    /// <summary>
+    /// The plot and the AI information (a Wan2GP video has both) share the room right of the picture; a column the area of which is
+    /// not shown gets no width at all. Called whenever one of the two is shown or hidden.
+    /// </summary>
+    private void LayoutInfoColumns()
+    {
+        bool plot = PlotArea.Visibility == Visibility.Visible, ai = AiInfoArea.Visibility == Visibility.Visible;
+        PlotColumn.Width   = new GridLength(plot ? 1 : 0, GridUnitType.Star);
+        AiInfoColumn.Width = new GridLength(ai ? (plot ? 3 : 1) : 0, GridUnitType.Star);
+        if (!plot && !ai) PlotColumn.Width = new GridLength(1, GridUnitType.Star);   // as before: the star column takes the free room
     }
 
     private int _plotVersion;
@@ -1325,6 +1340,7 @@ public partial class MainWindow : Window
         {
             _plotItem = null;
             PlotArea.Visibility = Visibility.Collapsed;   // not a file that has a plot: no area, no hint, no space
+            LayoutInfoColumns();
             return;
         }
 
@@ -1334,6 +1350,7 @@ public partial class MainWindow : Window
 
         _plotItem = item;
         PlotArea.Visibility = Visibility.Visible;
+        LayoutInfoColumns();
 
         if (plot == null)
         {

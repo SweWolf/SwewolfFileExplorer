@@ -5,23 +5,18 @@ using System.Text.Json;
 
 namespace SwewolfFileExplorer.Helpers;
 
-/// <summary>What ComfyUI wrote into a picture: the prompt, the negative prompt and the seed. A value is null when it was not found.</summary>
-public sealed record ComfyInfo(string PromptLabel, string? Prompt, string? Negative, string? Seed)
-{
-    /// <summary>Nothing was found: the picture is not from ComfyUI (or its workflow has no sampler).</summary>
-    public bool IsEmpty => Prompt == null && Negative == null && Seed == null;
-}
-
 /// <summary>
 /// Reads the prompt, negative prompt and seed that ComfyUI stores in a PNG file (the info panel shows them to the right of the preview).
 /// The values come from the PNG text chunk "prompt" (node id to {class_type, inputs}). Node ids and class names differ between workflows,
 /// so nothing is looked up by id: the sampler node is found by its seed input and its positive / negative links are followed to the text node.
 ///
 /// Copied from File Info Viewer's Services/ComfyPromptReader.cs (its template 1, "Prompt and Seed"); the apps share no code, so a fix in one
-/// may belong in the other. When copying: change the namespace, and the result type (here <see cref="ComfyInfo"/>).
+/// may belong in the other. When copying: change the namespace, and the result type (here <see cref="AiInfo"/>).
 /// History:
 ///   2026-10-24  First copy into SweWolf File Explorer. Reads from a stream (not a file name), a compressed iTXt chunk is understood
 ///               (File Info Viewer skips the compression flag), and the PNG chunk reader is part of this file.
+///   2026-10-24  The result type is AiInfo (AiInfoReader.cs), shared with the Automatic1111 and Wan2GP readers; FromChunks and the
+///               public PNG chunk reader let AiInfoReader read a file once.
 /// </summary>
 public static class ComfyPromptReader
 {
@@ -40,7 +35,7 @@ public static class ComfyPromptReader
     }
 
     /// <summary>The ComfyUI data of a PNG file; null if the file is not a PNG, cannot be read or has none.</summary>
-    public static ComfyInfo? Read(string path)
+    public static AiInfo? Read(string path)
     {
         try
         {
@@ -55,17 +50,13 @@ public static class ComfyPromptReader
     }
 
     /// <summary>The ComfyUI data of a PNG stream (it must be able to seek); null if it has none.</summary>
-    public static ComfyInfo? Read(Stream stream)
+    public static AiInfo? Read(Stream stream)
     {
         try
         {
             var chunks = new Dictionary<string, string>();
             ReadPngTextChunks(stream, chunks);
-            if (!chunks.TryGetValue("prompt", out var json)) return null;
-
-            using var doc = JsonDocument.Parse(json);
-            var info = Extract(doc.RootElement);
-            return info.IsEmpty ? null : info;
+            return FromChunks(chunks);
         }
         catch
         {
@@ -73,8 +64,24 @@ public static class ComfyPromptReader
         }
     }
 
+    /// <summary>The ComfyUI data from the text chunks of a PNG (the keyword "prompt" holds it); null if there is none.</summary>
+    public static AiInfo? FromChunks(Dictionary<string, string> chunks)
+    {
+        try
+        {
+            if (!chunks.TryGetValue("prompt", out var json)) return null;
+            using var doc = JsonDocument.Parse(json);
+            var info = Extract(doc.RootElement);
+            return info.IsEmpty ? null : info;
+        }
+        catch (JsonException)
+        {
+            return null;   // the prompt data is not JSON
+        }
+    }
+
     /// <summary>Reads all tEXt / iTXt chunks of a PNG into <paramref name="chunks"/> (keyword to text); the picture data is skipped with seeks.</summary>
-    private static void ReadPngTextChunks(Stream fs, Dictionary<string, string> chunks)
+    public static void ReadPngTextChunks(Stream fs, Dictionary<string, string> chunks)
     {
         Span<byte> hdr = stackalloc byte[8];
         fs.ReadExactly(hdr);   // PNG signature
@@ -138,7 +145,7 @@ public static class ComfyPromptReader
         }
     }
 
-    private static ComfyInfo Extract(JsonElement root)
+    private static AiInfo Extract(JsonElement root)
     {
         string? prompt = null, negative = null, seed = null;
         var trace = new Trace();
@@ -153,7 +160,7 @@ public static class ComfyPromptReader
                 seed = ResolveScalar(root, noiseInputs, SeedKeys, 1);
         }
 
-        return new ComfyInfo(trace.Enhanced ? "Prompt (Before Enhancement)" : "Prompt", prompt, negative, seed);
+        return new AiInfo(trace.Enhanced ? "Prompt (Before Enhancement)" : "Prompt", prompt, negative, seed);
     }
 
     /// <summary>Finds the inputs of the sampler node: the first one with a seed and prompt links, else the first with any seed.</summary>
