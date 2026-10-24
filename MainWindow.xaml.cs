@@ -1318,16 +1318,22 @@ public partial class MainWindow : Window
     private static TextBox? AiBoxOf(object sender) =>
         sender is MenuItem { Parent: ContextMenu { PlacementTarget: TextBox box } } ? box : null;
 
-    /// <summary>"Copy Selected Text" is only there to use when some text is selected.</summary>
-    private void AiTextMenu_Opened(object sender, RoutedEventArgs e)
-    {
-        if (sender is ContextMenu { PlacementTarget: TextBox box } menu && menu.Items.Count > 0 && menu.Items[0] is MenuItem copy)
-            copy.IsEnabled = box.SelectionLength > 0;
-    }
-
+    /// <summary>Copy Selected Text: what is selected, or all the text when nothing is.</summary>
     private void AiCopySelected_Click(object sender, RoutedEventArgs e)
     {
-        if (AiBoxOf(sender) is { } box && box.SelectionLength > 0) box.Copy();
+        if (AiBoxOf(sender) is not { } box) return;
+        if (box.SelectionLength > 0) box.Copy();
+        else CopyText(box.Text);
+    }
+
+    /// <summary>Ctrl+C in a prompt box with nothing selected copies all the text (with a selection the box does its usual copy).</summary>
+    private void AiTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control && sender is TextBox { SelectionLength: 0 } box)
+        {
+            CopyText(box.Text);
+            e.Handled = true;
+        }
     }
 
     private void AiCopyAll_Click(object sender, RoutedEventArgs e)

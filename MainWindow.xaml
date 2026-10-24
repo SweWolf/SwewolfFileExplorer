@@ -991,10 +991,11 @@
 
                         <TextBlock x:Name="AiPromptLabel" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Prompt" Margin="0,0,0,2"/>
                         <TextBox x:Name="AiPromptBox" Grid.Column="0" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
-                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0">
+                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0" PreviewKeyDown="AiTextBox_PreviewKeyDown">
                             <TextBox.ContextMenu>
-                                <ContextMenu Opened="AiTextMenu_Opened">
-                                    <MenuItem Header="Copy Selected Text" InputGestureText="Ctrl+C" Click="AiCopySelected_Click"/>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy Selected Text" InputGestureText="Ctrl+C" Click="AiCopySelected_Click"
+                                              ToolTip="Copies all the text when nothing is selected"/>
                                     <MenuItem Header="Copy All Text" Click="AiCopyAll_Click"/>
                                 </ContextMenu>
                             </TextBox.ContextMenu>
@@ -1002,10 +1003,11 @@
 
                         <TextBlock Grid.Column="2" FontSize="12" FontWeight="Bold" Text="Negative Prompt" Margin="0,0,0,2"/>
                         <TextBox x:Name="AiNegativeBox" Grid.Column="2" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
-                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0">
+                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0" PreviewKeyDown="AiTextBox_PreviewKeyDown">
                             <TextBox.ContextMenu>
-                                <ContextMenu Opened="AiTextMenu_Opened">
-                                    <MenuItem Header="Copy Selected Text" InputGestureText="Ctrl+C" Click="AiCopySelected_Click"/>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy Selected Text" InputGestureText="Ctrl+C" Click="AiCopySelected_Click"
+                                              ToolTip="Copies all the text when nothing is selected"/>
                                     <MenuItem Header="Copy All Text" Click="AiCopyAll_Click"/>
                                 </ContextMenu>
                             </TextBox.ContextMenu>
