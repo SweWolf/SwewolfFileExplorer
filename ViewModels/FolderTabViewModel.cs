@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Input;
 using Microsoft.VisualBasic.FileIO;
 using SwewolfFileExplorer.Commands;
 using SwewolfFileExplorer.Helpers;
@@ -560,6 +561,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             _forwardHistory.Clear();
         }
 
+        ForgetRenameUndoUnlessHere(path);   // the Undo button of a smart rename lasts until another folder is shown
         _showHidden = false;   // hidden items are shown for one folder at a time
         _unavailable = false;
         _noFolderShown = false;
@@ -585,6 +587,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void ShowNoFolder(string? place = null)
     {
         if (_playlistDirty && !ConfirmLeavePlaylist()) return;
+        ForgetRenameUndoUnlessHere(null);
         _noFolderShown = true;
         RaiseTreeInfoChanged();   // no folder: no count line under the tree
         RaiseAllCanExecuteChanged();   // nothing can be pasted or made here (the tab still remembers the folder it came from)
@@ -2412,7 +2415,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
         related = new List<RelatedMove>();
         notDone = new List<NotDone>();
         var willMove = new List<RelatedMove>();
-        var skipped  = new List<NotDone>();   // their new name is taken: they are left as they are
+        var skipped  = new List<NotDone>();   // (no longer filled: a taken name gets a number, see below)
+        var planned  = new HashSet<string>(StringComparer.OrdinalIgnoreCase);   // the new names handed out in this question
+        int numbered = 0;
 
         foreach (var (path, newPath) in media)
         {
@@ -2427,9 +2432,24 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
                 if (string.Equals(target, file, StringComparison.Ordinal)) continue;   // nothing changes for this one
                 bool sameFile = string.Equals(target, file, StringComparison.OrdinalIgnoreCase);   // a change of case only
-                if (!sameFile && (File.Exists(target) || Directory.Exists(target)))
-                    skipped.Add(new NotDone(file, target, "a file with the new name already exists"));
-                else willMove.Add(new RelatedMove(file, target, path));
+
+                // The new name is taken (by something else already there, or by another file of this question): the file still follows,
+                // with a number, as Windows does ("Movie (2005).en (1).srt"). Only the video or music file itself is never given a taken name.
+                if ((!sameFile && (File.Exists(target) || Directory.Exists(target))) || planned.Contains(target))
+                {
+                    var dir  = Path.GetDirectoryName(target)!;
+                    var stem = Path.GetFileNameWithoutExtension(target);
+                    var ext  = Path.GetExtension(target);
+                    string free;
+                    int n = 1;
+                    do { free = Path.Combine(dir, $"{stem} ({n++}){ext}"); }
+                    while (File.Exists(free) || Directory.Exists(free) || planned.Contains(free));
+                    target = free;
+                    numbered++;
+                }
+
+                planned.Add(target);
+                willMove.Add(new RelatedMove(file, target, path));
             }
         }
 
@@ -2440,7 +2460,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                                          skipped.Select(s => Path.GetFileName(s.From)).ToList());
 
         string verb  = rename ? "rename" : "move";
-        string title = rename ? "Rename File" : media.Count == 1 ? "Move File" : "Move Files";
+        string title = rename ? (media.Count == 1 ? "Rename File" : "Multiple Rename") : media.Count == 1 ? "Move File" : "Move Files";
         string head  = media.Count == 1
             ? $"You are {verb.TrimEnd('e')}ing \"{Path.GetFileName(media[0].Media)}\"" +
               (rename ? $" to \"{Path.GetFileName(media[0].NewMedia)}\"." : $" to \"{Path.GetDirectoryName(media[0].NewMedia)}\".")
@@ -2459,6 +2479,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
         string ask = rename
             ? "Do you also want to rename these files according to the same pattern?"
             : "Do you also want to move these files?";
+
+        if (numbered > 0)
+            list += $"\n\n{numbered} of them get a number, as their new name is taken already.";
 
         string question = $"{head}\n\n{ask}\n\n{list}\n\n" +
                           $"Yes: {char.ToUpper(verb[0])}{verb[1..]} them too.\n" +
@@ -2498,7 +2521,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     }
 
     /// <summary>Renames or moves the related files; what is remembered about them follows. A failure is reported once, at the end.</summary>
-    private static void MoveRelated(List<RelatedMove> moves, List<NotDone> notDone, bool rename)
+    private static List<(string From, string To)> MoveRelated(List<RelatedMove> moves, List<NotDone> notDone, bool rename, string? title = null)
     {
         var done = new List<(string From, string To)>();
 
@@ -2522,7 +2545,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         LibraryService.Move(done);
 
-        if (notDone.Count == 0) return;
+        if (notDone.Count == 0) return done;
 
         LogNotDone(notDone, rename);   // the log has the full paths and the system's words
 
@@ -2531,9 +2554,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (notDone.Count > 15) lines.Add($"    ... and {notDone.Count - 15} more");
 
         var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
-        Ask(owner, rename ? "Rename File" : "Move File",
+        Ask(owner, title ?? (rename ? "Rename File" : "Move File"),
             $"These files were not {verb}:\n\n{string.Join("\n", lines)}\n\nThe other files were {verb}. Details are in the log file (Help > Open Log File).",
             new[] { "OK" }, 0, -1);
+        return done;
     }
 
     // Short words for the usual reasons; anything else is the system's own text.
@@ -2544,6 +2568,237 @@ public class FolderTabViewModel : INotifyPropertyChanged
         IOException io when io.Message.Contains("being used", StringComparison.OrdinalIgnoreCase) => "the file is in use",
         _ => ex.Message.TrimEnd('.'),
     };
+
+    // ── Smart rename of all the selected music and video files, and undoing it ───────────────────
+
+    /// <summary>The (old path, new path) pairs of the last "rename all with smart rename" in this folder, kept until another folder is shown.</summary>
+    private List<(string From, string To)>? _renameUndo;
+    private string? _renameUndoFolder;
+    private bool _renamingBatch;
+
+    /// <summary>True while the last smart rename of several files can be undone (the button next to "File 3/4").</summary>
+    public bool HasRenameUndo => _renameUndo is { Count: > 0 };
+
+    public string RenameUndoTip => _renameUndo is { } u
+        ? $"Give the {u.Count} renamed {(u.Count == 1 ? "file" : "files")} their old names back. Possible until another folder is shown."
+        : "";
+
+    private void SetRenameUndo(List<(string From, string To)>? pairs)
+    {
+        _renameUndo       = pairs is { Count: > 0 } ? pairs : null;
+        _renameUndoFolder = _renameUndo == null ? null : _currentPath;
+        OnPropertyChanged(nameof(HasRenameUndo));
+        OnPropertyChanged(nameof(RenameUndoTip));
+    }
+
+    /// <summary>Another folder is shown (or no folder): the last smart rename can no longer be undone.</summary>
+    private void ForgetRenameUndoUnlessHere(string? path)
+    {
+        if (_renameUndo == null) return;
+        if (path != null && IsSamePath(path, _renameUndoFolder)) return;
+        SetRenameUndo(null);
+    }
+
+    /// <summary>What a smart rename of the selected files would do: the files that get a new name, and the ones that cannot.</summary>
+    private sealed record SmartPlan(List<(FileItemViewModel Item, string NewName)> Renames, List<NotDone> Left, int Candidates);
+
+    private static SmartPlan PlanSmartRename(IReadOnlyList<FileItemViewModel> items)
+    {
+        var renames    = new List<(FileItemViewModel, string)>();
+        var left       = new List<NotDone>();
+        int candidates = 0;
+        var given      = new HashSet<string>(StringComparer.OrdinalIgnoreCase);   // the paths handed out in this batch
+
+        foreach (var item in items)
+        {
+            if (item.IsDirectory || item.IsInArchive || !SmartName.Applies(item.Name)) continue;
+            candidates++;
+
+            // The same suggestion as the Rename box makes: no better name means this file is left alone (not an error).
+            var suggested = SmartName.Suggest(item.FullPath);
+            if (suggested == null || string.Equals(suggested, item.Name, StringComparison.Ordinal)) continue;
+
+            var target  = Path.Combine(Path.GetDirectoryName(item.FullPath)!, suggested);
+            var problem = CheckNewName(item.FullPath, suggested);
+            if (problem != null)
+                left.Add(new NotDone(item.FullPath, target, problem.Contains("already exists", StringComparison.Ordinal)
+                    ? "a file with the new name already exists" : "the new name is not allowed"));
+            else if (!given.Add(target))
+                left.Add(new NotDone(item.FullPath, target, "another selected file gets the same new name"));
+            else
+                renames.Add((item, suggested));
+        }
+
+        return new SmartPlan(renames, left, candidates);
+    }
+
+    /// <summary>
+    /// "Rename All Selected Music Files and Video Files Using Smart Rename": every selected music or video file gets the name the Rename
+    /// box suggests with "Use Smart Name". Asks first (Multiple Rename: OK / Cancel), then once about the files that belong to them
+    /// (subtitles, posters ...). What is remembered about the files (read marks, ratings ...) follows, and the rename can be undone
+    /// until another folder is shown. Returns the new paths, so the window can select them again.
+    /// </summary>
+    public async Task<List<string>> SmartRenameSelectedAsync(IReadOnlyList<FileItemViewModel> selected)
+    {
+        var renamed = new List<string>();
+        if (_renamingBatch || InArchive || selected.Count == 0) return renamed;
+        _renamingBatch = true;
+
+        var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
+        try
+        {
+            // The tags of the files are read to find the names: a moment for many files.
+            Mouse.OverrideCursor = Cursors.Wait;
+            SmartPlan plan;
+            try { plan = await Task.Run(() => PlanSmartRename(selected)); }
+            finally { Mouse.OverrideCursor = null; }
+
+            if (plan.Candidates == 0)
+            {
+                Ask(owner, "Multiple Rename", "None of the selected files is a music file or a video file.", new[] { "OK" }, 0, -1);
+                return renamed;
+            }
+            if (plan.Renames.Count == 0)
+            {
+                string why = plan.Left.Count > 0
+                    ? $"\n\n{plan.Left.Count} {(plan.Left.Count == 1 ? "file has a better name, which is" : "files have better names, which are")} taken by other files."
+                    : "";
+                Ask(owner, "Multiple Rename", "None of the selected music files and video files has a better name than it has now." + why,
+                    new[] { "OK" }, 0, -1);
+                if (plan.Left.Count > 0) LogNotDone(plan.Left, rename: true);
+                return renamed;
+            }
+
+            int n = plan.Renames.Count;
+            string question = "Do you want to rename all selected music files and video files using smart rename?\n\n" +
+                              $"{n} {(n == 1 ? "file gets" : "files get")} a new name." +
+                              (plan.Left.Count > 0 ? $"\n{plan.Left.Count} {(plan.Left.Count == 1 ? "file is" : "files are")} left as {(plan.Left.Count == 1 ? "it is" : "they are")} (the new name is taken)." : "") +
+                              (plan.Candidates > n + plan.Left.Count ? "\nThe others have no better name." : "");
+            if (Ask(owner, "Multiple Rename", question, new[] { "OK", "Cancel" }, 1, 1) != 0) return renamed;
+
+            // The files that belong to them (subtitles, poster ...): asked once for all of them, before anything changes.
+            var media = plan.Renames.Select(r => (r.Item.FullPath, Path.Combine(Path.GetDirectoryName(r.Item.FullPath)!, r.NewName))).ToList();
+            if (!AskAboutRelated(media, null, rename: true, out var related, out var notDone)) return renamed;
+            notDone.AddRange(plan.Left);
+
+            // The files themselves first, on a background thread (a slow drive must not freeze the window).
+            Mouse.OverrideCursor = Cursors.Wait;
+            var done = new List<(string From, string To)>();
+            try
+            {
+                await Task.Run(() =>
+                {
+                    foreach (var (from, to) in media)
+                    {
+                        try
+                        {
+                            if (File.Exists(to) && !string.Equals(from, to, StringComparison.OrdinalIgnoreCase))
+                                throw new IOException("a file with the new name already exists");   // it appeared since the question
+                            File.Move(from, to);
+                            done.Add((from, to));
+                        }
+                        catch (Exception ex)
+                        {
+                            notDone.Add(new NotDone(from, to, ReasonOf(ex)));
+                        }
+                    }
+                });
+            }
+            finally { Mouse.OverrideCursor = null; }
+
+            LibraryService.Move(done);   // read marks, ratings, resume points ... follow the new names
+
+            // A related file only follows a file whose own rename worked.
+            var doneFrom    = new HashSet<string>(done.Select(d => d.From), StringComparer.OrdinalIgnoreCase);
+            var relatedDone = MoveRelated(related.Where(r => doneFrom.Contains(r.Owner)).ToList(), notDone, rename: true, title: "Multiple Rename");   // tells about everything that was not done
+
+            SetRenameUndo(done.Concat(relatedDone).ToList());
+            Refresh();
+            StatusText = $"{done.Count} {(done.Count == 1 ? "file" : "files")} renamed";
+            return done.Select(d => d.To).ToList();
+        }
+        finally
+        {
+            _renamingBatch = false;
+        }
+    }
+
+    /// <summary>
+    /// Gives the files of the last smart rename their old names back (the Undo button). Every file is checked first: one that is gone
+    /// or whose old name is taken again is not touched and is told about; the rest are restored, and what is remembered about them
+    /// follows. What could not be restored stays in the undo list. Returns the restored paths.
+    /// </summary>
+    public async Task<List<string>> UndoSmartRenameAsync()
+    {
+        var restored = new List<string>();
+        if (_renamingBatch || _renameUndo is not { Count: > 0 } pairs) return restored;
+        _renamingBatch = true;
+
+        try
+        {
+            var problems = new List<NotDone>();
+            var todo     = new List<(string Now, string Original)>();
+
+            // Last renamed, first restored.
+            foreach (var (original, now) in Enumerable.Reverse(pairs))
+            {
+                bool caseOnly = string.Equals(original, now, StringComparison.OrdinalIgnoreCase);
+                if (!File.Exists(now))
+                    problems.Add(new NotDone(now, original, "the file is gone"));
+                else if (!caseOnly && (File.Exists(original) || Directory.Exists(original)))
+                    problems.Add(new NotDone(now, original, "a file with the old name exists now"));
+                else
+                    todo.Add((now, original));
+            }
+
+            var done = new List<(string Now, string Original)>();
+            Mouse.OverrideCursor = Cursors.Wait;
+            try
+            {
+                await Task.Run(() =>
+                {
+                    foreach (var (now, original) in todo)
+                    {
+                        try
+                        {
+                            File.Move(now, original);
+                            done.Add((now, original));
+                        }
+                        catch (Exception ex)
+                        {
+                            problems.Add(new NotDone(now, original, ReasonOf(ex)));
+                        }
+                    }
+                });
+            }
+            finally { Mouse.OverrideCursor = null; }
+
+            LibraryService.Move(done);   // what is remembered goes back to the old names too
+
+            // What was not restored stays in the list, so it can be tried again.
+            var restoredNow = new HashSet<string>(done.Select(d => d.Now), StringComparer.OrdinalIgnoreCase);
+            SetRenameUndo(pairs.Where(p => !restoredNow.Contains(p.To)).ToList());
+
+            Refresh();
+            StatusText = $"{done.Count} {(done.Count == 1 ? "file" : "files")} got the old name back";
+
+            if (problems.Count > 0)
+            {
+                LogNotDone(problems.Select(p => new NotDone(p.From, p.To, p.Reason)), rename: true);
+                var lines = problems.Take(15).Select(p => $"    {Path.GetFileName(p.From)}  ({p.Reason})").ToList();
+                if (problems.Count > 15) lines.Add($"    ... and {problems.Count - 15} more");
+                var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
+                Ask(owner, "Undo Rename", $"These files could not get their old names back:\n\n{string.Join("\n", lines)}\n\nThe other files were restored. Details are in the log file (Help > Open Log File).",
+                    new[] { "OK" }, 0, -1);
+            }
+
+            return done.Select(d => d.Original).ToList();
+        }
+        finally
+        {
+            _renamingBatch = false;
+        }
+    }
 
     public void RenameItem(FileItemViewModel item, string newName)
     {
@@ -2591,6 +2846,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
             // What is remembered about it (read marks, ratings, a folder's state and what is below it) follows the new name.
             LibraryService.Move(new[] { (item.FullPath, newPath) });
+
+            // The Undo button of a smart rename is for right after it: another rename (by hand) ends it.
+            SetRenameUndo(null);
 
             // The files that belong to it, if the user said yes.
             MoveRelated(relatedMoves, notDone, rename: true);

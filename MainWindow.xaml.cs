@@ -2287,6 +2287,8 @@ public partial class MainWindow : Window
                 "Rating..." or "Expectation..." => hasSelection,
                 "Delete" or "Remove from Playlist" => hasSelection && (!inArchive || VM.InPlaylist),
                 "Rename"     => hasSelection && !inArchive,
+                "Rename All Selected Music Files and Video Files Using Smart Rename" =>
+                    !inArchive && FileListView.SelectedItems.OfType<FileItemViewModel>().Any(i => !i.IsDirectory && !i.IsInArchive && SmartName.Applies(i.Name)),
                 "New Folder" => !inArchive && hasFolder,
                 "Properties" => !inArchive && (hasSelection || hasFolder),
                 "Jump to Last Opened File" => hasFolder,
@@ -3321,6 +3323,21 @@ public partial class MainWindow : Window
         var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
         VM.RefreshCommand.Execute(null);
         ReselectInList(selected);
+    }
+
+    // ── Rename all selected music and video files with smart rename, and undo ─────────────────
+
+    private async void CtxSmartRenameAll_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().ToList();
+        var renamed  = await VM.ActiveTab.SmartRenameSelectedAsync(selected);
+        if (renamed.Count > 0) ReselectInList(renamed);   // the renamed files stay selected
+    }
+
+    private async void UndoRename_Click(object sender, RoutedEventArgs e)
+    {
+        var restored = await VM.ActiveTab.UndoSmartRenameAsync();
+        if (restored.Count > 0) ReselectInList(restored);
     }
 
     // ── Rename dialog ─────────────────────────────────────────────────────────

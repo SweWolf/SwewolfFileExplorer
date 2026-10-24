@@ -899,6 +899,8 @@
                         <Separator/>
                         <MenuItem Header="Delete"     Click="CtxDelete_Click"    InputGestureText="Del"/>
                         <MenuItem Header="Rename"     Click="CtxRename_Click"    InputGestureText="F2"/>
+                        <MenuItem Header="Rename All Selected Music Files and Video Files Using Smart Rename" Click="CtxSmartRenameAll_Click"
+                                  ToolTip="Every selected music file and video file gets the name that Rename suggests with Use Smart Name (Artist - Title, Title (Year), Title - s01e02). Asks first, and can be undone until another folder is shown."/>
                         <Separator/>
                         <MenuItem Header="New Folder" Click="CtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"/>
                         <Separator/>
@@ -975,6 +977,12 @@
                                 <Run Text="{Binding HiddenText, Mode=OneWay}"/>
                             </Hyperlink>
                         </TextBlock>
+
+                        <!-- Undo of the last "Rename All Selected ... Using Smart Rename": until another folder is shown -->
+                        <Button x:Name="UndoRenameButton" Content="Undo Rename" Height="20" MinHeight="0" Padding="9,0" FontSize="12" Margin="0,0,6,0"
+                                VerticalAlignment="Top" Click="UndoRename_Click"
+                                Visibility="{Binding HasRenameUndo, Converter={StaticResource BoolToVisibility}}"
+                                ToolTip="{Binding RenameUndoTip}"/>
 
                         <!-- The playlist buttons: only while a playlist is shown (MainWindow.Playlist.cs) -->
                         <StackPanel x:Name="PlaylistBar" Orientation="Horizontal" Margin="130,0,0,0" VerticalAlignment="Top" Visibility="Collapsed">

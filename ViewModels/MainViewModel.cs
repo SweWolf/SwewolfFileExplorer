@@ -287,6 +287,8 @@ public class MainViewModel : INotifyPropertyChanged
 
     public bool   HasHiddenItems => _activeTab.HasHiddenItems;
     public string HiddenText     => _activeTab.HiddenText;
+    public bool   HasRenameUndo  => _activeTab.HasRenameUndo;
+    public string RenameUndoTip  => _activeTab.RenameUndoTip;
 
     public System.Windows.Media.ImageSource? FolderPicture => _activeTab.FolderPicture;
     public bool   HasFolderPicture => _activeTab.HasFolderPicture;
