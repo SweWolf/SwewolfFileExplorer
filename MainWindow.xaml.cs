@@ -1256,6 +1256,7 @@ public partial class MainWindow : Window
             PositionText.Text = $"{(item.IsDirectory ? "Folder" : "File")} {position}/{FileListView.Items.Count}";
             ShowThumbnail(item);
             ShowPlot(item);
+            ShowAiInfo(item);
         }
         else
         {
@@ -1269,7 +1270,44 @@ public partial class MainWindow : Window
                               :                      $"{count} {Word(count, onlyFiles)}";   // also "0 files"
             ShowThumbnail(null);
             ShowPlot(null);
+            ShowAiInfo(null);
         }
+    }
+
+    private int _aiInfoVersion;
+
+    /// <summary>
+    /// The prompt, negative prompt and seed that ComfyUI wrote into the selected PNG, to the right of the preview picture; nothing (and no
+    /// space) for any other file. Read in the background; a late answer for a file no longer selected is ignored.
+    /// </summary>
+    private async void ShowAiInfo(FileItemViewModel? item)
+    {
+        int version = ++_aiInfoVersion;
+
+        if (item == null || item.IsDirectory || item.IsInArchive
+            || !string.Equals(System.IO.Path.GetExtension(item.FullPath), ".png", StringComparison.OrdinalIgnoreCase))
+        {
+            AiInfoArea.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        string path = item.FullPath;
+        var info = await Task.Run(() => ComfyPromptReader.Read(path));
+        if (version != _aiInfoVersion) return;
+
+        if (info == null)
+        {
+            AiInfoArea.Visibility = Visibility.Collapsed;   // a PNG from somewhere else: no area, no space
+            return;
+        }
+
+        AiPromptLabel.Text = info.PromptLabel;
+        AiPromptBox.Text   = info.Prompt   ?? "";
+        AiNegativeBox.Text = info.Negative ?? "";
+        AiSeedBox.Text     = info.Seed     ?? "";
+        AiPromptBox.ScrollToHome();
+        AiNegativeBox.ScrollToHome();
+        AiInfoArea.Visibility = Visibility.Visible;
     }
 
     private int _plotVersion;

@@ -972,6 +972,37 @@
                                    HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"/>
                     </Grid>
 
+                    <!-- What ComfyUI wrote into a PNG (prompt, negative prompt, seed), in the same place as the plot (a picture has no plot).
+                         Read-only text boxes, so the text can be selected and copied; each scrolls by itself when the text is long. -->
+                    <Grid x:Name="AiInfoArea" Grid.Row="2" Grid.Column="2" Margin="16,0,0,0" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="170"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock x:Name="AiPromptLabel" Grid.Column="0" FontSize="12" Text="Prompt" Margin="0,0,0,2"/>
+                        <TextBox x:Name="AiPromptBox" Grid.Column="0" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
+                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2"
+                                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"/>
+
+                        <TextBlock Grid.Column="2" FontSize="12" Text="Negative Prompt" Margin="0,0,0,2"/>
+                        <TextBox x:Name="AiNegativeBox" Grid.Column="2" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
+                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2"
+                                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"/>
+
+                        <TextBlock Grid.Column="4" FontSize="12" Text="Seed" Margin="0,0,0,2"/>
+                        <TextBox x:Name="AiSeedBox" Grid.Column="4" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
+                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2"
+                                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"/>
+                    </Grid>
+
                     <!-- A row of its own above the picture and the plot: where the selected file is in the list (or how many are
                          selected / in the folder), and the hidden-items link well to the right of it -->
                     <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" VerticalAlignment="Top">
