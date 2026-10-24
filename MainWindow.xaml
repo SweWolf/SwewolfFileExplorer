@@ -989,20 +989,17 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock x:Name="AiPromptLabel" Grid.Column="0" FontSize="12" Text="Prompt" Margin="0,0,0,2"/>
+                        <TextBlock x:Name="AiPromptLabel" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Prompt" Margin="0,0,0,2"/>
                         <TextBox x:Name="AiPromptBox" Grid.Column="0" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
-                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2"
-                                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"/>
+                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0"/>
 
-                        <TextBlock Grid.Column="2" FontSize="12" Text="Negative Prompt" Margin="0,0,0,2"/>
+                        <TextBlock Grid.Column="2" FontSize="12" FontWeight="Bold" Text="Negative Prompt" Margin="0,0,0,2"/>
                         <TextBox x:Name="AiNegativeBox" Grid.Column="2" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
-                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2"
-                                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"/>
+                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0"/>
 
-                        <TextBlock Grid.Column="4" FontSize="12" Text="Seed" Margin="0,0,0,2"/>
+                        <TextBlock Grid.Column="4" FontSize="12" FontWeight="Bold" Text="Seed" Margin="0,0,0,2"/>
                         <TextBox x:Name="AiSeedBox" Grid.Column="4" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
-                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2"
-                                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"/>
+                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0"/>
                     </Grid>
 
                     <!-- A row of its own above the picture and the plot: where the selected file is in the list (or how many are
