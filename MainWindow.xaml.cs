@@ -1257,6 +1257,7 @@ public partial class MainWindow : Window
             ShowThumbnail(item);
             ShowPlot(item);
             ShowAiInfo(item);
+            ShowWebOrigin(item);
             ShowGps(item);
         }
         else
@@ -1272,6 +1273,7 @@ public partial class MainWindow : Window
             ShowThumbnail(null);
             ShowPlot(null);
             ShowAiInfo(null);
+            ShowWebOrigin(null);
             ShowGps(null);
         }
     }
@@ -1290,6 +1292,7 @@ public partial class MainWindow : Window
         if (item == null || item.IsDirectory || item.IsInArchive || !AiInfoReader.CanHave(item.FullPath))
         {
             AiInfoArea.Visibility = Visibility.Collapsed;
+            SetInfoRow(AiSeedLabel, AiSeedBox, null);
             LayoutInfoColumns();
             return;
         }
@@ -1301,6 +1304,7 @@ public partial class MainWindow : Window
         if (info == null)
         {
             AiInfoArea.Visibility = Visibility.Collapsed;   // a file from somewhere else: no area, no space
+            SetInfoRow(AiSeedLabel, AiSeedBox, null);
             LayoutInfoColumns();
             return;
         }
@@ -1308,7 +1312,7 @@ public partial class MainWindow : Window
         AiPromptLabel.Text = info.PromptLabel;
         AiPromptBox.Text   = info.Prompt   ?? "";
         AiNegativeBox.Text = info.Negative ?? "";
-        AiSeedBox.Text     = info.Seed     ?? "";
+        SetInfoRow(AiSeedLabel, AiSeedBox, info.Seed);
         AiPromptBox.ScrollToHome();
         AiNegativeBox.ScrollToHome();
         AiInfoArea.Visibility = Visibility.Visible;
@@ -1330,6 +1334,7 @@ public partial class MainWindow : Window
         int version = ++_gpsVersion;
         _gps = null;
         GpsButton.Visibility = Visibility.Collapsed;
+        InfoRightArea.Margin = new Thickness(16, 0, 0, 0);
 
         if (item == null || item.IsDirectory || item.IsInArchive || !GpsReader.CanHave(item.FullPath)) return;
 
@@ -1338,6 +1343,7 @@ public partial class MainWindow : Window
         if (version != _gpsVersion || position is not { } found) return;
 
         _gps = found;
+        InfoRightArea.Margin = new Thickness(16, 0, 40, 0);   // the map symbol sits in the lower right corner
         GpsButton.ToolTip = $"GPS coordinates: {found.Text}{"\n"}Click to show the place on Google Maps.";
         GpsButton.Visibility = Visibility.Visible;
     }
@@ -1409,18 +1415,6 @@ public partial class MainWindow : Window
         catch (System.Runtime.InteropServices.COMException) { /* another program holds the clipboard right now: nothing is copied */ }
     }
 
-    private const double AiSeedWidth = 170, AiSeedMinWidth = 60, AiPromptWantedWidth = 300, AiNegativeWantedWidth = 150, AiGaps = 20;
-
-    /// <summary>
-    /// When the window gets narrower the seed is the first to shrink (down to 60 px): the prompt and the negative prompt keep the room they
-    /// want (300 and 150 px) while the seed can give some up, and only after the seed is at its smallest do they shrink too.
-    /// </summary>
-    private void AiInfoArea_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        double seed = e.NewSize.Width - AiGaps - AiPromptWantedWidth - AiNegativeWantedWidth;
-        AiSeedColumn.Width = new GridLength(Math.Clamp(seed, AiSeedMinWidth, AiSeedWidth));
-    }
-
     /// <summary>
     /// The plot and the AI information (a Wan2GP video has both) share the room right of the picture; a column the area of which is
     /// not shown gets no width at all. Called whenever one of the two is shown or hidden.
@@ -1428,9 +1422,63 @@ public partial class MainWindow : Window
     private void LayoutInfoColumns()
     {
         bool plot = PlotArea.Visibility == Visibility.Visible, ai = AiInfoArea.Visibility == Visibility.Visible;
-        PlotColumn.Width   = new GridLength(plot ? 1 : 0, GridUnitType.Star);
-        AiInfoColumn.Width = new GridLength(ai ? (plot ? 3 : 1) : 0, GridUnitType.Star);
-        if (!plot && !ai) PlotColumn.Width = new GridLength(1, GridUnitType.Star);   // as before: the star column takes the free room
+        bool right = AiSeedBox.Visibility == Visibility.Visible || WebZoneBox.Visibility == Visibility.Visible
+                  || WebHostBox.Visibility == Visibility.Visible || WebReferrerBox.Visibility == Visibility.Visible;
+
+        InfoRightArea.Visibility = right ? Visibility.Visible : Visibility.Collapsed;
+        PlotColumn.Width   = new GridLength(plot || (!ai && !right) ? 1 : 0, GridUnitType.Star);   // free room goes to the plot column when nothing else is shown
+        AiInfoColumn.Width = new GridLength(ai ? 3 : 0, GridUnitType.Star);
+
+        // The right-hand part: a share of the room next to the AI boxes (2 parts to their 3), but never narrower than 190 px or wider than 560 px.
+        // (A column of width 0 must have no minimum either, or it would still take room.)
+        InfoRightColumn.MinWidth = right ? 190 : 0;
+        InfoRightColumn.MaxWidth = right ? 560 : double.PositiveInfinity;
+        InfoRightColumn.Width    = new GridLength(right ? (ai ? 2 : (plot ? 2 : 1)) : 0, GridUnitType.Star);
+    }
+
+    /// <summary>A row of the right-hand part: the value in its text box (and as its tooltip), or the row hidden when there is none.</summary>
+    private static void SetInfoRow(TextBlock label, TextBox box, string? value)
+    {
+        bool has = !string.IsNullOrEmpty(value);
+        label.Visibility = box.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
+        box.Text    = has ? value! : "";
+        box.ToolTip = has ? value : null;
+        if (has) box.ScrollToHome();
+    }
+
+    private int _webVersion;
+
+    /// <summary>
+    /// What the web says about the selected file: the zone, the address it was downloaded from and the page that linked to it, from the
+    /// Mark of the Web that browsers attach to a download (<see cref="MarkOfTheWeb"/>). Read in the background when the file is selected;
+    /// a file without it (most files), a folder or a file in an archive shows nothing.
+    /// </summary>
+    private async void ShowWebOrigin(FileItemViewModel? item)
+    {
+        int version = ++_webVersion;
+
+        if (item == null || item.IsDirectory || item.IsInArchive)
+        {
+            ClearWebRows();
+            return;
+        }
+
+        string path = item.FullPath;
+        var origin = await Task.Run(() => MarkOfTheWeb.Read(path));
+        if (version != _webVersion) return;
+
+        SetInfoRow(WebZoneLabel,     WebZoneBox,     origin?.ZoneText);
+        SetInfoRow(WebHostLabel,     WebHostBox,     origin?.HostUrl);
+        SetInfoRow(WebReferrerLabel, WebReferrerBox, origin?.ReferrerUrl);
+        LayoutInfoColumns();
+    }
+
+    private void ClearWebRows()
+    {
+        SetInfoRow(WebZoneLabel,     WebZoneBox,     null);
+        SetInfoRow(WebHostLabel,     WebHostBox,     null);
+        SetInfoRow(WebReferrerLabel, WebReferrerBox, null);
+        LayoutInfoColumns();
     }
 
     private int _plotVersion;

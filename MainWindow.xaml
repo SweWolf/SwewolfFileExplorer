@@ -964,7 +964,8 @@
                         <ColumnDefinition Width="Auto" MinWidth="220"/>   <!-- (nothing yet: room for information to the left of the picture) -->
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition x:Name="PlotColumn" Width="*"/>   <!-- the plot (set in code: MainWindow.LayoutInfoColumns) -->
-                        <ColumnDefinition x:Name="AiInfoColumn" Width="0"/>   <!-- the prompt and seed of an AI picture or video -->
+                        <ColumnDefinition x:Name="AiInfoColumn" Width="0"/>   <!-- the prompt and negative prompt of an AI picture or video -->
+                        <ColumnDefinition x:Name="InfoRightColumn" Width="0"/>   <!-- the seed and what the web says about the file (Mark of the Web) -->
                     </Grid.ColumnDefinitions>
 
                     <!-- The plot from the video's .nfo file, to the right of the preview picture, only when there is one
@@ -989,14 +990,11 @@
 
                     <!-- What an AI program wrote into a PNG or MP4 (prompt, negative prompt, seed), right of the plot column.
                          Read-only text boxes, so the text can be selected and copied; each scrolls by itself when the text is long. -->
-                    <Grid x:Name="AiInfoArea" Grid.Row="2" Grid.Column="3" Margin="16,0,0,0" Visibility="Collapsed"
-                          SizeChanged="AiInfoArea_SizeChanged">
+                    <Grid x:Name="AiInfoArea" Grid.Row="2" Grid.Column="3" Margin="16,0,0,0" Visibility="Collapsed">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="2*" MinWidth="80"/>
                             <ColumnDefinition Width="10"/>
                             <ColumnDefinition Width="1*" MinWidth="50"/>
-                            <ColumnDefinition Width="10"/>
-                            <ColumnDefinition x:Name="AiSeedColumn" Width="170"/>   <!-- the seed gives way first: see AiInfoArea_SizeChanged -->
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -1026,16 +1024,75 @@
                                 </ContextMenu>
                             </TextBox.ContextMenu>
                         </TextBox>
+                    </Grid>
 
-                        <TextBlock Grid.Column="4" FontSize="12" FontWeight="Bold" Text="Seed" Margin="0,0,0,2"/>
-                        <TextBox x:Name="AiSeedBox" Grid.Column="4" Grid.Row="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
-                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top"
-                                 VerticalScrollBarVisibility="Disabled" Background="Transparent" Padding="2" BorderThickness="0"
+                    <!-- The right-hand part of the panel: the seed of an AI picture, and what the web says about the file (the Mark of the Web
+                         that browsers attach to a download: zone, address of the file, page it came from). Single-line read-only text boxes (the
+                         whole text is copied by Ctrl+C or the menu); a row without a value is not shown; read in the background (MainWindow.ShowWebOrigin). -->
+                    <Grid x:Name="InfoRightArea" Grid.Row="2" Grid.Column="4" Margin="16,0,0,0" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock x:Name="AiSeedLabel" Grid.Row="0" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Seed"
+                                   VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
+                        <TextBox x:Name="AiSeedBox" Grid.Row="0" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
+                                 VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
                                  PreviewKeyDown="AiSeedBox_PreviewKeyDown">
                             <TextBox.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
-                                              ToolTip="Copies the whole seed"/>
+                                              ToolTip="Copies the whole text"/>
+                                </ContextMenu>
+                            </TextBox.ContextMenu>
+                        </TextBox>
+
+                        <TextBlock x:Name="WebZoneLabel" Grid.Row="1" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Zone ID"
+                                   VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
+                        <TextBox x:Name="WebZoneBox" Grid.Row="1" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
+                                 VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
+                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown">
+                            <TextBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
+                                              ToolTip="Copies the whole text"/>
+                                </ContextMenu>
+                            </TextBox.ContextMenu>
+                        </TextBox>
+
+                        <TextBlock x:Name="WebHostLabel" Grid.Row="2" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Host URL"
+                                   VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
+                        <TextBox x:Name="WebHostBox" Grid.Row="2" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
+                                 VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
+                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown">
+                            <TextBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
+                                              ToolTip="Copies the whole text"/>
+                                </ContextMenu>
+                            </TextBox.ContextMenu>
+                        </TextBox>
+
+                        <TextBlock x:Name="WebReferrerLabel" Grid.Row="3" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Referrer URL"
+                                   VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
+                        <TextBox x:Name="WebReferrerBox" Grid.Row="3" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
+                                 VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
+                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown">
+                            <TextBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
+                                              ToolTip="Copies the whole text"/>
                                 </ContextMenu>
                             </TextBox.ContextMenu>
                         </TextBox>
@@ -1044,7 +1101,7 @@
                     <!-- The map symbol in the lower right corner: only when the selected picture or video says where it was taken
                          (read in the background, MainWindow.ShowGps). A click shows the place on Google Maps; the right-click menu can copy
                          the coordinates. A Windows symbol font glyph (Segoe Fluent Icons), so it follows the style and needs no picture file. -->
-                    <Border x:Name="GpsButton" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Width="34" Height="34" Margin="0,0,2,0"
+                    <Border x:Name="GpsButton" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Width="34" Height="34" Margin="0,0,2,0"
                             HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="Hand"
                             Visibility="Collapsed" Panel.ZIndex="3" MouseLeftButtonUp="GpsButton_MouseLeftButtonUp">
                         <Border.ContextMenu>
@@ -1068,7 +1125,7 @@
 
                     <!-- A row of its own above the picture and the plot: where the selected file is in the list (or how many are
                          selected / in the folder), and the hidden-items link well to the right of it -->
-                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" VerticalAlignment="Top">
+                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal" VerticalAlignment="Top">
                         <TextBlock x:Name="PositionText" FontSize="12"/>
 
                         <TextBlock FontSize="12" Margin="84,0,16,0"
@@ -1103,7 +1160,7 @@
 
                     <!-- The Play bar, as TeraTool's box under the list, with one change: Play and Pause are one button. Under the info line,
                          above the preview picture; wraps onto a second line in a narrow window. Phase 1 plays pictures (see docs/slideshow-and-play-modes-plan.md). -->
-                    <Border x:Name="PlayBar" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Visibility="Collapsed" Padding="0,2,0,4">
+                    <Border x:Name="PlayBar" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" Visibility="Collapsed" Padding="0,2,0,4">
                         <WrapPanel Orientation="Horizontal">
                             <Button x:Name="PlayPreviousButton" Click="PlayPrevious_Click" ToolTip="Previous File" Padding="8,2" Margin="0,2,4,2"
                                     Content="&#x25C0;&#x2502;" FontFamily="Segoe UI Symbol" FontSize="12"/>
@@ -1151,7 +1208,7 @@
                     </Border>
 
                     <!-- The line under the Play bar (the continuous playing row): drag it to change the height of the panel, as the other lines. -->
-                    <Thumb x:Name="PlayLineDivider" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Height="5" Cursor="SizeNS"
+                    <Thumb x:Name="PlayLineDivider" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" Height="5" Cursor="SizeNS"
                            VerticalAlignment="Bottom" Margin="-10,0,-10,0" Visibility="Collapsed"
                            DragDelta="InfoDivider_DragDelta" DragCompleted="InfoDivider_DragCompleted">
                         <Thumb.Template>
@@ -1199,7 +1256,7 @@
                     <!-- A second line, under the info line (File 12/17 ...), that does the same as the one above the panel: drag it to
                          change the height of the panel. The info line itself keeps its height. It lies over the bottom of the info
                          line's row, so nothing moves, and reaches to the edges of the panel (the panel has a padding). -->
-                    <Thumb x:Name="InfoLineDivider" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Height="5" Cursor="SizeNS"
+                    <Thumb x:Name="InfoLineDivider" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="5" Height="5" Cursor="SizeNS"
                            VerticalAlignment="Bottom" Margin="-10,0,-10,0"
                            DragDelta="InfoDivider_DragDelta" DragCompleted="InfoDivider_DragCompleted">
                         <Thumb.Template>
