@@ -1036,6 +1036,14 @@
                         <Border.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Show on Google Maps" Click="GpsOpen_Click"/>
+                                <MenuItem Header="Show on OpenStreetMap" Tag="osm" Click="GpsSite_Click"/>
+                                <MenuItem Header="Show on Bing Maps" Tag="bing" Click="GpsSite_Click"/>
+                                <MenuItem Header="Show on Waze" Tag="waze" Click="GpsSite_Click"
+                                          ToolTip="Opens Waze with a route to the place"/>
+                                <MenuItem Header="Show on Apple Maps" Tag="apple" Click="GpsSite_Click"/>
+                                <MenuItem Header="Show on HERE WeGo" Tag="here" Click="GpsSite_Click"/>
+                                <MenuItem Header="Show on MapQuest" Tag="mapquest" Click="GpsSite_Click"/>
+                                <Separator/>
                                 <MenuItem Header="Copy Coordinates" Click="GpsCopy_Click"/>
                             </ContextMenu>
                         </Border.ContextMenu>

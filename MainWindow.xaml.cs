@@ -1351,10 +1351,16 @@ public partial class MainWindow : Window
         if (_gps is { } position) CopyText(position.Text);
     }
 
-    private void OpenGps()
+    /// <summary>A map site chosen in the symbol's right-click menu (its key is the item's Tag: see <see cref="GpsPosition.UrlFor"/>).</summary>
+    private void GpsSite_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string site }) OpenGps(site);
+    }
+
+    private void OpenGps(string site = "google")
     {
         if (_gps is not { } position) return;
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(position.MapsUrl) { UseShellExecute = true }); }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(position.UrlFor(site)) { UseShellExecute = true }); }
         catch { /* no browser: nothing to show */ }
     }
 

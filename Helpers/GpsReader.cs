@@ -13,8 +13,27 @@ public readonly record struct GpsPosition(double Latitude, double Longitude)
     /// <summary>"59.3293, 18.0686": the form Google Maps and most map programs take in a search box.</summary>
     public string Text => $"{Num(Latitude)}, {Num(Longitude)}";
 
-    /// <summary>The address that shows the place on Google Maps (opened only when the user clicks the symbol).</summary>
-    public string MapsUrl => $"https://www.google.com/maps?q={Num(Latitude)},{Num(Longitude)}";
+    /// <summary>The address that shows the place on Google Maps (the left click of the map symbol).</summary>
+    public string MapsUrl => UrlFor("google");
+
+    /// <summary>
+    /// The address that shows the place on one of the map sites of the symbol's right-click menu (opened only when the user chooses it).
+    /// Keys: google, osm (OpenStreetMap), bing, waze, apple, here (HERE WeGo), mapquest. Waze starts a route to the place, as its address does.
+    /// </summary>
+    public string UrlFor(string site)
+    {
+        string lat = Num(Latitude), lon = Num(Longitude);
+        return site switch
+        {
+            "osm"      => $"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=16/{lat}/{lon}",
+            "bing"     => $"https://www.bing.com/maps?cp={lat}~{lon}&lvl=16&sp=point.{lat}_{lon}_Photo",
+            "waze"     => $"https://www.waze.com/live-map/directions?navigate=yes&to=ll.{lat}%2C{lon}",
+            "apple"    => $"https://maps.apple.com/frame?center={lat}%2C{lon}",
+            "here"     => $"https://wego.here.com/?map={lat},{lon},16",
+            "mapquest" => $"https://www.mapquest.com/latlng/{lat},{lon}",
+            _          => $"https://www.google.com/maps?q={lat},{lon}",
+        };
+    }
 }
 
 /// <summary>
