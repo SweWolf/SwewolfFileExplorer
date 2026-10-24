@@ -975,13 +975,14 @@
 
                     <!-- What an AI program wrote into a PNG or MP4 (prompt, negative prompt, seed), right of the plot column.
                          Read-only text boxes, so the text can be selected and copied; each scrolls by itself when the text is long. -->
-                    <Grid x:Name="AiInfoArea" Grid.Row="2" Grid.Column="3" Margin="16,0,0,0" Visibility="Collapsed">
+                    <Grid x:Name="AiInfoArea" Grid.Row="2" Grid.Column="3" Margin="16,0,0,0" Visibility="Collapsed"
+                          SizeChanged="AiInfoArea_SizeChanged">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="2*" MinWidth="80"/>
                             <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="1*" MinWidth="50"/>
                             <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition x:Name="AiSeedColumn" Width="170"/>   <!-- the seed gives way first: see AiInfoArea_SizeChanged -->
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>

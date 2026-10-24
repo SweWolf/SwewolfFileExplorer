@@ -1313,6 +1313,18 @@ public partial class MainWindow : Window
         LayoutInfoColumns();
     }
 
+    private const double AiSeedWidth = 170, AiSeedMinWidth = 60, AiPromptWantedWidth = 300, AiNegativeWantedWidth = 150, AiGaps = 20;
+
+    /// <summary>
+    /// When the window gets narrower the seed is the first to shrink (down to 60 px): the prompt and the negative prompt keep the room they
+    /// want (300 and 150 px) while the seed can give some up, and only after the seed is at its smallest do they shrink too.
+    /// </summary>
+    private void AiInfoArea_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        double seed = e.NewSize.Width - AiGaps - AiPromptWantedWidth - AiNegativeWantedWidth;
+        AiSeedColumn.Width = new GridLength(Math.Clamp(seed, AiSeedMinWidth, AiSeedWidth));
+    }
+
     /// <summary>
     /// The plot and the AI information (a Wan2GP video has both) share the room right of the picture; a column the area of which is
     /// not shown gets no width at all. Called whenever one of the two is shown or hidden.
