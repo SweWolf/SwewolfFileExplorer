@@ -1313,6 +1313,45 @@ public partial class MainWindow : Window
         LayoutInfoColumns();
     }
 
+    // ── Right-click menu of the AI information boxes ──────────────────────────
+
+    private static TextBox? AiBoxOf(object sender) =>
+        sender is MenuItem { Parent: ContextMenu { PlacementTarget: TextBox box } } ? box : null;
+
+    /// <summary>"Copy Selected Text" is only there to use when some text is selected.</summary>
+    private void AiTextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu { PlacementTarget: TextBox box } menu && menu.Items.Count > 0 && menu.Items[0] is MenuItem copy)
+            copy.IsEnabled = box.SelectionLength > 0;
+    }
+
+    private void AiCopySelected_Click(object sender, RoutedEventArgs e)
+    {
+        if (AiBoxOf(sender) is { } box && box.SelectionLength > 0) box.Copy();
+    }
+
+    private void AiCopyAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (AiBoxOf(sender) is { } box) CopyText(box.Text);
+    }
+
+    /// <summary>The seed is always copied whole: a part of a number is of no use, so Ctrl+C in that box takes all of it.</summary>
+    private void AiSeedBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control && sender is TextBox box)
+        {
+            CopyText(box.Text);
+            e.Handled = true;
+        }
+    }
+
+    private static void CopyText(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        try { Clipboard.SetText(text); }
+        catch (System.Runtime.InteropServices.COMException) { /* another program holds the clipboard right now: nothing is copied */ }
+    }
+
     private const double AiSeedWidth = 170, AiSeedMinWidth = 60, AiPromptWantedWidth = 300, AiNegativeWantedWidth = 150, AiGaps = 20;
 
     /// <summary>
