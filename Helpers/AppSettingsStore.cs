@@ -76,6 +76,13 @@ public class AppSettings
     public bool PlayAskFirst { get; set; } = true;
     public int PlayTimeout { get; set; } = 10;
 
+    /// <summary>
+    /// A right-click on a folder of the tree selects it first (and so opens it in the list), as a right-click on a file does in the list
+    /// (Settings > Folder Tree). Off: the selection stays where it is and the folder under the mouse gets an outline while its menu is open,
+    /// as in Windows Explorer.
+    /// </summary>
+    public bool RightClickSelectsTreeNode { get; set; } = true;
+
     /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
     public bool ShowOpenInTerminal { get; set; } = true;
 

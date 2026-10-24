@@ -60,6 +60,11 @@
             </StackPanel>
         </GroupBox>
 
+        <GroupBox Header="Folder Tree" Padding="8" Margin="0,8,0,0">
+            <CheckBox x:Name="RightClickSelectsNodeBox" Content="Right-Clicking a Folder in the Tree Selects It"
+                      ToolTip="On: a right-click on a folder in the tree selects it first, so the list shows that folder, as a right-click on a file in the list selects the file. Off: the selected folder and the list stay as they are, and the folder you right-clicked gets an outline while its menu is open, as in Windows Explorer."/>
+        </GroupBox>
+
         <GroupBox Header="Terminal Menu (Right-Click an Item to Open It as the Administrator)" Padding="8" Margin="0,8,0,0">
             <StackPanel>
                 <CheckBox x:Name="TerminalBox" Content="Open in Terminal"

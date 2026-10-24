@@ -60,6 +60,17 @@ public class TreeItemViewModel : INotifyPropertyChanged
         set { _isSelected = value; OnPropertyChanged(); }
     }
 
+    private bool _isContextTarget;
+
+    /// <summary>
+    /// The folder the right-click menu is open on, drawn with an outline (only when a right-click does not select it: Settings > Folder Tree).
+    /// </summary>
+    public bool IsContextTarget
+    {
+        get => _isContextTarget;
+        set { if (_isContextTarget == value) return; _isContextTarget = value; OnPropertyChanged(); }
+    }
+
     /// <summary>Tells how the subfolders of a folder are sorted. Handed down from the nodes to their children.</summary>
     public delegate (SortColumn Column, bool Ascending) TreeSortLookup(string folderPath);
 

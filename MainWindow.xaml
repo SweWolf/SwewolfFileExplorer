@@ -564,6 +564,7 @@
                           FontSize="{Binding TreeFontSize}"
                           PreviewMouseWheel="Tree_PreviewMouseWheel"
                           ContextMenuOpening="NavigationTree_ContextMenuOpening"
+                          PreviewMouseRightButtonDown="NavigationTree_PreviewMouseRightButtonDown"
                           AllowDrop="True" DragOver="NavigationTree_DragOver" Drop="NavigationTree_Drop"
                           KeyDown="NavigationTree_KeyDown"
                           PreviewTextInput="NavigationTree_PreviewTextInput"
@@ -571,7 +572,7 @@
 
                     <!-- Right-click on a folder of the tree: the menu works on that folder, which need not be the current one -->
                     <TreeView.ContextMenu>
-                        <ContextMenu x:Name="TreeContextMenu" Opened="TreeContextMenu_Opened">
+                        <ContextMenu x:Name="TreeContextMenu" Opened="TreeContextMenu_Opened" Closed="TreeContextMenu_Closed">
                             <MenuItem Header="Open"            Click="TreeCtxOpen_Click"/>
                             <MenuItem Header="Open in New Tab" Click="TreeCtxOpenInNewTab_Click"/>
                             <MenuItem Header="Open in Windows Explorer" Click="TreeCtxExplorer_Click"
@@ -635,43 +636,56 @@
                     <TreeView.Resources>
                         <HierarchicalDataTemplate DataType="{x:Type vm:TreeItemViewModel}"
                                                   ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" Margin="2,1">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
+                            <!-- The outline of the folder a right-click menu is open on (Settings > Folder Tree: only when a right-click does not select it) -->
+                            <Border BorderThickness="1" CornerRadius="2">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="BorderBrush" Value="Transparent"/>
                                         <Style.Triggers>
-                                            <!-- Hidden folders (when shown) look faded, as in the list -->
-                                            <DataTrigger Binding="{Binding IsHidden}" Value="True">
-                                                <Setter Property="Opacity" Value="0.55"/>
+                                            <DataTrigger Binding="{Binding IsContextTarget}" Value="True">
+                                                <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </StackPanel.Style>
-                                <Image Source="{Binding Icon}" Width="16" Height="16"
-                                       VerticalAlignment="Center" Margin="0,0,5,0"
-                                       RenderOptions.BitmapScalingMode="NearestNeighbor">
-                                    <Image.Style>
-                                        <Style TargetType="Image">
+                                </Border.Style>
+                                <StackPanel Orientation="Horizontal" Margin="2,1">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
                                             <Style.Triggers>
-                                                <!-- Bookmarks, Quick Access and This PC have a drawn icon below instead -->
-                                                <DataTrigger Binding="{Binding IconShape, Converter={StaticResource TextToVisibility}}" Value="Visible">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                <!-- Hidden folders (when shown) look faded, as in the list -->
+                                                <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                                    <Setter Property="Opacity" Value="0.55"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
-                                    </Image.Style>
-                                </Image>
-                                <!-- Drawn icons (16 x 16, fixed colors that work on light and dark): a bookmark ribbon, a star, a computer -->
-                                <Canvas Width="16" Height="16" Margin="0,0,5,0" VerticalAlignment="Center"
-                                        Visibility="{Binding IconShape, Converter={StaticResource TextToVisibility}}">
-                                    <Path Fill="#2F6FD6" Data="M3.5,1.5 H12.5 V14.5 L8,10.8 L3.5,14.5 Z"
-                                          Visibility="{Binding IconShape, Converter={StaticResource ShapeIs}, ConverterParameter=bookmark}"/>
-                                    <Path Fill="#F0B400" Data="M8,0.8 L10.1,5.7 L15.4,6.1 L11.3,9.5 L12.6,14.7 L8,11.9 L3.4,14.7 L4.7,9.5 L0.6,6.1 L5.9,5.7 Z"
-                                          Visibility="{Binding IconShape, Converter={StaticResource ShapeIs}, ConverterParameter=star}"/>
-                                    <Path Fill="#3E8EDE" Data="M1.5,2 H14.5 V11 H1.5 Z M5,12.2 H11 V13.6 H5 Z"
-                                          Visibility="{Binding IconShape, Converter={StaticResource ShapeIs}, ConverterParameter=pc}"/>
-                                </Canvas>
-                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                            </StackPanel>
+                                    </StackPanel.Style>
+                                    <Image Source="{Binding Icon}" Width="16" Height="16"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"
+                                           RenderOptions.BitmapScalingMode="NearestNeighbor">
+                                        <Image.Style>
+                                            <Style TargetType="Image">
+                                                <Style.Triggers>
+                                                    <!-- Bookmarks, Quick Access and This PC have a drawn icon below instead -->
+                                                    <DataTrigger Binding="{Binding IconShape, Converter={StaticResource TextToVisibility}}" Value="Visible">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Image.Style>
+                                    </Image>
+                                    <!-- Drawn icons (16 x 16, fixed colors that work on light and dark): a bookmark ribbon, a star, a computer -->
+                                    <Canvas Width="16" Height="16" Margin="0,0,5,0" VerticalAlignment="Center"
+                                            Visibility="{Binding IconShape, Converter={StaticResource TextToVisibility}}">
+                                        <Path Fill="#2F6FD6" Data="M3.5,1.5 H12.5 V14.5 L8,10.8 L3.5,14.5 Z"
+                                              Visibility="{Binding IconShape, Converter={StaticResource ShapeIs}, ConverterParameter=bookmark}"/>
+                                        <Path Fill="#F0B400" Data="M8,0.8 L10.1,5.7 L15.4,6.1 L11.3,9.5 L12.6,14.7 L8,11.9 L3.4,14.7 L4.7,9.5 L0.6,6.1 L5.9,5.7 Z"
+                                              Visibility="{Binding IconShape, Converter={StaticResource ShapeIs}, ConverterParameter=star}"/>
+                                        <Path Fill="#3E8EDE" Data="M1.5,2 H14.5 V11 H1.5 Z M5,12.2 H11 V13.6 H5 Z"
+                                              Visibility="{Binding IconShape, Converter={StaticResource ShapeIs}, ConverterParameter=pc}"/>
+                                    </Canvas>
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
                         </HierarchicalDataTemplate>
                     </TreeView.Resources>
 

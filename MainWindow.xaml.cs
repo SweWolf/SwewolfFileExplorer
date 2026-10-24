@@ -2721,9 +2721,55 @@ public partial class MainWindow : Window
     /// <summary>The folder the tree's menu was opened on (not necessarily the selected one).</summary>
     private TreeItemViewModel? _treeMenuNode;
 
+    /// <summary>The nearest tree node (TreeViewItem) at or above an element.</summary>
+    private static TreeViewItem? TreeViewItemAbove(DependencyObject? element)
+    {
+        while (element != null && element is not TreeViewItem)
+            element = element is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(element)
+                : LogicalTreeHelper.GetParent(element);
+        return element as TreeViewItem;
+    }
+
+    /// <summary>
+    /// Settings > Folder Tree: a right-click on a folder selects it first (the list opens it), as a right-click on a file selects the file.
+    /// Quick Access and This PC have no menu and are left alone. With the setting off nothing happens here: the selection stays, and
+    /// <see cref="NavigationTree_ContextMenuOpening"/> outlines the folder the menu is for.
+    /// </summary>
+    private void NavigationTree_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!AppSettingsStore.Current.RightClickSelectsTreeNode) return;
+
+        var item = TreeViewItemAbove(e.OriginalSource as DependencyObject);
+        if (item?.DataContext is not TreeItemViewModel { FullPath.Length: > 0 }) return;
+
+        if (!item.IsSelected) item.IsSelected = true;
+        item.Focus();
+    }
+
+    private TreeItemViewModel? _outlinedTreeNode;
+
+    /// <summary>Outlines the folder a menu is open on (only when a right-click does not select it); the outline goes when the menu closes.</summary>
+    private void OutlineTreeNode(TreeItemViewModel? node)
+    {
+        ClearTreeOutline();
+        if (node == null || AppSettingsStore.Current.RightClickSelectsTreeNode) return;
+        node.IsContextTarget = true;
+        _outlinedTreeNode = node;
+    }
+
+    private void ClearTreeOutline()
+    {
+        if (_outlinedTreeNode != null) _outlinedTreeNode.IsContextTarget = false;
+        _outlinedTreeNode = null;
+    }
+
+    private void TreeContextMenu_Closed(object sender, RoutedEventArgs e) => ClearTreeOutline();
+
     private void NavigationTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         _treeMenuNode = null;
+        ClearTreeOutline();
 
         // The node under the mouse (or with the keyboard focus, for the menu key): the nearest TreeViewItem above the source.
         var element = e.OriginalSource as DependencyObject;
@@ -2750,6 +2796,10 @@ public partial class MainWindow : Window
             {
                 e.Handled = true;
                 ShowWindowsMenuForFolder(node.FullPath);
+            }
+            else
+            {
+                OutlineTreeNode(node);   // closed again by TreeContextMenu_Closed
             }
         }
         else
@@ -2829,6 +2879,8 @@ public partial class MainWindow : Window
     private void ShowBookmarkMenu(TreeItemViewModel node)
     {
         var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
+        OutlineTreeNode(node);
+        menu.Closed += (_, _) => ClearTreeOutline();
         var entry = node.Bookmark;
 
         if (entry != null)
