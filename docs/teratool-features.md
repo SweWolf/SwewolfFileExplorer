@@ -16,8 +16,11 @@ what SweWolf File Explorer does (made 2026-10-19). `[x]` = built, `[ ]` = not bu
 ## File operations
 
 - [x] **6. Smart rename.** The Rename box (F2): the extension in a box of its own, Upper / Lower / Proper Case, "Use Smart Name"
-  (`Artist - Title` for music; `Title (Year)` and `Title - s01e02` for video), the old name shown above. Not done: smart rename of several files at
-  once, and the `/r "file"` command line (item 21).
+  (`Artist - Title` for music; `Title (Year)` and `Title - s01e02` for video), the old name shown above. **Several files at once done
+  (2026-10-24):** right-click menu "Rename All Selected Music Files and Video Files Using Smart Rename": only the selected files (TeraTool took the
+  whole folder), asks first (Multiple Rename, OK / Cancel), one question for the related files, a taken name leaves a main file as it is and gives a
+  related file a number, the library follows, and an Undo Rename button next to "File 3/4" lasts until another folder is shown or a rename is made by
+  hand. The `/r "file"` command line is not built on purpose (item 21).
 - [ ] **7a. Move to Folder (the M key).** Pick a folder and move the selected files there.
 - [x] **7b. Offer to move a video after a smart rename.** Setting "Auto-Suggest File Move When Renaming Video Files" (off by default): a
   movie goes to `Videos\Movies`, an episode to `Videos\TV Shows\<Show>`; the folder can be changed.
@@ -40,9 +43,11 @@ what SweWolf File Explorer does (made 2026-10-19). `[x]` = built, `[ ]` = not bu
 ## Covers and miscellaneous
 
 - [ ] **20. Cycle through cover candidates, or download covers automatically.**
-- [ ] **21. `/r "file"` command line.** A rename-only start, used from Send To.
+- [x] **21. `/r "file"` command line.** **Not built, on purpose (the user, 2026-10-24):** it was a complement for people who kept using the Windows
+  Explorer; this program replaces it, so a rename-only start from Send To is not needed. Closed.
 - [ ] **22. Mouse wheel behavior option.** Scroll, zoom or navigate.
-- [ ] **23. A file or folder on the command line for other file types** than pictures (open the player or the default program).
+- [x] **23. A file or folder on the command line for other file types** than pictures. Done 2026-10-23, but selecting instead of opening (the user's
+  choice, for the sibling programs): the folder opens, the file is selected (a hidden one is shown), nothing is played. Quotes are not required.
 
 ## Left out on purpose
 
