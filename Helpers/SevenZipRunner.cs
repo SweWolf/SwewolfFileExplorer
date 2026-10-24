@@ -61,7 +61,7 @@ internal static class SevenZipRunner
 
     private static string Require() =>
         Find() ?? throw new ArchiveException(
-            "7-Zip is needed to open this kind of archive (RAR, 7z), and it was not found. Install it from www.7-zip.org.");
+            "7-Zip is needed to open this kind of archive (RAR, 7z, CAB), and it was not found. Install it from www.7-zip.org.");
 
     private static ProcessStartInfo Create(params string[] arguments)
     {
