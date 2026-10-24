@@ -1338,7 +1338,8 @@ public partial class MainWindow : Window
         if (version != _gpsVersion || position is not { } found) return;
 
         _gps = found;
-        GpsButton.ToolTip = $"Taken at {found.Text}. Click to show the place on Google Maps.";
+        GpsButton.ToolTip = $"GPS coordinates: {found.Text}
+Click to show the place on Google Maps.";
         GpsButton.Visibility = Visibility.Visible;
     }
 
