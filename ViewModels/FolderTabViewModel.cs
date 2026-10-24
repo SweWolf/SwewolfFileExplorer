@@ -1681,6 +1681,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
     // collected, the folder is read once on a background thread and the list is **brought in line in place** (items added, removed
     // or updated; no reload, so the selection, the scroll position and the sort stay). See AppSettings.WatchFolders.
     private FileSystemWatcher? _watcher;
+    private FileSystemWatcher? _parentWatcher;   // the folder that holds the one shown: sees it renamed or deleted by another program
+    private volatile string? _renamedTo;          // where another program renamed the folder shown to
     private FileSystemWatcher? _treeWatcher;   // folders made, renamed and deleted at any depth below the folder shown (names of folders only)
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _dirtyParents = new(StringComparer.OrdinalIgnoreCase);
     private string? _watchedPath;
@@ -1752,6 +1754,23 @@ public class FolderTabViewModel : INotifyPropertyChanged
             t.Renamed += OnTreeWatched;
             t.EnableRaisingEvents = true;
             _treeWatcher = t;
+
+            // The third one watches the folder above (folder names only, not below it): the watcher of the folder shown itself says
+            // nothing when that folder is renamed or deleted, and the tree node of the folder above must follow the change.
+            var parent = Path.GetDirectoryName(path.TrimEnd('\\', '/'));
+            if (!string.IsNullOrEmpty(parent) && Directory.Exists(parent))
+            {
+                var pw = new FileSystemWatcher(parent)
+                {
+                    NotifyFilter          = NotifyFilters.DirectoryName,
+                    IncludeSubdirectories = false,
+                };
+                pw.Created += OnParentWatched;
+                pw.Deleted += OnParentWatched;
+                pw.Renamed += OnParentWatched;
+                pw.EnableRaisingEvents = true;
+                _parentWatcher = pw;
+            }
         }
         catch
         {
@@ -1765,6 +1784,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         _watchTimer?.Stop();
         _dirtyParents.Clear();
+        _renamedTo = null;
+        var pw = _parentWatcher;
+        _parentWatcher = null;
+        if (pw != null) { pw.EnableRaisingEvents = false; pw.Dispose(); }
         var t = _treeWatcher;
         _treeWatcher = null;
         if (t != null) { t.EnableRaisingEvents = false; t.Dispose(); }
@@ -1774,6 +1797,18 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (w == null) return;
         w.EnableRaisingEvents = false;
         w.Dispose();
+    }
+
+    private void OnParentWatched(object? sender, FileSystemEventArgs e)
+    {
+        try
+        {
+            var parent = Path.GetDirectoryName(e.FullPath);
+            if (!string.IsNullOrEmpty(parent)) _dirtyParents[parent] = 0;
+            if (e is RenamedEventArgs r && IsSamePath(r.OldFullPath, _watchedPath)) _renamedTo = r.FullPath;   // the folder shown got a new name
+        }
+        catch { /* not a usable path */ }
+        Application.Current?.Dispatcher.BeginInvoke(new Action(KickWatch), System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private void OnTreeWatched(object? sender, FileSystemEventArgs e)
@@ -1812,6 +1847,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
         return node;
     }
 
+    /// <summary>The node of the folder that holds the folder shown (it is in the tree: the way to the folder shown is expanded).</summary>
+    private TreeItemViewModel? FindNodeOfParent(string path)
+    {
+        if (string.IsNullOrEmpty(_currentPath) || !IsSamePath(Path.GetDirectoryName(_currentPath.TrimEnd('\\', '/')), path)) return null;
+        var node = ResolveNode(path);
+        return node != null && NodeIs(node, path) ? node : null;
+    }
+
     /// <summary>The folders that changed below the folder shown: each of their nodes in the tree reads its subfolders again, in place (a node that is not expanded only checks whether it has an expand arrow).</summary>
     private void SyncDirtyTreeNodes()
     {
@@ -1821,7 +1864,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         foreach (var parent in parents)
         {
-            try { FindLoadedNode(parent)?.SyncChildren(); }
+            try { (FindLoadedNode(parent) ?? FindNodeOfParent(parent))?.SyncChildren(); }
             catch { /* a folder that went away meanwhile */ }
         }
     }
@@ -1853,8 +1896,17 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private void WatchTimerTick(object? sender, EventArgs e)
     {
         _watchTimer?.Stop();
-        SyncListInPlace();
         SyncDirtyTreeNodes();
+
+        // The folder shown was renamed by another program: follow it (the tree already shows the new name).
+        var renamed = _renamedTo;
+        _renamedTo = null;
+        if (renamed != null && Directory.Exists(renamed) && !Directory.Exists(_currentPath))
+        {
+            Navigate(renamed, addToHistory: false);
+            return;
+        }
+        SyncListInPlace();
     }
 
     /// <summary>Reads the folder in the background and brings the list in line with it in place. Never touches an archive, This PC or an unavailable tab.</summary>
@@ -3130,6 +3182,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         Refresh();
         RefreshTreeFolder(destination);   // the folder pasted into need not be the current one
+
+        // A folder that was moved away must also go from the tree where it was: read the folders it was taken out of again.
+        foreach (var parent in moved.Select(m => Path.GetDirectoryName(m.From.TrimEnd('\\', '/'))).Where(p => !string.IsNullOrEmpty(p)).Distinct(StringComparer.OrdinalIgnoreCase))
+            RefreshTreeFolder(parent);
 
         if (result.Canceled)
             StatusText = $"{(isCut ? "Move" : "Copy")} canceled: {result.Done.Count} of {result.Total} items were done.";
