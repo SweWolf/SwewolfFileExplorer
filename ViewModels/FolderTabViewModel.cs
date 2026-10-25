@@ -347,17 +347,78 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree) { IconShape = "pc" };
         thisPC.IsExpanded = true;
 
-        foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
-        {
-            var label    = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? drive.Name : $"{drive.VolumeLabel} ({drive.Name.TrimEnd('\\')})";
-            var driveItem = new TreeItemViewModel(label, drive.RootDirectory.FullName, IconHelper.GetIcon(drive.RootDirectory.FullName),
-                                                  sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
-            driveItem.InitializeLazyLoad();
-            thisPC.Children.Add(driveItem);
-        }
+        foreach (var drive in ReadDrives().Drives)
+            thisPC.Children.Add(MakeDriveNode(drive));
 
         TreeItems.Add(thisPC);
     }
+
+    // ── Drives under This PC ─────────────────────────────────────────────────
+
+    /// <summary>A drive as the tree shows it: its root and the text of its node ("Data (D:)").</summary>
+    public sealed record DriveEntry(string Root, string Label);
+
+    /// <summary>
+    /// The drives that are ready now. Can be slow (a network drive that is gone, a drive still mounting): call it off the UI thread.
+    /// AnyNotReady says a drive exists that is not ready yet (a volume that is being mounted), so it is worth looking again soon.
+    /// </summary>
+    public static (List<DriveEntry> Drives, bool AnyNotReady) ReadDrives()
+    {
+        var result = new List<DriveEntry>();
+        bool notReady = false;
+        foreach (var drive in DriveInfo.GetDrives())
+        {
+            try
+            {
+                if (!drive.IsReady) { if (drive.DriveType != DriveType.CDRom) notReady = true; continue; }
+                var label = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? drive.Name : $"{drive.VolumeLabel} ({drive.Name.TrimEnd('\\')})";
+                result.Add(new DriveEntry(drive.RootDirectory.FullName, label));
+            }
+            catch { notReady = true; }   // gone between the two calls
+        }
+        return (result, notReady);
+    }
+
+    private TreeItemViewModel MakeDriveNode(DriveEntry drive)
+    {
+        var item = new TreeItemViewModel(drive.Label, drive.Root, IconHelper.GetIcon(drive.Root),
+                                         sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
+        item.InitializeLazyLoad();
+        return item;
+    }
+
+    /// <summary>
+    /// Brings the drives under This PC in line with the list: a drive that came (a USB stick, a VeraCrypt volume) is added in its place,
+    /// one that went is removed, one whose name changed is made again. The drive the tab is in, or that is selected, is never removed or
+    /// replaced under the user's feet (the folder watcher deals with a folder that is gone). Nothing else in the tree moves.
+    /// </summary>
+    public void SyncDrives(IReadOnlyList<DriveEntry> drives)
+    {
+        var node = _thisPcNode;
+        if (node == null) return;
+
+        bool Holds(TreeItemViewModel c) =>
+            c.IsSelected || (!string.IsNullOrEmpty(_currentPath) && _currentPath.StartsWith(c.FullPath, StringComparison.OrdinalIgnoreCase));
+
+        for (int i = node.Children.Count - 1; i >= 0; i--)
+        {
+            var child = node.Children[i];
+            var drive = drives.FirstOrDefault(d => string.Equals(d.Root, child.FullPath, StringComparison.OrdinalIgnoreCase));
+            if (drive == null) { if (!Holds(child)) node.Children.RemoveAt(i); }
+            else if (drive.Label != child.Name && !Holds(child)) node.Children[i] = MakeDriveNode(drive);
+        }
+
+        foreach (var drive in drives)
+        {
+            if (node.Children.Any(c => string.Equals(c.FullPath, drive.Root, StringComparison.OrdinalIgnoreCase))) continue;
+            int at = 0;
+            while (at < node.Children.Count && string.Compare(node.Children[at].FullPath, drive.Root, StringComparison.OrdinalIgnoreCase) < 0) at++;
+            node.Children.Insert(at, MakeDriveNode(drive));
+        }
+    }
+
+    /// <summary>Raised by F5 (also on This PC): the window looks at the drives again.</summary>
+    public static event Action? DrivesRefreshRequested;
 
     // ── Bookmarks (shortcuts in the Bookmarks folder) ────────────────────────
 
@@ -971,6 +1032,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     public void Refresh()
     {
+        DrivesRefreshRequested?.Invoke();   // F5 also looks for drives that came or went, on This PC too
         if (string.IsNullOrEmpty(_currentPath) || _noFolderShown) return;
         if (_playlistDirty) { StatusText = "The playlist has changes that are not saved yet. Save it first."; return; }
 

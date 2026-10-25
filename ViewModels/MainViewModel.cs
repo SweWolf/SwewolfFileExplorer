@@ -41,6 +41,61 @@ public class MainViewModel : INotifyPropertyChanged
         ToggleTreeCommand  = new RelayCommand(_ => ShowTree = !ShowTree);
         HideFolderPictureCommand = new RelayCommand(_ => ShowFolderPicture = false);
         ShowFolderPictureCommand = new RelayCommand(_ => ShowFolderPicture = true);
+
+        FolderTabViewModel.DrivesRefreshRequested += SyncDrivesNow;
+        StartDriveWatch();
+    }
+
+    // ── Drives that come and go (USB sticks, VeraCrypt volumes ...) ──────────
+
+    private System.Windows.Threading.DispatcherTimer? _driveTimer;
+    private string _driveLetters = string.Join("", Directory.GetLogicalDrives());
+    private int _driveRetries;
+    private bool _driveReading;
+
+    /// <summary>
+    /// Looks every 2 seconds at the list of drive letters (a cheap call that touches no disk); when it changed, and for a few rounds after
+    /// that while a drive is not ready yet (a volume still being mounted), the drives are read in the background and every tab's This PC
+    /// is brought in line. F5 and the window coming to the front do it at once.
+    /// </summary>
+    private void StartDriveWatch()
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+        _driveTimer = new System.Windows.Threading.DispatcherTimer(TimeSpan.FromSeconds(2), System.Windows.Threading.DispatcherPriority.Background,
+                                                                   (_, _) => DriveTimerTick(), dispatcher);
+        _driveTimer.Start();
+    }
+
+    private void DriveTimerTick()
+    {
+        string letters;
+        try { letters = string.Join("", Directory.GetLogicalDrives()); } catch { return; }
+        if (letters != _driveLetters) { _driveLetters = letters; _driveRetries = 6; SyncDrivesNow(); }
+        else if (_driveRetries > 0) { _driveRetries--; SyncDrivesNow(); }
+    }
+
+    /// <summary>Reads the drives in the background and brings the This PC node of every tab in line with them.</summary>
+    public void SyncDrivesNow()
+    {
+        if (_driveReading) return;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+        _driveReading = true;
+
+        _ = Task.Run(() =>
+        {
+            (List<FolderTabViewModel.DriveEntry> Drives, bool AnyNotReady) read;
+            try { read = FolderTabViewModel.ReadDrives(); }
+            catch { dispatcher.InvokeAsync(() => _driveReading = false); return; }
+
+            dispatcher.InvokeAsync(() =>
+            {
+                _driveReading = false;
+                foreach (var tab in Tabs) tab.SyncDrives(read.Drives);
+                if (!read.AnyNotReady) _driveRetries = 0;   // everything is ready: nothing to wait for
+            });
+        });
     }
 
     public RelayCommand HideFolderPictureCommand { get; }

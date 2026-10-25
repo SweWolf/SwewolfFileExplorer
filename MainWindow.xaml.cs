@@ -124,6 +124,7 @@ public partial class MainWindow : Window
             if (_refreshOnActivate) { _refreshOnActivate = false; RefreshKeepingSelection(); }
             VM.RefreshReadState();
             VM.ReloadBookmarksIfChanged();   // a bookmark added, renamed or removed in Windows Explorer
+            VM.SyncDrivesNow();              // a drive mounted or removed meanwhile
 
             // The player (another process) may have set the preview picture of the selected video while this window was
             // in the background: look for it again now, so it shows without F5 or selecting another file.
