@@ -50,7 +50,7 @@
 
             <TextBlock Text="Built with:" FontWeight="Bold" Margin="0,16,0,4"/>
             <TextBlock Opacity="0.85">• .NET 10 / WPF</TextBlock>
-            <TextBlock Opacity="0.85">• 7-Zip (optional, to browse RAR and 7z archives)</TextBlock>
+            <TextBlock Opacity="0.85">• 7-Zip (optional, to browse 7z, RAR, CAB, GZ and TAR archives)</TextBlock>
 
             <Button Content="Close" Width="80" HorizontalAlignment="Right" Margin="0,16,0,0"
                     IsDefault="True" IsCancel="True"/>
