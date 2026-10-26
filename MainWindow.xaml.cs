@@ -2688,6 +2688,7 @@ public partial class MainWindow : Window
         }
 
         VM.RefreshCommand.Execute(null);
+        ReselectInList(files);   // the files that were sent stay selected
     }
 
     /// <summary>Send to from the tree's menu: the folder under the mouse is what is sent.</summary>
@@ -2696,6 +2697,8 @@ public partial class MainWindow : Window
         var target = (string)((MenuItem)sender).Tag;
         var folder = _treeMenuNode?.FullPath;
         if (folder == null) return;
+
+        var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
 
         try
         {
@@ -2708,6 +2711,7 @@ public partial class MainWindow : Window
         }
 
         VM.RefreshCommand.Execute(null);
+        ReselectInList(selected);
     }
 
     /// <summary>Properties of the selected items, or of the current folder if nothing is selected.</summary>
