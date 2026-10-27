@@ -273,7 +273,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         NewFolderCommand = new RelayCommand(_ => CreateNewFolder(), _ => HasFolder && !_inArchive);
         CopyCommand      = new RelayCommand(_ => CopySelected(),  _ => _selectedItems.Count > 0);
         CutCommand       = new RelayCommand(_ => CutSelected(),   _ => _selectedItems.Count > 0 && !_inArchive);
-        PasteCommand     = new RelayCommand(_ => Paste(),         _ => HasFolder && (!_inArchive || _inPlaylist) && FileClipboard.HasFiles());   // in a playlist: add entries
+        PasteCommand     = new RelayCommand(_ => Paste(),         _ => HasFolder && (!_inArchive || _inPlaylist) && (FileClipboard.HasFiles()   // in a playlist: add entries
+                                                                  || IsUnderBookmarks(_currentPath)));   // in Bookmarks: always on, it explains what can be pasted
         PasteKeyCommand  = new RelayCommand(_ => PasteFromKeyboard(null));
         ToggleHiddenCommand = new RelayCommand(_ => ToggleHidden());
         CopyPathCommand  = new RelayCommand(_ => CopyPathsAsText(_selectedItems.Select(i => i.FullPath)),
@@ -1448,7 +1449,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (!string.IsNullOrEmpty(_currentPath) && !_noFolderShown) UpdateFolderPicture(_currentPath);
     }
 
-    private static bool IsUnderBookmarks(string path)
+    /// <summary>The path is the Bookmarks folder or inside it (a group).</summary>
+    public static bool IsUnderBookmarks(string path)
     {
         try
         {
@@ -3127,8 +3129,26 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private void Paste()
     {
         if (_inPlaylist) PasteIntoPlaylist();
+        else if (TryPasteAsBookmarks(_currentPath)) return;
         else PasteInto(_currentPath);
     }
+
+    /// <summary>
+    /// The Bookmarks folder only holds bookmarks: a paste there makes bookmarks (paths, web addresses, files and folders on the clipboard)
+    /// or says why it cannot be done; the window does it (<see cref="BookmarksPasteRequested"/>). Not for files that come from the Bookmarks
+    /// folder itself: moving a bookmark to another group is an ordinary cut and paste.
+    /// </summary>
+    private bool TryPasteAsBookmarks(string destination)
+    {
+        if (!IsUnderBookmarks(destination)) return false;
+        if (FileClipboard.Get() is { } files && files.Paths.Any(IsUnderBookmarks)) return false;
+
+        BookmarksPasteRequested?.Invoke(destination);
+        return true;
+    }
+
+    /// <summary>A paste in the Bookmarks folder (or a group): the window makes the bookmarks of what is on the clipboard.</summary>
+    public event Action<string>? BookmarksPasteRequested;
 
     /// <summary>
     /// Ctrl+V. The paste goes into <paramref name="destination"/> (a folder of the tree; null = the folder shown). When there is nothing to
@@ -3151,6 +3171,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+        if (TryPasteAsBookmarks(destination)) return;
         if (!FileClipboard.HasFiles())
         {
             // A picture or text is there: offer to make a file of it (the same as "New File from Clipboard").

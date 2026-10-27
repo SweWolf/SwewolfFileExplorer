@@ -16,9 +16,12 @@ public static class FileDownloader
     public readonly record struct Download(byte[] Bytes, string? ContentType);
 
     /// <param name="what">What is downloaded, for the messages ("picture", "file").</param>
-    public static async Task<Download> GetBytesAsync(string url, long maxBytes, int timeoutSeconds = 60, string what = "file")
+    /// <param name="cancel">Stops the download early (the caller's Cancel button, or a time limit of its own).</param>
+    public static async Task<Download> GetBytesAsync(string url, long maxBytes, int timeoutSeconds = 60, string what = "file",
+                                                     CancellationToken cancel = default)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, url);

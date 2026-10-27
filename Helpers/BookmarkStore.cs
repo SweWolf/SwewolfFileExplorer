@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using Microsoft.VisualBasic.FileIO;
 
 namespace SwewolfFileExplorer.Helpers;
@@ -197,7 +198,7 @@ public static class BookmarkStore
     /// Bookmarks a folder or a file. Returns the entry, or null with a message when it cannot be done. If the same target is
     /// bookmarked already nothing is added: <paramref name="already"/> is true and the existing entry is returned.
     /// </summary>
-    public static BookmarkEntry? Add(string target, out bool already, out string error)
+    public static BookmarkEntry? Add(string target, out bool already, out string error, string? inFolder = null)
     {
         already = false;
         error = "";
@@ -213,7 +214,10 @@ public static class BookmarkStore
                 return null;
             }
 
-            var existing = Find(Read(checkAvailable: false), target);
+            // Added with Ctrl+D (no folder given): the same target is never bookmarked twice anywhere. Pasted into a group: only that
+            // group is looked at, so one folder or file can be in several groups.
+            var existing = inFolder == null ? Find(Read(checkAvailable: false), target)
+                                            : FindInFolder(Read(checkAvailable: false), target, inFolder);
             if (existing != null) { already = true; return existing; }
 
             // Named after the folder (or file); a drive after its letter.
@@ -222,8 +226,9 @@ public static class BookmarkStore
             name = CleanName(name);
             if (name.Length == 0) name = "Bookmark";
 
-            Directory.CreateDirectory(Folder);
-            var lnk = UniquePath(Folder, name, ".lnk");
+            var where = inFolder ?? Folder;   // a group (a sub-folder of the Bookmarks folder) or the Bookmarks folder itself
+            Directory.CreateDirectory(where);
+            var lnk = UniquePath(where, name, ".lnk");
 
             dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
             dynamic link  = shell.CreateShortcut(lnk);
@@ -239,6 +244,166 @@ public static class BookmarkStore
             error = ex.Message;
             return null;
         }
+    }
+
+    // ── Web addresses: Internet shortcuts (.url) ─────────────────────────────
+    // A .lnk cannot point to a web address, so a bookmark of one is an Internet shortcut: a small text file Windows opens in the
+    // default browser. They are not in the tree (it only shows folders); the list shows them, opens them and renames them like any file.
+    // Their icon (the page's favicon) is kept outside the Bookmarks folder, in %LocalAppData%\...\Favicons, one .ico per site.
+
+    /// <summary>Another folder for the favicons instead of the real one: for tests only.</summary>
+    public static string? FaviconFolderOverride { get; set; }
+
+    /// <summary>Where the favicons are kept.</summary>
+    public static string FaviconFolder => FaviconFolderOverride ?? System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SweWolfSoftware", AppInfo.FolderName, "Favicons");
+
+    /// <summary>
+    /// The web address as an address, or null if the text is not one: <c>http</c> / <c>https</c> only; "www.example.com" gets https.
+    /// Spaces, other schemes (file:, javascript:) and plain file names are refused.
+    /// </summary>
+    public static string? AsWebAddress(string text)
+    {
+        text = text.Trim();
+        if (text.Length == 0 || text.Length > 2000 || text.Any(char.IsWhiteSpace)) return null;
+        if (text.StartsWith("www.", StringComparison.OrdinalIgnoreCase)) text = "https://" + text;
+
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri)) return null;
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return null;
+        if (string.IsNullOrEmpty(uri.Host) || !uri.Host.Contains('.') && !uri.IsLoopback) return null;
+        return uri.AbsoluteUri;
+    }
+
+    /// <summary>The suggested name for a bookmark of a page: its title, else the site (and the last part of the address).</summary>
+    public static string SuggestUrlName(string url, string? title)
+    {
+        var name = CleanName(title ?? "");
+        if (name.Length > 0) return name.Length > 100 ? name[..100].TrimEnd() : name;
+
+        try
+        {
+            var uri  = new Uri(url);
+            var host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.Host[4..] : uri.Host;
+            var last = uri.AbsolutePath.Trim('/').Split('/').LastOrDefault() ?? "";
+            last = CleanName(System.IO.Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(last)).Replace('-', ' ').Replace('_', ' '));
+            name = CleanName(last.Length > 0 ? $"{host} - {last}" : host);
+        }
+        catch { }
+        return name.Length > 0 ? name : "Web Bookmark";
+    }
+
+    /// <summary>
+    /// The bookmark (.url) that already holds this web address: in <paramref name="inFolder"/> only (a group or the Bookmarks folder
+    /// itself, not the groups below it), or anywhere in the Bookmarks folder when no folder is given. Null if none.
+    /// </summary>
+    public static string? FindUrlBookmark(string url, string? inFolder = null)
+    {
+        try
+        {
+            var where = inFolder ?? Folder;
+            if (!Directory.Exists(where)) return null;
+            foreach (var file in Directory.EnumerateFiles(where, "*.url", inFolder == null ? System.IO.SearchOption.AllDirectories : System.IO.SearchOption.TopDirectoryOnly))
+            {
+                var existing = ReadUrlOf(file);
+                if (existing != null && string.Equals(existing.TrimEnd('/'), url.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)) return file;
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>The address in an Internet shortcut (its <c>URL=</c> line); null if it has none.</summary>
+    public static string? ReadUrlOf(string urlFile)
+    {
+        try
+        {
+            foreach (var line in File.ReadLines(urlFile))
+                if (line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase)) return line[4..].Trim();
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>
+    /// Makes the Internet shortcut <paramref name="name"/>.url in <paramref name="inFolder"/> (a group or the Bookmarks folder) and,
+    /// with <paramref name="icon"/> (the bytes of an .ico), keeps the page's icon for it. Never replaces a file: returns null with a
+    /// message when the name is taken or the file cannot be written.
+    /// </summary>
+    public static string? AddUrl(string url, string name, byte[]? icon, string inFolder, out string error)
+    {
+        error = "";
+        try
+        {
+            name = CleanName(name);
+            if (name.Length == 0) { error = "Enter a name."; return null; }
+
+            Directory.CreateDirectory(inFolder);
+            var path = System.IO.Path.Combine(inFolder, name + ".url");
+            if (File.Exists(path) || Directory.Exists(path)) { error = $"There is a bookmark named \"{name}\" already."; return null; }
+
+            var text = new StringBuilder();
+            text.Append("[InternetShortcut]\r\n");
+            text.Append("URL=").Append(url).Append("\r\n");
+
+            if (icon != null)
+            {
+                try
+                {
+                    Directory.CreateDirectory(FaviconFolder);
+                    var host = new Uri(url).Host.ToLowerInvariant();
+                    var iconPath = System.IO.Path.Combine(FaviconFolder, CleanName(host) + ".ico");
+                    File.WriteAllBytes(iconPath, icon);
+                    text.Append("IconIndex=0\r\n");
+                    text.Append("IconFile=").Append(iconPath).Append("\r\n");
+                }
+                catch { /* no icon then: the shortcut still works */ }
+            }
+
+            // Windows reads an Internet shortcut in the ANSI code page (.NET's own default is UTF-8): the address is plain ASCII,
+            // but the icon path may hold å ä ö.
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            var bytes = Encoding.GetEncoding(System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage).GetBytes(text.ToString());
+
+            // Written whole under another name and moved into place, so that nobody ever sees the finished name as an empty file (the
+            // shell remembers the icon it found the first time, and an empty .url has the plain one). Move never replaces a file.
+            var temp = path + ".part" + Environment.ProcessId;
+            try
+            {
+                File.WriteAllBytes(temp, bytes);
+                File.Move(temp, path);
+            }
+            catch
+            {
+                try { File.Delete(temp); } catch { }
+                throw;
+            }
+            return path;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return null;
+        }
+    }
+
+    private static bool SameFolder(string a, string b) =>
+        string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The bookmark of this target that lies directly in <paramref name="folder"/> (a group or the Bookmarks folder); null if none.</summary>
+    private static BookmarkEntry? FindInFolder(List<BookmarkEntry> entries, string target, string folder)
+    {
+        foreach (var e in entries)
+        {
+            if (e.IsGroup)
+            {
+                var inside = FindInFolder(e.Children, target, folder);
+                if (inside != null) return inside;
+            }
+            else if (e.StartMs == null && e.Target != null && SameFolder(System.IO.Path.GetDirectoryName(e.Path) ?? "", folder)
+                     && SameFolder(e.Target, target))
+                return e;
+        }
+        return null;
     }
 
     private static BookmarkEntry? Find(List<BookmarkEntry> entries, string target)
@@ -309,7 +474,8 @@ public static class BookmarkStore
         return System.Text.RegularExpressions.Regex.Replace(clean, @"\s+", " ").Trim().Trim('.').Trim();
     }
 
-    private static string UniquePath(string folder, string name, string extension)
+    /// <summary>A path in <paramref name="folder"/> for a new file that does not exist yet: the name, else the name with (2), (3) ...</summary>
+    public static string UniquePath(string folder, string name, string extension)
     {
         var path = System.IO.Path.Combine(folder, name + extension);
         for (int i = 2; File.Exists(path) || Directory.Exists(path); i++)

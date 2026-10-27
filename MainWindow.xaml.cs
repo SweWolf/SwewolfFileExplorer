@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         VM.FolderCreated += OnFolderCreated;
         VM.SelectPathRequested += OnSelectPathRequested;
         VM.ClipboardFileRequested += NewFileFromClipboard;   // Ctrl+V with a picture or text on the clipboard, and the user said yes
+        VM.BookmarksPasteRequested += PasteIntoBookmarks;    // Ctrl+V in the Bookmarks folder: bookmarks are made, nothing is copied there
         VM.SortChanged   += () => ApplySort(VM.SortColumn, VM.SortAscending);
         VM.LastTabClosed += Close;
 
@@ -2608,7 +2609,8 @@ public partial class MainWindow : Window
                 "Rename All Selected Music Files and Video Files Using Smart Rename" =>
                     !inArchive && FileListView.SelectedItems.OfType<FileItemViewModel>().Any(i => !i.IsDirectory && !i.IsInArchive && SmartName.Applies(i.Name)),
                 "New Folder" => !inArchive && hasFolder,
-                "New File from Clipboard" => !inArchive && hasFolder && System.IO.Directory.Exists(VM.CurrentPath) && ClipboardFile.Detect() != ClipboardFile.Kind.None,
+                "New File from Clipboard" => !inArchive && hasFolder && System.IO.Directory.Exists(VM.CurrentPath)
+                                             && !FolderTabViewModel.IsUnderBookmarks(VM.CurrentPath) && ClipboardFile.Detect() != ClipboardFile.Kind.None,
                 "Properties" => !inArchive && (hasSelection || hasFolder),
                 "Jump to Last Opened File" => hasFolder,
                 "More Options" => !inArchive && (hasSelection || (hasFolder && System.IO.Directory.Exists(VM.CurrentPath))),
@@ -2978,7 +2980,7 @@ public partial class MainWindow : Window
     // ── Bookmarks (shortcuts in the Bookmarks folder, under the "Bookmarks" node of the tree) ──
 
     /// <summary>Bookmarks these folders and files (Ctrl+D: the folder shown). Says what happened in the title bar.</summary>
-    private void AddBookmarks(IEnumerable<string> paths)
+    private void AddBookmarks(IEnumerable<string> paths, string? inFolder = null)
     {
         var list = paths.Where(p => !string.IsNullOrEmpty(p)).ToList();
         if (list.Count == 0)
@@ -2988,17 +2990,22 @@ public partial class MainWindow : Window
         }
 
         int added = 0;
-        string? lastAdded = null, lastAlready = null;
+        string? lastAdded = null, lastAlready = null, lastPath = null;
         var problems = new List<string>();
         foreach (var path in list)
         {
-            var entry = BookmarkStore.Add(path, out var already, out var error);
+            var entry = BookmarkStore.Add(path, out var already, out var error, inFolder);
             if (entry == null) problems.Add(error);
             else if (already)  lastAlready = entry.Name;
-            else               { added++; lastAdded = entry.Name; }
+            else               { added++; lastAdded = entry.Name; lastPath = entry.Path; }
         }
 
         if (added > 0) VM.ReloadBookmarks();
+        if (added > 0 && inFolder != null)
+        {
+            VM.RefreshFolder(inFolder);   // pasted into a group: the list shows the new shortcuts, the last one selected
+            if (lastPath != null) OnSelectPathRequested(lastPath);
+        }
 
         if (problems.Count > 0)
             MessageBox.Show(this, $"The bookmark could not be made:\n{problems[0]}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -3006,6 +3013,8 @@ public partial class MainWindow : Window
             FlashTitle($"{BaseTitle} - Bookmark added: {lastAdded}");
         else if (added > 1)
             FlashTitle($"{BaseTitle} - {added} bookmarks added");
+        else if (lastAlready != null && inFolder != null)   // pasted: a message box, a paste that seems to do nothing looks like a fault
+            MessageBox.Show(this, $"\"{lastAlready}\" is bookmarked in this folder already.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
         else if (lastAlready != null)
             FlashTitle($"{BaseTitle} - \"{lastAlready}\" is bookmarked already");
     }
@@ -3253,7 +3262,7 @@ public partial class MainWindow : Window
                 "Delete"     => CanRenameOrDelete(path),
                 "Rename..."  => CanRenameOrDelete(path),
                 "New Folder" => realFolder,
-                "New File from Clipboard" => realFolder && ClipboardFile.Detect() != ClipboardFile.Kind.None,
+                "New File from Clipboard" => realFolder && !FolderTabViewModel.IsUnderBookmarks(path) && ClipboardFile.Detect() != ClipboardFile.Kind.None,
                 "Properties" => realFolder || System.IO.File.Exists(path),   // what is in an archive is not on the disk
                 "More Options" => realFolder,
                 _            => true
@@ -3716,6 +3725,112 @@ public partial class MainWindow : Window
         if (restored.Count > 0) ReselectInList(restored);
     }
 
+    // ── Ctrl+V in the Bookmarks folder ────────────────────────────────────────
+
+    /// <summary>
+    /// A paste in the Bookmarks folder or one of its groups: a path (or files and folders) on the clipboard becomes a bookmark at
+    /// once; a web address becomes an Internet shortcut after the page's title and icon were fetched (15 seconds at the most) and the
+    /// name was confirmed; anything else is refused with an explanation. Nothing is ever copied into the Bookmarks folder.
+    /// </summary>
+    private void PasteIntoBookmarks(string folder)
+    {
+        var input = BookmarkPaste.Read();
+        switch (input.Kind)
+        {
+            case BookmarkPaste.Kind.Paths:
+                // A shortcut file (.lnk, .url) pasted here is copied as it is; a bookmark of a shortcut would be no use.
+                var shortcuts = input.Paths.Where(BookmarkPaste.IsShortcutFile).ToList();
+                var others    = input.Paths.Where(p => !shortcuts.Contains(p)).ToList();
+                if (shortcuts.Count > 0) CopyShortcutsIntoBookmarks(shortcuts, folder, input.Cut);
+                if (others.Count > 0)    AddBookmarks(others, folder);
+                break;
+            case BookmarkPaste.Kind.WebAddress:
+                BookmarkWebAddress(input.Url!, folder);
+                break;
+            default:
+                MessageBox.Show(this, BookmarkPaste.RefusedText, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Shortcut files pasted into the Bookmarks folder (or a group) are the bookmarks themselves: they are copied (a cut moves them), a
+    /// name that is taken gets (2), (3), nothing is ever replaced.
+    /// </summary>
+    private void CopyShortcutsIntoBookmarks(List<string> shortcuts, string folder, bool move)
+    {
+        var done = new List<string>();
+        var problems = new List<string>();
+
+        foreach (var source in shortcuts)
+        {
+            try
+            {
+                var target = BookmarkStore.UniquePath(folder, System.IO.Path.GetFileNameWithoutExtension(source), System.IO.Path.GetExtension(source));
+                if (move) System.IO.File.Move(source, target);
+                else      System.IO.File.Copy(source, target, overwrite: false);
+                done.Add(target);
+            }
+            catch (Exception ex)
+            {
+                problems.Add($"{System.IO.Path.GetFileName(source)}: {ex.Message}");
+            }
+        }
+
+        if (done.Count > 0)
+        {
+            if (move) FileClipboard.Clear();   // as after any cut and paste
+            VM.RefreshFolder(folder);
+            OnSelectPathRequested(done[^1]);
+            FlashTitle(done.Count == 1
+                ? $"{BaseTitle} - Shortcut copied: {System.IO.Path.GetFileNameWithoutExtension(done[0])}"
+                : $"{BaseTitle} - {done.Count} shortcuts copied");
+        }
+
+        if (problems.Count > 0)
+            MessageBox.Show(this, "These shortcuts could not be copied:\n\n" + string.Join("\n", problems), AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    private void BookmarkWebAddress(string url, string folder)
+    {
+        if (BookmarkStore.FindUrlBookmark(url, folder) is { } existing)
+        {
+            // A message box, not only the title bar: a paste that seems to do nothing looks like a fault.
+            MessageBox.Show(this, $"This web address is bookmarked in this folder already, as \"{System.IO.Path.GetFileNameWithoutExtension(existing)}\".",
+                            AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        // The page's title and icon: the window says what is going on, and Cancel (or 15 seconds) goes on without them.
+        var info = WaitWindow.Run(this, AppInfo.Name, "Getting the title and icon of the web page...", url,
+                                  ct => WebPageInfoReader.ReadAsync(url, 15, ct));
+
+        // The suggested name, made different from a bookmark of that name that is there already.
+        var suggested = BookmarkStore.SuggestUrlName(url, info?.Title);
+        var name = suggested;
+        for (int i = 2; System.IO.File.Exists(System.IO.Path.Combine(folder, name + ".url")); i++) name = $"{suggested} ({i})";
+
+        var dlg = new InputDialog("New Bookmark", "Enter a name for the bookmark:", name, typed =>
+        {
+            var clean = BookmarkStore.CleanName(typed);
+            if (clean.Length == 0) return "Type a name.";
+            return System.IO.File.Exists(System.IO.Path.Combine(folder, clean + ".url"))
+                ? $"There is a bookmark named \"{clean}\" already. Choose a different name." : null;
+        }, hint: url) { Owner = this, Width = 570 };   // 50 % wider than the usual 380: the title of a page is often long
+        if (dlg.ShowDialog() != true) return;
+
+        var path = BookmarkStore.AddUrl(url, dlg.InputText, info?.IconIco, folder, out var error);
+        if (path == null)
+        {
+            MessageBox.Show(this, $"The bookmark could not be made:\n{error}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        VM.RefreshFolder(folder);
+        OnSelectPathRequested(path);
+        FlashTitle($"{BaseTitle} - Bookmark added: {System.IO.Path.GetFileNameWithoutExtension(path)}");
+    }
+
     // ── New File from Clipboard ───────────────────────────────────────────────
 
     /// <summary>
@@ -3725,6 +3840,11 @@ public partial class MainWindow : Window
     private void NewFileFromClipboard(string folder)
     {
         if (!CanSaveIn(folder)) return;
+        if (FolderTabViewModel.IsUnderBookmarks(folder))   // the Bookmarks folder only holds bookmarks
+        {
+            MessageBox.Show(this, BookmarkPaste.RefusedText, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
 
         var path = ClipboardFile.Create(folder, out var error);
         if (path == null)

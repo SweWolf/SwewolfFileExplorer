@@ -76,6 +76,12 @@ public static class IconHelper
 
     public static ImageSource? GetIcon(string path, bool small = true)
     {
+        // An Internet shortcut with the favicon of its page: read from the .ico itself. The shell remembers the icon of a path from the
+        // first time anybody asked for it (found by a test: a .url rewritten with an icon kept its plain one), which a bookmark made a
+        // moment ago may have got stuck with.
+        if (small && path.EndsWith(".url", StringComparison.OrdinalIgnoreCase) && TryGetUrlIcon(path) is { } favicon)
+            return favicon;
+
         var shfi = new SHFILEINFO();
         uint flags = SHGFI_ICON | (small ? SHGFI_SMALLICON : 0u);
 
@@ -96,6 +102,139 @@ public static class IconHelper
         {
             DestroyIcon(shfi.hIcon);
         }
+    }
+
+    // ── Internet shortcuts (.url) with an icon file ───────────────────────────
+
+    private const uint SHGFI_SYSICONINDEX = 0x000004000;
+    private const int  IDO_SHGIOI_LINK    = 0x0FFFFFFE;   // the shortcut arrow, as an overlay of the system image list
+
+    [DllImport("shell32.dll", EntryPoint = "SHGetIconOverlayIndexW", CharSet = CharSet.Unicode)]
+    private static extern int SHGetIconOverlayIndex(string? pszIconPath, int iIconIndex);
+
+    [DllImport("comctl32.dll")]
+    private static extern IntPtr ImageList_GetIcon(IntPtr himl, int i, uint flags);
+
+    private static System.Windows.Media.Imaging.BitmapSource? Bgra(IntPtr hIcon)
+    {
+        if (hIcon == IntPtr.Zero) return null;
+        try
+        {
+            var source = Imaging.CreateBitmapSourceFromHIcon(hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            var converted = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+            converted.Freeze();
+            return converted;
+        }
+        finally { DestroyIcon(hIcon); }
+    }
+
+    // The shortcut arrow of the shell, found once: the system image list draws an icon with and without the link overlay, and what
+    // differs is the arrow. (size, the pixels of the icon with the arrow, which pixels are the arrow); null if Windows gives no arrow.
+    private static readonly Lazy<(int Size, byte[] Pixels, bool[] Mask)?> ArrowOverlay = new(() =>
+    {
+        try
+        {
+            var shfi = new SHFILEINFO();
+            var himl = SHGetFileInfo("x.url", FILE_ATTRIBUTE_NORMAL, ref shfi, (uint)Marshal.SizeOf(shfi),
+                                     SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);
+            int overlay = SHGetIconOverlayIndex(null, IDO_SHGIOI_LINK);
+            if (himl == IntPtr.Zero || overlay <= 0) return null;
+
+            var plain = Bgra(ImageList_GetIcon(himl, shfi.iIcon, 1 /* ILD_TRANSPARENT */));
+            var arrow = Bgra(ImageList_GetIcon(himl, shfi.iIcon, 1u | ((uint)overlay << 8)));   // the overlay goes in the flags (INDEXTOOVERLAYMASK)
+            if (plain == null || arrow == null || plain.PixelWidth != arrow.PixelWidth || plain.PixelHeight != arrow.PixelHeight) return null;
+
+            int n = plain.PixelWidth;
+            var a = new byte[n * n * 4]; var b = new byte[n * n * 4];
+            plain.CopyPixels(a, n * 4, 0); arrow.CopyPixels(b, n * 4, 0);
+            var mask = new bool[n * n];
+            bool any = false;
+            for (int i = 0; i < mask.Length; i++)
+                any |= mask[i] = a[i * 4] != b[i * 4] || a[i * 4 + 1] != b[i * 4 + 1] || a[i * 4 + 2] != b[i * 4 + 2] || a[i * 4 + 3] != b[i * 4 + 3];
+            return any ? (n, b, mask) : null;
+        }
+        catch { return null; }
+    });
+
+    /// <summary>
+    /// The picture of an .ico file nearest <paramref name="size"/> (the smallest one that is big enough, else the biggest). WPF's icon
+    /// decoder refuses some icons that Windows itself reads (a PNG inside an .ico, found with the favicon of dn.se), so then the picture
+    /// is taken out of the file by hand: the directory of the .ico names where each picture starts, and a PNG picture is decoded alone.
+    /// </summary>
+    private static BitmapSource? LoadIconFrame(string iconFile, int size)
+    {
+        try
+        {
+            using var stream = new FileStream(iconFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var decoder = new IconBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+            return decoder.Frames.Where(f => f.PixelWidth >= size).OrderBy(f => f.PixelWidth).FirstOrDefault()
+                   ?? decoder.Frames.OrderByDescending(f => f.PixelWidth).First();
+        }
+        catch { /* the decoder does not like it: by hand */ }
+
+        try
+        {
+            var bytes = File.ReadAllBytes(iconFile);
+            if (bytes.Length < 22 || bytes[2] != 1 || bytes[3] != 0) return null;
+
+            int count = bytes[4] | bytes[5] << 8;
+            var entries = new List<(int Width, int Size, int Offset)>();
+            for (int i = 0; i < count && 6 + 16 * (i + 1) <= bytes.Length; i++)
+            {
+                int at = 6 + 16 * i;
+                entries.Add((bytes[at] == 0 ? 256 : bytes[at], BitConverter.ToInt32(bytes, at + 8), BitConverter.ToInt32(bytes, at + 12)));
+            }
+
+            foreach (var e in entries.Where(e => e.Width >= size).OrderBy(e => e.Width).Concat(entries.OrderByDescending(e => e.Width)))
+            {
+                if (e.Offset < 0 || e.Size < 8 || e.Offset + e.Size > bytes.Length) continue;
+                if (bytes[e.Offset] != 0x89 || bytes[e.Offset + 1] != 0x50 || bytes[e.Offset + 2] != 0x4E || bytes[e.Offset + 3] != 0x47) continue;   // a PNG picture
+
+                var png = new PngBitmapDecoder(new MemoryStream(bytes, e.Offset, e.Size), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                return png.Frames[0];
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>
+    /// The icon of an Internet shortcut that names an .ico file (<c>IconFile=</c>): the picture in it nearest the size of a list icon,
+    /// with the shortcut arrow on it as Explorer draws it. Null for any other shortcut (it then gets the shell's icon).
+    /// </summary>
+    private static ImageSource? TryGetUrlIcon(string path)
+    {
+        try
+        {
+            string? iconFile = null;
+            foreach (var line in File.ReadLines(path).Take(40))
+                if (line.StartsWith("IconFile=", StringComparison.OrdinalIgnoreCase)) { iconFile = line[9..].Trim(); break; }
+            if (iconFile == null || !iconFile.EndsWith(".ico", StringComparison.OrdinalIgnoreCase) || !File.Exists(iconFile)) return null;
+
+            var overlay = ArrowOverlay.Value;
+            int size = overlay?.Size ?? 16;
+
+            var frame = LoadIconFrame(iconFile, size);
+            if (frame == null) return null;
+
+            BitmapSource scaled = frame;
+            if (frame.PixelWidth != size || frame.PixelHeight != size)
+                scaled = new TransformedBitmap(frame, new ScaleTransform((double)size / frame.PixelWidth, (double)size / frame.PixelHeight));
+            var bgra = new FormatConvertedBitmap(scaled, PixelFormats.Bgra32, null, 0);
+
+            int w = bgra.PixelWidth, h = bgra.PixelHeight;
+            var pixels = new byte[w * h * 4];
+            bgra.CopyPixels(pixels, w * 4, 0);
+
+            if (overlay is { } o && o.Size == w && h == w)
+                for (int i = 0; i < o.Mask.Length; i++)
+                    if (o.Mask[i]) Array.Copy(o.Pixels, i * 4, pixels, i * 4, 4);
+
+            var result = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, pixels, w * 4);
+            result.Freeze();
+            return result;
+        }
+        catch { return null; }   // damaged or unreadable: the shell's icon is used
     }
 
     // Does a file of this kind have an icon of its own, inside the file (an exe, an icon, a shortcut)? Then the icon has to be
