@@ -36,6 +36,7 @@ public partial class MainWindow : Window
         DataContext = new MainViewModel();
         VM.FolderCreated += OnFolderCreated;
         VM.SelectPathRequested += OnSelectPathRequested;
+        VM.ClipboardFileRequested += NewFileFromClipboard;   // Ctrl+V with a picture or text on the clipboard, and the user said yes
         VM.SortChanged   += () => ApplySort(VM.SortColumn, VM.SortAscending);
         VM.LastTabClosed += Close;
 

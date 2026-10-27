@@ -3153,12 +3153,27 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
         if (!FileClipboard.HasFiles())
         {
+            // A picture or text is there: offer to make a file of it (the same as "New File from Clipboard").
+            var kind = ClipboardFile.Detect();
+            if (kind != ClipboardFile.Kind.None)
+            {
+                var what = kind == ClipboardFile.Kind.Image ? "a picture" : "text";
+                var make = kind == ClipboardFile.Kind.Image ? "a new PNG file" : "a new text file";
+                if (MessageBox.Show($"There are no files on the clipboard, but there is {what}.\nDo you want to save it as {make} in this folder?",
+                        AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes) == MessageBoxResult.Yes)
+                    ClipboardFileRequested?.Invoke(destination);
+                return;
+            }
+
             MessageBox.Show("There are no files on the clipboard to paste.\nCopy or cut some files first.", AppInfo.Name,
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         PasteInto(destination);
     }
+
+    /// <summary>Ctrl+V found a picture or text and not files, and the user said yes: the window asks for the name and makes the file in this folder.</summary>
+    public event Action<string>? ClipboardFileRequested;
 
     private bool _pasting;   // a paste is going on (its window may not be up yet): another one waits for the user to ask again
 
