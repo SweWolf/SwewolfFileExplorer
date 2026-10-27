@@ -35,6 +35,9 @@
         <KeyBinding Key="Left"  Modifiers="Alt" Command="{Binding BackCommand}"/>
         <KeyBinding Key="Right" Modifiers="Alt" Command="{Binding ForwardCommand}"/>
         <KeyBinding Key="F8"    Command="{Binding ToggleTreeCommand}"/>
+        <!-- Ctrl+V works wherever the focus is (the tab strip, the toolbar ...), as in the file list; a text box keeps its own paste
+             (it handles the key itself, so this binding is never reached from there) -->
+        <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding PasteKeyCommand}"/>
     </Window.InputBindings>
 
     <DockPanel>

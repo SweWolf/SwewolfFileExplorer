@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         DataContext = new MainViewModel();
         VM.FolderCreated += OnFolderCreated;
         VM.SelectPathRequested += OnSelectPathRequested;
+        VM.SelectPathsRequested += OnSelectPathsRequested;
         VM.ClipboardFileRequested += NewFileFromClipboard;   // Ctrl+V with a picture or text on the clipboard, and the user said yes
         VM.BookmarksPasteRequested += PasteIntoBookmarks;    // Ctrl+V in the Bookmarks folder: bookmarks are made, nothing is copied there
         VM.SortChanged   += () => ApplySort(VM.SortColumn, VM.SortAscending);
@@ -151,6 +152,20 @@ public partial class MainWindow : Window
 
         FileListView.SelectedItem = item;
         FileListView.ScrollIntoView(item);
+    }
+
+    /// <summary>The files just pasted: all selected, the last one scrolled into view, the list has the focus (so they stand out).</summary>
+    private void OnSelectPathsRequested(List<string> paths)
+    {
+        var set = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
+        var items = VM.CurrentItems.Where(i => set.Contains(i.FullPath)).ToList();
+        if (items.Count == 0) return;   // not listed (a folder with the folders hidden, a filter)
+
+        FileListView.SelectedItems.Clear();
+        foreach (var i in items) FileListView.SelectedItems.Add(i);
+        FileListView.ScrollIntoView(items[0]);
+        FileListView.Focus();
+        if (FileListView.ItemContainerGenerator.ContainerFromItem(items[0]) is ListViewItem c) c.Focus();
     }
 
     private void OnFolderCreated(FileItemViewModel folder)

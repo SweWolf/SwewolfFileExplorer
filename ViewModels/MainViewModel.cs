@@ -183,6 +183,7 @@ public class MainViewModel : INotifyPropertyChanged
         tab.TagsLoaded += () => { if (tab == _activeTab) TagsLoaded?.Invoke(); };
         tab.ItemsChangedInPlace += () => { if (tab == _activeTab) ItemsChangedInPlace?.Invoke(); };
         tab.SelectPathRequested += path => { if (tab == _activeTab) SelectPathRequested?.Invoke(path); };
+        tab.SelectPathsRequested += paths => { if (tab == _activeTab) SelectPathsRequested?.Invoke(paths); };
         tab.ClipboardFileRequested += folder => { if (tab == _activeTab) ClipboardFileRequested?.Invoke(folder); };
         tab.BookmarksPasteRequested += folder => { if (tab == _activeTab) BookmarksPasteRequested?.Invoke(folder); };
         // The tree sort order is shared: the other tabs' trees show the same folder in the same order.
@@ -503,6 +504,7 @@ public class MainViewModel : INotifyPropertyChanged
     /// <summary>Raised after the active tab created a new folder.</summary>
     public event Action<FileItemViewModel>? FolderCreated;
     public event Action<string>? SelectPathRequested;
+    public event Action<List<string>>? SelectPathsRequested;
     public event Action<string>? ClipboardFileRequested;
     public event Action<string>? BookmarksPasteRequested;
 

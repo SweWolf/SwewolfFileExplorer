@@ -231,7 +231,7 @@ SwewolfFileExplorer/
 | F6 | Focus the address bar and select its text |
 | F8 | Show / hide the folder tree |
 | Delete | Delete selected item(s) |
-| Ctrl+C / X / V | Copy / Cut / Paste (in the list: the selected items; in the tree: the selected folder, Paste goes into it). Ctrl+V with nothing on the clipboard says so. In the tree also Delete, Ctrl+Shift+C (copy path), F2. A click on the empty part of the list gives the list the focus |
+| Ctrl+C / X / V | Copy / Cut / Paste (in the list: the selected items; in the tree: the selected folder, Paste goes into it). Ctrl+V with nothing on the clipboard says so. In the tree also Delete, Ctrl+Shift+C (copy path), F2. A click on the empty part of the list gives the list the focus. **Ctrl+V works wherever the focus is (2026-10-27, asked by the user: the tab strip had none): a window-level `KeyBinding` on `PasteKeyCommand`; a text box (address bar, filter box) handles the key itself and pastes text. Window loads and has the binding (headless); not tried with a real key press** |
 | Ctrl+Shift+N | New folder |
 | Ctrl+T or Ctrl+N | New tab |
 | Ctrl+W or Ctrl+F4 | Close tab |

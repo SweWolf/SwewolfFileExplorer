@@ -101,6 +101,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     /// <summary>Raised with the path of an item that the window should select in the list again (after a rename or a refresh).</summary>
     public event Action<string>? SelectPathRequested;
+    /// <summary>Several items of the list are to be selected (the files just pasted).</summary>
+    public event Action<List<string>>? SelectPathsRequested;
 
     /// <summary>The user picked a sort order: use it now and remember it for this folder.</summary>
     public void SetSort(SortColumn column, bool ascending)
@@ -3288,10 +3290,43 @@ public class FolderTabViewModel : INotifyPropertyChanged
         foreach (var parent in moved.Select(m => Path.GetDirectoryName(m.From.TrimEnd('\\', '/'))).Where(p => !string.IsNullOrEmpty(p)).Distinct(StringComparer.OrdinalIgnoreCase))
             RefreshTreeFolder(parent);
 
+        // Make the result visible: the pasted items are selected and scrolled into view in the list (when that folder is the one
+        // shown), and a pasted folder is selected in the tree.
+        var pasted = result.Done
+            .Select(d => TopLevelUnder(d.To, destination))   // a merged folder reports its files: the folder itself is what stands out
+            .Where(p => p != null).Select(p => p!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (pasted.Count > 0)
+        {
+            if (IsSamePath(destination, _currentPath))
+            {
+                // One folder pasted: go into it, so the tree and the list agree (a tree selection opens the folder in the list).
+                // Otherwise the pasted items are selected in the list and the tree is left alone.
+                if (pasted.Count == 1 && Directory.Exists(pasted[0])) Navigate(pasted[0]);
+                else SelectPathsRequested?.Invoke(pasted);
+            }
+            else if (pasted.Count == 1 && Directory.Exists(pasted[0])) SelectFolderInTree(pasted[0]);
+        }
+
         if (result.Canceled)
             StatusText = $"{(isCut ? "Move" : "Copy")} canceled: {result.Done.Count} of {result.Total} items were done.";
         else if (result.Skipped > 0)
             StatusText = $"{result.Skipped} {(result.Skipped == 1 ? "file was" : "files were")} skipped.";
+    }
+
+    /// <summary>The item directly inside <paramref name="folder"/> that <paramref name="path"/> is (or lies below), else null.</summary>
+    private static string? TopLevelUnder(string path, string folder)
+    {
+        var p = path.TrimEnd('\\', '/');
+        for (int i = 0; i < 64 && !string.IsNullOrEmpty(p); i++)
+        {
+            var parent = Path.GetDirectoryName(p);
+            if (string.IsNullOrEmpty(parent)) return null;
+            if (IsSamePath(parent, folder)) return p;
+            p = parent;
+        }
+        return null;
     }
 
     /// <summary>
