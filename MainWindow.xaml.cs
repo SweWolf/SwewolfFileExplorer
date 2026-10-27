@@ -28,6 +28,7 @@ public partial class MainWindow : Window
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ToggleFilterBar()), Key.F, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => GoToDefaultFolder()), Key.Home, ModifierKeys.Alt));   // Alt+Home: the default folder
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => BookmarkSelectionOrFolder()), Key.D, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => GoToBookmarksNode()), Key.O, ModifierKeys.Control | ModifierKeys.Shift));   // Ctrl+Shift+O: the focus goes to the Bookmarks node
 
         // The height of the info panel as the user left it; the preview box follows the panel's size.
         InfoRow.Height = new GridLength(Math.Max(InfoPanelMinHeight, AppSettingsStore.Current.InfoPanelHeight));
@@ -3027,6 +3028,31 @@ public partial class MainWindow : Window
     private void CtxBookmark_Click(object sender, RoutedEventArgs e) => BookmarkSelectionOrFolder(menu: true);
 
     /// <summary>Ctrl+D and the list's menu: the selected files and folders of the list, or the folder shown when nothing is selected (or the list does not have the focus).</summary>
+    /// <summary>
+    /// Ctrl+Shift+O: the "Bookmarks" node of the tree gets the focus and is selected (so the list shows the bookmarks, as for a click).
+    /// The tree is shown first if it was hidden (F8). A tab whose tree has a root of its own has no Bookmarks node: the title bar says so.
+    /// </summary>
+    private void GoToBookmarksNode()
+    {
+        var node = VM.ActiveTab.BookmarksNode;
+        if (node == null)
+        {
+            FlashTitle($"{BaseTitle} - This tree has no Bookmarks node (Reset Tree Root brings it back)");
+            return;
+        }
+
+        if (!VM.ShowTree) VM.ShowTree = true;
+
+        // The node is the first of the tree: its container exists once the tree has been laid out (at once, or after F8 showed it).
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        {
+            if (NavigationTree.ItemContainerGenerator.ContainerFromItem(node) is not TreeViewItem container) return;
+            if (!container.IsSelected) container.IsSelected = true;
+            container.Focus();
+            container.BringIntoView();
+        });
+    }
+
     private void BookmarkSelectionOrFolder(bool menu = false)
     {
         var selected = menu || FileListView.IsKeyboardFocusWithin

@@ -424,6 +424,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
     // ── Bookmarks (shortcuts in the Bookmarks folder) ────────────────────────
 
     private TreeItemViewModel? _bookmarksNode;
+
+    /// <summary>The "Bookmarks" node at the top of the tree; null when the tree has a root of its own (it then holds no Bookmarks node).</summary>
+    public TreeItemViewModel? BookmarksNode => _bookmarksNode != null && TreeItems.Contains(_bookmarksNode) ? _bookmarksNode : null;
     private int _bookmarkVersion;
     private string _bookmarkSnapshot = "";
 
