@@ -1197,6 +1197,7 @@ public partial class MainWindow : Window
     {
         if (_switchingTab) return;
         if (e.NewValue is not TreeItemViewModel item) return;
+        HideBookmarkNote();   // another node: the note about the new bookmark has done its work
 
         // The tab selected this node itself, to follow a navigation: nothing to navigate to.
         if (VM.ConsumeProgrammaticTreeSelection(item)) return;
@@ -1225,6 +1226,7 @@ public partial class MainWindow : Window
 
     private void FileListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (FileListView.SelectedItems.Count > 0) HideBookmarkNote();   // another file was clicked (an emptied list, as after a navigation, is not a click)
         var selected = FileListView.SelectedItems
             .Cast<FileItemViewModel>()
             .ToList();
@@ -2991,13 +2993,13 @@ public partial class MainWindow : Window
         }
 
         int added = 0;
-        string? lastAdded = null, lastAlready = null, lastPath = null;
+        string? lastAdded = null, lastAlready = null, lastPath = null, lastAlreadyPath = null;
         var problems = new List<string>();
         foreach (var path in list)
         {
             var entry = BookmarkStore.Add(path, out var already, out var error, inFolder);
             if (entry == null) problems.Add(error);
-            else if (already)  lastAlready = entry.Name;
+            else if (already)  { lastAlready = entry.Name; lastAlreadyPath = entry.Path; }
             else               { added++; lastAdded = entry.Name; lastPath = entry.Path; }
         }
 
@@ -3011,13 +3013,67 @@ public partial class MainWindow : Window
         if (problems.Count > 0)
             MessageBox.Show(this, $"The bookmark could not be made:\n{problems[0]}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         else if (added == 1)
-            FlashTitle($"{BaseTitle} - Bookmark added: {lastAdded}");
+            ShowBookmarkNote($"Bookmark added: {Shorten(lastAdded!)}", lastPath, withLink: inFolder == null);
         else if (added > 1)
-            FlashTitle($"{BaseTitle} - {added} bookmarks added");
+            ShowBookmarkNote($"{added} bookmarks added", lastPath, withLink: inFolder == null);
         else if (lastAlready != null && inFolder != null)   // pasted: a message box, a paste that seems to do nothing looks like a fault
             MessageBox.Show(this, $"\"{lastAlready}\" is bookmarked in this folder already.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
         else if (lastAlready != null)
-            FlashTitle($"{BaseTitle} - \"{lastAlready}\" is bookmarked already");
+            ShowBookmarkNote($"\"{Shorten(lastAlready)}\" is bookmarked already", lastAlreadyPath, withLink: true);
+    }
+
+    // ── The note in the info line: what Ctrl+D did, and a link to the Bookmarks ──
+
+    private string? _bookmarkNotePath;
+
+    private static string Shorten(string name) => name.Length > 60 ? name[..60].TrimEnd() + "..." : name;
+
+    /// <summary>
+    /// Shows <paramref name="text"/> in the info line (right of "File 2/3"), with the link "Go to Bookmarks now?" when
+    /// <paramref name="withLink"/>. It stays until another folder or file is clicked (<see cref="HideBookmarkNote"/>).
+    /// </summary>
+    private void ShowBookmarkNote(string text, string? bookmarkPath, bool withLink)
+    {
+        _bookmarkNotePath = bookmarkPath;
+        BookmarkNoteText.Text = text;
+        BookmarkNoteLink.Inlines.Clear();
+        BookmarkNoteLink.Inlines.Add(new System.Windows.Documents.Run("Go to Bookmarks now?"));
+        BookmarkNoteLink.TextDecorations = TextDecorations.Underline;
+        // The link is hidden by emptying the run before it and the link's own text: a Hyperlink cannot be collapsed on its own.
+        if (!withLink) BookmarkNoteLink.Inlines.Clear();
+        BookmarkNote.Visibility = Visibility.Visible;
+    }
+
+    private void HideBookmarkNote()
+    {
+        if (BookmarkNote.Visibility != Visibility.Visible) return;
+        BookmarkNote.Visibility = Visibility.Collapsed;
+        _bookmarkNotePath = null;
+    }
+
+    /// <summary>The link: the Bookmarks node of the tree is selected (as Ctrl+Shift+O does) and the bookmark is selected in the list.</summary>
+    private void BookmarkNoteLink_Click(object sender, RoutedEventArgs e)
+    {
+        var path = _bookmarkNotePath;
+        GoToBookmarksNode();
+        if (path == null) return;
+
+        // The Bookmarks folder is opened by the selection of its node (in the background): select the bookmark as soon as it is listed.
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        int tries = 0;
+        timer.Tick += (_, _) =>
+        {
+            bool inBookmarks = string.Equals(VM.CurrentPath.TrimEnd('\\'), BookmarkStore.Folder.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+            var item = inBookmarks ? VM.CurrentItems.FirstOrDefault(i => string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase)) : null;
+            if (item != null)
+            {
+                FileListView.SelectedItem = item;
+                FileListView.ScrollIntoView(item);
+                timer.Stop();
+            }
+            else if (++tries >= 40) timer.Stop();   // 4 seconds: give up quietly
+        };
+        timer.Start();
     }
 
     private void TreeCtxBookmark_Click(object sender, RoutedEventArgs e)

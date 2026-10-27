@@ -1130,6 +1130,15 @@
                             </Hyperlink>
                         </TextBlock>
 
+                        <!-- What Ctrl+D (or Add to Bookmarks) just did, with a link to the Bookmarks: stays until another folder or file is
+                             clicked (MainWindow.ShowBookmarkNote / HideBookmarkNote) -->
+                        <TextBlock x:Name="BookmarkNote" FontSize="12" Margin="30,0,16,0" Visibility="Collapsed">
+                            <Run x:Name="BookmarkNoteText"/>
+                            <Run Text="   "/>
+                            <Hyperlink x:Name="BookmarkNoteLink" TextDecorations="Underline" Click="BookmarkNoteLink_Click"
+                                       ToolTip="Show the Bookmarks in the tree and select this bookmark"><Run Text="Go to Bookmarks now?"/></Hyperlink>
+                        </TextBlock>
+
                         <!-- Undo of the last "Rename All Selected ... Using Smart Rename": until another folder is shown -->
                         <Button x:Name="UndoRenameButton" Content="Undo Rename" Height="20" MinHeight="0" Padding="9,0" FontSize="12" Margin="0,0,6,0"
                                 VerticalAlignment="Top" Click="UndoRename_Click"
