@@ -2607,6 +2607,7 @@ public partial class MainWindow : Window
                 "Rename All Selected Music Files and Video Files Using Smart Rename" =>
                     !inArchive && FileListView.SelectedItems.OfType<FileItemViewModel>().Any(i => !i.IsDirectory && !i.IsInArchive && SmartName.Applies(i.Name)),
                 "New Folder" => !inArchive && hasFolder,
+                "New File from Clipboard" => !inArchive && hasFolder && System.IO.Directory.Exists(VM.CurrentPath) && ClipboardFile.Detect() != ClipboardFile.Kind.None,
                 "Properties" => !inArchive && (hasSelection || hasFolder),
                 "Jump to Last Opened File" => hasFolder,
                 "More Options" => !inArchive && (hasSelection || (hasFolder && System.IO.Directory.Exists(VM.CurrentPath))),
@@ -3251,6 +3252,7 @@ public partial class MainWindow : Window
                 "Delete"     => CanRenameOrDelete(path),
                 "Rename..."  => CanRenameOrDelete(path),
                 "New Folder" => realFolder,
+                "New File from Clipboard" => realFolder && ClipboardFile.Detect() != ClipboardFile.Kind.None,
                 "Properties" => realFolder || System.IO.File.Exists(path),   // what is in an archive is not on the disk
                 "More Options" => realFolder,
                 _            => true
@@ -3711,6 +3713,68 @@ public partial class MainWindow : Window
     {
         var restored = await VM.ActiveTab.UndoSmartRenameAsync();
         if (restored.Count > 0) ReselectInList(restored);
+    }
+
+    // ── New File from Clipboard ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Makes a file of the clipboard's text (.txt) or picture (.png) in <paramref name="folder"/> at once, with a name that has the date
+    /// and time, then asks for the name. OK renames it if the name was changed; Cancel sends the file to the Recycle Bin.
+    /// </summary>
+    private void NewFileFromClipboard(string folder)
+    {
+        if (!CanSaveIn(folder)) return;
+
+        var path = ClipboardFile.Create(folder, out var error);
+        if (path == null)
+        {
+            MessageBox.Show(this, $"Cannot create the file: {error}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var name = System.IO.Path.GetFileName(path);
+        string Real(string typed) => ShellExtensions.RestoreExtension(name, typed);   // a hidden extension is put back, as in Rename
+
+        var shown = ShellExtensions.DisplayName(name);
+        var dlg = new InputDialog("New File from Clipboard", "Enter a name for the new file:", shown,
+            typed => FolderTabViewModel.CheckNewName(path, Real(typed)),
+            keepExtension: shown == name) { Owner = this };
+
+        if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.InputText))
+        {
+            var finalPath = System.IO.Path.Combine(folder, Real(dlg.InputText).Trim());
+            try
+            {
+                if (!string.Equals(finalPath, path, StringComparison.Ordinal))
+                    System.IO.File.Move(path, finalPath);
+                path = finalPath;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Cannot rename the file: {ex.Message}\n\nIt keeps the name {name}.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            VM.RefreshFolder(folder);
+            OnSelectPathRequested(path);   // the new file is selected (when its folder is the one shown)
+        }
+        else
+        {
+            // Cancel: the file goes to the Recycle Bin again (nothing of the user's was in it).
+            try
+            {
+                Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(path, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                    Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+            }
+            catch (Exception ex) { LogFiles.AppendError($"New file from clipboard: could not recycle {path}: {ex.Message}"); }
+            VM.RefreshFolder(folder);
+        }
+    }
+
+    private void CtxNewFileFromClipboard_Click(object sender, RoutedEventArgs e) => NewFileFromClipboard(VM.CurrentPath);
+
+    private void TreeCtxNewFileFromClipboard_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) NewFileFromClipboard(_treeMenuNode.FullPath);
     }
 
     // ── Rename dialog ─────────────────────────────────────────────────────────
