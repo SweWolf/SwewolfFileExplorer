@@ -59,7 +59,8 @@ CREATE TABLE FolderPrefs (
     SortColumn        TEXT,       -- how the list of the folder is sorted: a name of the explorer's SortColumn (Name, DateModified, DateCreated, Type, Size, Artist, Title, TrackNumber, Rating, Expectation, None)
     SortAscending     INTEGER,    -- 1 ascending, 0 descending
     TreeSortColumn    TEXT,       -- how the subfolders of the folder are sorted in the tree (Name, DateCreated, DateModified)
-    TreeSortAscending INTEGER
+    TreeSortAscending INTEGER,
+    Columns           TEXT        -- schema 11: the columns of the list of the folder that are shown, in order: names of the explorer's SortColumn separated by commas (Name,Size,Artist); hidden columns and widths are not kept; NULL = the folder has no layout of its own (the explorer's default is used)
 ) WITHOUT ROWID;
 
 -- schema 7: the picture the user chose for a folder (one row per folder; the name only, the file lies in the folder itself)
@@ -129,6 +130,7 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 - **Where a file came from** (schema 8, `ItemInfo`): the addresses are stored exactly as they are (nothing is cut off). The explorer copies them from the file's Mark of the Web (the NTFS stream `Zone.Identifier`: `HostUrl`, `ReferrerUrl`) when the file is selected, one file at a time, never a whole folder, and only into a library file that exists already (it never creates one on a USB drive just for this). An empty value never replaces a stored one. When showing a file the explorer prefers the Mark of the Web and falls back to this table per field, so a file that lost its mark (copied to exFAT, zipped, re-saved) still shows its addresses. An importer may write rows with the same key rules as `Rated` (`Folder` = key of the folder, `Name` = file name; a row with both values empty need not exist). `Forget` and `Move` carry the rows, for folders everything below them too.
 - **Sort order** (schema 4): saved when the user clicks a column header in the list or chooses the Sort By order of the tree;
   read the first time a folder is shown in a run. `Forget` and `Move` carry the `FolderPrefs` rows with the folder.
+- **Columns of a folder** (schema 11, `FolderPrefs.Columns`): saved when the user shows, hides or moves a column in a folder; a folder with no value shows the explorer's default columns (`columns.json`, which also holds the widths). A row can hold only `Columns` (the sort fields then stay NULL).
 - **Folder picture** (schema 7): the name of a picture file that the user chose (Set as Folder Picture) for the folder; used before the automatic search. Renaming the file in its folder carries the name; moving or deleting it removes the choice; the folder's own rows follow the folder.
 - **Last opened file** (schema 6): written when the explorer opens a file (or shows a picture in its viewer); not by Mark as Read. A
   renamed or moved file takes its row with it, a deleted file or folder removes it (`Forget` and `Move`).

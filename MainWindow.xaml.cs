@@ -89,6 +89,7 @@ public partial class MainWindow : Window
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.CurrentPath))
             {
                 CloseFilterOnFolderChange();
+                ApplyFolderColumns();   // the folder's own columns, or the default ones
                 QueueInfoUpdate();   // what the info panel says about an archive as the folder shown follows
             }
 
@@ -451,15 +452,95 @@ public partial class MainWindow : Window
             _layout.AddRange(ordered);
         }
 
+        // What columns.json says is the default: the layout of every folder that has none of its own (see ApplyFolderColumns).
+        _defaultColumns = _layout.Select(c => (c.Key, c.Visible)).ToList();
+
+        // A change in the list itself (a header dragged to another place) is a change of this folder's layout.
+        ((INotifyCollectionChanged)ListGrid.Columns).CollectionChanged += (_, e) =>
+        {
+            if (!_applyingColumns && e.Action == NotifyCollectionChangedAction.Move) SaveFolderColumns();
+        };
+
         ApplyColumns();
+    }
+
+    /// <summary>The layout of columns.json (order and visibility); the layout of a folder without a layout of its own. Widths are fitted anyway.</summary>
+    private List<(SortColumn Key, bool Visible)>? _defaultColumns;
+
+    private bool _applyingColumns;
+
+    /// <summary>
+    /// Every folder can have its own columns (which are shown, in what order; kept in the library database). A folder without a layout of
+    /// its own shows the default one. Called when another folder or tab is shown; nothing is rebuilt when the columns are the right ones.
+    /// </summary>
+    private void ApplyFolderColumns()
+    {
+        if (!VM.HasFolder || _defaultColumns == null) return;   // This PC and the like: the file list is not shown, keep what is there
+
+        SyncLayoutFromGrid();
+        var wantedShown = VM.Shared.TryGetFolderColumns(VM.CurrentPath, out var saved)
+            ? saved.ToList()
+            : _defaultColumns.Where(c => c.Visible).Select(c => c.Key).ToList();
+        if (!wantedShown.Contains(SortColumn.Name)) wantedShown.Insert(0, SortColumn.Name);   // Name is always shown
+
+        var current = _layout.Where(c => c.Visible).Select(c => c.Key).ToList();
+        if (current.SequenceEqual(wantedShown.Where(k => _layout.Any(c => c.Key == k)))) return;
+
+        // The shown columns in the wanted order, then the others in the default order.
+        var ordered = new List<ColumnInfo>();
+        foreach (var key in wantedShown)
+            if (_layout.FirstOrDefault(c => c.Key == key) is { } info && !ordered.Contains(info)) ordered.Add(info);
+        foreach (var info in ordered) info.Visible = true;
+        var rest = _layout.Where(c => !ordered.Contains(c)).ToList();
+        foreach (var info in rest) info.Visible = false;
+        rest = rest.OrderBy(c => _defaultColumns.FindIndex(d => d.Key == c.Key) is var i && i < 0 ? int.MaxValue : i).ToList();
+
+        _layout.Clear();
+        _layout.AddRange(ordered);
+        _layout.AddRange(rest);
+
+        _applyingColumns = true;
+        try { ApplyColumns(); }
+        finally { _applyingColumns = false; }
+        QueueAutoFit();
+    }
+
+    /// <summary>The user changed the columns here: they are kept for this folder (and only this one).</summary>
+    private void SaveFolderColumns()
+    {
+        if (!VM.HasFolder) return;
+        SyncLayoutFromGrid();
+        VM.Shared.SetFolderColumns(VM.CurrentPath, _layout.Where(c => c.Visible).Select(c => c.Key).ToList());
+    }
+
+    /// <summary>The columns the folder shown has now become the default one (columns.json), for folders with no layout of their own.</summary>
+    private void SetDefaultColumns()
+    {
+        SyncLayoutFromGrid();
+        _defaultColumns = _layout.Select(c => (c.Key, c.Visible)).ToList();
+        SaveColumnLayout();
+    }
+
+    /// <summary>The folder shown goes back to the default columns.</summary>
+    private void ResetFolderColumns()
+    {
+        if (!VM.HasFolder) return;
+        VM.Shared.SetFolderColumns(VM.CurrentPath, null);
+        ApplyFolderColumns();
     }
 
     private void SaveColumnLayout()
     {
         SyncLayoutFromGrid();
-        ColumnLayoutStore.Save(_layout
-            .Select(c => new ColumnState { Key = c.Key.ToString(), Visible = c.Visible, Width = c.Width })
-            .ToList());
+
+        // columns.json holds the default layout (order and visibility, until "Use These Columns as the Default" changes it) and the widths.
+        var states = new List<ColumnState>();
+        foreach (var (key, visible) in _defaultColumns ?? _layout.Select(c => (c.Key, c.Visible)).ToList())
+            if (_layout.FirstOrDefault(c => c.Key == key) is { } info)
+                states.Add(new ColumnState { Key = key.ToString(), Visible = visible, Width = info.Width });
+        foreach (var info in _layout.Where(c => !states.Any(s => s.Key == c.Key.ToString())))
+            states.Add(new ColumnState { Key = info.Key.ToString(), Visible = info.Visible, Width = info.Width });
+        ColumnLayoutStore.Save(states);
     }
 
     /// <summary>Takes over what the user did in the list itself: dragged a header, resized a column.</summary>
@@ -558,6 +639,7 @@ public partial class MainWindow : Window
                 info.Visible = item.IsChecked;
                 ApplyColumns();
                 SaveColumnLayout();
+                SaveFolderColumns();
                 QueueAutoFit();   // a column that was just shown gets the width of its text
             };
             menu.Items.Add(item);
@@ -571,6 +653,25 @@ public partial class MainWindow : Window
         var fit = new MenuItem { Header = "Size All Columns to Fit", InputGestureText = "Ctrl+Num +" };
         fit.Click += (_, _) => AutoFitColumns();
         menu.Items.Add(fit);
+
+        // Each folder remembers its own columns; these two decide what a folder without columns of its own shows.
+        menu.Items.Add(new Separator());
+        var useDefault = new MenuItem
+        {
+            Header = "Use the Default Columns in This Folder",
+            IsEnabled = VM.HasFolder && VM.Shared.TryGetFolderColumns(VM.CurrentPath, out _),
+            ToolTip = "Removes the columns this folder remembers; it then shows the default columns"
+        };
+        useDefault.Click += (_, _) => ResetFolderColumns();
+        menu.Items.Add(useDefault);
+
+        var makeDefault = new MenuItem
+        {
+            Header = "Use These Columns as the Default",
+            ToolTip = "Folders that have no columns of their own will show these columns"
+        };
+        makeDefault.Click += (_, _) => SetDefaultColumns();
+        menu.Items.Add(makeDefault);
 
         menu.PlacementTarget = FileListView;
         menu.IsOpen = true;
@@ -604,6 +705,7 @@ public partial class MainWindow : Window
         _layout.AddRange(ordered);
         ApplyColumns();
         SaveColumnLayout();
+        SaveFolderColumns();
     }
 
     // ── Navigation tree ───────────────────────────────────────────────────────
@@ -2749,6 +2851,7 @@ public partial class MainWindow : Window
         info.Visible = true;
         ApplyColumns();
         SaveColumnLayout();
+        SaveFolderColumns();
         QueueAutoFit();
     }
 

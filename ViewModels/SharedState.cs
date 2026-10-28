@@ -47,6 +47,48 @@ public class SharedState
             _folderSorts[key] = (column, prefs.SortAscending);
         if (ParseColumn(prefs.TreeSortColumn) is { } treeColumn && !_treeSorts.ContainsKey(key))
             _treeSorts[key] = (treeColumn, prefs.TreeSortAscending);
+        if (!string.IsNullOrWhiteSpace(prefs.Columns) && !_folderColumns.ContainsKey(key))
+            _folderColumns[key] = ParseColumns(prefs.Columns);
+    }
+
+    // ── Columns of the list, per folder ──────────────────────────────────────
+    // Which columns a folder shows and in what order (not their widths: they are fitted to the text). Kept in the library database like
+    // the sort order, in the same row; a folder with no layout of its own uses the default one (columns.json).
+
+    private readonly Dictionary<string, SortColumn[]> _folderColumns = new(StringComparer.OrdinalIgnoreCase);
+
+    private static SortColumn[] ParseColumns(string text) =>
+        text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(ParseColumn).OfType<SortColumn>().Distinct().ToArray();
+
+    /// <summary>The columns the user chose for <paramref name="path"/> (shown ones, in order), if they ever did.</summary>
+    public bool TryGetFolderColumns(string path, out SortColumn[] columns)
+    {
+        columns = Array.Empty<SortColumn>();
+        if (string.IsNullOrWhiteSpace(path)) return false;
+
+        lock (_sortGate)
+        {
+            var key = Key(path);
+            LoadPrefs(path, key);
+            return _folderColumns.TryGetValue(key, out columns!) && columns.Length > 0;
+        }
+    }
+
+    /// <summary>The user chose these columns (shown ones, in order) for <paramref name="path"/>; null goes back to the default layout.</summary>
+    public void SetFolderColumns(string path, IReadOnlyList<SortColumn>? columns)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        string? text = columns is { Count: > 0 } ? string.Join(",", columns) : null;
+        lock (_sortGate)
+        {
+            var key = Key(path);
+            _prefsLoaded.Add(key);   // what is in the database is older than this
+            if (columns is { Count: > 0 }) _folderColumns[key] = columns.ToArray();
+            else _folderColumns.Remove(key);
+        }
+        LibraryService.Queue(() => LibraryStore.SetFolderColumns(path, text));
     }
 
     /// <summary>How the user sorted the list of <paramref name="path"/>, if they ever did (in this run or an earlier one).</summary>
