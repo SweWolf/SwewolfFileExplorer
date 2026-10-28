@@ -747,6 +747,59 @@
                              TextChanged="FilterBox_TextChanged" PreviewKeyDown="FilterBox_PreviewKeyDown"/>
                 </DockPanel>
             </Border>
+            <Grid>
+            <!-- The drives of This PC: a grid of its own (other columns than a folder's). Shown instead of the file list while This PC is selected. -->
+            <ListView x:Name="DrivesListView"
+                      Visibility="Collapsed"
+                      ItemsSource="{Binding DriveRows}"
+                      SelectionMode="Single"
+                      FontSize="{Binding ListFontSize}"
+                      BorderThickness="0"
+                      MouseDoubleClick="DrivesListView_MouseDoubleClick"
+                      KeyDown="DrivesListView_KeyDown"
+                      PreviewMouseRightButtonDown="DrivesListView_PreviewMouseRightButtonDown"
+                      PreviewMouseRightButtonUp="DrivesListView_PreviewMouseRightButtonUp">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+                        <Setter Property="MinHeight" Value="26"/>
+                        <Setter Property="Padding"   Value="4,1"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Name" Width="300">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Source="{Binding Icon}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,5,0"
+                                               RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Type" Width="130" DisplayMemberBinding="{Binding TypeName}"/>
+                        <GridViewColumn Header="File System" Width="110" DisplayMemberBinding="{Binding FileSystem}"/>
+                        <GridViewColumn Header="Total Size" Width="110">
+                            <GridViewColumn.HeaderTemplate>
+                                <DataTemplate><TextBlock Text="{Binding}" HorizontalAlignment="Right" TextAlignment="Right"/></DataTemplate>
+                            </GridViewColumn.HeaderTemplate>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate><TextBlock Text="{Binding TotalText}" TextAlignment="Right" Margin="0,0,11,0"/></DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Free Space" Width="110">
+                            <GridViewColumn.HeaderTemplate>
+                                <DataTemplate><TextBlock Text="{Binding}" HorizontalAlignment="Right" TextAlignment="Right"/></DataTemplate>
+                            </GridViewColumn.HeaderTemplate>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate><TextBlock Text="{Binding FreeText}" TextAlignment="Right" Margin="0,0,11,0"/></DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
             <ListView
                       x:Name="FileListView"
                       ItemsSource="{Binding CurrentItems}"
@@ -948,6 +1001,7 @@
                 </ListView.ContextMenu>
 
             </ListView>
+            </Grid>
             </DockPanel>
 
             <!-- Under the list: which item is selected, the hidden items, and a preview of a picture -->

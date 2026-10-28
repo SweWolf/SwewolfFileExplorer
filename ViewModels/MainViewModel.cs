@@ -121,6 +121,10 @@ public class MainViewModel : INotifyPropertyChanged
     /// <summary>"Status: Unread / Partly Read / Read", or "Empty Folder".</summary>
     public string FolderStatusLine => _activeTab.FolderStatusLine;
 
+    /// <summary>This PC is shown: the window shows the drives list (its own grid) instead of the file list.</summary>
+    public bool IsThisPcShown => _activeTab.IsThisPcShown;
+    public ObservableCollection<DriveRow> DriveRows => _activeTab.DriveRows;
+
     public RelayCommand ToggleTreeCommand { get; }
 
     // ── Tabs ─────────────────────────────────────────────────────────────────

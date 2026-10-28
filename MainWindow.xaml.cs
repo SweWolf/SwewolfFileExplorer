@@ -92,6 +92,10 @@ public partial class MainWindow : Window
                 QueueInfoUpdate();   // what the info panel says about an archive as the folder shown follows
             }
 
+            // This PC shows the drives list instead of the file list (an empty name: another tab became active).
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.IsThisPcShown))
+                UpdateDrivesList();
+
             // The text of the list got bigger or smaller (Ctrl + wheel, or another tab with another size): so do the columns.
             if (e.PropertyName == nameof(MainViewModel.ListFontSize)) QueueAutoFit();
         };
@@ -101,6 +105,7 @@ public partial class MainWindow : Window
         // The info panel under the list follows the items (a folder was loaded, a sort order was applied).
         ((INotifyCollectionChanged)FileListView.Items).CollectionChanged += (_, _) => { QueueInfoUpdate(); QueueAutoFit(); };
 
+        UpdateDrivesList();   // the program starts on This PC
         LoadColumnLayout();
         ApplySort(VM.SortColumn, VM.SortAscending);
 
@@ -2208,6 +2213,75 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(this, $"Cannot show the picture: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    // ── The drives list of This PC ────────────────────────────────────────────
+
+    /// <summary>On This PC the drives list takes the place of the file list (they are two grids with different columns).</summary>
+    private void UpdateDrivesList()
+    {
+        bool drives = VM.IsThisPcShown;
+        DrivesListView.Visibility = drives ? Visibility.Visible : Visibility.Collapsed;
+        FileListView.Visibility   = drives ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OpenDrive(DriveRow? drive)
+    {
+        if (drive != null) VM.Navigate(drive.Root);
+    }
+
+    private void DrivesListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        // Only a double-click on a row opens it (not on a header or a scroll bar).
+        if (ItemUnder(e.OriginalSource as DependencyObject) != null) OpenDrive(DrivesListView.SelectedItem as DriveRow);
+    }
+
+    private void DrivesListView_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && DrivesListView.SelectedItem is DriveRow drive)
+        {
+            OpenDrive(drive);
+            e.Handled = true;
+        }
+    }
+
+    private static ListViewItem? ItemUnder(DependencyObject? d)
+    {
+        for (; d != null; d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            if (d is ListViewItem item) return item;
+        return null;
+    }
+
+    /// <summary>A right-click selects the drive under the mouse, as in the file list.</summary>
+    private void DrivesListView_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemUnder(e.OriginalSource as DependencyObject) is { } item) item.IsSelected = true;
+    }
+
+    /// <summary>The menu of a drive, built in code (a menu with handlers inside a style once stopped the window from loading).</summary>
+    private void DrivesListView_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemUnder(e.OriginalSource as DependencyObject)?.DataContext is not DriveRow drive) return;
+
+        var menu = new ContextMenu();
+        MenuItem Add(string header, Action action)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += (_, _) => action();
+            menu.Items.Add(item);
+            return item;
+        }
+
+        Add("Open", () => OpenDrive(drive)).FontWeight = FontWeights.Bold;
+        Add("Open in New Tab", () => VM.OpenNewTab(drive.Root, activate: true));
+        Add("Open in Windows Explorer", () => OpenInWindowsExplorer(drive.Root));
+        menu.Items.Add(new Separator());
+        Add("Properties", () => PropertiesHelper.Show(new[] { drive.Root }));
+        Add("More Options", () => Dispatcher.BeginInvoke(() => ShowWindowsMenuForFolder(drive.Root), DispatcherPriority.Background));
+
+        menu.PlacementTarget = DrivesListView;
+        menu.IsOpen = true;
+        e.Handled = true;
     }
 
     private void FileListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)

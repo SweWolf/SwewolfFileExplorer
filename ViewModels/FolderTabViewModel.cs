@@ -359,7 +359,54 @@ public class FolderTabViewModel : INotifyPropertyChanged
     // ── Drives under This PC ─────────────────────────────────────────────────
 
     /// <summary>A drive as the tree shows it: its root and the text of its node ("Data (D:)").</summary>
-    public sealed record DriveEntry(string Root, string Label);
+    public sealed record DriveEntry(string Root, string Label, string TypeName = "", string FileSystem = "", long Total = -1, long Free = -1);
+
+    // ── The drives list shown on This PC ─────────────────────────────────────
+
+    /// <summary>The lines of the drives list (its own grid: name, type, file system, total size, free space). Filled while This PC is shown.</summary>
+    public ObservableCollection<DriveRow> DriveRows { get; } = new();
+
+    private bool _thisPcShown;
+    private int _driveRowsVersion;
+
+    /// <summary>True while This PC (not Quick Access) is what the tab shows: the window then shows the drives list instead of the file list.</summary>
+    public bool IsThisPcShown => _noFolderShown && _thisPcShown;
+
+    /// <summary>Reads the drives in the background and brings the drives list in line with them (a late answer after the tab left This PC is dropped).</summary>
+    private void RefreshDriveRows()
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+        int version = ++_driveRowsVersion;
+
+        _ = Task.Run(() =>
+        {
+            List<DriveEntry> drives;
+            try { drives = ReadDrives().Drives; } catch { return; }
+            dispatcher.InvokeAsync(() => { if (version == _driveRowsVersion && IsThisPcShown) ApplyDriveRows(drives); });
+        });
+    }
+
+    /// <summary>Drives that are gone are removed, new ones added in their place, and the numbers of the others changed in place (the selection stays).</summary>
+    private void ApplyDriveRows(IReadOnlyList<DriveEntry> drives)
+    {
+        for (int i = DriveRows.Count - 1; i >= 0; i--)
+            if (!drives.Any(d => string.Equals(d.Root, DriveRows[i].Root, StringComparison.OrdinalIgnoreCase)))
+                DriveRows.RemoveAt(i);
+
+        int at = 0;
+        foreach (var drive in drives)
+        {
+            var row = DriveRows.FirstOrDefault(r => string.Equals(r.Root, drive.Root, StringComparison.OrdinalIgnoreCase));
+            if (row == null)
+            {
+                row = new DriveRow(drive.Root, IconHelper.GetIcon(drive.Root));
+                DriveRows.Insert(at, row);
+            }
+            row.Update(drive.Label, drive.TypeName, drive.FileSystem, drive.Total, drive.Free);
+            at++;
+        }
+    }
 
     /// <summary>
     /// The drives that are ready now. Can be slow (a network drive that is gone, a drive still mounting): call it off the UI thread.
@@ -375,7 +422,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 if (!drive.IsReady) { if (drive.DriveType != DriveType.CDRom) notReady = true; continue; }
                 var label = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? drive.Name : $"{drive.VolumeLabel} ({drive.Name.TrimEnd('\\')})";
-                result.Add(new DriveEntry(drive.RootDirectory.FullName, label));
+                long total = -1, free = -1;
+                string fileSystem = "";
+                try { total = drive.TotalSize; free = drive.AvailableFreeSpace; fileSystem = drive.DriveFormat; } catch { /* sizes are left empty */ }
+                result.Add(new DriveEntry(drive.RootDirectory.FullName, label, DriveRow.TypeNameOf(drive.DriveType), fileSystem, total, free));
             }
             catch { notReady = true; }   // gone between the two calls
         }
@@ -397,6 +447,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     public void SyncDrives(IReadOnlyList<DriveEntry> drives)
     {
+        if (IsThisPcShown) ApplyDriveRows(drives);   // the drives list (also free space, as F5 and the window coming to the front come here)
+
         var node = _thisPcNode;
         if (node == null) return;
 
@@ -632,6 +684,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         _showHidden = false;   // hidden items are shown for one folder at a time
         _unavailable = false;
         _noFolderShown = false;
+        _thisPcShown = false;
+        OnPropertyChanged(nameof(IsThisPcShown));
         FolderPath   = path;
         LastSelectedPath = null;   // a new folder: nothing is selected in it yet
         CurrentPath = path;
@@ -656,6 +710,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (_playlistDirty && !ConfirmLeavePlaylist()) return;
         ForgetRenameUndoUnlessHere(null);
         _noFolderShown = true;
+        _thisPcShown = place == "pc";
+        OnPropertyChanged(nameof(IsThisPcShown));
+        if (_thisPcShown) RefreshDriveRows();
         RaiseTreeInfoChanged();   // no folder: no count line under the tree
         RaiseAllCanExecuteChanged();   // nothing can be pasted or made here (the tab still remembers the folder it came from)
         StopWatching();
