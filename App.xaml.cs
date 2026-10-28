@@ -59,6 +59,15 @@ public partial class App : Application
         {
             LogFiles.AppendError($"Unexpected error: {args.Exception}");
             args.Handled = true;
+
+            // An error while the program is closing (found 2026-10-28 on the work laptop: WPF's own telemetry could not
+            // load System.Diagnostics.Tracing in CriticalShutdown) must never show a box: the window is gone, the box
+            // came back after every OK and the program could only be ended with Ctrl+Alt+Delete. Log once, then leave.
+            if (args.Exception.ToString().Contains("Application.CriticalShutdown", StringComparison.Ordinal))
+            {
+                try { LibraryService.Flush(); ArchiveSupport.CleanUpTemp(); } catch { }
+                Environment.Exit(0);
+            }
             MessageBox.Show($"An unexpected error occurred: {args.Exception.Message}\n\nThe details were saved in the log file (Help > Open Log File).",
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
         };

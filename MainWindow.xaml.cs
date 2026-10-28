@@ -2627,6 +2627,8 @@ public partial class MainWindow : Window
                 "Rename All Selected Music Files and Video Files Using Smart Rename" =>
                     !inArchive && FileListView.SelectedItems.OfType<FileItemViewModel>().Any(i => !i.IsDirectory && !i.IsInArchive && SmartName.Applies(i.Name)),
                 "New Folder" => !inArchive && hasFolder,
+                "New Text Document..." => !inArchive && hasFolder && System.IO.Directory.Exists(VM.CurrentPath)
+                                          && !FolderTabViewModel.IsUnderBookmarks(VM.CurrentPath),
                 "New File from Clipboard" => !inArchive && hasFolder && System.IO.Directory.Exists(VM.CurrentPath)
                                              && !FolderTabViewModel.IsUnderBookmarks(VM.CurrentPath) && ClipboardFile.Detect() != ClipboardFile.Kind.None,
                 "Properties" => !inArchive && (hasSelection || hasFolder),
@@ -3359,6 +3361,7 @@ public partial class MainWindow : Window
                 "Delete"     => CanRenameOrDelete(path),
                 "Rename..."  => CanRenameOrDelete(path),
                 "New Folder" => realFolder,
+                "New Text Document..." => realFolder && !FolderTabViewModel.IsUnderBookmarks(path),
                 "New File from Clipboard" => realFolder && !FolderTabViewModel.IsUnderBookmarks(path) && ClipboardFile.Detect() != ClipboardFile.Kind.None,
                 "Properties" => realFolder || System.IO.File.Exists(path),   // what is in an archive is not on the disk
                 "More Options" => realFolder,
@@ -3986,6 +3989,57 @@ public partial class MainWindow : Window
             catch (Exception ex) { LogFiles.AppendError($"New file from clipboard: could not recycle {path}: {ex.Message}"); }
             VM.RefreshFolder(folder);
         }
+    }
+
+    // ── New Text Document ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Asks for a name (suggested: New Text Document.txt, numbered when taken) and makes an empty text file in <paramref name="folder"/>.
+    /// Nothing is made until OK; Cancel makes no file.
+    /// </summary>
+    private void NewTextDocument(string folder)
+    {
+        if (!CanSaveIn(folder)) return;
+        if (FolderTabViewModel.IsUnderBookmarks(folder))   // the Bookmarks folder only holds bookmarks
+        {
+            MessageBox.Show(this, BookmarkPaste.RefusedText, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        const string baseName = "New Text Document";
+        var name = baseName + ".txt";
+        for (int n = 2; System.IO.File.Exists(System.IO.Path.Combine(folder, name)) || System.IO.Directory.Exists(System.IO.Path.Combine(folder, name)); n++)
+            name = $"{baseName} ({n}).txt";
+
+        string Real(string typed) => ShellExtensions.RestoreExtension(name, typed);   // a hidden extension is put back, as in Rename
+
+        var shown = ShellExtensions.DisplayName(name);
+        var dummy = System.IO.Path.Combine(folder, "\0");   // CheckNewName compares with an existing item: there is none yet
+        var dlg = new InputDialog("New Text Document", "Enter a name for the new file:", shown,
+            typed => FolderTabViewModel.CheckNewName(dummy, Real(typed)),
+            keepExtension: shown == name) { Owner = this };
+        if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.InputText)) return;
+
+        var path = System.IO.Path.Combine(folder, Real(dlg.InputText).Trim());
+        try
+        {
+            using (new System.IO.FileStream(path, System.IO.FileMode.CreateNew, System.IO.FileAccess.Write, System.IO.FileShare.None)) { }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Cannot create the file: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        VM.RefreshFolder(folder);
+        OnSelectPathRequested(path);   // the new file is selected (when its folder is the one shown)
+    }
+
+    private void CtxNewTextDocument_Click(object sender, RoutedEventArgs e) => NewTextDocument(VM.CurrentPath);
+
+    private void TreeCtxNewTextDocument_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) NewTextDocument(_treeMenuNode.FullPath);
     }
 
     private void CtxNewFileFromClipboard_Click(object sender, RoutedEventArgs e) => NewFileFromClipboard(VM.CurrentPath);

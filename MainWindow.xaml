@@ -604,6 +604,8 @@
                             <MenuItem Header="Rename..."       Click="TreeCtxRename_Click" InputGestureText="F2"/>
                             <MenuItem Header="New Folder"      Click="TreeCtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"
                                       ToolTip="Make a new folder inside this folder"/>
+                            <MenuItem Header="New Text Document..." Click="TreeCtxNewTextDocument_Click"
+                                      ToolTip="Make an empty text file (.txt) in this folder. Cancel makes no file."/>
                             <MenuItem Header="New File from Clipboard" Click="TreeCtxNewFileFromClipboard_Click"
                                       ToolTip="Make a text file (.txt) of the text on the clipboard, or a picture file (.png) of the picture on it, in this folder. Cancel throws the file away."/>
                             <Separator/>
@@ -929,6 +931,8 @@
                                   ToolTip="Every selected music file and video file gets the name that Rename suggests with Use Smart Name (Artist - Title, Title (Year), Title - s01e02). Asks first, and can be undone until another folder is shown."/>
                         <Separator/>
                         <MenuItem Header="New Folder" Click="CtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"/>
+                        <MenuItem Header="New Text Document..." Click="CtxNewTextDocument_Click"
+                                  ToolTip="Make an empty text file (.txt) in this folder. Cancel makes no file."/>
                         <MenuItem Header="New File from Clipboard" Click="CtxNewFileFromClipboard_Click"
                                   ToolTip="Make a text file (.txt) of the text on the clipboard, or a picture file (.png) of the picture on it. You can change the name; Cancel throws the file away."/>
                         <Separator/>
