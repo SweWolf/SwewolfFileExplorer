@@ -3439,6 +3439,20 @@ public partial class MainWindow : Window
     /// The right-click menu of a node in the Bookmarks part of the tree, made here in code (as the tab's menu: handlers in XAML styles
     /// broke the window's loading once). Rename and Remove change the shortcut, never the folder it points to.
     /// </summary>
+    /// <summary>
+    /// Removes a bookmark (or a group) with no question: its shortcut goes to the Recycle Bin, so it can be brought back, and the folder it
+    /// points to is never touched. Used by the menu and by the Delete key on a bookmark of the tree.
+    /// </summary>
+    private void RemoveBookmark(BookmarkEntry entry)
+    {
+        if (BookmarkStore.Remove(entry, out var error))
+        {
+            VM.ReloadBookmarks();
+            FlashTitle($"{BaseTitle} - Bookmark removed: {entry.Name}");
+        }
+        else MessageBox.Show(this, error, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
     private void ShowBookmarkMenu(TreeItemViewModel node)
     {
         var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
@@ -3471,15 +3485,7 @@ public partial class MainWindow : Window
 
             var remove = new MenuItem { Header = entry.IsGroup ? "Remove Group" : "Remove Bookmark",
                                         ToolTip = "Remove the bookmark. Its shortcut goes to the Recycle Bin; the folder it points to is not touched." };
-            remove.Click += (_, _) =>
-            {
-                if (BookmarkStore.Remove(entry, out var error))
-                {
-                    VM.ReloadBookmarks();
-                    FlashTitle($"{BaseTitle} - Bookmark removed: {entry.Name}");
-                }
-                else MessageBox.Show(this, error, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-            };
+            remove.Click += (_, _) => RemoveBookmark(entry);
             menu.Items.Add(remove);
             menu.Items.Add(new Separator());
         }
@@ -3953,7 +3959,12 @@ public partial class MainWindow : Window
         // Delete and Ctrl+Shift+C in the tree, as in the tree's menu (the menu shows these keys).
         if (e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.None)
         {
-            if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } doomed && CanRenameOrDelete(doomed.FullPath))
+            // A bookmark of the tree stands for the folder it points to: Delete removes the bookmark, never that folder.
+            if (NavigationTree.SelectedItem is TreeItemViewModel { Bookmark: { } bookmark })
+                RemoveBookmark(bookmark);
+            else if (NavigationTree.SelectedItem is TreeItemViewModel { IsBookmarksRoot: true })
+            { /* the Bookmarks node itself stays */ }
+            else if (NavigationTree.SelectedItem is TreeItemViewModel { FullPath.Length: > 0 } doomed && CanRenameOrDelete(doomed.FullPath))
                 VM.DeleteFolder(doomed.FullPath);
             e.Handled = true;
             return;
@@ -4039,7 +4050,14 @@ public partial class MainWindow : Window
     private DragDropEffects FileDropEffect(DragEventArgs e, string folder, List<string> files)
     {
         if (AppSettingsStore.Current.DisableInternalDragDrop) return DragDropEffects.None;   // Settings > Drag and Drop
-        if (VM.ActiveTab.IsBookmarksFolder(folder)) return DragDropEffects.None;
+        if (VM.ActiveTab.IsBookmarksFolder(folder))
+        {
+            // The Bookmarks folder only holds bookmarks: files and folders dropped there become bookmarks (nothing is copied or moved).
+            // Whatever comes from the Bookmarks folder itself is not handled. The link cursor tells that a link is made.
+            if (files.Any(f => VM.ActiveTab.IsBookmarksFolder(f))) return DragDropEffects.None;
+            return (e.AllowedEffects & DragDropEffects.Link) != 0 ? DragDropEffects.Link
+                 : (e.AllowedEffects & DragDropEffects.Copy) != 0 ? DragDropEffects.Copy : DragDropEffects.None;
+        }
 
         // Right button: the menu (Copy Here, Move Here, Create Shortcut Here) decides at the drop; show a copy cursor meanwhile.
         _rightDrag = (e.KeyStates & DragDropKeyStates.RightMouseButton) != 0 || (_rightDrag && e.KeyStates == DragDropKeyStates.None);
@@ -4080,7 +4098,7 @@ public partial class MainWindow : Window
         e.Handled = true;
         var folder = ListDropFolder(e);
         if (folder == null) { e.Effects = DragDropEffects.None; return; }
-        if (DroppedImage.CanAccept(e.Data)) { e.Effects = DragDropEffects.Copy; return; }
+        if (DroppedImage.CanAccept(e.Data)) { e.Effects = VM.ActiveTab.IsBookmarksFolder(folder) ? DragDropEffects.None : DragDropEffects.Copy; return; }
         e.Effects = DroppedFiles(e.Data) is { } files ? FileDropEffect(e, folder, files) : DragDropEffects.None;
     }
 
@@ -4136,11 +4154,25 @@ public partial class MainWindow : Window
     /// <summary>A browser's picture becomes a file; files are copied or moved like a paste (after the drop has returned to the sender).</summary>
     private void HandleDrop(DragEventArgs e, string folder)
     {
-        if (DroppedImage.CanAccept(e.Data)) { SavePicture(e, folder); return; }
+        if (DroppedImage.CanAccept(e.Data))
+        {
+            if (!VM.ActiveTab.IsBookmarksFolder(folder)) SavePicture(e, folder);   // no picture files in the Bookmarks folder
+            return;
+        }
 
         var files = DroppedFiles(e.Data);
         if (files == null) return;
         var effect = FileDropEffect(e, folder, files);
+
+        if (VM.ActiveTab.IsBookmarksFolder(folder))
+        {
+            // Dropped in the Bookmarks folder (either mouse button): bookmarks are made, after the drop has returned to the sender.
+            _rightDrag = false;
+            e.Effects = effect;
+            if (effect == DragDropEffects.None) return;
+            Dispatcher.BeginInvoke(new Action(() => BookmarkPaths(files, folder, move: false)), System.Windows.Threading.DispatcherPriority.Background);
+            return;
+        }
 
         if (_rightDrag)
         {
@@ -4178,7 +4210,7 @@ public partial class MainWindow : Window
         e.Handled = true;
         var folder = TreeFolderUnder(e);
         if (folder == null) { e.Effects = DragDropEffects.None; return; }
-        if (DroppedImage.CanAccept(e.Data)) { e.Effects = DragDropEffects.Copy; return; }
+        if (DroppedImage.CanAccept(e.Data)) { e.Effects = VM.ActiveTab.IsBookmarksFolder(folder) ? DragDropEffects.None : DragDropEffects.Copy; return; }
         e.Effects = DroppedFiles(e.Data) is { } files ? FileDropEffect(e, folder, files) : DragDropEffects.None;
     }
 
@@ -4302,11 +4334,7 @@ public partial class MainWindow : Window
         switch (input.Kind)
         {
             case BookmarkPaste.Kind.Paths:
-                // A shortcut file (.lnk, .url) pasted here is copied as it is; a bookmark of a shortcut would be no use.
-                var shortcuts = input.Paths.Where(BookmarkPaste.IsShortcutFile).ToList();
-                var others    = input.Paths.Where(p => !shortcuts.Contains(p)).ToList();
-                if (shortcuts.Count > 0) CopyShortcutsIntoBookmarks(shortcuts, folder, input.Cut);
-                if (others.Count > 0)    AddBookmarks(others, folder);
+                BookmarkPaths(input.Paths, folder, input.Cut);
                 break;
             case BookmarkPaste.Kind.WebAddress:
                 BookmarkWebAddress(input.Url!, folder);
@@ -4315,6 +4343,18 @@ public partial class MainWindow : Window
                 MessageBox.Show(this, BookmarkPaste.RefusedText, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Files and folders that were pasted or dropped into the Bookmarks folder (or a group) become bookmarks; a shortcut file (.lnk, .url) is
+    /// copied as it is, because a bookmark of a shortcut would be no use.
+    /// </summary>
+    private void BookmarkPaths(IReadOnlyList<string> paths, string folder, bool move)
+    {
+        var shortcuts = paths.Where(BookmarkPaste.IsShortcutFile).ToList();
+        var others    = paths.Where(p => !shortcuts.Contains(p)).ToList();
+        if (shortcuts.Count > 0) CopyShortcutsIntoBookmarks(shortcuts, folder, move);
+        if (others.Count > 0)    AddBookmarks(others, folder);
     }
 
     /// <summary>

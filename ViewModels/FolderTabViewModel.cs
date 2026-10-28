@@ -501,8 +501,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 if (version != _bookmarkVersion || node != _bookmarksNode) return;   // a newer read, or the tree was rebuilt
 
-                node.Children.Clear();
-                foreach (var entry in entries) if (IsTreeBookmark(entry)) node.Children.Add(MakeBookmarkNode(entry));
+                // In place: a node that is still there stays the same node (found by the test: rebuilding all of them took away the selected
+                // group, and the tree jumped to the Bookmarks node and opened it, e.g. after a paste into a group).
+                SyncBookmarkChildren(node, entries);
                 _bookmarkSnapshot = snapshot;
 
                 // The selected node may have been one of the old bookmark nodes: the tree follows the folder again.
@@ -510,6 +511,36 @@ public class FolderTabViewModel : INotifyPropertyChanged
             });
         });
     }
+
+    /// <summary>
+    /// Brings the nodes under <paramref name="parent"/> in line with <paramref name="entries"/> without replacing the ones that are still
+    /// right (same shortcut, same target): their selection and what is expanded below them stay. New ones are made, gone ones removed,
+    /// the order follows the entries. Groups are done the same way, level by level.
+    /// </summary>
+    private void SyncBookmarkChildren(TreeItemViewModel parent, IEnumerable<BookmarkEntry> entries)
+    {
+        var wanted = new List<TreeItemViewModel>();
+        foreach (var entry in entries.Where(IsTreeBookmark))
+        {
+            var existing = parent.Children.FirstOrDefault(c => c.Bookmark is { } b && SameBookmark(b, entry));
+            if (existing != null && entry.IsGroup) SyncBookmarkChildren(existing, entry.Children);
+            wanted.Add(existing ?? MakeBookmarkNode(entry));
+        }
+
+        for (int i = parent.Children.Count - 1; i >= 0; i--)
+            if (!wanted.Contains(parent.Children[i])) parent.Children.RemoveAt(i);
+
+        for (int i = 0; i < wanted.Count; i++)
+        {
+            int at = parent.Children.IndexOf(wanted[i]);
+            if (at < 0) parent.Children.Insert(i, wanted[i]);
+            else if (at != i) parent.Children.Move(at, i);
+        }
+    }
+
+    private static bool SameBookmark(BookmarkEntry a, BookmarkEntry b) =>
+        string.Equals(a.Path, b.Path, StringComparison.OrdinalIgnoreCase) && a.IsGroup == b.IsGroup && a.IsFile == b.IsFile
+        && a.Available == b.Available && string.Equals(a.Target, b.Target, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Reads the Bookmarks folder again if something in it changed (also from Windows Explorer) since it was read last.</summary>
     public void ReloadBookmarksIfChanged()
@@ -1509,6 +1540,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void RefreshFolderPicture()
     {
         if (!string.IsNullOrEmpty(_currentPath) && !_noFolderShown) UpdateFolderPicture(_currentPath);
+    }
+
+    /// <summary>The path is the Bookmarks folder itself (not a group in it).</summary>
+    public static bool IsBookmarksRoot(string path)
+    {
+        try { return string.Equals(Path.GetFullPath(path).TrimEnd('\\', '/'), Path.GetFullPath(BookmarkStore.Folder).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase); }
+        catch { return false; }
     }
 
     /// <summary>The path is the Bookmarks folder or inside it (a group).</summary>
@@ -3532,7 +3570,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     private static bool IsSamePath(string? a, string? b) =>
-        a != null && b != null &&
+        !string.IsNullOrEmpty(a) && !string.IsNullOrEmpty(b) &&   // no folder shown (This PC): the same as nothing
         string.Equals(NormalizePath(a), NormalizePath(b), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>True if <paramref name="path"/> is the folder <paramref name="folder"/> or lies inside it.</summary>

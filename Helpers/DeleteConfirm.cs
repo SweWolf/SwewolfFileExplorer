@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using SwewolfFileExplorer.ViewModels;
 using SwewolfFileExplorer.Views;
 
 namespace SwewolfFileExplorer.Helpers;
@@ -75,6 +76,13 @@ public static class DeleteConfirm
                 $"{(items.Count == 1 ? "This item" : $"{noBin.Count} of these {items.Count} items")} cannot be moved to the Recycle Bin ({noBin[0]}).{nl2}"
                 + $"{(items.Count == 1 ? "It" : "They")} would be deleted permanently. This cannot be undone.{nl2}{nl2}Delete {names} anyway?",
                 "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No, bin) == MessageBoxResult.Yes;
+
+        // A bookmark (a shortcut in the Bookmarks folder, or a group) is only a bookmark, and it goes to the Recycle Bin: no question.
+        if (items.All(i => FolderTabViewModel.IsUnderBookmarks(i.Path) && !FolderTabViewModel.IsBookmarksRoot(i.Path)))
+        {
+            await FlashMessage.Show(owner, $"Moving {names} to the Recycle Bin...");
+            return true;
+        }
 
         // Which folders hold a visible file (the hourglass shows the program is working; the search stops at the first file).
         var folders = items.Where(i => i.IsDirectory).Select(i => i.Path).ToList();
