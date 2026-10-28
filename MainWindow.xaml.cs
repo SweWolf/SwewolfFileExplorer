@@ -2598,6 +2598,7 @@ public partial class MainWindow : Window
         FillSendToMenu(SendToMenu, hasSelection && !inArchive ? SendToHelper.GetEntries() : new(), SendToItem_Click);
 
         ShowTerminalItems(ListTerminalSeparator, TerminalItems(ListTerminalItem, ListPowerShellItem, ListCommandItem), ListTerminalFolder());
+        ShowFileInfoItem(ListFileInfoItem, FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false });
 
         var menu = (ContextMenu)sender;
         foreach (var mi in menu.Items.OfType<MenuItem>())
@@ -3246,6 +3247,32 @@ public partial class MainWindow : Window
 
     private void CtxExplorer_Click(object sender, RoutedEventArgs e) => OpenInWindowsExplorer(ListExplorerTarget());
 
+    // ── File Info Viewer (sibling app) ───────────────────────────────────────
+
+    /// <summary>
+    /// Shows <paramref name="item"/> (only when the sibling app is found and <paramref name="show"/> says the click was on one file,
+    /// never a folder) with the program's own icon.
+    /// </summary>
+    private static void ShowFileInfoItem(MenuItem item, bool show)
+    {
+        var exe = show ? FileInfoViewerLauncher.FindExe() : null;
+        item.Visibility = exe != null ? Visibility.Visible : Visibility.Collapsed;
+        if (exe != null && item.Icon == null && FileInfoViewerLauncher.GetIcon(exe) is { } icon)
+            item.Icon = new Image { Source = icon, Width = 16, Height = 16 };
+    }
+
+    private void CtxFileInfo_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileListView.SelectedItems.Count != 1 || FileListView.SelectedItem is not FileItemViewModel { IsDirectory: false } item) return;
+        var path = FolderTabViewModel.RealPathOf(item);   // a file inside an archive is unpacked to the temp folder first
+        if (path != null) FileInfoViewerLauncher.Open(path);
+    }
+
+    private void TreeCtxFileInfo_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode is { } node && System.IO.File.Exists(node.FullPath)) FileInfoViewerLauncher.Open(node.FullPath);
+    }
+
     // ── Open in Terminal / PowerShell / Command Prompt ───────────────────────
 
     /// <summary>
@@ -3339,6 +3366,8 @@ public partial class MainWindow : Window
         bool realFolder   = System.IO.Directory.Exists(path);
         ShowTerminalItems(TreeTerminalSeparator, TerminalItems(TreeTerminalItem, TreePowerShellItem, TreeCommandItem), realFolder ? path : null);
         bool canChange    = CanChangeFolder(path);   // a drive cannot be cut, deleted or renamed
+        // Only for a file node of the tree (a packed file or a playlist) that lies on the disk, never a folder.
+        ShowFileInfoItem(TreeFileInfoItem, (_treeMenuNode.IsArchive || _treeMenuNode.IsPlaylist) && System.IO.File.Exists(path));
 
         // Read the SendTo folder each time, so new shortcuts show up at once (as in the list's menu). Not for a drive.
         FillSendToMenu(TreeSendToMenu, canChange ? SendToHelper.GetEntries() : new(), TreeSendToItem_Click);
