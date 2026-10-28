@@ -3716,16 +3716,83 @@ public partial class MainWindow : Window
     private static bool CanSaveIn(string? folder) =>
         !string.IsNullOrEmpty(folder) && System.IO.Directory.Exists(folder) && !ArchiveSupport.IsInside(folder);
 
+    /// <summary>The existing files of a file drop (from Explorer, another program or this one), else null.</summary>
+    private static List<string>? DroppedFiles(IDataObject data)
+    {
+        try
+        {
+            if (!data.GetDataPresent(DataFormats.FileDrop) || data.GetData(DataFormats.FileDrop) is not string[] paths) return null;
+            var list = paths.Where(p => System.IO.File.Exists(p) || System.IO.Directory.Exists(p)).ToList();
+            return list.Count > 0 ? list : null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// What a file drop does, as in Explorer: Ctrl copies, Shift moves, otherwise a move on the same drive and a copy to another.
+    /// Whatever the source does not allow is changed to the other one; None for a move to the folder the files are in already.
+    /// </summary>
+    private DragDropEffects FileDropEffect(DragEventArgs e, string folder, List<string> files)
+    {
+        if (VM.ActiveTab.IsBookmarksFolder(folder)) return DragDropEffects.None;
+
+        bool ctrl  = (e.KeyStates & DragDropKeyStates.ControlKey) != 0;
+        bool shift = (e.KeyStates & DragDropKeyStates.ShiftKey) != 0;
+        bool sameDrive = string.Equals(System.IO.Path.GetPathRoot(files[0]), System.IO.Path.GetPathRoot(folder), StringComparison.OrdinalIgnoreCase);
+        var effect = ctrl ? DragDropEffects.Copy : shift ? DragDropEffects.Move : sameDrive ? DragDropEffects.Move : DragDropEffects.Copy;
+
+        if ((e.AllowedEffects & effect) == 0)
+            effect = effect == DragDropEffects.Move ? DragDropEffects.Copy : DragDropEffects.Move;
+        if ((e.AllowedEffects & effect) == 0) return DragDropEffects.None;
+
+        if (effect == DragDropEffects.Move)
+        {
+            var target = folder.TrimEnd('\\', '/');
+            bool allThere = files.All(f => string.Equals(System.IO.Path.GetDirectoryName(f.TrimEnd('\\', '/'))?.TrimEnd('\\', '/'), target, StringComparison.OrdinalIgnoreCase));
+            if (allThere) return DragDropEffects.None;   // moving where they are already: nothing to do
+        }
+        return effect;
+    }
+
+    /// <summary>The folder a drop on the list goes to: a folder row under the mouse, else the folder shown.</summary>
+    private string? ListDropFolder(DragEventArgs e)
+    {
+        if (FindItemUnder<FileItemViewModel>(e.OriginalSource) is { IsDirectory: true, IsInArchive: false } row && CanSaveIn(row.FullPath))
+            return row.FullPath;
+        var shown = VM.ActiveTab.FolderPath;
+        return CanSaveIn(shown) ? shown : null;
+    }
+
     private void FileListView_DragOver(object sender, DragEventArgs e)
     {
-        e.Effects = CanSaveIn(VM.ActiveTab.FolderPath) && DroppedImage.CanAccept(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
+        var folder = ListDropFolder(e);
+        if (folder == null) { e.Effects = DragDropEffects.None; return; }
+        if (DroppedImage.CanAccept(e.Data)) { e.Effects = DragDropEffects.Copy; return; }
+        e.Effects = DroppedFiles(e.Data) is { } files ? FileDropEffect(e, folder, files) : DragDropEffects.None;
     }
 
     private void FileListView_Drop(object sender, DragEventArgs e)
     {
         e.Handled = true;
-        if (CanSaveIn(VM.ActiveTab.FolderPath)) SavePicture(e, VM.ActiveTab.FolderPath);
+        var folder = ListDropFolder(e);
+        if (folder != null) HandleDrop(e, folder);
+    }
+
+    /// <summary>A browser's picture becomes a file; files are copied or moved like a paste (after the drop has returned to the sender).</summary>
+    private void HandleDrop(DragEventArgs e, string folder)
+    {
+        if (DroppedImage.CanAccept(e.Data)) { SavePicture(e, folder); return; }
+
+        var files = DroppedFiles(e.Data);
+        if (files == null) return;
+        var effect = FileDropEffect(e, folder, files);
+        e.Effects = effect;
+        if (effect == DragDropEffects.None) return;
+
+        // The sender (Explorer ...) waits until Drop returns: dialogs and the transfer start afterwards.
+        bool move = effect == DragDropEffects.Move;
+        Dispatcher.BeginInvoke(new Action(() => VM.DropFiles(folder, files, move)), System.Windows.Threading.DispatcherPriority.Background);
     }
 
     /// <summary>The folder of the tree under the mouse, if it can take a picture.</summary>
@@ -3743,15 +3810,18 @@ public partial class MainWindow : Window
 
     private void NavigationTree_DragOver(object sender, DragEventArgs e)
     {
-        e.Effects = TreeFolderUnder(e) != null && DroppedImage.CanAccept(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
+        var folder = TreeFolderUnder(e);
+        if (folder == null) { e.Effects = DragDropEffects.None; return; }
+        if (DroppedImage.CanAccept(e.Data)) { e.Effects = DragDropEffects.Copy; return; }
+        e.Effects = DroppedFiles(e.Data) is { } files ? FileDropEffect(e, folder, files) : DragDropEffects.None;
     }
 
     private void NavigationTree_Drop(object sender, DragEventArgs e)
     {
         e.Handled = true;
         var folder = TreeFolderUnder(e);
-        if (folder != null) SavePicture(e, folder);
+        if (folder != null) HandleDrop(e, folder);
     }
 
     /// <summary>

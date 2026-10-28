@@ -544,6 +544,8 @@ public class MainViewModel : INotifyPropertyChanged
     public void CopyPathsAsText(IEnumerable<string> paths)        => _activeTab.CopyPathsAsText(paths);
     public void PutFolderOnClipboard(string path, bool cut)       => _activeTab.PutFolderOnClipboard(path, cut);
     public void PasteInto(string path)                            => _activeTab.PasteInto(path);
+    /// <summary>Files dropped on the list or tree: copied or moved into <paramref name="folder"/> like a paste.</summary>
+    public void DropFiles(string folder, List<string> files, bool move) => _activeTab.PasteInto(folder, files, move);
     public void DeleteFolder(string path)                         => _activeTab.DeleteFolder(path);
     public void RenameFolder(string path, string name)            => _activeTab.RenameFolder(path, name);
     public void CreateFolderIn(string path)                       => _activeTab.CreateNewFolderIn(path);

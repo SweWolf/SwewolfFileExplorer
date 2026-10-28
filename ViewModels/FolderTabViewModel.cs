@@ -3143,6 +3143,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// or says why it cannot be done; the window does it (<see cref="BookmarksPasteRequested"/>). Not for files that come from the Bookmarks
     /// folder itself: moving a bookmark to another group is an ordinary cut and paste.
     /// </summary>
+    /// <summary>True for the Bookmarks folder and its groups: files cannot be dropped there (only bookmarks live in it).</summary>
+    public bool IsBookmarksFolder(string path) => IsUnderBookmarks(path);
+
     private bool TryPasteAsBookmarks(string destination)
     {
         if (!IsUnderBookmarks(destination)) return false;
@@ -3207,10 +3210,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// Pastes what is on the clipboard into <paramref name="destination"/>, a folder of the disk. The files are copied or moved on
     /// a background thread; a long one shows a progress window (file n of N, a bar, Cancel). See <see cref="FileTransfer"/>.
     /// </summary>
-    public async void PasteInto(string destination)
+    public async void PasteInto(string destination, List<string>? dropped = null, bool dropMove = false)
     {
         if (_pasting) return;
-        if (FileClipboard.Get() is not var (sources, isCut))
+
+        // Files dropped from Explorer (or another program) are handled like a paste of those files; the clipboard is not touched.
+        List<string> sources;
+        bool isCut;
+        if (dropped != null) (sources, isCut) = (dropped, dropMove);
+        else if (FileClipboard.Get() is { } clip) (sources, isCut) = (clip.Paths, clip.IsCut);
+        else
         {
             if (RemoteFiles.HasVirtualFiles()) await PasteRemoteAsync(destination);
             return;
@@ -3277,7 +3286,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var followers = relatedMoves.Where(r => movedFrom.Contains(r.Owner)).ToList();
         if (followers.Count > 0 || notDone.Count > 0) MoveRelated(followers, notDone, rename: false);
 
-        if (isCut && !result.Canceled)
+        if (isCut && !result.Canceled && dropped == null)
         {
             FileClipboard.Clear();   // what was cut is moved: there is nothing left to paste (after a Cancel the rest can be pasted again)
             PasteCommand.RaiseCanExecuteChanged();
