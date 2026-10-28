@@ -119,7 +119,7 @@
                          KeyDown="TabStrip_KeyDown"
                          PreviewMouseLeftButtonDown="TabStrip_PreviewMouseLeftButtonDown"
                          PreviewMouseMove="TabStrip_PreviewMouseMove"
-                         DragOver="TabStrip_DragOver">
+                         DragOver="TabStrip_DragOver" DragLeave="TabStrip_DragLeave" Drop="TabStrip_DragLeave">
 
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>

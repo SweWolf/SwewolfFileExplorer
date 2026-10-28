@@ -1,4 +1,4 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
@@ -729,7 +729,11 @@ public partial class MainWindow : Window
     {
         e.Effects = DragDropEffects.None;
         e.Handled = true;
-        if (e.Data.GetData(typeof(FolderTabViewModel)) is not FolderTabViewModel dragged) return;
+        if (e.Data.GetData(typeof(FolderTabViewModel)) is not FolderTabViewModel dragged)
+        {
+            HoverSwitchTab(e);   // files dragged over another tab: it becomes the active one, so they can be dropped there
+            return;
+        }
         e.Effects = DragDropEffects.Move;
 
         if (FindItemUnder<FolderTabViewModel>(e.OriginalSource) is not { } target || target == dragged) return;
@@ -750,6 +754,41 @@ public partial class MainWindow : Window
         if (x < newLeft || x > newRight) return;
 
         VM.Tabs.Move(from, to);
+    }
+
+    private FolderTabViewModel? _hoverTab;
+    private System.Windows.Threading.DispatcherTimer? _hoverTabTimer;
+
+    /// <summary>
+    /// Files or folders dragged (left or right button) over a tab that is not the active one: after a short wait that tab is made the
+    /// active one. Off with Settings > Drag and Drop > Disable Internal Drag and Drop.
+    /// </summary>
+    private void HoverSwitchTab(DragEventArgs e)
+    {
+        var tab = !Helpers.AppSettingsStore.Current.DisableInternalDragDrop && e.Data.GetDataPresent(DataFormats.FileDrop)
+                  ? FindItemUnder<FolderTabViewModel>(e.OriginalSource) : null;
+        if (tab == null || tab == VM.ActiveTab) { StopHoverTab(); return; }
+        if (tab == _hoverTab) return;
+
+        StopHoverTab();
+        _hoverTab = tab;
+        _hoverTabTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+        _hoverTabTimer.Tick += (_, _) =>
+        {
+            var target = _hoverTab;
+            StopHoverTab();
+            if (target != null && VM.Tabs.Contains(target)) VM.ActiveTab = target;
+        };
+        _hoverTabTimer.Start();
+    }
+
+    private void TabStrip_DragLeave(object sender, DragEventArgs e) => StopHoverTab();
+
+    private void StopHoverTab()
+    {
+        _hoverTabTimer?.Stop();
+        _hoverTabTimer = null;
+        _hoverTab = null;
     }
 
     private static bool IsOverButton(object source)
