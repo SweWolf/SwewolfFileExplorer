@@ -1511,6 +1511,60 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Only the letters of a prompt, in lower case: spaces, commas, dots, dashes, digits and so on do not count.</summary>
+    private static string SimplifiedPrompt(string? prompt) =>
+        prompt == null ? "" : new string(prompt.Where(char.IsLetter).Select(char.ToLowerInvariant).ToArray());
+
+    /// <summary>
+    /// "Select All Files with This Prompt": the files of the list (the folder shown) with the same extension as the selected file whose
+    /// simplified prompt equals this one's; negative prompt and seed are not compared.
+    /// </summary>
+    private async void AiSelectSamePrompt_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileListView.SelectedItems.Count != 1 || FileListView.SelectedItems[0] is not FileItemViewModel current) return;
+
+        string wanted = SimplifiedPrompt(AiPromptBox.Text);
+        if (wanted.Length == 0)
+        {
+            MessageBox.Show(this, "This file has no prompt to compare.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        string extension = System.IO.Path.GetExtension(current.Name);
+        var candidates = FileListView.Items.OfType<FileItemViewModel>()
+            .Where(i => !i.IsDirectory && !i.IsInArchive
+                        && string.Equals(System.IO.Path.GetExtension(i.Name), extension, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        Mouse.OverrideCursor = Cursors.Wait;
+        List<FileItemViewModel> matches;
+        try
+        {
+            matches = await Task.Run(() =>
+            {
+                var found = new List<FileItemViewModel>();
+                foreach (var item in candidates)
+                {
+                    if (ReferenceEquals(item, current)) { found.Add(item); continue; }
+                    try
+                    {
+                        if (SimplifiedPrompt(AiInfoReader.Read(item.FullPath)?.Prompt) == wanted) found.Add(item);
+                    }
+                    catch { /* an unreadable file simply does not match */ }
+                }
+                return found;
+            });
+        }
+        finally { Mouse.OverrideCursor = null; }
+
+        // The selection may have changed while the files were read: then the answer is no longer wanted.
+        if (FileListView.SelectedItems.Count != 1 || !ReferenceEquals(FileListView.SelectedItems[0], current)) return;
+
+        FileListView.SelectedItems.Clear();
+        foreach (var item in matches) FileListView.SelectedItems.Add(item);
+        FileListView.Focus();
+    }
+
     private void AiCopyAll_Click(object sender, RoutedEventArgs e)
     {
         if (AiBoxOf(sender) is { } box) CopyText(box.Text);

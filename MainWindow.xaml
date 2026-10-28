@@ -1024,6 +1024,9 @@
                                     <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopySelected_Click"
                                               ToolTip="Copies all the text when nothing is selected"/>
                                     <MenuItem Header="Copy All Text" Click="AiCopyAll_Click"/>
+                                    <Separator/>
+                                    <MenuItem Header="Select All Files with This Prompt" Click="AiSelectSamePrompt_Click"
+                                              ToolTip="Selects the files of the same type in this folder whose prompt has the same letters (spaces, punctuation and case are ignored)"/>
                                 </ContextMenu>
                             </TextBox.ContextMenu>
                         </TextBox>
