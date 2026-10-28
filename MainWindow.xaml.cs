@@ -3739,6 +3739,7 @@ public partial class MainWindow : Window
     /// </summary>
     private DragDropEffects FileDropEffect(DragEventArgs e, string folder, List<string> files)
     {
+        if (AppSettingsStore.Current.DisableInternalDragDrop) return DragDropEffects.None;   // Settings > Drag and Drop
         if (VM.ActiveTab.IsBookmarksFolder(folder)) return DragDropEffects.None;
 
         // Right button: the menu (Copy Here, Move Here, Create Shortcut Here) decides at the drop; show a copy cursor meanwhile.

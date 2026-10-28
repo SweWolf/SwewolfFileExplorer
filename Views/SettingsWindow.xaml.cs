@@ -21,6 +21,7 @@ public partial class SettingsWindow : Window
         RegisteredTypeNamesBox.IsChecked   = current.UseRegisteredTypeNames;
         SuggestMoveBox.IsChecked           = current.SuggestMoveAfterSmartRename;
         RightClickSelectsNodeBox.IsChecked = current.RightClickSelectsTreeNode;
+        DisableDragDropBox.IsChecked       = current.DisableInternalDragDrop;
         TerminalBox.IsChecked              = current.ShowOpenInTerminal;
         PowerShellBox.IsChecked            = current.ShowOpenInPowerShell;
         CommandPromptBox.IsChecked         = current.ShowOpenInCommandPrompt;
@@ -50,6 +51,7 @@ public partial class SettingsWindow : Window
         IconHelper.UseRegisteredTypeNames = settings.UseRegisteredTypeNames;   // forgets the type names found so far
         settings.SuggestMoveAfterSmartRename = SuggestMoveBox.IsChecked == true;
         settings.RightClickSelectsTreeNode = RightClickSelectsNodeBox.IsChecked == true;
+        settings.DisableInternalDragDrop = DisableDragDropBox.IsChecked == true;
         settings.ShowOpenInTerminal      = TerminalBox.IsChecked == true;
         settings.ShowOpenInPowerShell    = PowerShellBox.IsChecked == true;
         settings.ShowOpenInCommandPrompt = CommandPromptBox.IsChecked == true;

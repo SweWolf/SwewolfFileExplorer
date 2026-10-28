@@ -83,6 +83,13 @@ public class AppSettings
     /// </summary>
     public bool RightClickSelectsTreeNode { get; set; } = true;
 
+    /// <summary>
+    /// Settings > Drag and Drop > "Disable Internal Drag and Drop" (off by default). On: files dropped on the list or the tree are refused
+    /// (copy / move by drag, with the left or the right button) and dragging with the right button does not start. A picture dragged in from
+    /// a web browser and files dragged out to another program with the left button always work.
+    /// </summary>
+    public bool DisableInternalDragDrop { get; set; } = false;
+
     /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
     public bool ShowOpenInTerminal { get; set; } = true;
 

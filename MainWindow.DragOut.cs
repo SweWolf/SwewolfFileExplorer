@@ -31,6 +31,7 @@ public partial class MainWindow
         _dragItem = null;
         _selectOnRelease = null;
         _dragWithRight = true;
+        if (Helpers.AppSettingsStore.Current.DisableInternalDragDrop) return;   // Settings > Drag and Drop: no drag with the right button
         if (IsHeaderOrScrollBar(e.OriginalSource)) return;
 
         var item = FindItemUnder<FileItemViewModel>(e.OriginalSource);

@@ -65,6 +65,11 @@
                       ToolTip="On: a right-click on a folder in the tree selects it first, so the list shows that folder, as a right-click on a file in the list selects the file. Off: the selected folder and the list stay as they are, and the folder you right-clicked gets an outline while its menu is open, as in Windows Explorer."/>
         </GroupBox>
 
+        <GroupBox Header="Drag and Drop" Padding="8" Margin="0,8,0,0">
+            <CheckBox x:Name="DisableDragDropBox" Content="Disable Internal Drag and Drop"
+                      ToolTip="On: files cannot be copied or moved by dragging them onto the list or the tree, and dragging with the right mouse button is off. Dragging a picture in from a web browser, and dragging files out of the list to a web browser or another program with the left button, always work."/>
+        </GroupBox>
+
         <GroupBox Header="Terminal Menu (Right-Click an Item to Open It as the Administrator)" Padding="8" Margin="0,8,0,0">
             <StackPanel>
                 <CheckBox x:Name="TerminalBox" Content="Open in Terminal"
