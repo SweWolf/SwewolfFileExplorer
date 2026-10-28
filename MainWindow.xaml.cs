@@ -3526,7 +3526,12 @@ public partial class MainWindow : Window
     {
         var folder = CreateShortcutToDialog.Ask(this, what, suggested);
         if (folder == null) return;
+        CreateShortcutsIn(specs, folder);
+    }
 
+    /// <summary>Makes the shortcuts in <paramref name="folder"/> (overwrite and no-permission questions as for "Create Shortcut..."), selects them if that folder is shown.</summary>
+    private void CreateShortcutsIn(IReadOnlyList<ShortcutSpec> specs, string folder)
+    {
         var result = ShortcutMaker.CreateAll(specs, folder, Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
             confirmOverwrite: lnk => MessageBox.Show(this,
                 $"A shortcut with this name already exists in this folder:\n\n{System.IO.Path.GetFileName(lnk)}\n\nDo you want to overwrite it?",
@@ -3736,7 +3741,14 @@ public partial class MainWindow : Window
     {
         if (VM.ActiveTab.IsBookmarksFolder(folder)) return DragDropEffects.None;
 
-        bool ctrl  = (e.KeyStates & DragDropKeyStates.ControlKey) != 0;
+        // Right button: the menu (Copy Here, Move Here, Create Shortcut Here) decides at the drop; show a copy cursor meanwhile.
+        _rightDrag = (e.KeyStates & DragDropKeyStates.RightMouseButton) != 0 || (_rightDrag && e.KeyStates == DragDropKeyStates.None);
+        if (_rightDrag)
+            return (e.AllowedEffects & DragDropEffects.Copy) != 0 ? DragDropEffects.Copy
+                 : (e.AllowedEffects & DragDropEffects.Move) != 0 ? DragDropEffects.Move
+                 : (e.AllowedEffects & DragDropEffects.Link) != 0 ? DragDropEffects.Link : DragDropEffects.None;
+
+        bool ctrl = (e.KeyStates & DragDropKeyStates.ControlKey) != 0;
         bool shift = (e.KeyStates & DragDropKeyStates.ShiftKey) != 0;
         bool sameDrive = string.Equals(System.IO.Path.GetPathRoot(files[0]), System.IO.Path.GetPathRoot(folder), StringComparison.OrdinalIgnoreCase);
         var effect = ctrl ? DragDropEffects.Copy : shift ? DragDropEffects.Move : sameDrive ? DragDropEffects.Move : DragDropEffects.Copy;
@@ -3772,11 +3784,53 @@ public partial class MainWindow : Window
         e.Effects = DroppedFiles(e.Data) is { } files ? FileDropEffect(e, folder, files) : DragDropEffects.None;
     }
 
+    private bool _rightDrag;   // the drag over us is made with the right mouse button (the key state may be gone when Drop comes)
+
     private void FileListView_Drop(object sender, DragEventArgs e)
     {
         e.Handled = true;
         var folder = ListDropFolder(e);
         if (folder != null) HandleDrop(e, folder);
+    }
+
+    /// <summary>
+    /// The menu of a drop with the right mouse button, as in Explorer: Copy Here, Move Here, Create Shortcut Here, Cancel. The bold
+    /// one is what a drop with the left button would have done (a move on the same drive, else a copy).
+    /// </summary>
+    private void ShowDropMenu(string folder, List<string> files, DragDropEffects allowed)
+    {
+        bool sameDrive = string.Equals(System.IO.Path.GetPathRoot(files[0]), System.IO.Path.GetPathRoot(folder), StringComparison.OrdinalIgnoreCase);
+        var target = folder.TrimEnd('\\', '/');
+        bool allThere = files.All(f => string.Equals(System.IO.Path.GetDirectoryName(f.TrimEnd('\\', '/'))?.TrimEnd('\\', '/'), target, StringComparison.OrdinalIgnoreCase));
+        bool canMove = (allowed & DragDropEffects.Move) != 0 && !allThere;
+        bool canCopy = (allowed & DragDropEffects.Copy) != 0;
+        bool canLink = (allowed & DragDropEffects.Link) != 0;
+        bool moveIsDefault = sameDrive && canMove;
+
+        MenuItem Item(string header, bool enabled, bool bold, Action action)
+        {
+            var mi = new MenuItem { Header = header, IsEnabled = enabled, FontWeight = bold ? FontWeights.Bold : FontWeights.Normal };
+            mi.Click += (_, _) => action();
+            return mi;
+        }
+
+        var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, PlacementTarget = this };
+        menu.Items.Add(Item("_Copy Here", canCopy, !moveIsDefault && canCopy, () => VM.DropFiles(folder, files, move: false)));
+        menu.Items.Add(Item("_Move Here", canMove, moveIsDefault, () => VM.DropFiles(folder, files, move: true)));
+        menu.Items.Add(Item("Create _Shortcut Here", canLink, false,
+            () => CreateShortcutsIn(files.Select(f => new ShortcutSpec(f)).ToList(), folder)));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Cancel", true, false, () => { }));
+
+        // The drag came from another program (Explorer is in front): a menu in a window that is not active closes at once, so take the
+        // front first and open the menu when that is done.
+        try
+        {
+            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+            Activate();
+            Dispatcher.BeginInvoke(new Action(() => menu.IsOpen = true), System.Windows.Threading.DispatcherPriority.Input);
+        }
+        catch (Exception ex) { LogFiles.AppendError($"Drop menu: {ex}"); }
     }
 
     /// <summary>A browser's picture becomes a file; files are copied or moved like a paste (after the drop has returned to the sender).</summary>
@@ -3787,6 +3841,17 @@ public partial class MainWindow : Window
         var files = DroppedFiles(e.Data);
         if (files == null) return;
         var effect = FileDropEffect(e, folder, files);
+
+        if (_rightDrag)
+        {
+            // Dropped with the right button, as in Explorer: a menu asks what to do. Nothing is done by the sender (effect None).
+            _rightDrag = false;
+            e.Effects = DragDropEffects.None;
+            if (effect == DragDropEffects.None) return;
+            var allowed = e.AllowedEffects;
+            Dispatcher.BeginInvoke(new Action(() => ShowDropMenu(folder, files, allowed)), System.Windows.Threading.DispatcherPriority.Background);
+            return;
+        }
         e.Effects = effect;
         if (effect == DragDropEffects.None) return;
 

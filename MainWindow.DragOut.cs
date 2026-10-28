@@ -13,6 +13,7 @@ public partial class MainWindow
 {
     private Point _fileDragStart;
     private FileItemViewModel? _dragItem;          // the item the left button went down on (null = nothing to drag)
+    private bool _dragWithRight;                   // the drag is made with the right button (the drop then asks what to do, as in Explorer)
     private FileItemViewModel? _selectOnRelease;   // a click on one of several selected items: it becomes the only one when the button comes up without a drag
 
     private void InitDragOut()
@@ -20,10 +21,27 @@ public partial class MainWindow
         FileListView.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(DragOut_MouseDown), handledEventsToo: true);
         FileListView.AddHandler(UIElement.PreviewMouseMoveEvent, new MouseEventHandler(DragOut_MouseMove), handledEventsToo: true);
         FileListView.AddHandler(UIElement.PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(DragOut_MouseUp), handledEventsToo: true);
+        FileListView.AddHandler(UIElement.PreviewMouseRightButtonDownEvent, new MouseButtonEventHandler(DragOut_RightMouseDown), handledEventsToo: true);
+        FileListView.AddHandler(UIElement.PreviewMouseRightButtonUpEvent, new MouseButtonEventHandler((_, _) => { if (_dragWithRight) _dragItem = null; }), handledEventsToo: true);
+    }
+
+    /// <summary>The right button goes down on an item: a drag with it ends in a menu (Copy Here, Move Here, Create Shortcut Here). The selection and the right-click menu are left alone until it moves.</summary>
+    private void DragOut_RightMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragItem = null;
+        _selectOnRelease = null;
+        _dragWithRight = true;
+        if (IsHeaderOrScrollBar(e.OriginalSource)) return;
+
+        var item = FindItemUnder<FileItemViewModel>(e.OriginalSource);
+        if (item == null) return;
+        _fileDragStart = e.GetPosition(FileListView);
+        _dragItem = item;
     }
 
     private void DragOut_MouseDown(object sender, MouseButtonEventArgs e)
     {
+        _dragWithRight = false;
         _dragItem = null;
         _selectOnRelease = null;
         if (e.ClickCount != 1 || IsHeaderOrScrollBar(e.OriginalSource)) return;
@@ -47,7 +65,8 @@ public partial class MainWindow
     private void DragOut_MouseMove(object sender, MouseEventArgs e)
     {
         if (_dragItem == null) return;
-        if (e.LeftButton != MouseButtonState.Pressed) { _dragItem = null; _selectOnRelease = null; return; }
+        var button = _dragWithRight ? e.RightButton : e.LeftButton;
+        if (button != MouseButtonState.Pressed) { _dragItem = null; _selectOnRelease = null; return; }
 
         var now = e.GetPosition(FileListView);
         if (Math.Abs(now.X - _fileDragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
