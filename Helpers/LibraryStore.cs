@@ -18,6 +18,7 @@ public sealed record LibraryRoute(string DbFile, string Prefix, bool Relative, s
 /// what it knows.
 ///
 /// History:
+///   2026-10-28  ClearSubfolderLayouts: removes the chosen columns and list sort of all folders below a folder (no schema change).
 ///   2026-10-28  Schema 11: FolderPrefs.Columns (per folder: the columns of the list that are shown, in order, as the names of the explorer's
 ///               SortColumn separated by commas; widths are not kept, the explorer fits them). GetFolderPrefs returns it; SetFolderColumns
 ///               writes it (null = the folder has no layout of its own); Move carries it. An existing table gets the column added.
@@ -1363,6 +1364,44 @@ public static class LibraryStore
                     "INSERT INTO FolderPrefs (Path, Columns) VALUES ($p, $c) ON CONFLICT(Path) DO UPDATE SET Columns = $c",
                     ("$p", KeyOf(route, path)), ("$c", columns));
                 command.ExecuteNonQuery();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                RepairAfter(ex, path);
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Removes the columns and the list sort order that were chosen for the folders below <paramref name="folderPath"/> (all levels, not the
+    /// folder itself), so they take the folder's own again. The tree sort of their subfolders is left. Never creates a library file.
+    /// </summary>
+    public static bool ClearSubfolderLayouts(string folderPath)
+    {
+        var path = folderPath.TrimEnd('\\', '/');
+        if (path.Length == 0) return false;
+
+        lock (Gate)
+        {
+            try
+            {
+                var route = Resolve(path, create: false);
+                if (route == null) return false;
+
+                using var connection = Open(route, create: false);
+                if (connection == null) return false;
+
+                var (below, above) = SubtreeRange(KeyOf(route, path));
+                using var clear = Command(connection,
+                    "UPDATE FolderPrefs SET Columns = NULL, SortColumn = NULL, SortAscending = NULL WHERE Path > $a AND Path < $b",
+                    ("$a", below), ("$b", above));
+                clear.ExecuteNonQuery();
+                using var tidy = Command(connection,
+                    "DELETE FROM FolderPrefs WHERE TreeSortColumn IS NULL AND Columns IS NULL AND SortColumn IS NULL AND Path > $a AND Path < $b",
+                    ("$a", below), ("$b", above));
+                tidy.ExecuteNonQuery();
                 return true;
             }
             catch (Exception ex)

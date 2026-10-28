@@ -121,7 +121,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     private void ApplyFolderSort()
     {
-        var (column, ascending) = _shared.TryGetFolderSort(_currentPath, out var s)
+        var (column, ascending) = _shared.TryGetFolderSortOrInherited(_currentPath, out var s)
             ? s
             : (ArchiveSupport.ShowsStoredOrder(_currentPath) || PlaylistFile.IsPlaylistName(_currentPath) ? SortColumn.None : SortColumn.Name, true);   // a playlist: in the order of the list
 

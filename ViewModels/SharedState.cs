@@ -61,6 +61,64 @@ public class SharedState
         text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(ParseColumn).OfType<SortColumn>().Distinct().ToArray();
 
+    /// <summary>The folder itself, then its parent, the parent's parent and so on up to the root of the drive.</summary>
+    private static IEnumerable<string> SelfAndParents(string path)
+    {
+        string? p = path;
+        while (!string.IsNullOrWhiteSpace(p))
+        {
+            yield return p;
+            var parent = Path.GetDirectoryName(p.TrimEnd('\\', '/'));
+            if (string.IsNullOrWhiteSpace(parent) || string.Equals(parent.TrimEnd('\\', '/'), p.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) yield break;
+            p = parent;
+        }
+    }
+
+    /// <summary>
+    /// The columns of <paramref name="path"/> if the user chose some for it; if not, those of its nearest parent folder that has some
+    /// (up to the root of the drive). False when none of them has: the default columns then apply.
+    /// </summary>
+    public bool TryGetFolderColumnsOrInherited(string path, out SortColumn[] columns)
+    {
+        foreach (var folder in SelfAndParents(path))
+            if (TryGetFolderColumns(folder, out columns)) return true;
+        columns = Array.Empty<SortColumn>();
+        return false;
+    }
+
+    /// <summary>
+    /// How the list of <paramref name="path"/> is sorted: its own order if the user chose one, else that of the nearest parent folder
+    /// that has one. Not for a place inside a compressed file or a playlist (there the order of the files in it counts, and a parent's
+    /// order would shuffle the pages of a comic): they only use their own. False when nothing is found: the default order applies.
+    /// </summary>
+    public bool TryGetFolderSortOrInherited(string path, out (SortColumn Column, bool Ascending) sort)
+    {
+        sort = default;
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        if (ArchiveSupport.DiskArchiveOf(path) != null || PlaylistFile.IsPlaylistName(path)) return TryGetFolderSort(path, out sort);
+
+        foreach (var folder in SelfAndParents(path))
+            if (TryGetFolderSort(folder, out sort)) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// The folders below <paramref name="path"/> forget their own columns and list sort order (they then take the folder's: see
+    /// <see cref="TryGetFolderColumnsOrInherited"/>). The folder itself keeps what it has.
+    /// </summary>
+    public void ClearSubfolderLayouts(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        lock (_sortGate)
+        {
+            var prefix = Key(path) + Path.DirectorySeparatorChar;
+            foreach (var key in _folderColumns.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList()) _folderColumns.Remove(key);
+            foreach (var key in _folderSorts.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList()) _folderSorts.Remove(key);
+        }
+        LibraryService.Queue(() => LibraryStore.ClearSubfolderLayouts(path));
+    }
+
     /// <summary>The columns the user chose for <paramref name="path"/> (shown ones, in order), if they ever did.</summary>
     public bool TryGetFolderColumns(string path, out SortColumn[] columns)
     {

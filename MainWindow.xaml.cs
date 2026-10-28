@@ -478,7 +478,7 @@ public partial class MainWindow : Window
         if (!VM.HasFolder || _defaultColumns == null) return;   // This PC and the like: the file list is not shown, keep what is there
 
         SyncLayoutFromGrid();
-        var wantedShown = VM.Shared.TryGetFolderColumns(VM.CurrentPath, out var saved)
+        var wantedShown = VM.Shared.TryGetFolderColumnsOrInherited(VM.CurrentPath, out var saved)   // its own, else the nearest parent's
             ? saved.ToList()
             : _defaultColumns.Where(c => c.Visible).Select(c => c.Key).ToList();
         if (!wantedShown.Contains(SortColumn.Name)) wantedShown.Insert(0, SortColumn.Name);   // Name is always shown
@@ -519,6 +519,26 @@ public partial class MainWindow : Window
         SyncLayoutFromGrid();
         _defaultColumns = _layout.Select(c => (c.Key, c.Visible)).ToList();
         SaveColumnLayout();
+    }
+
+    /// <summary>
+    /// The columns and the sort order of the folder shown are kept for it and become those of all the folders below it: they forget their
+    /// own, and (because a folder without its own takes its parent's) so do folders made later. Asks first: it replaces what they have.
+    /// </summary>
+    private void UseColumnsInSubfolders()
+    {
+        if (!VM.HasFolder || VM.InArchive || VM.InPlaylist) return;
+
+        var answer = MessageBox.Show(this,
+            "Do you want all folders below this one to show the columns and the sort order of this folder?\n\n" +
+            "The columns and sort orders they have chosen for themselves will be replaced.",
+            AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+
+        SaveFolderColumns();                            // this folder keeps these columns for itself ...
+        VM.SetSort(VM.SortColumn, VM.SortAscending);    // ... and this sort order
+        VM.Shared.ClearSubfolderLayouts(VM.CurrentPath);   // the folders below take them from it
+        FlashTitle($"{BaseTitle} - Columns and sort order set for all subfolders");
     }
 
     /// <summary>The folder shown goes back to the default columns.</summary>
@@ -658,9 +678,9 @@ public partial class MainWindow : Window
         menu.Items.Add(new Separator());
         var useDefault = new MenuItem
         {
-            Header = "Use the Default Columns in This Folder",
+            Header = "Forget the Columns of This Folder",
             IsEnabled = VM.HasFolder && VM.Shared.TryGetFolderColumns(VM.CurrentPath, out _),
-            ToolTip = "Removes the columns this folder remembers; it then shows the default columns"
+            ToolTip = "Removes the columns this folder remembers; it then shows the columns of the nearest parent folder that has some, else the default columns"
         };
         useDefault.Click += (_, _) => ResetFolderColumns();
         menu.Items.Add(useDefault);
@@ -672,6 +692,15 @@ public partial class MainWindow : Window
         };
         makeDefault.Click += (_, _) => SetDefaultColumns();
         menu.Items.Add(makeDefault);
+
+        var toSubfolders = new MenuItem
+        {
+            Header = "Use These Columns and Sort Order in All Subfolders",
+            IsEnabled = VM.HasFolder && !VM.InArchive && !VM.InPlaylist,
+            ToolTip = "Every folder below this one forgets its own columns and sort order and shows the ones of this folder"
+        };
+        toSubfolders.Click += (_, _) => UseColumnsInSubfolders();
+        menu.Items.Add(toSubfolders);
 
         menu.PlacementTarget = FileListView;
         menu.IsOpen = true;
@@ -2557,7 +2586,7 @@ public partial class MainWindow : Window
         }
         catch { /* the folder cannot be read: the picture asked for is shown alone */ }
 
-        var (column, ascending) = VM.Shared.TryGetFolderSort(folder, out var saved) ? saved : (SortColumn.Name, true);
+        var (column, ascending) = VM.Shared.TryGetFolderSortOrInherited(folder, out var saved) ? saved : (SortColumn.Name, true);
         items.Sort((x, y) => new FileItemComparer(column, ascending).Compare(x, y));
 
         var pictures = items.Select(i => i.FullPath).ToList();
