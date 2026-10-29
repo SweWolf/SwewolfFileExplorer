@@ -109,6 +109,7 @@ public partial class MainWindow
         if (Math.Abs(height - _playBarHeight) < 0.5) return;
         double delta = height - _playBarHeight;
         _playBarHeight = height;
+        if (!VM.ShowInfoPanel) return;   // the panel is hidden: its row is as high as its content (UpdateInfoPanelVisibility sets it again when it is shown)
         InfoRow.MinHeight = InfoPanelMinHeight + height;
         InfoRow.Height    = new GridLength(Math.Max(InfoRow.MinHeight, InfoRow.Height.Value + delta));
         FitPreviewBox();

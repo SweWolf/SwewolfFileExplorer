@@ -125,6 +125,19 @@ public class MainViewModel : INotifyPropertyChanged
     public bool IsThisPcShown => _activeTab.IsThisPcShown;
     public ObservableCollection<DriveRow> DriveRows => _activeTab.DriveRows;
 
+    /// <summary>The panel under the info line is shown (saved in the settings; the "x" at its far right hides it, a button at the right end of the info line shows it again).</summary>
+    public bool ShowInfoPanel
+    {
+        get => _shared.Settings.ShowInfoPanel;
+        set
+        {
+            if (_shared.Settings.ShowInfoPanel == value) return;
+            _shared.Settings.ShowInfoPanel = value;
+            AppSettingsStore.Save(_shared.Settings);
+            OnPropertyChanged();
+        }
+    }
+
     public RelayCommand ToggleTreeCommand { get; }
 
     // ── Tabs ─────────────────────────────────────────────────────────────────

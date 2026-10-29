@@ -93,6 +93,10 @@ public partial class MainWindow : Window
                 QueueInfoUpdate();   // what the info panel says about an archive as the folder shown follows
             }
 
+            // The panel under the info line is hidden (the "x" far right) or shown again (the button at the right end of the info line).
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.ShowInfoPanel))
+                UpdateInfoPanelVisibility();
+
             // This PC shows the drives list instead of the file list (an empty name: another tab became active).
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.IsThisPcShown))
                 UpdateDrivesList();
@@ -107,6 +111,7 @@ public partial class MainWindow : Window
         ((INotifyCollectionChanged)FileListView.Items).CollectionChanged += (_, _) => { QueueInfoUpdate(); QueueAutoFit(); };
 
         UpdateDrivesList();   // the program starts on This PC
+        UpdateInfoPanelVisibility();   // the panel was hidden in an earlier run
         LoadColumnLayout();
         ApplySort(VM.SortColumn, VM.SortAscending);
 
@@ -1453,12 +1458,18 @@ public partial class MainWindow : Window
         {
             int position = FileListView.Items.IndexOf(item) + 1;   // in the order the list shows
             PositionText.Text = $"{(item.IsDirectory ? "Folder" : "File")} {position}/{FileListView.Items.Count}";
-            ShowThumbnail(item);
-            ShowPlot(item);
-            ShowAiInfo(item);
+            if (VM.ShowInfoPanel)   // the panel is hidden: nothing under the info line is read (the web origin is also kept in the library, so that goes on)
+            {
+                ShowThumbnail(item);
+                ShowPlot(item);
+                ShowAiInfo(item);
+            }
             ShowWebOrigin(item);
-            ShowGps(item);
-            ShowDetails(new List<FileItemViewModel> { item });
+            if (VM.ShowInfoPanel)
+            {
+                ShowGps(item);
+                ShowDetails(new List<FileItemViewModel> { item });
+            }
         }
         else
         {
@@ -1910,9 +1921,43 @@ public partial class MainWindow : Window
 
     private const double InfoPanelMinHeight = 141;   // 1 (top line) + 8 + 24 (the info line) + 100 (the preview box) + 8
 
+    // ── Hiding the panel under the info line ─────────────────────────────────
+
+    private void InfoClose_Click(object sender, RoutedEventArgs e) => VM.ShowInfoPanel = false;
+
+    private void InfoPanelShow_Click(object sender, RoutedEventArgs e) => VM.ShowInfoPanel = true;
+
+    /// <summary>
+    /// The "x" at the far right of the panel hides everything under the info line (the details, the preview picture, the plot ...): the row
+    /// is then only as high as the info line (and the Play bar when it is open), the dividers are not needed, and a small button at the
+    /// right end of the info line brings the panel back with the height it had.
+    /// </summary>
+    private void UpdateInfoPanelVisibility()
+    {
+        bool on = VM.ShowInfoPanel;
+        InfoBody.Visibility            = on ? Visibility.Visible : Visibility.Collapsed;
+        InfoPanelShowButton.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        InfoDivider.Visibility         = on ? Visibility.Visible : Visibility.Collapsed;
+        InfoLineDivider.Visibility     = on ? Visibility.Visible : Visibility.Collapsed;
+
+        if (on)
+        {
+            InfoRow.MinHeight = InfoPanelMinHeight + _playBarHeight;
+            InfoRow.Height    = new GridLength(Math.Max(InfoRow.MinHeight, AppSettingsStore.Current.InfoPanelHeight + _playBarHeight));
+            FitPreviewBox();
+            QueueInfoUpdate();   // what was skipped while it was hidden is read now
+        }
+        else
+        {
+            InfoRow.MinHeight = 0;
+            InfoRow.Height    = GridLength.Auto;
+        }
+    }
+
     /// <summary>The preview box is as high as the panel allows and 1.6 times as wide (160 x 100 at the smallest panel).</summary>
     private void FitPreviewBox()
     {
+        if (!VM.ShowInfoPanel) return;   // hidden: no picture to size
         double height = Math.Max(100, InfoPanel.ActualHeight - 17 - 24 - _playBarHeight);   // minus the line, the padding, the info line and the Play bar
         PreviewBox.Height = height;
         PreviewBox.Width  = Math.Round(height * 1.6);

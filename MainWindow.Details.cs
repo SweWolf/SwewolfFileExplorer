@@ -20,9 +20,9 @@ public partial class MainWindow
     {
         int version = ++_detailsVersion;
 
-        if (!VM.HasFolder)
+        if (!VM.HasFolder || !VM.ShowInfoPanel)   // This PC, or the user hid the panel (the "x" far right)
         {
-            DetailsScroll.Visibility = Visibility.Collapsed;
+            DetailsPane.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -44,12 +44,12 @@ public partial class MainWindow
                         ("Size", DriveRow.FormatSize(file.Length)),
                         ("Date Modified", file.LastWriteTime.ToString("MM/dd/yyyy HH:mm")),
                         ("Date Created", file.CreationTime.ToString("MM/dd/yyyy HH:mm"))
-                    });
+                    }, nodePath: node, fileForViewer: true);
                     return;
                 }
                 catch { /* gone or no access: nothing to show */ }
             }
-            DetailsScroll.Visibility = Visibility.Collapsed;
+            DetailsPane.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -137,14 +137,14 @@ public partial class MainWindow
         Row("Rating", item.RatingText);
         Row("Expectation", item.ExpectationText);
 
-        RenderDetails(item.DisplayName, rows);
+        RenderDetails(item.DisplayName, rows, fileForViewer: !item.IsDirectory);
     }
 
     private static string FormatLength(TimeSpan d) =>
         d.TotalHours >= 1 ? $"{(int)d.TotalHours}:{d.Minutes:00}:{d.Seconds:00}" : $"{d.Minutes}:{d.Seconds:00}";
 
     /// <summary>The name in bold on top (cut with "..." when long, the whole name as a tooltip), then the rows: a grey label and its value.</summary>
-    private void RenderDetails(string title, List<(string Label, string Value)> rows)
+    private void RenderDetails(string title, List<(string Label, string Value)> rows, string? nodePath = null, bool fileForViewer = false)
     {
         DetailsPanel.Children.Clear();
 
@@ -170,6 +170,43 @@ public partial class MainWindow
         }
 
         DetailsScroll.ScrollToTop();
-        DetailsScroll.Visibility = Visibility.Visible;
+        DetailsPane.Visibility = Visibility.Visible;
+        UpdateDetailsButtons(nodePath, fileForViewer);
     }
+
+    // ── The small buttons under the details, and hiding them ─────────────────
+
+    /// <summary>The packed file or playlist whose own details are shown (nothing is selected in the list); null for a selection.</summary>
+    private string? _detailsNodePath;
+
+    /// <summary>
+    /// Properties is there for everything on the disk (not for what is inside a packed file); File Info Viewer only for exactly one file
+    /// (or the packed file / playlist shown), and only when that program is found.
+    /// </summary>
+    private void UpdateDetailsButtons(string? nodePath, bool fileForViewer)
+    {
+        _detailsNodePath = nodePath;
+        DetailsPropertiesButton.Visibility = nodePath != null || !VM.InArchive ? Visibility.Visible : Visibility.Collapsed;
+
+        var exe = fileForViewer ? FileInfoViewerLauncher.FindExe() : null;
+        DetailsFileInfoButton.Visibility = exe != null ? Visibility.Visible : Visibility.Collapsed;
+        if (exe != null && DetailsFileInfoIcon.Source == null) DetailsFileInfoIcon.Source = FileInfoViewerLauncher.GetIcon(exe);
+    }
+
+    private void DetailsProperties_Click(object sender, RoutedEventArgs e)
+    {
+        if (_detailsNodePath != null)
+        {
+            try { PropertiesHelper.Show(new[] { _detailsNodePath }, OnPropertiesChanged); }
+            catch (Exception ex) { MessageBox.Show(this, $"Cannot show properties: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }
+        else ShowProperties();   // the selected items, as the menu's Properties
+    }
+
+    private void DetailsFileInfo_Click(object sender, RoutedEventArgs e)
+    {
+        if (_detailsNodePath != null) { if (System.IO.File.Exists(_detailsNodePath)) FileInfoViewerLauncher.Open(_detailsNodePath); }
+        else CtxFileInfo_Click(sender, e);   // the one selected file, as the menu's File Info Viewer
+    }
+
 }

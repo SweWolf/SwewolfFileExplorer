@@ -1029,168 +1029,248 @@
                         <RowDefinition Height="Auto"/> <!-- the Play bar (hidden until the Play button is pressed) -->
                         <RowDefinition Height="*"/>    <!-- the preview picture and the plot -->
                     </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" MinWidth="220"/>   <!-- (nothing yet: room for information to the left of the picture) -->
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition x:Name="PlotColumn" Width="*"/>   <!-- the plot (set in code: MainWindow.LayoutInfoColumns) -->
-                        <ColumnDefinition x:Name="AiInfoColumn" Width="0"/>   <!-- the prompt and negative prompt of an AI picture or video -->
-                        <ColumnDefinition x:Name="InfoRightColumn" Width="0"/>   <!-- the seed and what the web says about the file (Mark of the Web) -->
-                    </Grid.ColumnDefinitions>
-
-                    <!-- The details of the selected item (name, then rows that fit its kind), left of the preview picture, as Explorer's Details pane.
-                         Filled in code (MainWindow.Details.cs); scrolls when the panel is too low for all the rows. -->
-                    <ScrollViewer x:Name="DetailsScroll" Grid.Row="2" Grid.Column="0" MinWidth="220" MaxWidth="300" Margin="0,0,8,0"
-                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" Focusable="False">
-                        <StackPanel x:Name="DetailsPanel"/>
-                    </ScrollViewer>
-
-                    <!-- The plot from the video's .nfo file, to the right of the preview picture, only when there is one
-                         (it takes no space otherwise). A long plot scrolls; the whole text is also in the tooltip. -->
-                    <Grid x:Name="PlotArea" Grid.Row="2" Grid.Column="2" Margin="16,0,0,0" Background="Transparent" Visibility="Collapsed"
-                          PreviewMouseLeftButtonDown="PlotArea_PreviewMouseLeftButtonDown">
-                        <Grid.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="Edit Plot..." Click="PlotEdit_Click"
-                                          ToolTip="Change the plot of this file, which is kept in its .nfo file (a double-click does the same)"/>
-                            </ContextMenu>
-                        </Grid.ContextMenu>
-                        <ScrollViewer x:Name="PlotScroll" Visibility="Collapsed"
-                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <TextBlock x:Name="PlotText" FontSize="14" TextWrapping="Wrap"/>
-                        </ScrollViewer>
-                        <!-- Where there is no plot yet: a hint, so the user sees that a double-click adds one -->
-                        <TextBlock x:Name="PlotHint" FontSize="14" Text="Double-click to add a plot" Visibility="Collapsed"
-                                   Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
-                                   HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"/>
-                    </Grid>
-
-                    <!-- What an AI program wrote into a PNG or MP4 (prompt, negative prompt, seed), right of the plot column.
-                         Read-only text boxes, so the text can be selected and copied; each scrolls by itself when the text is long. -->
-                    <Grid x:Name="AiInfoArea" Grid.Row="2" Grid.Column="3" Margin="16,0,0,0" Visibility="Collapsed">
+                    <!-- Everything under the info line: the details, the preview picture, the plot, the AI information, the seed and the web origin.
+                         The "x" at the far right hides it all (MainWindow.UpdateInfoPanelVisibility). -->
+                    <Grid x:Name="InfoBody" Grid.Row="2">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*" MinWidth="80"/>
-                            <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="1*" MinWidth="50"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock x:Name="AiPromptLabel" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Prompt" Margin="0,0,0,2"/>
-                        <TextBox x:Name="AiPromptBox" Grid.Column="0" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
-                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0" PreviewKeyDown="AiTextBox_PreviewKeyDown">
-                            <TextBox.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopySelected_Click"
-                                              ToolTip="Copies all the text when nothing is selected"/>
-                                    <MenuItem Header="Copy All Text" Click="AiCopyAll_Click"/>
-                                    <Separator/>
-                                    <MenuItem Header="Select All Files with This Prompt" Click="AiSelectSamePrompt_Click"
-                                              ToolTip="Selects the files of the same type in this folder whose prompt has the same letters (spaces, punctuation and case are ignored)"/>
-                                </ContextMenu>
-                            </TextBox.ContextMenu>
-                        </TextBox>
-
-                        <TextBlock Grid.Column="2" FontSize="12" FontWeight="Bold" Text="Negative Prompt" Margin="0,0,0,2"/>
-                        <TextBox x:Name="AiNegativeBox" Grid.Column="2" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
-                                 VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0" PreviewKeyDown="AiTextBox_PreviewKeyDown">
-                            <TextBox.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopySelected_Click"
-                                              ToolTip="Copies all the text when nothing is selected"/>
-                                    <MenuItem Header="Copy All Text" Click="AiCopyAll_Click"/>
-                                </ContextMenu>
-                            </TextBox.ContextMenu>
-                        </TextBox>
-                    </Grid>
-
-                    <!-- The right-hand part of the panel: the seed of an AI picture, and what the web says about the file (the Mark of the Web
-                         that browsers attach to a download: zone, address of the file, page it came from). Single-line read-only text boxes (the
-                         whole text is copied by Ctrl+C or the menu); a row without a value is not shown; read in the background (MainWindow.ShowWebOrigin). -->
-                    <Grid x:Name="InfoRightArea" Grid.Row="2" Grid.Column="4" Margin="16,0,0,0" Visibility="Collapsed">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                        <Grid x:Name="InfoContent" Grid.Column="0">
+                                <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="220"/>   <!-- the details block (MainWindow.Details.cs) -->
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition x:Name="PlotColumn" Width="*"/>   <!-- the plot (set in code: MainWindow.LayoutInfoColumns) -->
+                                <ColumnDefinition x:Name="AiInfoColumn" Width="0"/>   <!-- the prompt and negative prompt of an AI picture or video -->
+                                <ColumnDefinition x:Name="InfoRightColumn" Width="0"/>   <!-- the seed and what the web says about the file (Mark of the Web) -->
+                            </Grid.ColumnDefinitions>
+                            <!-- The details of the selected item (name, then rows that fit its kind), left of the preview picture, as Explorer's Details pane.
+                                 Filled in code (MainWindow.Details.cs); scrolls when the panel is too low for all the rows. -->
+                            <Grid x:Name="DetailsPane" Grid.Column="0" MinWidth="220" MaxWidth="300" Margin="0,0,8,0" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <ScrollViewer x:Name="DetailsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                    <StackPanel x:Name="DetailsPanel"/>
+                                </ScrollViewer>
 
-                        <TextBlock x:Name="AiSeedLabel" Grid.Row="0" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Seed"
-                                   VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
-                        <TextBox x:Name="AiSeedBox" Grid.Row="0" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
-                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
-                                 VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
-                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown">
-                            <TextBox.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
-                                              ToolTip="Copies the whole text"/>
-                                </ContextMenu>
-                            </TextBox.ContextMenu>
-                        </TextBox>
+                                <!-- Small buttons in the lower left corner, with a tooltip only: Properties (a wrench, as in Explorer) and File Info Viewer (its own icon, set in code) -->
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Button x:Name="DetailsPropertiesButton" Click="DetailsProperties_Click" Focusable="False" Padding="7,4" Margin="0,0,6,0" ToolTip="Properties">
+                                        <TextBlock Text="&#xE90F;" FontSize="14" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                                    </Button>
+                                    <Button x:Name="DetailsFileInfoButton" Click="DetailsFileInfo_Click" Focusable="False" Padding="7,4" Margin="0,0,6,0" ToolTip="File Info Viewer" Visibility="Collapsed">
+                                        <Image x:Name="DetailsFileInfoIcon" Width="16" Height="16"/>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                            <!-- The plot from the video's .nfo file, to the right of the preview picture, only when there is one
+                                 (it takes no space otherwise). A long plot scrolls; the whole text is also in the tooltip. -->
+                            <Grid x:Name="PlotArea" Grid.Column="2" Margin="16,0,0,0" Background="Transparent" Visibility="Collapsed"
+                                  PreviewMouseLeftButtonDown="PlotArea_PreviewMouseLeftButtonDown">
+                                <Grid.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Edit Plot..." Click="PlotEdit_Click"
+                                                  ToolTip="Change the plot of this file, which is kept in its .nfo file (a double-click does the same)"/>
+                                    </ContextMenu>
+                                </Grid.ContextMenu>
+                                <ScrollViewer x:Name="PlotScroll" Visibility="Collapsed"
+                                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <TextBlock x:Name="PlotText" FontSize="14" TextWrapping="Wrap"/>
+                                </ScrollViewer>
+                                <!-- Where there is no plot yet: a hint, so the user sees that a double-click adds one -->
+                                <TextBlock x:Name="PlotHint" FontSize="14" Text="Double-click to add a plot" Visibility="Collapsed"
+                                           Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                                           HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"/>
+                            </Grid>
+                            <!-- What an AI program wrote into a PNG or MP4 (prompt, negative prompt, seed), right of the plot column.
+                                 Read-only text boxes, so the text can be selected and copied; each scrolls by itself when the text is long. -->
+                            <Grid x:Name="AiInfoArea" Grid.Column="3" Margin="16,0,0,0" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" MinWidth="80"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="1*" MinWidth="50"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
 
-                        <TextBlock x:Name="WebZoneLabel" Grid.Row="1" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Zone ID"
-                                   VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
-                        <TextBox x:Name="WebZoneBox" Grid.Row="1" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
-                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
-                                 VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
-                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown">
-                            <TextBox.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
-                                              ToolTip="Copies the whole text"/>
-                                </ContextMenu>
-                            </TextBox.ContextMenu>
-                        </TextBox>
+                                <TextBlock x:Name="AiPromptLabel" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Prompt" Margin="0,0,0,2"/>
+                                <TextBox x:Name="AiPromptBox" Grid.Column="0" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
+                                         VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0" PreviewKeyDown="AiTextBox_PreviewKeyDown">
+                                    <TextBox.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopySelected_Click"
+                                                      ToolTip="Copies all the text when nothing is selected"/>
+                                            <MenuItem Header="Copy All Text" Click="AiCopyAll_Click"/>
+                                            <Separator/>
+                                            <MenuItem Header="Select All Files with This Prompt" Click="AiSelectSamePrompt_Click"
+                                                      ToolTip="Selects the files of the same type in this folder whose prompt has the same letters (spaces, punctuation and case are ignored)"/>
+                                        </ContextMenu>
+                                    </TextBox.ContextMenu>
+                                </TextBox>
 
-                        <TextBlock x:Name="WebHostLabel" Grid.Row="2" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Host URL"
-                                   VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
-                        <TextBox x:Name="WebHostBox" Grid.Row="2" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
-                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
-                                 VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
-                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown"
-                                 MouseDoubleClick="WebUrlBox_DoubleClick" ContextMenuOpening="WebUrlBox_ContextMenuOpening">
-                        </TextBox>
+                                <TextBlock Grid.Column="2" FontSize="12" FontWeight="Bold" Text="Negative Prompt" Margin="0,0,0,2"/>
+                                <TextBox x:Name="AiNegativeBox" Grid.Column="2" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" FontSize="13"
+                                         VerticalScrollBarVisibility="Auto" Background="Transparent" Padding="2" BorderThickness="0" PreviewKeyDown="AiTextBox_PreviewKeyDown">
+                                    <TextBox.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopySelected_Click"
+                                                      ToolTip="Copies all the text when nothing is selected"/>
+                                            <MenuItem Header="Copy All Text" Click="AiCopyAll_Click"/>
+                                        </ContextMenu>
+                                    </TextBox.ContextMenu>
+                                </TextBox>
+                            </Grid>
+                            <!-- The right-hand part of the panel: the seed of an AI picture, and what the web says about the file (the Mark of the Web
+                                 that browsers attach to a download: zone, address of the file, page it came from). Single-line read-only text boxes (the
+                                 whole text is copied by Ctrl+C or the menu); a row without a value is not shown; read in the background (MainWindow.ShowWebOrigin). -->
+                            <Grid x:Name="InfoRightArea" Grid.Column="4" Margin="16,0,0,0" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                        <TextBlock x:Name="WebReferrerLabel" Grid.Row="3" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Referrer URL"
-                                   VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
-                        <TextBox x:Name="WebReferrerBox" Grid.Row="3" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
-                                 Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
-                                 VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
-                                 PreviewKeyDown="AiSeedBox_PreviewKeyDown"
-                                 MouseDoubleClick="WebUrlBox_DoubleClick" ContextMenuOpening="WebUrlBox_ContextMenuOpening">
-                        </TextBox>
+                                <TextBlock x:Name="AiSeedLabel" Grid.Row="0" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Seed"
+                                           VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <TextBox x:Name="AiSeedBox" Grid.Row="0" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                         Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
+                                         VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
+                                         PreviewKeyDown="AiSeedBox_PreviewKeyDown">
+                                    <TextBox.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
+                                                      ToolTip="Copies the whole text"/>
+                                        </ContextMenu>
+                                    </TextBox.ContextMenu>
+                                </TextBox>
+
+                                <TextBlock x:Name="WebZoneLabel" Grid.Row="1" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Zone ID"
+                                           VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <TextBox x:Name="WebZoneBox" Grid.Row="1" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                         Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
+                                         VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
+                                         PreviewKeyDown="AiSeedBox_PreviewKeyDown">
+                                    <TextBox.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Copy" InputGestureText="Ctrl+C" Click="AiCopyAll_Click"
+                                                      ToolTip="Copies the whole text"/>
+                                        </ContextMenu>
+                                    </TextBox.ContextMenu>
+                                </TextBox>
+
+                                <TextBlock x:Name="WebHostLabel" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Host URL"
+                                           VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <TextBox x:Name="WebHostBox" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                         Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
+                                         VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
+                                         PreviewKeyDown="AiSeedBox_PreviewKeyDown"
+                                         MouseDoubleClick="WebUrlBox_DoubleClick" ContextMenuOpening="WebUrlBox_ContextMenuOpening">
+                                </TextBox>
+
+                                <TextBlock x:Name="WebReferrerLabel" Grid.Row="3" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Referrer URL"
+                                           VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <TextBox x:Name="WebReferrerBox" Grid.Row="3" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                         Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
+                                         VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
+                                         PreviewKeyDown="AiSeedBox_PreviewKeyDown"
+                                         MouseDoubleClick="WebUrlBox_DoubleClick" ContextMenuOpening="WebUrlBox_ContextMenuOpening">
+                                </TextBox>
+                            </Grid>
+                            <!-- The map symbol in the lower right corner: only when the selected picture or video says where it was taken
+                                 (read in the background, MainWindow.ShowGps). A click shows the place on Google Maps; the right-click menu can copy
+                                 the coordinates. A Windows symbol font glyph (Segoe Fluent Icons), so it follows the style and needs no picture file. -->
+                            <Border x:Name="GpsButton" Grid.Column="0" Grid.ColumnSpan="5" Width="34" Height="34" Margin="0,0,2,0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="Hand"
+                                    Visibility="Collapsed" Panel.ZIndex="3" MouseLeftButtonUp="GpsButton_MouseLeftButtonUp">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Show on Google Maps" Click="GpsOpen_Click"/>
+                                        <MenuItem Header="Show on OpenStreetMap" Tag="osm" Click="GpsSite_Click"/>
+                                        <MenuItem Header="Show on Bing Maps" Tag="bing" Click="GpsSite_Click"/>
+                                        <MenuItem Header="Show on Waze" Tag="waze" Click="GpsSite_Click"
+                                                  ToolTip="Opens Waze with a route to the place"/>
+                                        <MenuItem Header="Show on Apple Maps" Tag="apple" Click="GpsSite_Click"/>
+                                        <MenuItem Header="Show on HERE WeGo" Tag="here" Click="GpsSite_Click"/>
+                                        <MenuItem Header="Show on MapQuest" Tag="mapquest" Click="GpsSite_Click"/>
+                                        <Separator/>
+                                        <MenuItem Header="Copy Coordinates" Click="GpsCopy_Click"/>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <TextBlock Text="&#xE707;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="26"
+                                           Foreground="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <!-- A click opens the picture in the picture viewer (the picture of a picture file, the cover built into a
+                                 music file, the preview picture of a video). The transparent border is there so that the right-click
+                                 menu (Choose / No / Automatic preview picture) also works on an empty square. -->
+                            <Border x:Name="PreviewBox" Grid.Column="1" Width="160" Height="100" Background="Transparent"
+                                    HorizontalAlignment="Left" VerticalAlignment="Top"
+                                    ContextMenuOpening="PreviewBox_ContextMenuOpening">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem x:Name="PreviewChooseItem" Header="Choose Preview Picture..." Click="PreviewChoose_Click"/>
+                                        <MenuItem x:Name="PreviewNoneItem"   Header="No Preview Picture"        Click="PreviewNone_Click"/>
+                                        <MenuItem x:Name="PreviewAutoItem"   Header="Use Automatic Preview Picture" Click="PreviewAuto_Click"/>
+                                        <Separator x:Name="PreviewSaveSeparator"/>
+                                        <MenuItem x:Name="PreviewSaveItem"   Header="Save Preview Picture As..." Click="PreviewSave_Click"/>
+                                        <Separator x:Name="FolderPictureSeparator"/>
+                                        <MenuItem x:Name="FolderPictureSetItem"  Header="Set as Folder Picture" Click="FolderPictureSet_Click"
+                                                  ToolTip="Show this picture under the folder tree for this folder. Only its name is kept in the library; no file is made."/>
+                                        <MenuItem x:Name="FolderPictureAutoItem" Header="Use Automatic Folder Picture" Click="FolderPictureAuto_Click"
+                                                  ToolTip="Forget the chosen picture of this folder: the program looks for one itself again"/>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <Grid>
+                                    <Image x:Name="ThumbnailImage" Stretch="Uniform" Cursor="Hand"
+                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                           MouseLeftButtonDown="ThumbnailImage_MouseLeftButtonDown"/>
+                                    <!-- Shown instead of the picture for a video or music file that has none (or is set to none),
+                                         so the user sees where to right-click -->
+                                    <TextBlock x:Name="PreviewEmptyText" Text="No Preview Picture" Visibility="Collapsed"
+                                               FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                                               IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        <!-- The "x" far right, beyond the seed: hides the whole panel under the info line (the preview picture, the details, the
+                             plot ...). A small button at the right end of the info line brings it back (as for the folder picture under the tree). -->
+                        <Button x:Name="InfoCloseButton" Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right" Focusable="False" Padding="6,2" Margin="8,0,0,0"
+                                ToolTip="Hide the Panel (a button at the right end of the line above shows it again)" Click="InfoClose_Click">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Box" Background="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource CloseHoverBrush}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource ClosePressedBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="&#x2715;" FontSize="11" FontFamily="Segoe UI"/>
+                        </Button>
                     </Grid>
 
-                    <!-- The map symbol in the lower right corner: only when the selected picture or video says where it was taken
-                         (read in the background, MainWindow.ShowGps). A click shows the place on Google Maps; the right-click menu can copy
-                         the coordinates. A Windows symbol font glyph (Segoe Fluent Icons), so it follows the style and needs no picture file. -->
-                    <Border x:Name="GpsButton" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Width="34" Height="34" Margin="0,0,2,0"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="Hand"
-                            Visibility="Collapsed" Panel.ZIndex="3" MouseLeftButtonUp="GpsButton_MouseLeftButtonUp">
-                        <Border.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="Show on Google Maps" Click="GpsOpen_Click"/>
-                                <MenuItem Header="Show on OpenStreetMap" Tag="osm" Click="GpsSite_Click"/>
-                                <MenuItem Header="Show on Bing Maps" Tag="bing" Click="GpsSite_Click"/>
-                                <MenuItem Header="Show on Waze" Tag="waze" Click="GpsSite_Click"
-                                          ToolTip="Opens Waze with a route to the place"/>
-                                <MenuItem Header="Show on Apple Maps" Tag="apple" Click="GpsSite_Click"/>
-                                <MenuItem Header="Show on HERE WeGo" Tag="here" Click="GpsSite_Click"/>
-                                <MenuItem Header="Show on MapQuest" Tag="mapquest" Click="GpsSite_Click"/>
-                                <Separator/>
-                                <MenuItem Header="Copy Coordinates" Click="GpsCopy_Click"/>
-                            </ContextMenu>
-                        </Border.ContextMenu>
-                        <TextBlock Text="&#xE707;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="26"
-                                   Foreground="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+
+
+
+
 
                     <!-- A row of its own above the picture and the plot: where the selected file is in the list (or how many are
                          selected / in the folder), and the hidden-items link well to the right of it -->
@@ -1238,6 +1318,12 @@
 
                     <!-- The Play bar, as TeraTool's box under the list, with one change: Play and Pause are one button. Under the info line,
                          above the preview picture; wraps onto a second line in a narrow window. Phase 1 plays pictures (see docs/slideshow-and-play-modes-plan.md). -->
+                    <!-- Only there while the panel under this line is hidden: shows it again -->
+                    <Button x:Name="InfoPanelShowButton" HorizontalAlignment="Right" VerticalAlignment="Center" Focusable="False" Padding="6,2" Margin="0,0,2,0"
+                            Visibility="Collapsed" ToolTip="Show the Panel under This Line (the preview picture and the details)" Click="InfoPanelShow_Click">
+                        <TextBlock Text="&#xE946;" FontSize="13" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                    </Button>
+
                     <Border x:Name="PlayBar" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" Visibility="Collapsed" Padding="0,2,0,4">
                         <WrapPanel Orientation="Horizontal">
                             <Button x:Name="PlayPreviousButton" Click="PlayPrevious_Click" ToolTip="Previous File" Padding="8,2" Margin="0,2,4,2"
@@ -1297,39 +1383,6 @@
                         </Thumb.Template>
                     </Thumb>
 
-                    <!-- A click opens the picture in the picture viewer (the picture of a picture file, the cover built into a
-                         music file, the preview picture of a video). The transparent border is there so that the right-click
-                         menu (Choose / No / Automatic preview picture) also works on an empty square. -->
-                    <Border x:Name="PreviewBox" Grid.Row="2" Grid.Column="1" Width="160" Height="100" Background="Transparent"
-                            HorizontalAlignment="Left" VerticalAlignment="Top"
-                            ContextMenuOpening="PreviewBox_ContextMenuOpening">
-                        <Border.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem x:Name="PreviewChooseItem" Header="Choose Preview Picture..." Click="PreviewChoose_Click"/>
-                                <MenuItem x:Name="PreviewNoneItem"   Header="No Preview Picture"        Click="PreviewNone_Click"/>
-                                <MenuItem x:Name="PreviewAutoItem"   Header="Use Automatic Preview Picture" Click="PreviewAuto_Click"/>
-                                <Separator x:Name="PreviewSaveSeparator"/>
-                                <MenuItem x:Name="PreviewSaveItem"   Header="Save Preview Picture As..." Click="PreviewSave_Click"/>
-                                <Separator x:Name="FolderPictureSeparator"/>
-                                <MenuItem x:Name="FolderPictureSetItem"  Header="Set as Folder Picture" Click="FolderPictureSet_Click"
-                                          ToolTip="Show this picture under the folder tree for this folder. Only its name is kept in the library; no file is made."/>
-                                <MenuItem x:Name="FolderPictureAutoItem" Header="Use Automatic Folder Picture" Click="FolderPictureAuto_Click"
-                                          ToolTip="Forget the chosen picture of this folder: the program looks for one itself again"/>
-                            </ContextMenu>
-                        </Border.ContextMenu>
-                        <Grid>
-                            <Image x:Name="ThumbnailImage" Stretch="Uniform" Cursor="Hand"
-                                   RenderOptions.BitmapScalingMode="HighQuality"
-                                   MouseLeftButtonDown="ThumbnailImage_MouseLeftButtonDown"/>
-                            <!-- Shown instead of the picture for a video or music file that has none (or is set to none),
-                                 so the user sees where to right-click -->
-                            <TextBlock x:Name="PreviewEmptyText" Text="No Preview Picture" Visibility="Collapsed"
-                                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
-                                       IsHitTestVisible="False"/>
-                        </Grid>
-                    </Border>
 
                     <!-- A second line, under the info line (File 12/17 ...), that does the same as the one above the panel: drag it to
                          change the height of the panel. The info line itself keeps its height. It lies over the bottom of the info

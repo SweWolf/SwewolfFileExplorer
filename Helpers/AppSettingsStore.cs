@@ -35,6 +35,9 @@ public class AppSettings
     /// <summary>The picture of the current folder is shown under the tree (the "x" on it hides it; a button in the status line brings it back).</summary>
     public bool ShowFolderPicture { get; set; } = true;
 
+    /// <summary>The panel under the info line (the details, the preview picture, the plot ...) is shown; the "x" at its far right hides it, a small button at the right end of the info line brings it back.</summary>
+    public bool ShowInfoPanel { get; set; } = true;
+
     /// <summary>The height of the info panel under the file list (the preview picture, the plot): dragged with the divider above it.</summary>
     public const double DefaultInfoPanelHeight = 141;
     public double InfoPanelHeight { get; set; } = DefaultInfoPanelHeight;
