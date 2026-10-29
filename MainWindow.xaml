@@ -580,8 +580,6 @@
                             <MenuItem Header="Open in New Tab" Click="TreeCtxOpenInNewTab_Click"/>
                             <MenuItem Header="Open in Windows Explorer" Click="TreeCtxExplorer_Click"
                                       ToolTip="Open this folder in Windows' own File Explorer"/>
-                            <MenuItem x:Name="TreeFileInfoItem" Header="File Info Viewer" Click="TreeCtxFileInfo_Click" Visibility="Collapsed"
-                                      ToolTip="Show everything about this file in File Info Viewer"/>
                             <MenuItem Header="Send to" x:Name="TreeSendToMenu" PreviewMouseRightButtonUp="TreeSendToMenu_RightClick"
                                       ToolTip="Right-click to edit this menu"/>
                             <MenuItem Header="Add to Bookmarks" Click="TreeCtxBookmark_Click" InputGestureText="Ctrl+D"
@@ -636,6 +634,8 @@
                                       ToolTip="Make a text file (.txt) of the text on the clipboard, or a picture file (.png) of the picture on it, in this folder. Cancel throws the file away."/>
                             <Separator/>
                             <MenuItem Header="Refresh"         Click="TreeCtxRefresh_Click" InputGestureText="F5"/>
+                            <MenuItem x:Name="TreeFileInfoItem" Header="File Info Viewer" Click="TreeCtxFileInfo_Click" Visibility="Collapsed"
+                                      ToolTip="Show everything about this file in File Info Viewer"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click" InputGestureText="Alt+Enter"/>
                             <Separator/>
                             <MenuItem Header="More Options"    Click="TreeCtxMoreOptions_Click"
@@ -946,8 +946,6 @@
                         <MenuItem Header="Open in New Tab" Click="CtxOpenInNewTab_Click"/>
                         <MenuItem Header="Open in Windows Explorer" Click="CtxExplorer_Click"
                                   ToolTip="Open this folder in Windows' own File Explorer (a selected file is shown selected in its folder)"/>
-                        <MenuItem x:Name="ListFileInfoItem" Header="File Info Viewer" Click="CtxFileInfo_Click" Visibility="Collapsed"
-                                  ToolTip="Show everything about the selected file in File Info Viewer"/>
                         <MenuItem Header="Send to"    x:Name="SendToMenu" PreviewMouseRightButtonUp="SendToMenu_RightClick"
                                   ToolTip="Right-click to edit this menu"/>
                         <MenuItem Header="Add to Bookmarks" Click="CtxBookmark_Click" InputGestureText="Ctrl+D"
@@ -994,6 +992,8 @@
                         <MenuItem Header="New File from Clipboard" Click="CtxNewFileFromClipboard_Click"
                                   ToolTip="Make a text file (.txt) of the text on the clipboard, or a picture file (.png) of the picture on it. You can change the name; Cancel throws the file away."/>
                         <Separator/>
+                        <MenuItem x:Name="ListFileInfoItem" Header="File Info Viewer" Click="CtxFileInfo_Click" Visibility="Collapsed"
+                                  ToolTip="Show everything about the selected file in File Info Viewer"/>
                         <MenuItem Header="Properties" Click="CtxProperties_Click" InputGestureText="Alt+Enter"/>
                         <Separator/>
                         <MenuItem Header="More Options" Click="CtxMoreOptions_Click"
