@@ -2953,6 +2953,11 @@ public partial class MainWindow : Window
             // In a playlist "Delete" takes the entries out of the list (the files stay).
             if (mi.Header is "Delete" or "Remove from Playlist") mi.Header = VM.InPlaylist ? "Remove from Playlist" : "Delete";
 
+            // "Edit" (right under Open, as in Windows Explorer) only for one file whose type has an edit command (.bat, .cmd, pictures ...).
+            if (mi.Header is "Edit")
+                mi.Visibility = FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false } editItem
+                                && EditVerb.Exists(editItem.Name) ? Visibility.Visible : Visibility.Collapsed;
+
             // As in Windows Explorer, programs and scripts have no "Open with": it is not shown for them (it did nothing).
             if (mi.Header is "Open With...")
                 mi.Visibility = FileListView.SelectedItem is FileItemViewModel { IsDirectory: false } openWithItem && !OpenWithHelper.IsNotApplicable(openWithItem.Name)
@@ -3184,6 +3189,22 @@ public partial class MainWindow : Window
     {
         if (FileListView.SelectedItem is FileItemViewModel item)
             OpenItem(item);
+    }
+
+    private void CtxEdit_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileListView.SelectedItem is not FileItemViewModel { IsDirectory: false } file) return;
+
+        // A file in an archive is unpacked first (an edit of the copy is lost, as for Open).
+        var path = FolderTabViewModel.RealPathOf(file);
+        if (path == null) return;
+
+        try { EditVerb.Run(path); }
+        catch (Exception ex)
+        {
+            var reason = ex is System.ComponentModel.Win32Exception w ? new System.ComponentModel.Win32Exception(w.NativeErrorCode).Message : ex.Message;
+            MessageBox.Show(this, $"Cannot edit \"{file.Name}\": {reason}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void CtxMarkRead_Click(object sender, RoutedEventArgs e) =>

@@ -941,6 +941,7 @@
                 <ListView.ContextMenu>
                     <ContextMenu x:Name="FileContextMenu" Opened="ContextMenu_Opened">
                         <MenuItem Header="Open"       Click="CtxOpen_Click"/>
+                        <MenuItem Header="Edit" Click="CtxEdit_Click"/>
                         <MenuItem Header="Open With..." Click="CtxOpenWith_Click"/>
                         <MenuItem Header="Open in New Tab" Click="CtxOpenInNewTab_Click"/>
                         <MenuItem Header="Open in Windows Explorer" Click="CtxExplorer_Click"
