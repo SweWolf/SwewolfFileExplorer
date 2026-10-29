@@ -1137,11 +1137,12 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <TextBlock x:Name="AiSeedLabel" Grid.Row="0" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Seed"
-                                           VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
-                                <TextBox x:Name="AiSeedBox" Grid.Row="0" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                <TextBlock x:Name="AiSeedLabel" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" FontSize="12" FontWeight="Bold" Text="Seed"
+                                           VerticalAlignment="Top" Margin="0,0,0,2" Visibility="Collapsed"/>
+                                <TextBox x:Name="AiSeedBox" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
                                          Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
                                          VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
                                          PreviewKeyDown="AiSeedBox_PreviewKeyDown">
@@ -1153,9 +1154,9 @@
                                     </TextBox.ContextMenu>
                                 </TextBox>
 
-                                <TextBlock x:Name="WebZoneLabel" Grid.Row="1" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Zone ID"
+                                <TextBlock x:Name="WebZoneLabel" Grid.Row="2" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Zone ID"
                                            VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
-                                <TextBox x:Name="WebZoneBox" Grid.Row="1" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                <TextBox x:Name="WebZoneBox" Grid.Row="2" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
                                          Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
                                          VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
                                          PreviewKeyDown="AiSeedBox_PreviewKeyDown">
@@ -1167,18 +1168,18 @@
                                     </TextBox.ContextMenu>
                                 </TextBox>
 
-                                <TextBlock x:Name="WebHostLabel" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Host URL"
+                                <TextBlock x:Name="WebHostLabel" Grid.Row="3" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Host URL"
                                            VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
-                                <TextBox x:Name="WebHostBox" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                <TextBox x:Name="WebHostBox" Grid.Row="3" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
                                          Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
                                          VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
                                          PreviewKeyDown="AiSeedBox_PreviewKeyDown"
                                          MouseDoubleClick="WebUrlBox_DoubleClick" ContextMenuOpening="WebUrlBox_ContextMenuOpening">
                                 </TextBox>
 
-                                <TextBlock x:Name="WebReferrerLabel" Grid.Row="3" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Referrer URL"
+                                <TextBlock x:Name="WebReferrerLabel" Grid.Row="4" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Referrer URL"
                                            VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
-                                <TextBox x:Name="WebReferrerBox" Grid.Row="3" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                <TextBox x:Name="WebReferrerBox" Grid.Row="4" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
                                          Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
                                          VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
                                          PreviewKeyDown="AiSeedBox_PreviewKeyDown"

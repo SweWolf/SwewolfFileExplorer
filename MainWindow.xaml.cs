@@ -1750,12 +1750,13 @@ public partial class MainWindow : Window
         PlotColumn.Width   = new GridLength(plot || (!ai && !right) ? 1 : 0, GridUnitType.Star);   // free room goes to the plot column when nothing else is shown
         AiInfoColumn.Width = new GridLength(ai ? 3 : 0, GridUnitType.Star);
 
-        // The right-hand part: a share of the room next to the AI boxes (2 parts to their 3), but never narrower than 190 px or wider than 560 px.
+        // The right-hand part: a share of the room next to the AI boxes (1.5 parts to their 3: the seed has its label above it now, so it needs
+        // less width), but never narrower than 170 px or wider than 420 px.
         // (A column of width 0 must have no minimum either, or it would still take room.)
-        InfoRightColumn.MinWidth = right ? 190 : 0;
+        InfoRightColumn.MinWidth = right ? 170 : 0;
         // With nothing else shown it takes all the room (long web addresses show in full; the line above it runs to the right edge).
-        InfoRightColumn.MaxWidth = right && (ai || plot) ? 560 : double.PositiveInfinity;
-        InfoRightColumn.Width    = new GridLength(right ? (ai ? 2 : (plot ? 2 : 1)) : 0, GridUnitType.Star);
+        InfoRightColumn.MaxWidth = right && (ai || plot) ? 420 : double.PositiveInfinity;
+        InfoRightColumn.Width    = new GridLength(right ? (ai ? 1.5 : (plot ? 1.5 : 1)) : 0, GridUnitType.Star);
     }
 
     /// <summary>A row of the right-hand part: the value in its text box (and as its tooltip), or the row hidden when there is none.</summary>
