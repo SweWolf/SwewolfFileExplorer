@@ -2263,7 +2263,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         try
         {
-            Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+            // As Windows Explorer does: the program (a .bat file, an .exe ...) starts in the folder of the file.
+            var psi = new ProcessStartInfo { FileName = path, UseShellExecute = true };
+            var folder = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder)) psi.WorkingDirectory = folder;
+            Process.Start(psi);
             return true;
         }
         catch (Exception ex)
