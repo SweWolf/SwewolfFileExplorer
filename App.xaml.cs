@@ -90,6 +90,7 @@ public partial class App : Application
         ThemeService.Initialize();
         ThemeService.Apply(AppSettingsStore.Current.Style);
         IconHelper.UseRegisteredTypeNames = AppSettingsStore.Current.UseRegisteredTypeNames;
+        MenuSpacing.Install();   // the right-click menus a little lower per item
         base.OnStartup(e);
 
         // The main window is made here (not by StartupUri): with a picture on the command line it is not shown at all.

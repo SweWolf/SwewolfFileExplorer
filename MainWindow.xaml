@@ -582,14 +582,14 @@
                                       ToolTip="Open this folder in Windows' own File Explorer"/>
                             <MenuItem x:Name="TreeFileInfoItem" Header="File Info Viewer" Click="TreeCtxFileInfo_Click" Visibility="Collapsed"
                                       ToolTip="Show everything about this file in File Info Viewer"/>
+                            <MenuItem Header="Send to" x:Name="TreeSendToMenu" PreviewMouseRightButtonUp="TreeSendToMenu_RightClick"
+                                      ToolTip="Right-click to edit this menu"/>
                             <MenuItem Header="Add to Bookmarks" Click="TreeCtxBookmark_Click" InputGestureText="Ctrl+D"
                                       ToolTip="Keep a shortcut to this folder in the Bookmarks at the top of the tree"/>
                             <MenuItem Header="Set as Tree Root" Click="TreeCtxSetRoot_Click"
                                       ToolTip="Make this folder the top of the folder tree in this tab. Not remembered."/>
                             <MenuItem Header="Reset Tree Root" Click="TreeCtxResetRoot_Click"
                                       ToolTip="Show the whole computer in the folder tree again"/>
-                            <MenuItem Header="Send to" x:Name="TreeSendToMenu" PreviewMouseRightButtonUp="TreeSendToMenu_RightClick"
-                                      ToolTip="Right-click to edit this menu"/>
                             <Separator/>
                             <MenuItem Header="Cut"             Click="TreeCtxCut_Click"   InputGestureText="Ctrl+X"/>
                             <MenuItem Header="Copy"            Click="TreeCtxCopy_Click"  InputGestureText="Ctrl+C"/>
@@ -604,12 +604,6 @@
                             <Separator/>
                             <MenuItem Header="Delete"          Click="TreeCtxDelete_Click" InputGestureText="Del"/>
                             <MenuItem Header="Rename..."       Click="TreeCtxRename_Click" InputGestureText="F2"/>
-                            <MenuItem Header="New Folder"      Click="TreeCtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"
-                                      ToolTip="Make a new folder inside this folder"/>
-                            <MenuItem Header="New Text Document..." Click="TreeCtxNewTextDocument_Click"
-                                      ToolTip="Make an empty text file (.txt) in this folder. Cancel makes no file."/>
-                            <MenuItem Header="New File from Clipboard" Click="TreeCtxNewFileFromClipboard_Click"
-                                      ToolTip="Make a text file (.txt) of the text on the clipboard, or a picture file (.png) of the picture on it, in this folder. Cancel throws the file away."/>
                             <Separator/>
                             <MenuItem Header="Mark as Read"    Click="TreeCtxMarkRead_Click"
                                       ToolTip="Remember that every file in this folder and in all folders below it has been opened"/>
@@ -633,6 +627,13 @@
                                       ToolTip="Right-click to open it as the administrator"/>
                             <MenuItem x:Name="TreeCommandItem"    Header="Open in Command Prompt"  Tag="CommandPrompt"   Click="TreeCtxTerminal_Click" PreviewMouseRightButtonUp="TreeCtxTerminal_RightClick"
                                       ToolTip="Right-click to open it as the administrator"/>
+                            <Separator/>
+                            <MenuItem Header="New Folder"      Click="TreeCtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"
+                                      ToolTip="Make a new folder inside this folder"/>
+                            <MenuItem Header="New Text Document..." Click="TreeCtxNewTextDocument_Click"
+                                      ToolTip="Make an empty text file (.txt) in this folder. Cancel makes no file."/>
+                            <MenuItem Header="New File from Clipboard" Click="TreeCtxNewFileFromClipboard_Click"
+                                      ToolTip="Make a text file (.txt) of the text on the clipboard, or a picture file (.png) of the picture on it, in this folder. Cancel throws the file away."/>
                             <Separator/>
                             <MenuItem Header="Refresh"         Click="TreeCtxRefresh_Click" InputGestureText="F5"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click" InputGestureText="Alt+Enter"/>
@@ -943,14 +944,14 @@
                         <MenuItem Header="Open"       Click="CtxOpen_Click"/>
                         <MenuItem Header="Open With..." Click="CtxOpenWith_Click"/>
                         <MenuItem Header="Open in New Tab" Click="CtxOpenInNewTab_Click"/>
-                        <MenuItem Header="Add to Bookmarks" Click="CtxBookmark_Click" InputGestureText="Ctrl+D"
-                                  ToolTip="Keep a shortcut to the selected folders and files (or to this folder) in the Bookmarks at the top of the tree"/>
                         <MenuItem Header="Open in Windows Explorer" Click="CtxExplorer_Click"
                                   ToolTip="Open this folder in Windows' own File Explorer (a selected file is shown selected in its folder)"/>
                         <MenuItem x:Name="ListFileInfoItem" Header="File Info Viewer" Click="CtxFileInfo_Click" Visibility="Collapsed"
                                   ToolTip="Show everything about the selected file in File Info Viewer"/>
                         <MenuItem Header="Send to"    x:Name="SendToMenu" PreviewMouseRightButtonUp="SendToMenu_RightClick"
                                   ToolTip="Right-click to edit this menu"/>
+                        <MenuItem Header="Add to Bookmarks" Click="CtxBookmark_Click" InputGestureText="Ctrl+D"
+                                  ToolTip="Keep a shortcut to the selected folders and files (or to this folder) in the Bookmarks at the top of the tree"/>
                         <Separator/>
                         <MenuItem Header="Cut"        Click="CtxCut_Click"       InputGestureText="Ctrl+X"/>
                         <MenuItem Header="Copy"       Click="CtxCopy_Click"      InputGestureText="Ctrl+C"/>
@@ -961,6 +962,11 @@
                                   ToolTip="Make a shortcut to the selected items in a folder you choose"/>
                         <MenuItem Header="Create Playlist..." Click="CtxCreatePlaylist_Click"
                                   ToolTip="Make an M3U playlist in this folder, with all the files, the selected files or none to start with"/>
+                        <Separator/>
+                        <MenuItem Header="Delete"     Click="CtxDelete_Click"    InputGestureText="Del"/>
+                        <MenuItem Header="Rename..."  Click="CtxRename_Click"    InputGestureText="F2"/>
+                        <MenuItem Header="Rename All Selected Music Files and Video Files Using Smart Rename" Click="CtxSmartRenameAll_Click"
+                                  ToolTip="Every selected music file and video file gets the name that Rename suggests with Use Smart Name (Artist - Title, Title (Year), Title - s01e02). Asks first, and can be undone until another folder is shown."/>
                         <Separator/>
                         <MenuItem Header="Mark as Read"   Click="CtxMarkRead_Click"
                                   ToolTip="Remember that the selected files have been opened"/>
@@ -981,11 +987,6 @@
                                   ToolTip="Right-click to open it as the administrator"/>
                         <MenuItem x:Name="ListCommandItem"    Header="Open in Command Prompt"  Tag="CommandPrompt"   Click="CtxTerminal_Click" PreviewMouseRightButtonUp="CtxTerminal_RightClick"
                                   ToolTip="Right-click to open it as the administrator"/>
-                        <Separator/>
-                        <MenuItem Header="Delete"     Click="CtxDelete_Click"    InputGestureText="Del"/>
-                        <MenuItem Header="Rename..."  Click="CtxRename_Click"    InputGestureText="F2"/>
-                        <MenuItem Header="Rename All Selected Music Files and Video Files Using Smart Rename" Click="CtxSmartRenameAll_Click"
-                                  ToolTip="Every selected music file and video file gets the name that Rename suggests with Use Smart Name (Artist - Title, Title (Year), Title - s01e02). Asks first, and can be undone until another folder is shown."/>
                         <Separator/>
                         <MenuItem Header="New Folder" Click="CtxNewFolder_Click" InputGestureText="Ctrl+Shift+N"/>
                         <MenuItem Header="New Text Document..." Click="CtxNewTextDocument_Click"
