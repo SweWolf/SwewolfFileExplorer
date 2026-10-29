@@ -10,6 +10,14 @@ namespace SwewolfFileExplorer.Helpers;
 /// </summary>
 public static class OpenWithHelper
 {
+    /// <summary>
+    /// Programs and scripts are run, not opened with something else: Windows Explorer has no "Open with" for them either
+    /// (the dialog does nothing for them), so the menu item is hidden for these extensions.
+    /// </summary>
+    public static bool IsNotApplicable(string fileName) =>
+        System.IO.Path.GetExtension(fileName).ToLowerInvariant() is ".exe" or ".bat" or ".cmd" or ".com" or ".scr" or ".msi"
+            or ".cpl" or ".msc" or ".pif" or ".lnk";
+
     public static void Show(string path, IntPtr owner)
     {
         // First the shell's own "openas" verb, the way Explorer opens the dialog: Windows 11 gives that dialog an "Always"

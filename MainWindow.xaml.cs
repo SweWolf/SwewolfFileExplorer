@@ -2953,6 +2953,11 @@ public partial class MainWindow : Window
             // In a playlist "Delete" takes the entries out of the list (the files stay).
             if (mi.Header is "Delete" or "Remove from Playlist") mi.Header = VM.InPlaylist ? "Remove from Playlist" : "Delete";
 
+            // As in Windows Explorer, programs and scripts have no "Open with": it is not shown for them (it did nothing).
+            if (mi.Header is "Open With...")
+                mi.Visibility = FileListView.SelectedItem is FileItemViewModel { IsDirectory: false } openWithItem && !OpenWithHelper.IsNotApplicable(openWithItem.Name)
+                    ? Visibility.Visible : Visibility.Collapsed;
+
             mi.IsEnabled = mi.Header switch
             {
                 "Open"       => hasSelection,

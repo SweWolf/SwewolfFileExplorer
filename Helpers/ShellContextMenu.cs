@@ -286,7 +286,9 @@ public static class ShellContextMenu
                 var item = Read(i);
                 if (item.IsSeparator || item.Id < IdFirst) continue;
 
-                string verb = VerbOf(item.Id);
+                // A submenu line carries its menu handle in the id, not a command id: asking an extension for the verb of it
+                // crashed the whole program (Google Drive's "Offline access", 2026-10-29).
+                string verb = item.Submenu != IntPtr.Zero ? "" : VerbOf(item.Id);
                 string text = Plain(item.Text);
                 if ((verb.Length > 0 && hidden.Contains(verb)) || (text.Length > 0 && hidden.Contains(text)))
                     DeleteMenu(_hmenu, (uint)i, MfByPosition);
@@ -311,7 +313,7 @@ public static class ShellContextMenu
             {
                 var item = Read(i);
                 if (item.IsSeparator) continue;
-                list.Add(new Entry(Plain(item.Text), item.Id >= IdFirst ? VerbOf(item.Id) : "", item.Submenu != IntPtr.Zero));
+                list.Add(new Entry(Plain(item.Text), item.Id >= IdFirst && item.Submenu == IntPtr.Zero ? VerbOf(item.Id) : "", item.Submenu != IntPtr.Zero));
             }
             return list;
         }
@@ -364,7 +366,7 @@ public static class ShellContextMenu
             for (int i = 0; i < GetMenuItemCount(_hmenu); i++)
             {
                 var item = Read(i);
-                if (item.IsSeparator || item.Id < IdFirst) continue;
+                if (item.IsSeparator || item.Id < IdFirst || item.Submenu != IntPtr.Zero) continue;
                 if (!string.Equals(VerbOf(item.Id), verb, StringComparison.OrdinalIgnoreCase)) continue;
 
                 Invoke(item.Id - IdFirst, new POINT());
