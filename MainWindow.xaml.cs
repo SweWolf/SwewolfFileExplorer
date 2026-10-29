@@ -1458,9 +1458,11 @@ public partial class MainWindow : Window
             ShowAiInfo(item);
             ShowWebOrigin(item);
             ShowGps(item);
+            ShowDetails(new List<FileItemViewModel> { item });
         }
         else
         {
+            ShowDetails(selected.OfType<FileItemViewModel>().ToList());
             // Nothing selected: how many items the list has; several: how many are selected (the status bar no longer says it).
             var count = FileListView.Items.Count;
             // "files" while the list holds only files (the usual case); "items" as soon as a folder is in it (the Folders button, archives).

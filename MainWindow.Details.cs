@@ -1,0 +1,175 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using SwewolfFileExplorer.Helpers;
+using SwewolfFileExplorer.ViewModels;
+
+namespace SwewolfFileExplorer;
+
+/// <summary>
+/// The details block of the info panel (left of the preview picture, like Explorer's Details pane): the name of the selected item and a few
+/// rows that fit its kind (a picture, music, a video, a program, a folder, or the count and total size of several items). A row without a
+/// value is left out. What takes a look into the file (length, size in pixels, tags) is read in the background.
+/// </summary>
+public partial class MainWindow
+{
+    private int _detailsVersion;
+
+    /// <summary>Fills the details block for what is selected in the list (nothing selected: the block is hidden).</summary>
+    private async void ShowDetails(IList<FileItemViewModel> selected)
+    {
+        int version = ++_detailsVersion;
+
+        if (!VM.HasFolder)
+        {
+            DetailsScroll.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (selected.Count == 0)
+        {
+            // Nothing is selected in the list: a packed file or a playlist that was clicked in the tree is shown (as the "folder" it is)
+            // by its own details. Any other folder shows nothing.
+            var node = VM.CurrentPath;
+            if (!string.IsNullOrEmpty(node) && (IsArchiveFileOnDisk(node) || PlaylistFile.IsPlaylist(node)))
+            {
+                try
+                {
+                    var file = new System.IO.FileInfo(node);
+                    bool playlist = PlaylistFile.IsPlaylist(node);
+                    RenderDetails(file.Name, new List<(string, string)>
+                    {
+                        ("Type", IconHelper.GetTypeNameForName(file.Name)),
+                        (playlist ? "Entries" : "Items", VM.CurrentItems.Count.ToString()),
+                        ("Size", DriveRow.FormatSize(file.Length)),
+                        ("Date Modified", file.LastWriteTime.ToString("MM/dd/yyyy HH:mm")),
+                        ("Date Created", file.CreationTime.ToString("MM/dd/yyyy HH:mm"))
+                    });
+                    return;
+                }
+                catch { /* gone or no access: nothing to show */ }
+            }
+            DetailsScroll.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (selected.Count > 1)
+        {
+            long total = selected.Where(i => !i.IsDirectory && i.Size > 0).Sum(i => i.Size);
+            int folders = selected.Count(i => i.IsDirectory);
+            RenderDetails($"{selected.Count} items selected", new List<(string, string)>
+            {
+                ("Folders", folders > 0 ? folders.ToString() : ""),
+                ("Files", (selected.Count - folders).ToString()),
+                ("Total Size", total > 0 ? DriveRow.FormatSize(total) : "")
+            });
+            return;
+        }
+
+        var item = selected[0];
+        var rows = new List<(string, string)>();
+        void Row(string label, string? value) { if (!string.IsNullOrWhiteSpace(value)) rows.Add((label, value!)); }
+        string size     = item.IsDirectory || item.Size < 0 ? "" : DriveRow.FormatSize(item.Size);
+        string modified = item.DateModified == default ? "" : item.DateModified.ToString("MM/dd/yyyy HH:mm");
+
+        // What needs a look into the file is read in the background (pictures, music, video, programs; not inside an archive).
+        AudioTags? tags = null;
+        if (!item.IsDirectory && !item.IsInArchive && AudioTagReader.HasMediaInfo(item.FullPath))
+        {
+            string path = item.FullPath;
+            tags = await Task.Run(() => AudioTagReader.Read(path));
+            if (version != _detailsVersion) return;   // another item was selected meanwhile
+        }
+
+        string length  = tags is { Duration.TotalSeconds: >= 0.5 } ? FormatLength(tags.Duration) : "";
+        string bitrate = tags is { BitrateKbps: > 0 } ? $"{tags.BitrateKbps} kbps" : "";
+        string dims    = tags is { Width: > 0, Height: > 0 } ? $"{tags.Width} x {tags.Height}" : "";
+
+        if (item.IsDirectory)
+        {
+            Row("Type", item.TypeName);
+            Row("Date Modified", modified);
+        }
+        else if (AudioTagReader.HasTags(item.FullPath))   // music
+        {
+            Row("Type", item.TypeName);
+            Row("Artist", tags?.Artist);
+            Row("Title", tags?.Title);
+            Row("Track", tags is { TrackNumber: > 0 } ? tags.TrackNumber.ToString() : "");
+            Row("Length", length);
+            Row("Bitrate", bitrate);
+            Row("Size", size);
+            Row("Date Modified", modified);
+        }
+        else if (MediaPlayerLauncher.IsVideo(item.FullPath))
+        {
+            Row("Type", item.TypeName);
+            Row("Title", tags?.Title);   // the title in the video file itself (mkv, mp4 ...)
+            Row("Length", length);
+            Row("Dimensions", dims);
+            Row("Bitrate", bitrate);
+            Row("Size", size);
+            Row("Date Modified", modified);
+        }
+        else if (ThumbnailLoader.IsImage(item.FullPath))
+        {
+            Row("Type", item.TypeName);
+            Row("Dimensions", dims);
+            Row("Size", size);
+            Row("Date Modified", modified);
+        }
+        else if (AudioTagReader.HasVersionInfo(item.FullPath))   // a program or library
+        {
+            Row("Type", item.TypeName);
+            Row("Product Name", tags?.ProductName);
+            Row("Product Version", tags?.ProductVersion);
+            Row("Size", size);
+            Row("Date Modified", modified);
+        }
+        else
+        {
+            Row("Type", item.TypeName);
+            Row("Size", size);
+            Row("Date Modified", modified);
+            Row("Date Created", item.DateCreated == default ? "" : item.DateCreated.ToString("MM/dd/yyyy HH:mm"));
+        }
+
+        Row("Rating", item.RatingText);
+        Row("Expectation", item.ExpectationText);
+
+        RenderDetails(item.DisplayName, rows);
+    }
+
+    private static string FormatLength(TimeSpan d) =>
+        d.TotalHours >= 1 ? $"{(int)d.TotalHours}:{d.Minutes:00}:{d.Seconds:00}" : $"{d.Minutes}:{d.Seconds:00}";
+
+    /// <summary>The name in bold on top (cut with "..." when long, the whole name as a tooltip), then the rows: a grey label and its value.</summary>
+    private void RenderDetails(string title, List<(string Label, string Value)> rows)
+    {
+        DetailsPanel.Children.Clear();
+
+        var name = new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, FontSize = 13, Margin = new Thickness(0, 0, 0, 4),
+                                   TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = title };
+        DetailsPanel.Children.Add(name);
+
+        foreach (var (label, value) in rows)
+        {
+            if (string.IsNullOrWhiteSpace(value)) continue;
+            var grid = new Grid { Margin = new Thickness(0, 1, 0, 1) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var labelText = new TextBlock { Text = label, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis };
+            labelText.SetResourceReference(TextBlock.ForegroundProperty, SystemColors.GrayTextBrushKey);
+            var valueText = new TextBlock { Text = value, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = value };
+            Grid.SetColumn(valueText, 1);
+
+            grid.Children.Add(labelText);
+            grid.Children.Add(valueText);
+            DetailsPanel.Children.Add(grid);
+        }
+
+        DetailsScroll.ScrollToTop();
+        DetailsScroll.Visibility = Visibility.Visible;
+    }
+}

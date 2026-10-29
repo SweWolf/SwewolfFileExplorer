@@ -1037,6 +1037,13 @@
                         <ColumnDefinition x:Name="InfoRightColumn" Width="0"/>   <!-- the seed and what the web says about the file (Mark of the Web) -->
                     </Grid.ColumnDefinitions>
 
+                    <!-- The details of the selected item (name, then rows that fit its kind), left of the preview picture, as Explorer's Details pane.
+                         Filled in code (MainWindow.Details.cs); scrolls when the panel is too low for all the rows. -->
+                    <ScrollViewer x:Name="DetailsScroll" Grid.Row="2" Grid.Column="0" MinWidth="220" MaxWidth="300" Margin="0,0,8,0"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" Focusable="False">
+                        <StackPanel x:Name="DetailsPanel"/>
+                    </ScrollViewer>
+
                     <!-- The plot from the video's .nfo file, to the right of the preview picture, only when there is one
                          (it takes no space otherwise). A long plot scrolls; the whole text is also in the tooltip. -->
                     <Grid x:Name="PlotArea" Grid.Row="2" Grid.Column="2" Margin="16,0,0,0" Background="Transparent" Visibility="Collapsed"
