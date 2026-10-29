@@ -3376,6 +3376,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
+        LibraryService.Move(result.RenamedOld);   // an old file that was renamed to "(old N)" keeps its marks (before the moved file takes over its name)
         var moved = isCut ? result.Done : new List<(string From, string To)>();
         LibraryService.Move(moved);   // what is remembered about the moved items (to another drive too) goes along
 
@@ -3483,6 +3484,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (result.Failed.Count > 0)
             MessageBox.Show($"The file could not be moved: {result.Failed[0].Reason}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
 
+        LibraryService.Move(result.RenamedOld);
         LibraryService.Move(result.Done);
         var movedFrom = new HashSet<string>(result.Done.Select(m => m.From), StringComparer.OrdinalIgnoreCase);
         var followers = relatedMoves.Where(r => movedFrom.Contains(r.Owner)).ToList();
@@ -3561,6 +3563,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
+        LibraryService.Move(result.RenamedOld);
         Refresh();
         RefreshTreeFolder(destination);
 

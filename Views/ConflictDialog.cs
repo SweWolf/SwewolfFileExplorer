@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -7,7 +8,7 @@ namespace SwewolfFileExplorer.Views;
 
 /// <summary>
 /// "A file with this name already exists": the file in the folder and the file being pasted side by side (size, date, which is newer or
-/// larger), and Replace / Keep Both / Skip / Cancel with "Do this for all conflicts". Built in code (no XAML, so no event
+/// larger), and Replace / Keep Both / Keep Both, Rename Old / Skip / Cancel with "Do this for all conflicts". Built in code (no XAML, so no event
 /// connections to get wrong). Keep Both is the default button: it never loses anything.
 /// </summary>
 public sealed class ConflictDialog : Window
@@ -63,10 +64,19 @@ public sealed class ConflictDialog : Window
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 16, 0, 0),
         });
+        var oldName = Path.GetFileName(FileReplace.OldNameFor(Path.Combine(info.Folder, info.Name)));
+        var newName = Path.GetFileName(FileTransfer.GetUniqueDestPath(info.Folder, info.Name));
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"Keep Both names the pasted file \"{newName}\". Keep Both, Rename Old gives the pasted file the name \"{info.Name}\" and renames the existing file to \"{oldName}\".",
+            Opacity = 0.7,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 8, 0, 0),
+        });
         _forAll.Visibility = info.MultipleFiles ? Visibility.Visible : Visibility.Collapsed;   // one file: nothing to apply it to
         panel.Children.Add(_forAll);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 24, 0, 0) };
+        var buttons = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 24, 0, 0) };
         Button Make(string text, ConflictChoice choice, bool isDefault = false, bool isCancel = false)
         {
             var b = new Button { Content = text, Padding = new Thickness(20, 8, 20, 8), Margin = new Thickness(8, 0, 8, 0), MinWidth = 120, IsDefault = isDefault, IsCancel = isCancel };
@@ -80,6 +90,7 @@ public sealed class ConflictDialog : Window
         }
         buttons.Children.Add(Make(info.ReplaceIsPermanent ? "Replace Permanently" : "Replace", ConflictChoice.Replace));
         buttons.Children.Add(Make("Keep Both", ConflictChoice.KeepBoth, isDefault: true));
+        buttons.Children.Add(Make("Keep Both, Rename Old", ConflictChoice.KeepBothRenameOld));
         buttons.Children.Add(Make("Skip", ConflictChoice.Skip));
         buttons.Children.Add(Make("Cancel", ConflictChoice.Cancel, isCancel: true));
         panel.Children.Add(buttons);

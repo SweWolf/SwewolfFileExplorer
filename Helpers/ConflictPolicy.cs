@@ -4,7 +4,8 @@ using Microsoft.VisualBasic.FileIO;
 
 namespace SwewolfFileExplorer.Helpers;
 
-public enum ConflictChoice { Replace, KeepBoth, Skip, Cancel }
+/// <summary><c>KeepBothRenameOld</c>: the pasted file gets the name, the existing file is renamed to "name (old 1)".</summary>
+public enum ConflictChoice { Replace, KeepBoth, KeepBothRenameOld, Skip, Cancel }
 
 /// <summary>What the "file exists" question shows: the file in the folder and the file being pasted (size and date; -1 / null if not known).</summary>
 public sealed record ConflictInfo(string Name, string Folder, long ExistingSize, DateTime ExistingWritten,
@@ -127,6 +128,52 @@ public static class FileReplace
         try { FileSystem.DeleteFile(existing, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin); }
         catch (OperationCanceledException) { throw new IOException("the existing file was not moved to the Recycle Bin"); }
         if (File.Exists(existing)) throw new IOException("the existing file could not be moved to the Recycle Bin");
+    }
+
+    /// <summary>The path "name (old 1).ext" in the folder of <paramref name="path"/>, or (old 2), (old 3) ... when that is taken.</summary>
+    public static string OldNameFor(string path)
+    {
+        var dir  = Path.GetDirectoryName(path)!;
+        var stem = Path.GetFileNameWithoutExtension(path);
+        var ext  = Path.GetExtension(path);
+        for (int n = 1; ; n++)
+        {
+            var candidate = Path.Combine(dir, $"{stem} (old {n}){ext}");
+            if (!File.Exists(candidate) && !Directory.Exists(candidate)) return candidate;
+        }
+    }
+
+    /// <summary>Throws (with a reason fit to show) if the existing file cannot be renamed: it is in use by another program.</summary>
+    public static void CheckCanRename(string existing)
+    {
+        try { using var _ = new FileStream(existing, FileMode.Open, FileAccess.Read, FileShare.None); }
+        catch (IOException) { throw new IOException("the existing file is in use by another program, so it cannot be renamed"); }
+    }
+
+    /// <summary>
+    /// Renames the existing file to "name (old N)" and puts the finished new file (or the file being moved) under its name. If the new
+    /// file cannot take the name, the old one gets its name back; if even that fails, the new file is kept under its temporary name
+    /// (nothing is ever deleted). Returns where the old file went.
+    /// </summary>
+    public static string PutInPlaceRenamingOld(string newFile, string finalPath, bool newIsTemp)
+    {
+        var old = OldNameFor(finalPath);
+        File.Move(finalPath, old);
+        try
+        {
+            File.Move(newFile, finalPath);
+            return old;
+        }
+        catch (Exception)
+        {
+            try { File.Move(old, finalPath); }
+            catch (Exception back)
+            {
+                if (newIsTemp) throw new KeepTempException($"the old file was renamed to \"{old}\", but the new one could not be given its name and is saved as \"{newFile}\" ({back.Message})");
+                throw new IOException($"the old file was renamed to \"{old}\" and could not be renamed back ({back.Message})");
+            }
+            throw;
+        }
     }
 
     /// <summary>A name for the file while it is being written: in the same folder, starts with a dot, ends in .swewolf-part.</summary>

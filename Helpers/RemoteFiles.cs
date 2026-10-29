@@ -81,6 +81,7 @@ public static class RemoteFiles
         var units    = new Dictionary<string, Unit>(StringComparer.OrdinalIgnoreCase);
         int fileIndex = 0;
         int skipped = 0;
+        var renamed = new List<(string From, string To)>();   // old files renamed to "(old N)"
 
         for (int i = 0; i < entries.Count; i++)
         {
@@ -132,7 +133,7 @@ public static class RemoteFiles
                 progress.FileIndex   = ++fileIndex;
                 progress.CurrentName = segments[^1];
 
-                var placed = CopyOne(data, i, target, entry, unit, progress, token, policy);
+                var placed = CopyOne(data, i, target, entry, unit, progress, token, policy, renamed);
                 if (placed == null) skipped++;
                 else if (segments.Count == 1) unit.TopPath = placed;   // a single file may have got another name
             }
@@ -164,7 +165,7 @@ public static class RemoteFiles
             done.Add(("remote:" + name, unit.TopPath));
         }
 
-        return new TransferResult(done, failed, canceled, units.Count, skipped);
+        return new TransferResult(done, failed, canceled, units.Count, skipped, renamed);
     }
 
     private sealed class Unit(string topPath)
@@ -209,7 +210,7 @@ public static class RemoteFiles
 
     /// <summary>Copies one file; returns where it went, or null if the user skipped it.</summary>
     private static string? CopyOne(ComTypes.IDataObject data, int index, string target, Entry entry, Unit unit, TransferProgress progress,
-                                   CancellationToken token, ConflictPolicy? policy)
+                                   CancellationToken token, ConflictPolicy? policy, List<(string From, string To)> renamed)
     {
         // A name that is taken: ask before anything is fetched from the other side.
         var (choice, final, replace) = FileReplace.Decide(policy, target, entry.Size, entry.Written, "File from the clipboard", false);
@@ -220,6 +221,8 @@ public static class RemoteFiles
             return null;
         }
         if (replace) FileReplace.CheckCanReplace(final);
+        bool renameOld = choice == ConflictChoice.KeepBothRenameOld;
+        if (renameOld) FileReplace.CheckCanRename(final);
 
         var format = new ComTypes.FORMATETC
         {
@@ -285,9 +288,16 @@ public static class RemoteFiles
             if (entry.Size >= 0 && written < entry.Size) throw new IOException("the file got shorter while it was being copied, or the connection was interrupted");
             if (entry.Written is { } time) File.SetLastWriteTime(temp, time);
 
-            if (replace) FileReplace.Remove(final);
-            final = FileReplace.MoveIntoPlace(temp, final, replace);
-            if (!replace) unit.Created.Add((final, false));
+            if (renameOld)
+            {
+                renamed.Add((final, FileReplace.PutInPlaceRenamingOld(temp, final, newIsTemp: true)));
+            }
+            else
+            {
+                if (replace) FileReplace.Remove(final);
+                final = FileReplace.MoveIntoPlace(temp, final, replace);
+                if (!replace) unit.Created.Add((final, false));
+            }
             unit.Open = false;
             return final;
         }

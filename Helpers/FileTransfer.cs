@@ -19,7 +19,12 @@ public sealed class TransferProgress
 }
 
 /// <summary>What was done: the items that were copied or moved (from, to), the ones that failed (name, reason), whether the user canceled, and how many files were skipped at the user's choice.</summary>
-public sealed record TransferResult(List<(string From, string To)> Done, List<(string Name, string Reason)> Failed, bool Canceled, int Total, int Skipped = 0);
+public sealed record TransferResult(List<(string From, string To)> Done, List<(string Name, string Reason)> Failed, bool Canceled, int Total, int Skipped = 0,
+                                    List<(string From, string To)>? Renamed = null)
+{
+    /// <summary>Existing files that were renamed to "name (old N)" so the pasted file could have their name (what the library remembers follows them).</summary>
+    public List<(string From, string To)> RenamedOld => Renamed ?? new();
+}
 
 /// <summary>
 /// Copies or moves files and folders on a background thread, with progress and a way to cancel (Paste, Cut and Paste).
@@ -58,6 +63,7 @@ public static class FileTransfer
         public readonly ConflictPolicy? Policy = policy;
         public long BytesBefore;
         public int Skipped;
+        public readonly List<(string From, string To)> Renamed = new();   // old files renamed to "(old N)", kept even if the item later fails
         public ItemState Item = new();
     }
 
@@ -90,7 +96,7 @@ public static class FileTransfer
         var ctx = new Ctx(move, progress, cancel, policy);
         foreach (var src in sources)
         {
-            if (cancel.IsCancellationRequested) return new TransferResult(done, failed, true, sources.Count, ctx.Skipped);
+            if (cancel.IsCancellationRequested) return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed);
 
             var name = Path.GetFileName(src.TrimEnd('\\', '/'));
             var dest = Path.Combine(destinationFolder, name);
@@ -140,7 +146,7 @@ public static class FileTransfer
             catch (OperationCanceledException)
             {
                 Undo(ctx.Item);
-                return new TransferResult(done, failed, true, sources.Count, ctx.Skipped);
+                return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed);
             }
             catch (Exception ex)
             {
@@ -149,7 +155,7 @@ public static class FileTransfer
             }
         }
 
-        return new TransferResult(done, failed, false, sources.Count, ctx.Skipped);
+        return new TransferResult(done, failed, false, sources.Count, ctx.Skipped, ctx.Renamed);
     }
 
     // ── Counting ──────────────────────────────────────────────────────────────
@@ -251,25 +257,28 @@ public static class FileTransfer
             return null;
         }
 
+        bool renameOld = choice == ConflictChoice.KeepBothRenameOld;
         if (replace) FileReplace.CheckCanReplace(dest);   // before a big copy, not after it
+        if (renameOld) FileReplace.CheckCanRename(dest);
 
         if (ctx.Move && SameDrive(src, final))
         {
             // A rename: instant, so no temporary file is needed.
             if (replace) FileReplace.Remove(dest);
-            File.Move(src, final);
+            if (renameOld) ctx.Renamed.Add((final, FileReplace.PutInPlaceRenamingOld(src, final, newIsTemp: false)));
+            else File.Move(src, final);
         }
         else
         {
-            final = CopyViaTemp(src, final, replace, ctx);
-            if (!replace) ctx.Item.Created.Add((final, false));
+            final = CopyViaTemp(src, final, replace, renameOld, ctx);
+            if (!replace && !renameOld) ctx.Item.Created.Add((final, false));   // a replaced / renamed-old file stays: the new one is complete and in place
         }
 
         ctx.Item.Files.Add((src, final));
         return final;
     }
 
-    private static string CopyViaTemp(string src, string final, bool replace, Ctx ctx)
+    private static string CopyViaTemp(string src, string final, bool replace, bool renameOld, Ctx ctx)
     {
         var temp = FileReplace.TempNameFor(final);
         bool keepTemp = false;
@@ -281,6 +290,11 @@ public static class FileTransfer
             CopyOne(src, temp, ctx);
             if (new FileInfo(temp).Length < expected) throw new IOException("the copy is not complete");
 
+            if (renameOld)
+            {
+                ctx.Renamed.Add((final, FileReplace.PutInPlaceRenamingOld(temp, final, newIsTemp: true)));
+                return final;
+            }
             if (replace) FileReplace.Remove(final);
             return FileReplace.MoveIntoPlace(temp, final, replace);
         }
