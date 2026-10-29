@@ -4007,11 +4007,6 @@ public partial class MainWindow : Window
         if (_treeMenuNode != null) VM.CreateFolderIn(_treeMenuNode.FullPath);
     }
 
-    private void TreeCtxRefresh_Click(object sender, RoutedEventArgs e)
-    {
-        if (_treeMenuNode != null) VM.RefreshFolder(_treeMenuNode.FullPath);
-    }
-
     private void TreeCtxProperties_Click(object sender, RoutedEventArgs e)
     {
         if (_treeMenuNode == null) return;

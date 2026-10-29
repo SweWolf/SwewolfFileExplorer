@@ -633,7 +633,6 @@
                             <MenuItem Header="New File from Clipboard" Click="TreeCtxNewFileFromClipboard_Click"
                                       ToolTip="Make a text file (.txt) of the text on the clipboard, or a picture file (.png) of the picture on it, in this folder. Cancel throws the file away."/>
                             <Separator/>
-                            <MenuItem Header="Refresh"         Click="TreeCtxRefresh_Click" InputGestureText="F5"/>
                             <MenuItem x:Name="TreeFileInfoItem" Header="File Info Viewer" Click="TreeCtxFileInfo_Click" Visibility="Collapsed"
                                       ToolTip="Show everything about this file in File Info Viewer"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click" InputGestureText="Alt+Enter"/>
