@@ -93,6 +93,10 @@ public class AppSettings
     /// </summary>
     public bool DisableInternalDragDrop { get; set; } = false;
 
+    /// <summary>The picture viewer's right-click menu, "Show Newest Picture Automatically" (off by default): the folder is watched and
+    /// the newest picture is shown as soon as another program has made it.</summary>
+    public bool ViewerShowNewest { get; set; } = false;
+
     /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
     public bool ShowOpenInTerminal { get; set; } = true;
 

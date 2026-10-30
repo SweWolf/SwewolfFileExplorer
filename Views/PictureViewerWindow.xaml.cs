@@ -100,6 +100,7 @@ public partial class PictureViewerWindow : Window
         _cursorTimer.Start();
         if (Slideshow != null) _playing = true;
         ShowCurrent(Slideshow != null ? $"Slide show, {Slideshow.Seconds} s per picture. The Pause key pauses." : null);
+        StartNewestFromSetting();
         Focus();
     }
 
@@ -107,6 +108,7 @@ public partial class PictureViewerWindow : Window
     {
         SetThreadExecutionState(ES_CONTINUOUS);
         _closed = true;
+        StopNewestWatch();
         StopNextFolderSearch();
         _slideTimer.Stop();
         _animationTimer.Stop();
@@ -140,6 +142,7 @@ public partial class PictureViewerWindow : Window
         _loading = true;
         string path = CurrentPath;
         PictureChanged?.Invoke(path);
+        WatchFolderOfCurrent();
 
         if (_index == _files.Count - 1) StartNextFolderSearch();   // the end is here: look ahead while the user looks at the picture
 

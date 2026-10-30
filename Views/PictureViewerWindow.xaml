@@ -32,6 +32,9 @@
                 <MenuItem Header="Normal Size" InputGestureText="Numpad /" Click="MenuNormalSize_Click"/>
                 <MenuItem Header="Stretch" InputGestureText="Numpad *" Click="MenuStretch_Click"/>
                 <Separator/>
+                <MenuItem x:Name="NewestMenuItem" Header="Show Newest Picture Automatically" IsCheckable="True" Click="MenuNewest_Click"
+                          ToolTip="Watches the folder. When another program makes a new picture there, it is shown at once."/>
+                <Separator/>
                 <MenuItem Header="Rating..." InputGestureText="R" Click="MenuRating_Click"/>
                 <Separator/>
                 <MenuItem Header="Delete" InputGestureText="Del" Click="MenuDelete_Click"/>
