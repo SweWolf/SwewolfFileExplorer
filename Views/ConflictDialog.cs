@@ -115,7 +115,7 @@ public sealed class ConflictDialog : Window
     private static string Describe(long size, DateTime? written, ConflictInfo? compare)
     {
         var text = size >= 0 ? $"{FormatSize(size)}" : "size not known";
-        if (written is { } w) text += $", modified {w:yyyy-MM-dd HH:mm}";
+        if (written is { } w) text += $", modified {Converters.DateTimeConverter.Format(w)}";
 
         if (compare != null)
         {

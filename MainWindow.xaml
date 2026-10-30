@@ -18,6 +18,7 @@
 
     <Window.Resources>
         <conv:FileSizeConverter x:Key="FileSizeConverter"/>
+        <conv:DateTimeConverter x:Key="DateTimeConverter"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <conv:TextToVisibilityConverter x:Key="TextToVisibility"/>
         <conv:ShapeIsConverter x:Key="ShapeIs"/>
@@ -874,12 +875,10 @@
                         </GridViewColumn>
 
                         <GridViewColumn Header="Date Modified" Width="150" x:Name="DateColumn"
-                                        DisplayMemberBinding="{Binding DateModified,
-                                            StringFormat='MM/dd/yyyy  HH:mm'}"/>
+                                        DisplayMemberBinding="{Binding DateModified, Converter={StaticResource DateTimeConverter}}"/>
 
                         <GridViewColumn Header="Date Created" Width="150" x:Name="CreatedColumn"
-                                        DisplayMemberBinding="{Binding DateCreated,
-                                            StringFormat='MM/dd/yyyy  HH:mm'}"/>
+                                        DisplayMemberBinding="{Binding DateCreated, Converter={StaticResource DateTimeConverter}}"/>
 
                         <GridViewColumn Header="Type" Width="130" x:Name="TypeColumn"
                                         DisplayMemberBinding="{Binding TypeName}"/>

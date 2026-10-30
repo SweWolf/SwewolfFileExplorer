@@ -42,8 +42,8 @@ public partial class MainWindow
                         ("Type", IconHelper.GetTypeNameForName(file.Name)),
                         (playlist ? "Entries" : "Items", VM.CurrentItems.Count.ToString()),
                         ("Size", DriveRow.FormatSize(file.Length)),
-                        ("Date Modified", file.LastWriteTime.ToString("MM/dd/yyyy HH:mm")),
-                        ("Date Created", file.CreationTime.ToString("MM/dd/yyyy HH:mm"))
+                        ("Date Modified", Converters.DateTimeConverter.Format(file.LastWriteTime)),
+                        ("Date Created", Converters.DateTimeConverter.Format(file.CreationTime))
                     }, nodePath: node, fileForViewer: true);
                     return;
                 }
@@ -70,7 +70,7 @@ public partial class MainWindow
         var rows = new List<(string, string)>();
         void Row(string label, string? value) { if (!string.IsNullOrWhiteSpace(value)) rows.Add((label, value!)); }
         string size     = item.IsDirectory || item.Size < 0 ? "" : DriveRow.FormatSize(item.Size);
-        string modified = item.DateModified == default ? "" : item.DateModified.ToString("MM/dd/yyyy HH:mm");
+        string modified = item.DateModified == default ? "" : Converters.DateTimeConverter.Format(item.DateModified);
 
         // What needs a look into the file is read in the background (pictures, music, video, programs; not inside an archive).
         AudioTags? tags = null;
@@ -131,7 +131,7 @@ public partial class MainWindow
             Row("Type", item.TypeName);
             Row("Size", size);
             Row("Date Modified", modified);
-            Row("Date Created", item.DateCreated == default ? "" : item.DateCreated.ToString("MM/dd/yyyy HH:mm"));
+            Row("Date Created", item.DateCreated == default ? "" : Converters.DateTimeConverter.Format(item.DateCreated));
         }
 
         Row("Rating", item.RatingText);

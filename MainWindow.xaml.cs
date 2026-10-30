@@ -1039,8 +1039,8 @@ public partial class MainWindow : Window
         string Cell(ColumnInfo col, FileItemViewModel item) => col.Key switch
         {
             SortColumn.Name         => item.DisplayName,
-            SortColumn.DateModified => item.DateModified.ToString("MM/dd/yyyy  HH:mm", CultureInfo.InvariantCulture),
-            SortColumn.DateCreated  => item.DateCreated.ToString("MM/dd/yyyy  HH:mm", CultureInfo.InvariantCulture),
+            SortColumn.DateModified => Converters.DateTimeConverter.Format(item.DateModified),
+            SortColumn.DateCreated  => Converters.DateTimeConverter.Format(item.DateCreated),
             SortColumn.Type         => item.TypeName,
             SortColumn.Size         => sizeConverter.Convert(item.Size, typeof(string), null!, CultureInfo.CurrentCulture) as string ?? "",
             SortColumn.Length       => item.LengthText,
