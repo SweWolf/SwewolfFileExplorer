@@ -39,6 +39,12 @@ public partial class MainWindow : Window
         VM.SelectPathRequested += OnSelectPathRequested;
         VM.SelectPathsRequested += OnSelectPathsRequested;
         VM.ClipboardFileRequested += NewFileFromClipboard;   // Ctrl+V with a picture or text on the clipboard, and the user said yes
+        VM.AddressPasteRequested += text =>   // Ctrl+V on This PC with text on the clipboard: into the address bar, no Enter
+        {
+            AddressBar.Focus();
+            AddressBar.Text = text;
+            AddressBar.CaretIndex = text.Length;
+        };
         VM.BookmarksPasteRequested += PasteIntoBookmarks;    // Ctrl+V in the Bookmarks folder: bookmarks are made, nothing is copied there
         VM.SortChanged   += () => ApplySort(VM.SortColumn, VM.SortAscending);
         VM.LastTabClosed += Close;

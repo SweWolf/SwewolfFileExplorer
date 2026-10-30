@@ -3269,6 +3269,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
         destination ??= HasFolder ? _currentPath : null;
         if (string.IsNullOrEmpty(destination) || (destination == _currentPath && !HasFolder))
         {
+            // No folder here (This PC, Quick Access): text on the clipboard is most likely a path, so it goes into the address bar
+            // (the same as F6 and then Ctrl+V); Enter is left to the user, as with a web address in a browser.
+            if (!FileClipboard.HasFiles() && TextOnClipboard() is { } text)
+            {
+                AddressPasteRequested?.Invoke(text);
+                return;
+            }
             MessageBox.Show("Files cannot be pasted here. Open a folder first.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -3299,6 +3306,21 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
         PasteInto(destination);
     }
+
+    /// <summary>The first line of the text on the clipboard that is not empty (spaces at the ends removed), or null when there is none.</summary>
+    private static string? TextOnClipboard()
+    {
+        try
+        {
+            if (!Clipboard.ContainsText()) return null;
+            var line = Clipboard.GetText().Split('\n', '\r').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0);
+            return line;
+        }
+        catch { return null; }   // the clipboard can be busy: treated as nothing there
+    }
+
+    /// <summary>Ctrl+V with no folder shown and text on the clipboard: the window puts the text in the address bar and focuses it (no Enter).</summary>
+    public event Action<string>? AddressPasteRequested;
 
     /// <summary>Ctrl+V found a picture or text and not files, and the user said yes: the window asks for the name and makes the file in this folder.</summary>
     public event Action<string>? ClipboardFileRequested;
