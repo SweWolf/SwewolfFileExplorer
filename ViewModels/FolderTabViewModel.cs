@@ -3376,6 +3376,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
+        if (result.IdenticalSkipped.Count > 0)
+        {
+            var same = result.IdenticalSkipped;
+            var lines = same.Take(12).Select(Path.GetFileName);
+            var more  = same.Count > 12 ? $"{Environment.NewLine}... and {same.Count - 12} more." : "";
+            MessageBox.Show($"Copying is done. {(same.Count == 1 ? "This file was" : $"These {same.Count} files were")} not copied, because the file already in the folder is exactly the same (checked byte for byte):"
+                            + Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine, lines) + more,
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
         LibraryService.Move(result.RenamedOld);   // an old file that was renamed to "(old N)" keeps its marks (before the moved file takes over its name)
         var moved = isCut ? result.Done : new List<(string From, string To)>();
         LibraryService.Move(moved);   // what is remembered about the moved items (to another drive too) goes along

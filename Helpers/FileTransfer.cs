@@ -20,8 +20,11 @@ public sealed class TransferProgress
 
 /// <summary>What was done: the items that were copied or moved (from, to), the ones that failed (name, reason), whether the user canceled, and how many files were skipped at the user's choice.</summary>
 public sealed record TransferResult(List<(string From, string To)> Done, List<(string Name, string Reason)> Failed, bool Canceled, int Total, int Skipped = 0,
-                                    List<(string From, string To)>? Renamed = null)
+                                    List<(string From, string To)>? Renamed = null, List<string>? Identical = null)
 {
+    /// <summary>Source files that were not copied because the file already in the destination has exactly the same contents (a copy only, never a move).</summary>
+    public List<string> IdenticalSkipped => Identical ?? new();
+
     /// <summary>Existing files that were renamed to "name (old N)" so the pasted file could have their name (what the library remembers follows them).</summary>
     public List<(string From, string To)> RenamedOld => Renamed ?? new();
 }
@@ -63,6 +66,7 @@ public static class FileTransfer
         public readonly ConflictPolicy? Policy = policy;
         public long BytesBefore;
         public int Skipped;
+        public readonly List<string> Identical = new();   // copied-over files that were byte for byte the same: nothing was done
         public readonly List<(string From, string To)> Renamed = new();   // old files renamed to "(old N)", kept even if the item later fails
         public ItemState Item = new();
     }
@@ -96,7 +100,7 @@ public static class FileTransfer
         var ctx = new Ctx(move, progress, cancel, policy);
         foreach (var src in sources)
         {
-            if (cancel.IsCancellationRequested) return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed);
+            if (cancel.IsCancellationRequested) return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical);
 
             var name = Path.GetFileName(src.TrimEnd('\\', '/'));
             var dest = Path.Combine(destinationFolder, name);
@@ -146,7 +150,7 @@ public static class FileTransfer
             catch (OperationCanceledException)
             {
                 Undo(ctx.Item);
-                return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed);
+                return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical);
             }
             catch (Exception ex)
             {
@@ -155,7 +159,7 @@ public static class FileTransfer
             }
         }
 
-        return new TransferResult(done, failed, false, sources.Count, ctx.Skipped, ctx.Renamed);
+        return new TransferResult(done, failed, false, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical);
     }
 
     // ── Counting ──────────────────────────────────────────────────────────────
@@ -245,6 +249,15 @@ public static class FileTransfer
         ctx.Progress.CurrentName = info.Name;
         ctx.Progress.FileIndex++;
 
+        // A copy onto a file with exactly the same contents does nothing (checked byte for byte; a move is never checked).
+        if (!ctx.Move && File.Exists(dest) && !SamePath(src, dest) && FilesAreIdentical(src, dest, ctx))
+        {
+            ctx.BytesBefore += info.Length;
+            ctx.Progress.BytesDone = ctx.BytesBefore;
+            ctx.Identical.Add(src);
+            return null;
+        }
+
         var (choice, final, replace) = FileReplace.Decide(ctx.Policy, dest, info.Length, info.LastWriteTime,
                                                           "Pasted file", SamePath(src, dest));
         if (choice == ConflictChoice.Cancel) throw new OperationCanceledException();
@@ -276,6 +289,42 @@ public static class FileTransfer
 
         ctx.Item.Files.Add((src, final));
         return final;
+    }
+
+    /// <summary>
+    /// True only if both files have the same size and every byte is the same. Different size is decided at once; otherwise both are read
+    /// to the end (progress follows, Cancel works). A file that cannot be read counts as not identical (the normal question follows).
+    /// </summary>
+    public static bool FilesAreIdentical(string a, string b) => FilesAreIdentical(a, b, null);
+
+    private static bool FilesAreIdentical(string a, string b, Ctx? ctx)
+    {
+        try
+        {
+            var fa = new FileInfo(a);
+            var fb = new FileInfo(b);
+            if (fa.Length != fb.Length) return false;
+
+            const int Size = 1024 * 1024;
+            var bufA = new byte[Size];
+            var bufB = new byte[Size];
+            using var sa = new FileStream(a, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, Size);
+            using var sb = new FileStream(b, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, Size);
+            long done = 0;
+            while (true)
+            {
+                ctx?.Cancel.ThrowIfCancellationRequested();
+                int na = sa.ReadAtLeast(bufA, Size, throwOnEndOfStream: false);
+                int nb = sb.ReadAtLeast(bufB, Size, throwOnEndOfStream: false);
+                if (na != nb) return false;
+                if (na == 0) return done == fa.Length;   // a file that grew or shrank meanwhile is not the same
+                if (!bufA.AsSpan(0, na).SequenceEqual(bufB.AsSpan(0, nb))) return false;
+                done += na;
+                if (ctx != null) ctx.Progress.BytesDone = ctx.BytesBefore + done;
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { return false; }
     }
 
     private static string CopyViaTemp(string src, string final, bool replace, bool renameOld, Ctx ctx)
