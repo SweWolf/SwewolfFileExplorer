@@ -344,6 +344,9 @@ public partial class PictureViewerWindow : Window
             ShowOverlay("This is the first item in the list");   // stays on the picture; no wrapping around
             return;
         }
+        // Another program may have added pictures to the folder while this window was open: look again before calling this the end.
+        if (next >= _files.Count && TryRefreshList()) next = _index + direction;
+
         if (next >= _files.Count)
         {
             if (_playing) EndOfSlideshow();
@@ -353,6 +356,39 @@ public partial class PictureViewerWindow : Window
 
         _index = next;
         ShowCurrent();
+    }
+
+    /// <summary>
+    /// The pictures of a folder as they are on the disk now (in the order the Explorer's list shows them), or null when that cannot be
+    /// told. Set by the Explorer. Used at the end of the list, so pictures that another program made meanwhile are found.
+    /// </summary>
+    public Func<string, string, List<string>?>? RefreshPictures { get; set; }
+
+    /// <summary>
+    /// Reads the folder of the picture on show again. If the list is different the viewer goes on with the new one (staying on the same
+    /// picture) and this returns true. Not for a playlist, a picture inside an archive, or when the picture on show is not found in
+    /// the new list (it was moved or deleted outside): the list then stays as it was.
+    /// </summary>
+    private bool TryRefreshList()
+    {
+        if (RefreshPictures == null || IsPlaylist || _files.Count == 0) return false;
+
+        string current = CurrentPath;
+        if (!File.Exists(current)) return false;   // inside an archive: nothing changes there while it is open
+
+        List<string>? fresh;
+        try { fresh = RefreshPictures(Path.GetDirectoryName(current) ?? "", current); }
+        catch { return false; }
+        if (fresh == null || fresh.Count == 0) return false;
+
+        int index = fresh.FindIndex(f => string.Equals(f, current, StringComparison.OrdinalIgnoreCase));
+        if (index < 0) return false;
+        if (fresh.SequenceEqual(_files, StringComparer.OrdinalIgnoreCase)) return false;
+
+        _files.Clear();
+        _files.AddRange(fresh);
+        _index = index;
+        return true;
     }
 
     // ── The end of the list: the next folder ─────────────────────────────────

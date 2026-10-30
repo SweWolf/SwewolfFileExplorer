@@ -2666,6 +2666,12 @@ public partial class MainWindow : Window
                 ? PicturesInList()
                 : null;
         };
+        // Pictures another program added while the viewer is open: the folder is read again at the end of the list. With a filter
+        // on in the Explorer the list as filtered is kept (the viewer goes through what the list shows).
+        viewer.RefreshPictures = (folder, current) =>
+            FilterBar.Visibility == Visibility.Visible && FilterBox.Text.Length > 0 && !VM.InPlaylist
+                ? PicturesInList()
+                : QuickPictureList(folder, current);
         viewer.GetMarks  = path => VM.GetMarks(path);
         viewer.SetRating = (path, value) =>
         {
