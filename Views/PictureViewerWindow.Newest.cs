@@ -5,36 +5,25 @@ using SwewolfFileExplorer.Helpers;
 
 namespace SwewolfFileExplorer.Views;
 
-// "Show Newest Picture Automatically" (right-click menu, a check mark; saved as AppSettings.ViewerShowNewest). While it is on, the folder of the
-// picture on show is watched, and when another program makes a picture there (an image generator, a scanner, a phone sync ...) the viewer waits
-// until the file can be read and shows it. Turning it on shows the newest picture of the folder at once.
+// "Show Newest Picture Automatically" (right-click menu, a check mark; never saved: the viewer always starts with it off). While it is on, the
+// folder of the picture on show is watched, and when another program makes a picture there (an image generator, a scanner, a phone sync ...)
+// the viewer waits until the file can be read and shows it. Turning it on shows the newest picture of the folder at once.
 public partial class PictureViewerWindow
 {
     private FileSystemWatcher? _newestWatcher;
     private string? _newestFolder;                  // the folder the watcher is on
     private bool _newestOn;
-    private bool _newestBusy;                       // a newest picture is being looked for / waited for
-    private bool _newestDirty;                      // something happened meanwhile: look again when done
-    private string? _newestKey;                     // path + time of the newest picture last shown, so the same one is not loaded again
-    private DispatcherTimer? _newestTimer;          // events come in bursts (a file being written): act when it has been quiet
+    private bool _newestBusy;                       // a newest picture is being waited for
+    private string? _newestCandidate;               // the last picture the watcher reported (set on a thread-pool thread)
+    private string? _newestKey;                     // name, time and size of the picture last shown, so the same one is not loaded again
+    private DispatcherTimer? _newestTimer;          // events come in bursts (a file being written): act when it has been quiet for a moment
+    private DispatcherTimer? _newestPoll;           // a look at the folder now and then, in case the watcher missed something (a cloud or network drive)
 
-    private void StartNewestFromSetting()
-    {
-        if (!AppSettingsStore.Current.ViewerShowNewest) return;
-        NewestMenuItem.IsChecked = true;
-        SetNewest(true, save: false);
-    }
+    private void MenuNewest_Click(object sender, RoutedEventArgs e) => SetNewest(NewestMenuItem.IsChecked);
 
-    private void MenuNewest_Click(object sender, RoutedEventArgs e) => SetNewest(NewestMenuItem.IsChecked, save: true);
-
-    private void SetNewest(bool on, bool save)
+    private void SetNewest(bool on)
     {
         _newestOn = on;
-        if (save)
-        {
-            AppSettingsStore.Current.ViewerShowNewest = on;
-            AppSettingsStore.Save(AppSettingsStore.Current);
-        }
 
         if (!on)
         {
@@ -47,11 +36,15 @@ public partial class PictureViewerWindow
         WatchFolderOfCurrent();
         if (_newestWatcher == null)
         {
+            NewestMenuItem.IsChecked = false;
+            _newestOn = false;
             ShowOverlay("Cannot watch this folder");   // a playlist, or a picture inside a compressed file
             return;
         }
         ShowOverlay("Newest picture: on");
-        QueueNewest(immediately: true);
+        _newestPoll ??= CreateNewestPoll();
+        _newestPoll.Start();
+        QueueNewest(delayMs: 1);
     }
 
     /// <summary>Puts the watcher on the folder of the picture on show (it changes when the viewer goes on to another folder).</summary>
@@ -85,20 +78,20 @@ public partial class PictureViewerWindow
         catch { /* a place that cannot be watched: the viewer works as before */ }
     }
 
-    // Raised on a thread-pool thread.
+    // Raised on a thread-pool thread. The picture named here is the one to show: no need to search the folder.
     private void OnNewestEvent(object sender, FileSystemEventArgs e)
     {
         if (_closed || !ThumbnailLoader.IsImage(e.FullPath)) return;
-        Dispatcher.BeginInvoke(() => QueueNewest(immediately: false));
+        _newestCandidate = e.FullPath;
+        Dispatcher.BeginInvoke(() => QueueNewest(delayMs: 100));
     }
 
-    private void QueueNewest(bool immediately)
+    private void QueueNewest(int delayMs)
     {
-        if (_closed || !_newestOn) return;
-        if (_newestBusy) { _newestDirty = true; return; }
+        if (_closed || !_newestOn || _newestBusy) return;   // a busy round picks up the latest candidate by itself
 
         _newestTimer ??= CreateNewestTimer();
-        _newestTimer.Interval = TimeSpan.FromMilliseconds(immediately ? 1 : 500);
+        _newestTimer.Interval = TimeSpan.FromMilliseconds(delayMs);
         _newestTimer.Stop();
         _newestTimer.Start();
     }
@@ -110,43 +103,63 @@ public partial class PictureViewerWindow
         return timer;
     }
 
+    private DispatcherTimer CreateNewestPoll()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        timer.Tick += (_, _) => { if (!_newestBusy && !_askingAtEnd) QueueNewest(delayMs: 1); };
+        return timer;
+    }
+
     private async void ShowNewest()
     {
         string? folder = _newestFolder;
-        if (_closed || !_newestOn || folder == null || _newestBusy) return;
-        if (_askingAtEnd) { _newestDirty = true; return; }   // the end-of-list question is open: look again after it
+        if (_closed || !_newestOn || folder == null || _newestBusy || _askingAtEnd) return;
         _newestBusy = true;
         try
         {
-            var found = await Task.Run(() => FindNewest(folder));
-            if (found == null || _closed || !_newestOn) return;
-            var (path, key) = found.Value;
-
-            if (key == _newestKey) return;
-            bool first = _newestKey == null;
-            if (first && string.Equals(path, CurrentPath, StringComparison.OrdinalIgnoreCase))
+            while (!_closed && _newestOn)
             {
-                _newestKey = key;   // the picture on show already is the newest
-                return;
+                // What the watcher said, else (turning it on, the look now and then) the newest picture of the folder.
+                string? path = Interlocked.Exchange(ref _newestCandidate, null);
+                bool fromWatcher = path != null;
+                path ??= await Task.Run(() => FindNewest(folder));
+                if (path == null) return;
+
+                string? key = KeyOf(path);
+                if (key == null || key == _newestKey) return;
+
+                if (!fromWatcher && _newestKey == null && string.Equals(path, CurrentPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    _newestKey = key;   // the picture on show already is the newest
+                    return;
+                }
+
+                // The other program may still be writing the file.
+                string? ready = await Task.Run(() => WaitUntilReadable(path));
+                if (_closed || !_newestOn) return;
+                if (ready == null) { _newestKey = key; return; }   // never became readable: not tried again until it changes
+                if (_newestCandidate != null && !string.Equals(_newestCandidate, path, StringComparison.OrdinalIgnoreCase))
+                    continue;   // a newer picture came meanwhile: that one, not this
+
+                bool first = _newestKey == null;
+                _newestKey = ready;
+                TakeIntoList(folder, path);
+                ShowCurrent(first ? "Newest picture" : null);
+                if (_newestCandidate == null) return;   // else something else came while loading: go round again
             }
-
-            // The other program may still be writing the file.
-            if (!await Task.Run(() => WaitUntilReadable(path)) || _closed || !_newestOn) return;
-
-            _newestKey = key;
-            TakeIntoList(folder, path);
-            ShowCurrent(first ? "Newest picture" : "New picture");
         }
         catch { /* a folder that went away: nothing to show */ }
-        finally
-        {
-            _newestBusy = false;
-            if (_newestDirty) { _newestDirty = false; QueueNewest(immediately: false); }
-        }
+        finally { _newestBusy = false; }
     }
 
-    /// <summary>The picture of the folder that was made (or written) last, and a key made of its name and time. Runs on a background thread.</summary>
-    private static (string Path, string Key)? FindNewest(string folder)
+    private static string? KeyOf(string path)
+    {
+        try { var f = new FileInfo(path); return f.Exists ? path + "|" + f.LastWriteTimeUtc.Ticks + "|" + f.Length : null; }
+        catch { return null; }
+    }
+
+    /// <summary>The picture of the folder that was made (or written) last. Runs on a background thread.</summary>
+    private static string? FindNewest(string folder)
     {
         FileInfo? best = null;
         DateTime bestTime = DateTime.MinValue;
@@ -157,26 +170,29 @@ public partial class PictureViewerWindow
             var time = file.CreationTimeUtc > file.LastWriteTimeUtc ? file.CreationTimeUtc : file.LastWriteTimeUtc;
             if (best == null || time > bestTime) { best = file; bestTime = time; }
         }
-        return best == null ? null : (best.FullName, best.FullName + "|" + bestTime.Ticks);
+        return best?.FullName;
     }
 
-    /// <summary>True when the file can be opened for reading and has stopped growing (up to about 10 seconds). Runs on a background thread.</summary>
-    private static bool WaitUntilReadable(string path)
+    /// <summary>
+    /// Waits until the file can be opened for reading and has the same size twice in a row (checked every 100 ms, up to about 10 seconds).
+    /// Returns its key then, or null if it never got there. Runs on a background thread.
+    /// </summary>
+    private static string? WaitUntilReadable(string path)
     {
         long last = -1;
-        for (int i = 0; i < 40; i++)
+        for (int i = 0; i < 100; i++)
         {
             try
             {
                 using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                if (stream.Length > 0 && stream.Length == last) return true;
+                if (stream.Length > 0 && stream.Length == last) return KeyOf(path);
                 last = stream.Length;
             }
             catch (IOException) { last = -1; }
             catch (UnauthorizedAccessException) { last = -1; }
-            Thread.Sleep(250);
+            Thread.Sleep(100);
         }
-        return false;
+        return null;
     }
 
     /// <summary>Makes the list the folder as it is now (in the Explorer's order), with the new picture in it, and moves to that picture.</summary>
@@ -199,6 +215,7 @@ public partial class PictureViewerWindow
     {
         _newestOn = false;
         _newestTimer?.Stop();
+        _newestPoll?.Stop();
         DisposeWatcher();
     }
 

@@ -100,7 +100,6 @@ public partial class PictureViewerWindow : Window
         _cursorTimer.Start();
         if (Slideshow != null) _playing = true;
         ShowCurrent(Slideshow != null ? $"Slide show, {Slideshow.Seconds} s per picture. The Pause key pauses." : null);
-        StartNewestFromSetting();
         Focus();
     }
 
