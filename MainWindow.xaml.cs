@@ -992,6 +992,16 @@ public partial class MainWindow : Window
             AddressBar.SelectAll();
             e.Handled = true;
         }
+        // Ctrl+A: select everything in the file list, whichever control has the focus (the tree, a tab, the toolbar ...). A text box keeps
+        // its own Ctrl+A (select its text). The list gets the focus, so Ctrl+C / Ctrl+X / Delete that follow act on the files, not on the tree.
+        else if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control
+                 && Keyboard.FocusedElement is not (System.Windows.Controls.Primitives.TextBoxBase or PasswordBox)
+                 && FileListView.IsVisible && FileListView.Items.Count > 0)
+        {
+            if (!FileListView.IsKeyboardFocusWithin) FileListView.Focus();
+            FileListView.SelectAll();
+            e.Handled = true;
+        }
         // Ctrl + numeric keypad plus: size every column to its widest text, as in Explorer.
         else if (e.Key == Key.Add && Keyboard.Modifiers == ModifierKeys.Control)
         {
