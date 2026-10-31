@@ -23,7 +23,7 @@ public partial class SettingsWindow : Window
         RightClickSelectsNodeBox.IsChecked = current.RightClickSelectsTreeNode;
         DisableDragDropBox.IsChecked       = current.DisableInternalDragDrop;
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
-        TerminalBox.IsChecked             = current.ShowOpenInTerminal;
+        TerminalBox.IsChecked              = current.ShowOpenInTerminal;
         PowerShellBox.IsChecked            = current.ShowOpenInPowerShell;
         CommandPromptBox.IsChecked         = current.ShowOpenInCommandPrompt;
 
