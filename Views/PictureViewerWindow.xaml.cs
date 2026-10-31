@@ -106,6 +106,7 @@ public partial class PictureViewerWindow : Window
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         SetThreadExecutionState(ES_CONTINUOUS);
+        FinishRating();
         _closed = true;
         StopNewestWatch();
         StopNextFolderSearch();
@@ -181,6 +182,7 @@ public partial class PictureViewerWindow : Window
             }
 
             if (message != null) ShowOverlay(message);
+            else ShowCurrentRating();
         }
 
         UpdateTransform();
@@ -708,6 +710,8 @@ public partial class PictureViewerWindow : Window
     {
         bool plain = Keyboard.Modifiers == ModifierKeys.None;
         bool ctrl  = Keyboard.Modifiers == ModifierKeys.Control;
+
+        if (HandleRatingKey(e)) return;
 
         // The viewer opens on Enter in the list: a key held down a moment too long repeats here and must not count.
         if (e.IsRepeat && e.Key is Key.Return or Key.Space)
