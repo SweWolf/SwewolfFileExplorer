@@ -3909,7 +3909,7 @@ public partial class MainWindow : Window
     {
         if (inArchive)
         {
-            MessageBox.Show("Move/Copy to does not work inside a compressed file or a playlist. Use Copy and Paste to unpack files.",
+            MessageBox.Show("Move/Copy to Folder does not work inside a compressed file or a playlist. Use Copy and Paste to unpack files.",
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
