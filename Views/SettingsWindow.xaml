@@ -121,9 +121,9 @@
         </TabControl>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="OK" Width="80" Margin="0,0,6,0" IsDefault="True" Click="OkButton_Click"
+            <Button Content="OK" Width="96" Margin="0,0,6,0" IsDefault="True" Click="OkButton_Click"
                     BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"/>
-            <Button Content="Cancel" Width="80" IsCancel="True"/>
+            <Button Content="Cancel" Width="96" IsCancel="True"/>
         </StackPanel>
     </StackPanel>
 </Window>
