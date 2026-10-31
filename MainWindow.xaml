@@ -596,6 +596,8 @@
                                       ToolTip="Paste into this folder"/>
                             <MenuItem Header="Copy as Path"    Click="TreeCtxCopyPath_Click" InputGestureText="Ctrl+Shift+C"
                                       ToolTip="Copy the full path of this folder as text, in quotes"/>
+                            <MenuItem Header="Move/Copy to..." Click="TreeCtxMoveCopyTo_Click"
+                                      ToolTip="Move or copy this folder to a folder you choose"/>
                             <MenuItem Header="Create Shortcut..." Click="TreeCtxCreateShortcut_Click"
                                       ToolTip="Make a shortcut to this folder in a folder you choose"/>
                             <MenuItem Header="Create Playlist..." Click="TreeCtxCreatePlaylist_Click"
@@ -955,6 +957,8 @@
                         <MenuItem Header="Paste"      Click="CtxPaste_Click"     InputGestureText="Ctrl+V"/>
                         <MenuItem Header="Copy as Path" Click="CtxCopyPath_Click" InputGestureText="Ctrl+Shift+C"
                                   ToolTip="Copy the full path of the selected items as text, each in quotes"/>
+                        <MenuItem Header="Move/Copy to..." Click="CtxMoveCopyTo_Click"
+                                  ToolTip="Move or copy the selected items to a folder you choose"/>
                         <MenuItem Header="Create Shortcut..." Click="CtxCreateShortcut_Click"
                                   ToolTip="Make a shortcut to the selected items in a folder you choose"/>
                         <MenuItem Header="Create Playlist..." Click="CtxCreatePlaylist_Click"

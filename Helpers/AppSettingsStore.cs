@@ -93,6 +93,9 @@ public class AppSettings
     /// </summary>
     public bool DisableInternalDragDrop { get; set; } = false;
 
+    /// <summary>The user's own list of folders in the "Move/Copy to" window (right-click menus), in the order they chose.</summary>
+    public List<string> MoveCopyFolders { get; set; } = new();
+
     /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
     public bool ShowOpenInTerminal { get; set; } = true;
 

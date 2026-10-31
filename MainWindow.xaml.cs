@@ -3885,6 +3885,55 @@ public partial class MainWindow : Window
 
     // ── Create Shortcut... ─────────────────────────────────────────────────────
 
+    private void CtxMoveCopyTo_Click(object sender, RoutedEventArgs e) =>
+        MoveCopyTo(FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList(), inArchive: VM.InArchive || VM.InPlaylist);
+
+    private void TreeCtxMoveCopyTo_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode == null) return;
+        string path = _treeMenuNode.FullPath;
+        bool isDrive = System.IO.Path.GetPathRoot(path)?.TrimEnd('\\', '/').Equals(path.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase) == true;
+        if (isDrive)
+        {
+            MessageBox.Show("A whole drive cannot be moved or copied.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        MoveCopyTo(new List<string> { path }, inArchive: !System.IO.Directory.Exists(path) && !System.IO.File.Exists(path));
+    }
+
+    /// <summary>
+    /// Asks where to (a typed or browsed folder, or one from the user's list; Move is pre-selected) and then moves or copies the items there
+    /// with the same code as Paste and drag and drop: progress window, questions about names that are taken, related files, the library follows.
+    /// </summary>
+    private void MoveCopyTo(List<string> items, bool inArchive)
+    {
+        if (inArchive)
+        {
+            MessageBox.Show("Move/Copy to does not work inside a compressed file or a playlist. Use Copy and Paste to unpack files.",
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        items = items.Where(p => System.IO.File.Exists(p) || System.IO.Directory.Exists(p)).ToList();
+        if (items.Count == 0)
+        {
+            MessageBox.Show("Select the files or folders to move or copy first.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new MoveCopyToDialog(items) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
+        try { System.IO.Directory.CreateDirectory(dialog.FolderPath); }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot make the folder \"{dialog.FolderPath}\": {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        VM.DropFiles(dialog.FolderPath, items, dialog.IsMove);
+    }
+
     private void CtxCreateShortcut_Click(object sender, RoutedEventArgs e) =>
         CreateShortcutsFor(FileListView.SelectedItems.OfType<FileItemViewModel>().Where(i => !i.IsInArchive).Select(i => i.FullPath).ToList());
 
