@@ -22,7 +22,8 @@ public partial class SettingsWindow : Window
         SuggestMoveBox.IsChecked           = current.SuggestMoveAfterSmartRename;
         RightClickSelectsNodeBox.IsChecked = current.RightClickSelectsTreeNode;
         DisableDragDropBox.IsChecked       = current.DisableInternalDragDrop;
-        TerminalBox.IsChecked              = current.ShowOpenInTerminal;
+        WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
+        TerminalBox.IsChecked             = current.ShowOpenInTerminal;
         PowerShellBox.IsChecked            = current.ShowOpenInPowerShell;
         CommandPromptBox.IsChecked         = current.ShowOpenInCommandPrompt;
 
@@ -52,6 +53,7 @@ public partial class SettingsWindow : Window
         settings.SuggestMoveAfterSmartRename = SuggestMoveBox.IsChecked == true;
         settings.RightClickSelectsTreeNode = RightClickSelectsNodeBox.IsChecked == true;
         settings.DisableInternalDragDrop = DisableDragDropBox.IsChecked == true;
+        settings.WarnHiddenNotSelected   = WarnHiddenNotSelectedBox.IsChecked == true;
         settings.ShowOpenInTerminal      = TerminalBox.IsChecked == true;
         settings.ShowOpenInPowerShell    = PowerShellBox.IsChecked == true;
         settings.ShowOpenInCommandPrompt = CommandPromptBox.IsChecked == true;

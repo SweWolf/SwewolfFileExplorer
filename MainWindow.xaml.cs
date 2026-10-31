@@ -91,6 +91,10 @@ public partial class MainWindow : Window
                 else if (!VM.InPlaylist && _playBarOpenedByPlaylist && !_playRunning) ShowPlayBar(false);   // only if the playlist opened it
             }
 
+            // The hidden items were counted, shown or hidden: the warning about them may change.
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(MainViewModel.HiddenText) or nameof(MainViewModel.HasHiddenItems))
+                QueueInfoUpdate();
+
             // Another folder (or another tab): the filter goes away, so a folder never looks empty because of an old filter.
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.CurrentPath))
             {
@@ -1118,6 +1122,7 @@ public partial class MainWindow : Window
         {
             VM.RefreshCommand.Execute(null);
             VM.ExtensionSettingChanged();   // "Hide Extensions for Known File Types" may have changed: every tab and the button follow
+            QueueInfoUpdate();              // so may the warning about hidden items that are not selected
         }
     }
 
@@ -1455,9 +1460,26 @@ public partial class MainWindow : Window
     }
 
     /// <summary>"File 14/17" (the place of the selected item in the list as shown) and the preview of a picture.</summary>
+    /// <summary>
+    /// "Warning: 2 hidden items not selected" (red, next to the hidden-items link) while everything shown in the list is selected, the folder has
+    /// hidden items and they are not shown: a copy or move of the selection leaves them out. Settings can turn it off.
+    /// </summary>
+    private void UpdateHiddenWarning()
+    {
+        var tab = VM.ActiveTab;
+        int shown = FileListView.Items.Count;
+        bool warn = AppSettingsStore.Current.WarnHiddenNotSelected
+                    && tab.HiddenItemCount > 0 && !tab.HiddenItemsShown
+                    && shown > 0 && FileListView.SelectedItems.Count == shown;
+
+        HiddenWarning.Visibility = warn ? Visibility.Visible : Visibility.Collapsed;
+        if (warn) HiddenWarning.Text = $"Warning: {tab.HiddenItemCount} hidden {(tab.HiddenItemCount == 1 ? "item" : "items")} not selected";
+    }
+
     private void UpdateInfoPanel()
     {
         UpdateFilterCount();
+        UpdateHiddenWarning();
         var selected = FileListView.SelectedItems;
 
         if (selected.Count == 1 && selected[0] is FileItemViewModel item)

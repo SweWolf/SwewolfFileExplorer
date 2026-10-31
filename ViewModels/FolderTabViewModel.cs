@@ -1163,6 +1163,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>True when the folder has hidden or system items (shown or not).</summary>
     public bool HasHiddenItems => _hiddenCount > 0;
 
+    /// <summary>The number of hidden or system items in the folder, and whether they are shown in the list now.</summary>
+    public int  HiddenItemCount => _hiddenCount;
+    public bool HiddenItemsShown => _showHidden;
+
     /// <summary>The line under the list: how many items are hidden, and what a click does.</summary>
     public string HiddenText
     {

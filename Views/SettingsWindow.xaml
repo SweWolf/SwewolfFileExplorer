@@ -81,6 +81,9 @@
                 <TextBlock Text="Also Hide Files with These Extensions When Inside Compressed Files:" Margin="0,10,0,4"/>
                 <TextBox x:Name="HiddenExtensionsInArchivesBox"
                          ToolTip="Separated by semicolons, for example nfo;txt;url. Only used inside zip, RAR and other compressed files (the files of the list above are hidden there too), for example the text files that come with a comic."/>
+
+                <CheckBox x:Name="WarnHiddenNotSelectedBox" Content="Warn When All Files Are Selected but Hidden Items Are Not" Margin="0,10,0,0"
+                          ToolTip="Shows a red warning next to the hidden-items link under the list when everything shown is selected (Ctrl+A) and the folder also has hidden items that are not shown. Copying or moving the selection leaves those items out."/>
             </StackPanel>
         </GroupBox>
         <GroupBox Header="File Names" Padding="8" Margin="0,8,0,0">

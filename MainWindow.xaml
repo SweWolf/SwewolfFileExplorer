@@ -1290,6 +1290,11 @@
                             </Hyperlink>
                         </TextBlock>
 
+                        <!-- Everything shown is selected, but the folder has hidden items that are not shown: they would be left out of a copy or move
+                             (MainWindow.UpdateHiddenWarning; Settings > Files > Hidden Files) -->
+                        <TextBlock x:Name="HiddenWarning" FontSize="12" FontWeight="SemiBold" Foreground="#E5484D" Margin="0,0,16,0" Visibility="Collapsed"
+                                   ToolTip="Ctrl+C, Ctrl+X and dragging only take what is selected. Click the hidden-items link to show them, then select all again."/>
+
                         <!-- What Ctrl+D (or Add to Bookmarks) just did, with a link to the Bookmarks: stays until another folder or file is
                              clicked (MainWindow.ShowBookmarkNote / HideBookmarkNote) -->
                         <TextBlock x:Name="BookmarkNote" FontSize="12" Margin="30,0,16,0" Visibility="Collapsed">

@@ -93,6 +93,10 @@ public class AppSettings
     /// </summary>
     public bool DisableInternalDragDrop { get; set; } = false;
 
+    /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the
+    /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
+    public bool WarnHiddenNotSelected { get; set; } = true;
+
     /// <summary>The user's own list of folders in the "Move/Copy to Folder" window (right-click menus), in the order they chose.</summary>
     public List<string> MoveCopyFolders { get; set; } = new();
 
