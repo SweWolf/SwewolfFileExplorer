@@ -1517,7 +1517,7 @@ public partial class MainWindow : Window
             // "files" while the list holds only files (the usual case); "items" as soon as a folder is in it (the Folders button, archives).
             bool onlyFiles = FileListView.Items.OfType<FileItemViewModel>().All(i => !i.IsDirectory);
             string Word(int n, bool files) => files ? (n == 1 ? "file" : "files") : (n == 1 ? "item" : "items");
-            PositionText.Text = selected.Count > 1 ? $"{selected.Count} {Word(selected.Count, selected.OfType<FileItemViewModel>().All(i => !i.IsDirectory))} of {count} selected"
+            PositionText.Text = selected.Count > 1 ? $"{selected.Count} of {count} {Word(count, onlyFiles)} selected"
                               : !VM.HasFolder      ? ""   // This PC, Quick Access: nothing to count
                               :                      $"{count} {Word(count, onlyFiles)}";   // also "0 files"
             ShowThumbnail(null);
