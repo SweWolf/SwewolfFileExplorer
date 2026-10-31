@@ -2630,7 +2630,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <param name="media">Each video or music file with the path it is going to get.</param>
     /// <param name="alsoMoving">Paths that are moved anyway (cut together): they are not asked about.</param>
     private static bool AskAboutRelated(IReadOnlyList<(string Media, string NewMedia)> media, ISet<string>? alsoMoving, bool rename,
-                                        out List<RelatedMove> related, out List<NotDone> notDone)
+                                        out List<RelatedMove> related, out List<NotDone> notDone, bool copy = false)
     {
         related = new List<RelatedMove>();
         notDone = new List<NotDone>();
@@ -2679,8 +2679,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var list = RelatedFiles.Describe(willMove.Select(m => Path.GetFileName(m.From)).ToList(),
                                          skipped.Select(s => Path.GetFileName(s.From)).ToList());
 
-        string verb  = rename ? "rename" : "move";
-        string title = rename ? (media.Count == 1 ? "Rename File" : "Multiple Rename") : media.Count == 1 ? "Move File" : "Move Files";
+        string verb  = rename ? "rename" : copy ? "copy" : "move";
+        string title = rename ? (media.Count == 1 ? "Rename File" : "Multiple Rename")
+                     : copy   ? (media.Count == 1 ? "Copy File" : "Copy Files")
+                     : media.Count == 1 ? "Move File" : "Move Files";
         string head  = media.Count == 1
             ? $"You are {verb.TrimEnd('e')}ing \"{Path.GetFileName(media[0].Media)}\"" +
               (rename ? $" to \"{Path.GetFileName(media[0].NewMedia)}\"." : $" to \"{Path.GetDirectoryName(media[0].NewMedia)}\".")
@@ -2691,14 +2693,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // Only files that cannot follow (their new names are taken): nothing to decide, only to know.
         if (willMove.Count == 0)
         {
-            Ask(owner, title, $"{head}\n\n{list}\n\nThey are not {(rename ? "renamed" : "moved")}.", new[] { "OK" }, 0, -1);
+            Ask(owner, title, $"{head}\n\n{list}\n\nThey are not {(rename ? "renamed" : copy ? "copied" : "moved")}.", new[] { "OK" }, 0, -1);
             LogNotDone(skipped, rename);
             return true;
         }
 
         string ask = rename
             ? "Do you also want to rename these files according to the same pattern?"
-            : "Do you also want to move these files?";
+            : copy ? "Do you also want to copy these files?" : "Do you also want to move these files?";
 
         if (numbered > 0)
             list += $"\n\n{numbered} of them get a number, as their new name is taken already.";
@@ -2778,6 +2780,45 @@ public class FolderTabViewModel : INotifyPropertyChanged
             $"These files were not {verb}:\n\n{string.Join("\n", lines)}\n\nThe other files were {verb}. Details are in the log file (Help > Open Log File).",
             new[] { "OK" }, 0, -1);
         return done;
+    }
+
+    /// <summary>
+    /// Copies the files that belong to video or music files that were just copied. Each gets the name of the copy that was really made
+    /// (the user may have chosen Keep Both in the conflict window), and a number when that name is taken: nothing is overwritten.
+    /// What cannot be copied is told about once, at the end.
+    /// </summary>
+    private static void CopyRelated(List<RelatedMove> files, IReadOnlyDictionary<string, string> copiedTo)
+    {
+        var failed = new List<NotDone>();
+        foreach (var (from, _, owner) in files)
+        {
+            string newMedia = copiedTo[owner];
+            string target = Path.Combine(Path.GetDirectoryName(newMedia)!,
+                RelatedFiles.NewName(Path.GetFileName(from), Path.GetFileName(owner), Path.GetFileName(newMedia)));
+            try
+            {
+                if (File.Exists(target) || Directory.Exists(target))
+                {
+                    string dir = Path.GetDirectoryName(target)!, stem = Path.GetFileNameWithoutExtension(target), ext = Path.GetExtension(target);
+                    int n = 1;
+                    do { target = Path.Combine(dir, $"{stem} ({n++}){ext}"); } while (File.Exists(target) || Directory.Exists(target));
+                }
+                File.Copy(from, target, overwrite: false);
+            }
+            catch (Exception ex)
+            {
+                failed.Add(new NotDone(from, target, ReasonOf(ex)));
+            }
+        }
+
+        if (failed.Count == 0) return;
+
+        foreach (var n in failed) LogFiles.AppendError($"Could not copy \"{n.From}\" to \"{n.To}\": {n.Reason}");
+        var lines = failed.Take(15).Select(n => $"    {Path.GetFileName(n.From)}  ({n.Reason})").ToList();
+        if (failed.Count > 15) lines.Add($"    ... and {failed.Count - 15} more");
+        var window = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
+        Ask(window, "Copy File", $"These files were not copied:\n\n{string.Join("\n", lines)}\n\nThe other files were copied. Details are in the log file (Help > Open Log File).",
+            new[] { "OK" }, 0, -1);
     }
 
     // Short words for the usual reasons; anything else is the system's own text.
@@ -3349,14 +3390,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // Cut video or music files: do the files that belong to them follow? Asked before anything is moved; Cancel stops the paste.
         var relatedMoves = new List<RelatedMove>();
         var notDone = new List<NotDone>();
-        if (isCut)
+        // The same question for a copy (a movie copied to a USB stick should bring its subtitles): Yes copies them too, named after the copy.
         {
             var media = sources
-                .Where(s => File.Exists(s) && RelatedFiles.HasRelated(s) && !IsSamePath(Path.GetDirectoryName(s), destination))
+                .Where(s => File.Exists(s) && RelatedFiles.HasRelated(s) && (!isCut || !IsSamePath(Path.GetDirectoryName(s), destination)))
                 .Select(s => (Media: s, NewMedia: GetUniqueDestPath(destination, Path.GetFileName(s))))
                 .ToList();
 
-            if (media.Count > 0 && !AskAboutRelated(media, new HashSet<string>(sources, StringComparer.OrdinalIgnoreCase), rename: false, out relatedMoves, out notDone))
+            if (media.Count > 0 && !AskAboutRelated(media, new HashSet<string>(sources, StringComparer.OrdinalIgnoreCase), rename: false, out relatedMoves, out notDone, copy: !isCut))
                 return;
         }
 
@@ -3416,7 +3457,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // Only for a video or music file whose own move worked; the others' related files stay where they are.
         var movedFrom = new HashSet<string>(moved.Select(m => m.From), StringComparer.OrdinalIgnoreCase);
         var followers = relatedMoves.Where(r => movedFrom.Contains(r.Owner)).ToList();
-        if (followers.Count > 0 || notDone.Count > 0) MoveRelated(followers, notDone, rename: false);
+        if (isCut)
+        {
+            if (followers.Count > 0 || notDone.Count > 0) MoveRelated(followers, notDone, rename: false);
+        }
+        else if (relatedMoves.Count > 0)
+        {
+            // A copy: the related files of every video or music file that really was copied go along (named after the copy that was made).
+            var copiedTo = result.Done.GroupBy(d => d.From, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().To, StringComparer.OrdinalIgnoreCase);
+            CopyRelated(relatedMoves.Where(r => copiedTo.ContainsKey(r.Owner)).ToList(), copiedTo);
+        }
 
         if (isCut && !result.Canceled && dropped == null)
         {
