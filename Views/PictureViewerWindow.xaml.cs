@@ -756,6 +756,9 @@ public partial class PictureViewerWindow : Window
 
             case Key.R when plain: AskRating(); break;
 
+            case Key.T when plain: MoveToTrash(); break;
+            case Key.Z when ctrl:  UndoTrash();   break;
+
             case Key.K when ctrl: Rotate(+1); break;
             case Key.L when ctrl: Rotate(-1); break;
 
@@ -852,6 +855,7 @@ public partial class PictureViewerWindow : Window
     private void Menu_Opened(object sender, RoutedEventArgs e)
     {
         _menuOpen = true;
+        UndoTrashMenuItem.IsEnabled = _trashed.Count > 0;
         ShowCursor();
     }
 
