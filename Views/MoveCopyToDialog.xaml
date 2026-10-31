@@ -45,9 +45,9 @@
                         ToolTip="Add a folder to the list"/>
                 <Button x:Name="RemoveButton" Content="Remove from List" HorizontalAlignment="Stretch" TabIndex="4" Padding="8,6" Margin="0,0,0,10" Click="RemoveButton_Click"
                         ToolTip="Take the selected folder out of the list (the folder itself is not touched)"/>
-                <Button x:Name="UpButton" Content="&#x25B2;" TabIndex="5" Width="44" Height="34" Margin="0,0,0,6" Click="UpButton_Click"
+                <Button x:Name="UpButton" Content="&#x25B2;" HorizontalAlignment="Center" TabIndex="5" Width="44" Height="34" Margin="0,0,0,6" Click="UpButton_Click"
                         ToolTip="Move up"/>
-                <Button x:Name="DownButton" Content="&#x25BC;" TabIndex="6" Width="44" Height="34" Click="DownButton_Click"
+                <Button x:Name="DownButton" Content="&#x25BC;" HorizontalAlignment="Center" TabIndex="6" Width="44" Height="34" Click="DownButton_Click"
                         ToolTip="Move down"/>
             </StackPanel>
         </Grid>
