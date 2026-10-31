@@ -640,6 +640,7 @@
                                       ToolTip="Show everything about this file in File Info Viewer"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click" InputGestureText="Alt+Enter"/>
                             <Separator/>
+                            <MenuItem x:Name="TreeDriveDataItem" Click="TreeCtxDriveData_Click" Visibility="Collapsed"/>
                             <MenuItem Header="More Options"    Click="TreeCtxMoreOptions_Click"
                                       ToolTip="The full Windows menu of this folder, with the add-ons. Shift + right-click opens it at once."/>
                         </ContextMenu>

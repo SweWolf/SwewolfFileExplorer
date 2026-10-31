@@ -2503,6 +2503,8 @@ public partial class MainWindow : Window
 
     private void FileListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        var dataItem = Add(DriveDataHeader, () => ToggleDriveData(drive.Root));
+        PrepareDriveDataItem(dataItem, drive.Root);
         // Quick clicks on a scroll bar (to page down) must not open the selected item.
         for (var d = e.OriginalSource as DependencyObject; d != null && d != FileListView; d = d is Visual or System.Windows.Media.Media3D.Visual3D
                  ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
@@ -3835,6 +3837,11 @@ public partial class MainWindow : Window
     }
 
     private void CtxJumpLast_Click(object sender, RoutedEventArgs e) => JumpToLastOpened(VM.CurrentPath);
+
+        // Only a drive has it (after the loop, which enables every item it does not know).
+        var driveRoot = DriveRootOf(path);
+        TreeDriveDataItem.Visibility = driveRoot != null && realFolder ? Visibility.Visible : Visibility.Collapsed;
+        if (driveRoot != null && realFolder) PrepareDriveDataItem(TreeDriveDataItem, driveRoot);
 
     /// <summary>
     /// Goes to the folder (if it is not the one shown) and selects the file that was opened last in it: a file opened in this

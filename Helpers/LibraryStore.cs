@@ -18,6 +18,12 @@ public sealed record LibraryRoute(string DbFile, string Prefix, bool Relative, s
 /// what it knows.
 ///
 /// History:
+///   2026-10-31  Resolve: the trimmed path of a drive itself ("D:") now finds the drive's root ("D:\"), so the rows of a drive's own rating go
+///               to the same file as everything else on it.
+///   2026-10-31  A drive of any kind that is not removable by itself (internal, network, VeraCrypt) can be told to keep its data on the drive:
+///               DriveDataKind says how a drive is kept, MoveDriveData moves its rows between the main file and the drive's file (safe: nothing
+///               is lost if it fails, the changes of both files are rolled back), UnmarkDrivePortable renames the data folder to a backup.
+///               The folder marker is looked for on network drives too. No schema change.
 ///   2026-10-28  ClearSubfolderLayouts: removes the chosen columns and list sort of all folders below a folder (no schema change).
 ///   2026-10-28  Schema 11: FolderPrefs.Columns (per folder: the columns of the list that are shown, in order, as the names of the explorer's
 ///               SortColumn separated by commas; widths are not kept, the explorer fits them). GetFolderPrefs returns it; SetFolderColumns
@@ -152,6 +158,30 @@ public static class LibraryStore
     /// <summary>Only for tests: is this drive treated as removable (USB stick, USB hard disk, card)?</summary>
     public static bool IsPortableDrive(string root) => DriveTypeOf(root) == DriveRemovable;
 
+    /// <summary>How the data of a drive is kept (see <see cref="GetDriveDataKind"/>).</summary>
+    public enum DriveDataKind
+    {
+        /// <summary>On this computer, in the main file (the default for internal and network drives).</summary>
+        Main,
+        /// <summary>On the drive, because the user said so (the hidden data folder is in its root): can be turned off.</summary>
+        OnDriveByChoice,
+        /// <summary>On the drive, because it is removable (USB, card): always.</summary>
+        OnDriveAlways,
+        /// <summary>Cannot be kept on the drive (CD / DVD).</summary>
+        NotPossible,
+    }
+
+    public static DriveDataKind GetDriveDataKind(string root)
+    {
+        lock (Gate)
+        {
+            var type = GetDriveTypeW(root);
+            if (type == DriveCdRom) return DriveDataKind.NotPossible;
+            if (type == DriveRemovable || (type == DriveFixed && IsOnPortableBus(root))) return DriveDataKind.OnDriveAlways;
+            return Directory.Exists(Path.Combine(root, UsbFolderName)) ? DriveDataKind.OnDriveByChoice : DriveDataKind.Main;
+        }
+    }
+
     private static uint DriveTypeOf(string root)
     {
         if (!DriveTypes.TryGetValue(root, out var type))
@@ -160,11 +190,95 @@ public static class LibraryStore
             // An external USB hard disk reports itself as a fixed disk: only the bus it hangs on tells the truth.
             if (type == DriveFixed && IsOnPortableBus(root)) type = DriveRemovable;
             // A drive the bus cannot identify (a VeraCrypt volume mounted from a file on a stick) is marked by the user (or by the
-            // TeraTool converter): the hidden data folder in its root says "this drive is portable".
-            if (type == DriveFixed && Directory.Exists(Path.Combine(root, UsbFolderName))) type = DriveRemovable;
+            // TeraTool converter): the hidden data folder in its root says "this drive is portable". A network drive can be marked too.
+            if (type is DriveFixed or DriveRemote or DriveRamDisk && Directory.Exists(Path.Combine(root, UsbFolderName))) type = DriveRemovable;
             DriveTypes[root] = type;
         }
         return type;
+    }
+
+    private const uint DriveRemote = 4;
+    private const uint DriveRamDisk = 6;
+
+    /// <summary>
+    /// Moves the rows of a whole drive between the main file (full paths) and the file in the drive's hidden data folder
+    /// (paths from the root of the drive), in one go: if anything fails, both files are left as they were. Marking the drive
+    /// (creating the folder) when <paramref name="toDrive"/> is true is done here too; for the other direction
+    /// <see cref="UnmarkDrivePortable"/> is called afterwards. Returns null when it worked, else the reason.
+    /// </summary>
+    public static string? MoveDriveData(string root, bool toDrive)
+    {
+        Flush();   // read marks still waiting for the worker (which needs the gate) are written first
+        lock (Gate)
+        {
+            root = Path.GetPathRoot(root) ?? root;
+            var driveDb = Path.Combine(root, UsbFolderName, DbFileName);
+            var mainRoute = new LibraryRoute(MainDbFile, "", false, root);
+            var driveRoute = new LibraryRoute(driveDb, "", true, root);
+
+            bool folderMadeNow = toDrive && !Directory.Exists(Path.GetDirectoryName(driveDb)!);
+            if (toDrive && !MarkDrivePortable(root)) return "The drive cannot be written to.";
+
+            // From the main file the drive is found without the folder; from the drive's file it must exist.
+            if (!toDrive && !File.Exists(driveDb)) return null;   // nothing was ever kept there
+
+            var session = new Session();
+            try
+            {
+                var rootItem = root.TrimEnd('\\', '/');
+                MoveRows(session, rootItem, rootItem, toDrive ? mainRoute : driveRoute, toDrive ? driveRoute : mainRoute);
+                if (toDrive) UsbRoots.Add(root);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                session.Abort = true;
+                return ex.Message;
+            }
+            finally
+            {
+                session.Dispose();
+                if (session.Abort && folderMadeNow)   // the drive is as it was before: no folder, data on this computer
+                {
+                    try { Directory.Delete(Path.GetDirectoryName(driveDb)!, recursive: true); } catch { }
+                    DriveTypes.Remove(root);
+                    UsbRoots.Remove(root);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The drive keeps its data on this computer again: its hidden data folder is renamed (.SweWolfFileExplorerData_BAK, then _BAK2 ...) as a
+    /// backup, so nothing is deleted. Returns null when it worked (or there was no folder), else the reason.
+    /// </summary>
+    public static string? UnmarkDrivePortable(string root)
+    {
+        lock (Gate)
+        {
+            root = Path.GetPathRoot(root) ?? root;
+            var folder = Path.Combine(root, UsbFolderName);
+            if (!Directory.Exists(folder))
+            {
+                DriveTypes.Remove(root);
+                UsbRoots.Remove(root);
+                return null;
+            }
+
+            try
+            {
+                var backup = folder + "_BAK";
+                for (int n = 2; Directory.Exists(backup) || File.Exists(backup); n++) backup = folder + "_BAK" + n;
+                Directory.Move(folder, backup);
+                DriveTypes.Remove(root);
+                UsbRoots.Remove(root);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+        }
     }
 
     // STORAGE_BUS_TYPE: 4 = IEEE 1394, 7 = USB, 0xC = SD card, 0xD = MMC card.
@@ -198,6 +312,7 @@ public static class LibraryStore
     {
         var root = Path.GetPathRoot(path);
         if (string.IsNullOrEmpty(root)) return null;
+        if (root.Length == 2 && root[1] == ':') root += "\\";   // the path of a drive itself, trimmed ("D:"): Path.Combine would give "D:file", not "D:\file"
 
         var type = DriveTypeOf(root);
         if (type == DriveCdRom) return VolumeRoute(root);
@@ -1468,11 +1583,14 @@ public static class LibraryStore
             return command;
         }
 
+        /// <summary>Set when the work failed half way: the changes of every file are rolled back instead of committed.</summary>
+        public bool Abort;
+
         public void Dispose()
         {
             foreach (var (connection, transaction) in _open.Values)
             {
-                try { transaction.Commit(); } catch { /* write-protected or busy: nothing was changed */ }
+                try { if (Abort) transaction.Rollback(); else transaction.Commit(); } catch { /* write-protected or busy: nothing was changed */ }
                 connection.Dispose();
             }
             _open.Clear();
@@ -1584,9 +1702,9 @@ public static class LibraryStore
         return rows;
     }
 
-    private static void MoveRows(Session session, string from, string to)
+    private static void MoveRows(Session session, string from, string to, LibraryRoute? fromRouteGiven = null, LibraryRoute? toRouteGiven = null)
     {
-        var fromRoute = Resolve(from, create: false);
+        var fromRoute = fromRouteGiven ?? Resolve(from, create: false);
         if (fromRoute == null) return;
         var fromConnection = session.Get(fromRoute, create: false);
         if (fromConnection == null) return;
@@ -1622,9 +1740,10 @@ public static class LibraryStore
         if (files.Count == 0 && rated.Count == 0 && folders.Count == 0 && prefs.Count == 0 && picks.Count == 0 && infos.Count == 0
             && tracks.Count == 0 && lasts.Count == 0 && lastOfItem.Count == 0 && folderPics.Count == 0 && folderPicOfItem.Count == 0) return;
 
-        var toRoute = Resolve(to, create: true);
+        var toRoute = toRouteGiven ?? Resolve(to, create: true);
         if (toRoute == null) return;
         var toConnection = session.Get(toRoute, create: true);
+        if (toConnection == null && toRouteGiven != null) throw new IOException("The data file could not be opened.");
         if (toConnection == null) return;
 
         var toKey = KeyOf(toRoute, to);
