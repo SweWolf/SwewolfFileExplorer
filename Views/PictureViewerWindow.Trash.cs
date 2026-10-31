@@ -8,19 +8,31 @@ namespace SwewolfFileExplorer.Views;
 // (an ordinary move on the same drive: instant, and what the library remembers about the file follows it), and the viewer goes on to the next
 // picture. Nothing is deleted. Ctrl+Z takes the pictures back, the last one first, as long as this window is open. Not for pictures inside a
 // compressed file or in a playlist.
+//
+// The files that belong to the picture go with it: the same name with .xmp .aae .dop .pp3 .json .txt (photo.xmp), the full name with .xmp .json
+// .txt (photo.jpg.xmp), and the other half of a RAW + JPEG pair (photo.nef for photo.jpg, and the other way round). They are looked for by
+// trying those names, never by listing the folder, and the moving is done on a background thread (a folder on a slow drive).
 public partial class PictureViewerWindow
 {
     private const string TrashFolderName = "Trash";
 
-    private readonly record struct TrashedPicture(string Original, string InTrash, int Index);
-    private readonly Stack<TrashedPicture> _trashed = new();
+    private static readonly string[] SideExtensionsByStem     = { ".xmp", ".aae", ".dop", ".pp3", ".json", ".txt" };
+    private static readonly string[] SideExtensionsByFullName = { ".xmp", ".json", ".txt" };
+    private static readonly string[] RawExtensions  = { ".nef", ".nrw", ".dng", ".cr2", ".cr3", ".arw", ".orf", ".rw2", ".raf", ".pef", ".srw" };
+    private static readonly string[] JpegExtensions = { ".jpg", ".jpeg" };
+
+    /// <summary>One move to the Trash folder: everything that was moved (the picture first), and which pictures left the list, where.</summary>
+    private sealed record TrashedGroup(List<(string From, string To)> Moved, List<(string Path, int Index)> RemovedFromList);
+
+    private readonly Stack<TrashedGroup> _trashed = new();
+    private bool _trashBusy;
 
     private void MenuTrash_Click(object sender, RoutedEventArgs e) => MoveToTrash();
     private void MenuUndoTrash_Click(object sender, RoutedEventArgs e) => UndoTrash();
 
-    private void MoveToTrash()
+    private async void MoveToTrash()
     {
-        if (_files.Count == 0 || _closed) return;
+        if (_files.Count == 0 || _closed || _trashBusy) return;
         string path = CurrentPath;
 
         if (IsPlaylist || !File.Exists(path))
@@ -36,17 +48,11 @@ public partial class PictureViewerWindow
             return;
         }
 
-        string target;
+        _trashBusy = true;
+        List<(string From, string To)> moved;
         try
         {
-            string trash = Path.Combine(folder, TrashFolderName);
-            if (!Directory.Exists(trash))
-            {
-                var made = Directory.CreateDirectory(trash);
-                made.Attributes |= FileAttributes.Hidden;
-            }
-            target = FreeName(trash, Path.GetFileName(path));
-            File.Move(path, target);
+            moved = await Task.Run(() => TrashFiles(path, folder));
         }
         catch (Exception ex)
         {
@@ -54,62 +60,142 @@ public partial class PictureViewerWindow
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
+        finally { _trashBusy = false; }
 
         AnyDeleted = true;   // the Explorer reads its folder again when the viewer closes
-        LibraryService.Move(new[] { (path, target) });
-        _trashed.Push(new TrashedPicture(path, target, _index));
+        LibraryService.Move(moved);
 
-        _files.RemoveAt(_index);
+        // Every moved picture leaves the list (the other half of a RAW + JPEG pair is a picture too).
+        var gone = new HashSet<string>(moved.Select(m => m.From), StringComparer.OrdinalIgnoreCase);
+        var removed = new List<(string Path, int Index)>();
+        for (int i = 0; i < _files.Count; i++)
+            if (gone.Contains(_files[i])) removed.Add((_files[i], i));
+        int mainIndex = removed.FirstOrDefault(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase)).Index;
+        int before = _files.Take(mainIndex).Count(f => !gone.Contains(f));   // where the next picture will be
+        _files.RemoveAll(f => gone.Contains(f));
+        _trashed.Push(new TrashedGroup(moved, removed));
+        if (_closed) return;
+
         if (_files.Count == 0)
         {
             Close();
             return;
         }
-        if (_index >= _files.Count) _index = _files.Count - 1;
-        ShowCurrent("Moved to Trash folder\nCtrl+Z takes it back");
+        _index = Math.Min(before, _files.Count - 1);
+
+        int others = moved.Count - 1;
+        ShowCurrent("Moved to Trash folder" + (others > 0 ? $" (and {others} related file{(others == 1 ? "" : "s")})" : "") + "\nCtrl+Z takes it back");
     }
 
-    private void UndoTrash()
+    /// <summary>Moves the picture and its side files into the Trash folder (made, and hidden, if needed). The picture must move, or this throws.</summary>
+    private static List<(string From, string To)> TrashFiles(string path, string folder)
     {
-        if (_closed) return;
+        string trash = Path.Combine(folder, TrashFolderName);
+        if (!Directory.Exists(trash))
+        {
+            var made = Directory.CreateDirectory(trash);
+            made.Attributes |= FileAttributes.Hidden;
+        }
+
+        var moved = new List<(string From, string To)>();
+        string target = FreeName(trash, Path.GetFileName(path));
+        File.Move(path, target);
+        moved.Add((path, target));
+
+        // The side files keep the name the picture got in the Trash folder (it may have a number).
+        string newStem = Path.GetFileNameWithoutExtension(target), newFull = Path.GetFileName(target);
+        string stem = Path.GetFileNameWithoutExtension(path), full = Path.GetFileName(path), ext = Path.GetExtension(path);
+
+        var wanted = new List<(string From, string NewName)>();
+        foreach (var e in SideExtensionsByStem)     wanted.Add((Path.Combine(folder, stem + e), newStem + e));
+        foreach (var e in SideExtensionsByFullName) wanted.Add((Path.Combine(folder, full + e), newFull + e));
+        string[] partners = Array.Exists(RawExtensions, r => r.Equals(ext, StringComparison.OrdinalIgnoreCase)) ? JpegExtensions
+                          : Array.Exists(JpegExtensions, j => j.Equals(ext, StringComparison.OrdinalIgnoreCase)) ? RawExtensions
+                          : Array.Empty<string>();
+        foreach (var e in partners) wanted.Add((Path.Combine(folder, stem + e), newStem + e));
+
+        foreach (var (from, newName) in wanted)
+        {
+            try
+            {
+                if (!File.Exists(from) || moved.Any(m => string.Equals(m.From, from, StringComparison.OrdinalIgnoreCase))) continue;
+                string to = FreeName(trash, newName);
+                File.Move(from, to);
+                moved.Add((from, to));
+            }
+            catch { /* a side file that cannot move (in use, no access) stays where it is */ }
+        }
+        return moved;
+    }
+
+    private async void UndoTrash()
+    {
+        if (_closed || _trashBusy) return;
         if (_trashed.Count == 0)
         {
             ShowOverlay("Nothing to take back from Trash");
             return;
         }
 
-        var item = _trashed.Peek();
-        if (!File.Exists(item.InTrash))
+        var group = _trashed.Peek();
+        var (mainFrom, mainTo) = group.Moved[0];
+        if (!File.Exists(mainTo))
         {
             _trashed.Pop();
             ShowOverlay("The picture is not in the Trash folder any more");
             return;
         }
-        if (File.Exists(item.Original) || Directory.Exists(item.Original))
+        if (File.Exists(mainFrom) || Directory.Exists(mainFrom))
         {
             ShowOverlay("Cannot take it back: the name is used again");   // stays on the stack, so it can be tried again
             return;
         }
 
+        _trashBusy = true;
+        List<(string From, string To)> back;
         try
         {
-            File.Move(item.InTrash, item.Original);
+            back = await Task.Run(() => RestoreFiles(group));
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Cannot take '{Path.GetFileName(item.Original)}' back from the Trash folder: {ex.Message}",
+            MessageBox.Show(this, $"Cannot take '{Path.GetFileName(mainFrom)}' back from the Trash folder: {ex.Message}",
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
+        finally { _trashBusy = false; }
 
         _trashed.Pop();
         AnyDeleted = true;
-        LibraryService.Move(new[] { (item.InTrash, item.Original) });
+        LibraryService.Move(back.Select(b => (From: b.To, To: b.From)));   // (the library follows them home)
+        if (_closed) return;
 
-        int index = Math.Clamp(item.Index, 0, _files.Count);
-        _files.Insert(index, item.Original);
-        _index = index;
-        ShowCurrent("Taken back from Trash");
+        // The pictures come back to the places they had in the list.
+        foreach (var (p, index) in group.RemovedFromList)
+            if (File.Exists(p) && !_files.Contains(p, StringComparer.OrdinalIgnoreCase))
+                _files.Insert(Math.Clamp(index, 0, _files.Count), p);
+        _index = Math.Max(0, _files.FindIndex(f => string.Equals(f, mainFrom, StringComparison.OrdinalIgnoreCase)));
+
+        int missed = group.Moved.Count - back.Count;
+        ShowCurrent("Taken back from Trash" + (missed > 0 ? $"\n{missed} related file{(missed == 1 ? "" : "s")} could not be taken back" : ""));
+    }
+
+    /// <summary>Moves what is in the group back. Returns the pairs (original, in Trash) that were moved; the picture must move, or this throws.</summary>
+    private static List<(string From, string To)> RestoreFiles(TrashedGroup group)
+    {
+        var done = new List<(string From, string To)>();
+        for (int i = 0; i < group.Moved.Count; i++)
+        {
+            var (from, to) = group.Moved[i];
+            try
+            {
+                if (!File.Exists(to) || File.Exists(from) || Directory.Exists(from)) { if (i == 0) throw new IOException("The name is used again."); continue; }
+                File.Move(to, from);
+                done.Add((from, to));
+            }
+            catch when (i > 0) { /* a side file that cannot move stays in the Trash folder */ }
+        }
+        return done;
     }
 
     /// <summary>A name that is free in the folder: the file's own, else "name (2).ext", "name (3).ext" ...</summary>
