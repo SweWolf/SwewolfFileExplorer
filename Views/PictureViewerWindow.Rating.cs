@@ -6,7 +6,7 @@ using SwewolfFileExplorer.Helpers;
 namespace SwewolfFileExplorer.Views;
 
 // Rating mode (right-click menu, a check mark; Shift+R; never saved: the viewer always starts with it off). While it is on, the number keys
-// (the row above the letters or the numeric keypad) rate the picture on show: 2 to 9 at once, 1 waits 2 seconds for a 0 (1 then 0 = 10).
+// (the row above the letters or the numeric keypad) rate the picture on show: 2 to 9 at once, 1 waits 2 seconds for a 0 (1 then 0 = 10), a 0 on its own removes the rating.
 // The rating is shown ("Rating: 7") and a second later the viewer goes on to the next picture, as the Space key does. A picture that
 // already has a rating shows "Current rating: 5" when it comes up. The R key (the rating box) works as before.
 public partial class PictureViewerWindow
@@ -46,7 +46,7 @@ public partial class PictureViewerWindow
             if (digit == 0) { Rate(_ratingPendingPath, 10); return true; }   // 1 then 0
             CommitPendingRating();                                           // something else after the 1: it was a 1
         }
-        if (digit == 0) return true;   // a 0 alone means nothing
+        if (digit == 0) { Rate(CurrentPath, null); return true; }   // a 0 on its own removes the rating
 
         if (digit == 1)
         {
@@ -91,7 +91,7 @@ public partial class PictureViewerWindow
         }
 
         int? current = CurrentRating(CurrentPath);
-        ShowOverlay("Rating mode: on\nKeys 1 to 9, and 1 then 0 for 10" + (current != null ? $"\nCurrent rating: {current}" : ""));
+        ShowOverlay("Rating mode: on\nKeys 1 to 9, 1 then 0 for 10, 0 removes" + (current != null ? $"\nCurrent rating: {current}" : ""));
     }
 
     /// <summary>"Current rating: 5" when a picture that has a rating comes up while rating mode is on.</summary>
@@ -115,7 +115,7 @@ public partial class PictureViewerWindow
         if (_ratingPendingPath is { } path) Rate(path, 1);
     }
 
-    private void Rate(string path, int value)
+    private void Rate(string path, int? value)
     {
         _ratingPendingPath = null;
         StopRatingTimers();
@@ -127,7 +127,7 @@ public partial class PictureViewerWindow
 
         if (!_closed && string.Equals(path, CurrentPath, StringComparison.OrdinalIgnoreCase))
         {
-            ShowOverlay($"Rating: {value}");
+            ShowOverlay(value == null ? "Rating removed" : $"Rating: {value}");
             _ratedPath = path;
             _ratingJumpTimer ??= MakeTimer(RatingShow, JumpAfterRating);
             _ratingJumpTimer.Stop();
