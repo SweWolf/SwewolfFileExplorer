@@ -143,6 +143,7 @@ public partial class PictureViewerWindow : Window
         string path = CurrentPath;
         PictureChanged?.Invoke(path);
         WatchFolderOfCurrent();
+        UpdateHostUrl();
 
         if (_index == _files.Count - 1) StartNextFolderSearch();   // the end is here: look ahead while the user looks at the picture
 

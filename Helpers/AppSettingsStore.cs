@@ -97,6 +97,9 @@ public class AppSettings
     /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
     public bool WarnHiddenNotSelected { get; set; } = true;
 
+    /// <summary>The picture viewer's right-click menu item "Show Host URL": the address the picture was downloaded from, in the upper left corner. Remembered.</summary>
+    public bool ViewerShowHostUrl { get; set; } = false;
+
     /// <summary>The user's own list of folders in the "Move/Copy to Folder" window (right-click menus), in the order they chose.</summary>
     public List<string> MoveCopyFolders { get; set; } = new();
 

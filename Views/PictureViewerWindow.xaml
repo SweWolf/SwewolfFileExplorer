@@ -33,6 +33,7 @@
                 <MenuItem Header="Stretch" InputGestureText="Numpad *" Click="MenuStretch_Click"/>
                 <Separator/>
                 <MenuItem x:Name="NewestMenuItem" Header="Show Newest Picture Automatically" IsCheckable="True" Click="MenuNewest_Click"/>
+                <MenuItem x:Name="HostUrlMenuItem" Header="Show Host URL" IsCheckable="True" Click="MenuHostUrl_Click"/>
                 <Separator/>
                 <MenuItem x:Name="RatingModeMenuItem" Header="Rating Mode" InputGestureText="Shift+R" IsCheckable="True" Click="MenuRatingMode_Click"/>
                 <MenuItem Header="Rating..." InputGestureText="R" Click="MenuRating_Click"/>
@@ -51,6 +52,14 @@
             <Image x:Name="Picture" Stretch="Fill"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
         </Canvas>
+
+        <!-- The address the picture was downloaded from (menu: Show Host URL), only the address. A click opens it in the default browser,
+             a right-click shows the browsers. The handlers keep the click from going on to the picture (next / previous). -->
+        <Border x:Name="HostUrlBorder" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12"
+                Background="#99000000" CornerRadius="4" Padding="8,3" Cursor="Hand"
+                MouseLeftButtonDown="HostUrl_MouseDown" MouseLeftButtonUp="HostUrl_MouseUp" ContextMenuOpening="HostUrl_ContextMenuOpening">
+            <TextBlock x:Name="HostUrlText" Foreground="White" FontSize="14" TextTrimming="CharacterEllipsis"/>
+        </Border>
 
         <!-- A short message in the middle: "End of file list", or a picture that cannot be shown -->
         <Border x:Name="Overlay" Visibility="Collapsed" IsHitTestVisible="False"

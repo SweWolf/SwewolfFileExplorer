@@ -1654,35 +1654,7 @@ public partial class MainWindow : Window
     private void WebUrlBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         if (sender is not TextBox box) return;
-        string url = box.Text;
-        bool isWeb = WebBrowsers.IsWebAddress(url);
-
-        var menu = new ContextMenu();
-        var open = new MenuItem { Header = "Open in Default Browser", IsEnabled = isWeb, ToolTip = "Double-click does the same" };
-        open.Click += (_, _) => OpenWebAddress(url, null);
-        menu.Items.Add(open);
-
-        if (isWeb)
-        {
-            var browsers = WebBrowsers.Installed();
-            if (browsers.Count > 0) menu.Items.Add(new Separator());
-            foreach (var browser in browsers)
-            {
-                var item = new MenuItem { Header = "Open in " + browser.Name.Replace("_", "__") };
-                if (IconHelper.GetIcon(browser.ExePath) is { } icon)
-                    item.Icon = new Image { Source = icon, Width = 16, Height = 16 };
-                var chosen = browser;
-                item.Click += (_, _) => OpenWebAddress(url, chosen);
-                menu.Items.Add(item);
-            }
-            menu.Items.Add(new Separator());
-        }
-
-        var copy = new MenuItem { Header = "Copy", InputGestureText = "Ctrl+C", ToolTip = "Copies the whole text" };
-        copy.Click += (_, _) => CopyText(url);
-        menu.Items.Add(copy);
-
-        box.ContextMenu = menu;
+        box.ContextMenu = WebUrlMenu.Build(box.Text, OpenWebAddress, CopyText, "Double-click does the same", "Ctrl+C");
     }
 
     private void OpenWebAddress(string url, WebBrowsers.Browser? browser)
@@ -1839,34 +1811,7 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrEmpty(path)) { ClearWebRows(); return; }
 
-        var origin = await Task.Run(() =>
-        {
-            if (wantArchive)
-            {
-                var archive = ArchiveSupport.DiskArchiveOf(path);
-                return archive == null ? null : MarkOfTheWeb.Read(archive);
-            }
-
-            // The file's own Mark of the Web wins; what it does not say (or all of it, after the file lost it) comes from the library.
-            // What it says is copied to the library, so it is still known when the mark is lost (a USB stick, a zip, a re-saved file).
-            var web = MarkOfTheWeb.Read(path);
-
-            // A mark that only says "about:internet" or names this computer's own server (a local program) says nothing true about the
-            // internet: it is left out, Zone ID included, as if the file had no mark.
-            if (web != null && (web.HostUrl != null || web.ReferrerUrl != null))
-            {
-                var hostOk = WebAddresses.IsUseful(web.HostUrl);
-                var refOk  = WebAddresses.IsUseful(web.ReferrerUrl);
-                if (!hostOk && !refOk) web = null;
-                else if (!hostOk || !refOk) web = new WebOrigin(web.ZoneId, hostOk ? web.HostUrl : null, refOk ? web.ReferrerUrl : null);
-            }
-            if (web is { HostUrl: not null } or { ReferrerUrl: not null }) LibraryService.SetItemInfo(path, web.HostUrl, web.ReferrerUrl);
-
-            var saved = LibraryStore.GetItemInfo(path);
-            var host = web?.HostUrl ?? saved?.HostUrl;
-            var referrer = web?.ReferrerUrl ?? saved?.ReferrerUrl;
-            return host == web?.HostUrl && referrer == web?.ReferrerUrl ? web : new WebOrigin(web?.ZoneId, host, referrer);
-        });
+        var origin = await Task.Run(() => ReadWebOrigin(path, wantArchive));
         if (version != _webVersion) return;
 
         SetInfoRow(WebZoneLabel,     WebZoneBox,     origin?.ZoneText);
@@ -1884,6 +1829,39 @@ public partial class MainWindow : Window
     }
 
     private int _plotVersion;
+
+    /// <summary>
+    /// Where a file came from: its own Mark of the Web, with what it lacks filled in from the library (and what it says copied to the library).
+    /// For something inside an archive (<paramref name="wantArchive"/>) the archive file's. Also used by the picture viewer's Host URL. Not on the UI thread.
+    /// </summary>
+    private static WebOrigin? ReadWebOrigin(string path, bool wantArchive)
+    {
+        if (wantArchive)
+        {
+            var archive = ArchiveSupport.DiskArchiveOf(path);
+            return archive == null ? null : MarkOfTheWeb.Read(archive);
+        }
+
+        // The file's own Mark of the Web wins; what it does not say (or all of it, after the file lost it) comes from the library.
+        // What it says is copied to the library, so it is still known when the mark is lost (a USB stick, a zip, a re-saved file).
+        var web = MarkOfTheWeb.Read(path);
+
+        // A mark that only says "about:internet" or names this computer's own server (a local program) says nothing true about the
+        // internet: it is left out, Zone ID included, as if the file had no mark.
+        if (web != null && (web.HostUrl != null || web.ReferrerUrl != null))
+        {
+            var hostOk = WebAddresses.IsUseful(web.HostUrl);
+            var refOk  = WebAddresses.IsUseful(web.ReferrerUrl);
+            if (!hostOk && !refOk) web = null;
+            else if (!hostOk || !refOk) web = new WebOrigin(web.ZoneId, hostOk ? web.HostUrl : null, refOk ? web.ReferrerUrl : null);
+        }
+        if (web is { HostUrl: not null } or { ReferrerUrl: not null }) LibraryService.SetItemInfo(path, web.HostUrl, web.ReferrerUrl);
+
+        var saved = LibraryStore.GetItemInfo(path);
+        var host = web?.HostUrl ?? saved?.HostUrl;
+        var referrer = web?.ReferrerUrl ?? saved?.ReferrerUrl;
+        return host == web?.HostUrl && referrer == web?.ReferrerUrl ? web : new WebOrigin(web?.ZoneId, host, referrer);
+    }
 
     /// <summary>
     /// The plot from the .nfo file of the selected video or music file, to the right of the preview picture; nothing (and no
@@ -2716,6 +2694,8 @@ public partial class MainWindow : Window
         {
             SelectInList(path);      // the list follows the viewer
             VM.MarkPathRead(path);   // a picture shown here is a picture opened
+        viewer.MoveCopy = MoveCopyForViewer;
+        viewer.GetHostUrl = path => ReadWebOrigin(path, wantArchive: !System.IO.File.Exists(path))?.HostUrl;
         viewer.MoveCopy = MoveCopyForViewer;
         };
         return viewer;
