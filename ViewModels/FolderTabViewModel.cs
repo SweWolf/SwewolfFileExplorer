@@ -359,7 +359,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     // ── Drives under This PC ─────────────────────────────────────────────────
 
     /// <summary>A drive as the tree shows it: its root and the text of its node ("Data (D:)").</summary>
-    public sealed record DriveEntry(string Root, string Label, string TypeName = "", string FileSystem = "", long Total = -1, long Free = -1);
+    public sealed record DriveEntry(string Root, string Label, string TypeName = "", string FileSystem = "", long Total = -1, long Free = -1, string Tracking = "");
 
     // ── The drives list shown on This PC ─────────────────────────────────────
 
@@ -403,7 +403,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 row = new DriveRow(drive.Root, IconHelper.GetIcon(drive.Root));
                 DriveRows.Insert(at, row);
             }
-            row.Update(drive.Label, drive.TypeName, drive.FileSystem, drive.Total, drive.Free);
+            row.Update(drive.Label, drive.TypeName, drive.FileSystem, drive.Total, drive.Free, drive.Tracking);
             at++;
         }
     }
@@ -425,11 +425,23 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 long total = -1, free = -1;
                 string fileSystem = "";
                 try { total = drive.TotalSize; free = drive.AvailableFreeSpace; fileSystem = drive.DriveFormat; } catch { /* sizes are left empty */ }
-                result.Add(new DriveEntry(drive.RootDirectory.FullName, label, DriveRow.TypeNameOf(drive.DriveType), fileSystem, total, free));
+                result.Add(new DriveEntry(drive.RootDirectory.FullName, label, DriveRow.TypeNameOf(drive.DriveType), fileSystem, total, free,
+                    TrackingTextOf(drive.RootDirectory.FullName)));
             }
             catch { notReady = true; }   // gone between the two calls
         }
         return (result, notReady);
+    }
+
+    /// <summary>The "Tracking Data" column: where the read marks, ratings and so on of the drive's files are kept.</summary>
+    private static string TrackingTextOf(string root)
+    {
+        try
+        {
+            return LibraryStore.GetDriveDataKind(root) is LibraryStore.DriveDataKind.OnDriveByChoice or LibraryStore.DriveDataKind.OnDriveAlways
+                ? "This Drive" : "This Computer";
+        }
+        catch { return ""; }
     }
 
     private TreeItemViewModel MakeDriveNode(DriveEntry drive)

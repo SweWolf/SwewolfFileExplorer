@@ -13,13 +13,14 @@ public sealed class DriveRow : INotifyPropertyChanged
     public string Root { get; }
     public ImageSource? Icon { get; }
 
-    private string _name = "", _typeName = "", _fileSystem = "", _totalText = "", _freeText = "";
+    private string _name = "", _typeName = "", _fileSystem = "", _totalText = "", _freeText = "", _trackingText = "";
 
     public string Name       { get => _name;       private set => Set(ref _name, value); }
     public string TypeName   { get => _typeName;   private set => Set(ref _typeName, value); }
     public string FileSystem { get => _fileSystem; private set => Set(ref _fileSystem, value); }
     public string TotalText  { get => _totalText;  private set => Set(ref _totalText, value); }
     public string FreeText   { get => _freeText;   private set => Set(ref _freeText, value); }
+    public string TrackingText { get => _trackingText; private set => Set(ref _trackingText, value); }
 
     public DriveRow(string root, ImageSource? icon)
     {
@@ -27,13 +28,14 @@ public sealed class DriveRow : INotifyPropertyChanged
         Icon = icon;
     }
 
-    public void Update(string name, string typeName, string fileSystem, long total, long free)
+    public void Update(string name, string typeName, string fileSystem, long total, long free, string tracking = "")
     {
         Name       = name;
         TypeName   = typeName;
         FileSystem = fileSystem;
         TotalText  = FormatSize(total);
         FreeText   = FormatSize(free);
+        TrackingText = tracking;
     }
 
     /// <summary>The way Explorer writes a drive size: three significant digits, in the unit that fits ("930 GB", "7.27 TB").</summary>
