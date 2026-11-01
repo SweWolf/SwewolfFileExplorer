@@ -803,7 +803,7 @@
                         </GridViewColumn>
                     </GridView>
                 </ListView.View>
-                        <GridViewColumn Header="Tracking Data" Width="130" DisplayMemberBinding="{Binding TrackingText}"/>
+                        <GridViewColumn Header="Tracking Data Location" Width="180" DisplayMemberBinding="{Binding TrackingText}"/>
             </ListView>
             <ListView
                       x:Name="FileListView"
