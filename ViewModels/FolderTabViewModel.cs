@@ -2522,7 +2522,28 @@ public class FolderTabViewModel : INotifyPropertyChanged
             RemoveFromPlaylist(_selectedItems.ToList());
             return;
         }
-        DeleteEntries(_selectedItems.Select(i => (i.FullPath, i.Name, i.IsDirectory)).ToList(), permanent);
+        DeleteEntries(_selectedItems.Select(i => (i.FullPath, i.Name, i.IsDirectory)).ToList(), permanent, NeighborAfterDelete());
+    }
+
+    /// <summary>Set by <see cref="MainViewModel"/>: the list as shown (sorted, filtered).</summary>
+    public Func<List<FileItemViewModel>>? ViewOrder;
+
+    /// <summary>
+    /// The item to select once the selected ones are gone: the first unselected item after the last selected one, or, when
+    /// the deleted ones were at the end of the list, the last unselected item before them. Null when nothing is left.
+    /// </summary>
+    private string? NeighborAfterDelete()
+    {
+        var order = ViewOrder?.Invoke();
+        if (order == null || order.Count == 0) return null;
+        var sel = new HashSet<FileItemViewModel>(_selectedItems);
+        int last = -1, first = -1;
+        for (int i = 0; i < order.Count; i++)
+            if (sel.Contains(order[i])) { if (first < 0) first = i; last = i; }
+        if (last < 0) return null;
+        for (int i = last + 1; i < order.Count; i++) if (!sel.Contains(order[i])) return order[i].FullPath;
+        for (int i = first - 1; i >= 0; i--)         if (!sel.Contains(order[i])) return order[i].FullPath;
+        return null;
     }
 
     /// <summary>Moves a folder of the tree to the Recycle Bin (its right-click menu).</summary>
@@ -2542,7 +2563,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// Cancel button: see <see cref="FileDelete"/>. Items that cannot reach the Recycle Bin (a drive with none, a file bigger than the
     /// bin's limit) are said so in the question, as they would be deleted for good.
     /// </summary>
-    private async void DeleteEntries(List<(string Path, string Name, bool IsDirectory)> items, bool permanent)
+    private async void DeleteEntries(List<(string Path, string Name, bool IsDirectory)> items, bool permanent, string? selectAfter = null)
     {
         if (items.Count == 0 || _deleting) return;
 
@@ -2596,6 +2617,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
         else
         {
             Refresh();
+            if (selectAfter != null && (File.Exists(selectAfter) || Directory.Exists(selectAfter)))
+                SelectPathRequested?.Invoke(selectAfter);   // the next item, or the previous one at the end of the list
         }
 
         if (outcome.Canceled)

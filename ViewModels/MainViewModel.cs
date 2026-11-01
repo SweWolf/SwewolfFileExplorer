@@ -200,6 +200,7 @@ public class MainViewModel : INotifyPropertyChanged
         tab.TagsLoaded += () => { if (tab == _activeTab) TagsLoaded?.Invoke(); };
         tab.ItemsChangedInPlace += () => { if (tab == _activeTab) ItemsChangedInPlace?.Invoke(); };
         tab.SelectPathRequested += path => { if (tab == _activeTab) SelectPathRequested?.Invoke(path); };
+        tab.ViewOrder = () => ViewOrder?.Invoke() ?? new List<FileItemViewModel>();
         tab.SelectPathsRequested += paths => { if (tab == _activeTab) SelectPathsRequested?.Invoke(paths); };
         tab.ClipboardFileRequested += folder => { if (tab == _activeTab) ClipboardFileRequested?.Invoke(folder); };
         tab.BookmarksPasteRequested += folder => { if (tab == _activeTab) BookmarksPasteRequested?.Invoke(folder); };
@@ -522,6 +523,8 @@ public class MainViewModel : INotifyPropertyChanged
     /// <summary>Raised after the active tab created a new folder.</summary>
     public event Action<FileItemViewModel>? FolderCreated;
     public event Action<string>? SelectPathRequested;
+    /// <summary>Set by the window: the items of the list as shown (sorted, filtered). Used to pick the item to select after a delete.</summary>
+    public Func<List<FileItemViewModel>>? ViewOrder;
     public event Action<List<string>>? SelectPathsRequested;
     public event Action<string>? ClipboardFileRequested;
     public event Action<string>? BookmarksPasteRequested;

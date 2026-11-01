@@ -97,7 +97,7 @@ public partial class PictureViewerWindow : Window
     {
         // No screensaver or sleeping screen while looking at pictures.
         SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED);
-        _cursorTimer.Start();
+        ShowCursor();
         if (Slideshow != null) _playing = true;
         ShowCurrent(Slideshow != null ? $"Slide show, {Slideshow.Seconds} s per picture. The Pause key pauses." : null);
         Focus();
@@ -675,34 +675,23 @@ public partial class PictureViewerWindow : Window
             WindowStyle = WindowStyle.None;
             ResizeMode  = ResizeMode.NoResize;
             WindowState = WindowState.Maximized;
-            _cursorTimer.Start();
+            ShowCursor();
         }
         else
         {
             WindowStyle = WindowStyle.SingleBorderWindow;
             ResizeMode  = ResizeMode.CanResize;
             WindowState = WindowState.Maximized;
-            _cursorTimer.Stop();
             ShowCursor();
         }
     }
 
-    // The mouse pointer is hidden in full screen after two seconds without moving, as a picture is best seen without it.
-    private void HideCursor()
-    {
-        _cursorTimer.Stop();
-        if (_fullscreen && !Viewport.ContextMenu.IsOpen)
-            Cursor = Cursors.None;
-    }
+    // In full screen the mouse pointer is never visible, except while the right-click menu is open (moving the mouse does not show it).
+    private void HideCursor() => ShowCursor();
 
     private void ShowCursor()
     {
-        Cursor = null;
-        if (_fullscreen)
-        {
-            _cursorTimer.Stop();
-            _cursorTimer.Start();
-        }
+        Cursor = _fullscreen && !Viewport.ContextMenu.IsOpen ? Cursors.None : null;
     }
 
     // ── Keyboard ─────────────────────────────────────────────────────────────
