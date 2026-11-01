@@ -2695,6 +2695,11 @@ public partial class MainWindow : Window
             SelectInList(path);      // the list follows the viewer
             VM.MarkPathRead(path);   // a picture shown here is a picture opened
         viewer.MoveCopy = MoveCopyForViewer;
+        var tabOfViewer = VM.ActiveTab;
+        viewer.ShowHostUrlAtStart = tabOfViewer.ViewerShowHostUrl;
+        viewer.HostUrlChanged = on => tabOfViewer.ViewerShowHostUrl = on;
+        viewer.GetHostUrl = path => ReadWebOrigin(path, wantArchive: !System.IO.File.Exists(path))?.HostUrl;
+        viewer.MoveCopy = MoveCopyForViewer;
         viewer.GetHostUrl = path => ReadWebOrigin(path, wantArchive: !System.IO.File.Exists(path))?.HostUrl;
         viewer.MoveCopy = MoveCopyForViewer;
         };

@@ -5,7 +5,7 @@ using SwewolfFileExplorer.Helpers;
 
 namespace SwewolfFileExplorer.Views;
 
-// "Show Host URL" (right-click menu, remembered): the address the picture was downloaded from (what the Explorer shows as Host URL in its info
+// "Show Host URL" (right-click menu; remembered per Explorer tab while the program runs, never stored): the address the picture was downloaded from (what the Explorer shows as Host URL in its info
 // panel: the file's Mark of the Web, or what the library has kept), in the upper left corner, the address only. A left-click opens it in the
 // default browser; a right-click lists the installed browsers and Copy. Nothing is shown for a picture with no known address.
 public partial class PictureViewerWindow
@@ -13,14 +13,17 @@ public partial class PictureViewerWindow
     /// <summary>Set by the Explorer: the host URL of a picture (null when there is none). Called off the UI thread.</summary>
     public Func<string, string?>? GetHostUrl { get; set; }
 
+    /// <summary>Set by the Explorer: whether the item starts checked (what this tab had last), and told when the user changes it. Never stored in a file.</summary>
+    public bool ShowHostUrlAtStart { get; set; }
+    public Action<bool>? HostUrlChanged { get; set; }
+
     private bool _hostUrlInit;
     private string? _hostUrl;
     private int _hostUrlVersion;
 
     private void MenuHostUrl_Click(object sender, RoutedEventArgs e)
     {
-        AppSettingsStore.Current.ViewerShowHostUrl = HostUrlMenuItem.IsChecked;
-        AppSettingsStore.Save(AppSettingsStore.Current);
+        HostUrlChanged?.Invoke(HostUrlMenuItem.IsChecked);
         UpdateHostUrl();
     }
 
@@ -30,7 +33,7 @@ public partial class PictureViewerWindow
         if (!_hostUrlInit)
         {
             _hostUrlInit = true;
-            HostUrlMenuItem.IsChecked = AppSettingsStore.Current.ViewerShowHostUrl;
+            HostUrlMenuItem.IsChecked = ShowHostUrlAtStart;
         }
 
         int version = ++_hostUrlVersion;

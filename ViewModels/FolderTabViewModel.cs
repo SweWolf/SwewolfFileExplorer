@@ -3382,6 +3382,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>Ctrl+V found a picture or text and not files, and the user said yes: the window asks for the name and makes the file in this folder.</summary>
     public event Action<string>? ClipboardFileRequested;
 
+    /// <summary>The picture viewer's "Show Host URL" as this tab last had it (not stored: a new tab, and a new run, start with it off).</summary>
+    public bool ViewerShowHostUrl { get; set; }
+
     private bool _pasting;   // a paste is going on (its window may not be up yet): another one waits for the user to ask again
 
     /// <summary>
