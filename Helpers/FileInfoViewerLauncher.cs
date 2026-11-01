@@ -40,8 +40,10 @@ public static class FileInfoViewerLauncher
         if (exe == null)
         {
             var answer = MessageBox.Show(
-                $"{DisplayName} was not found. It is a separate program from the same maker: put it in a folder named {AppName} next to this program's folder, or in the same folder as this program.\n\n" +
-                $"You can download it here:\n{DownloadPage}\n\nDo you want to open that page in your web browser?",
+                $"{DisplayName} was not found.\n\n" +
+                $"It is a separate program by SweWolf Software. You can download it from the releases page:\n{DownloadPage}\n\n" +
+                $"After downloading, put it either in the same folder as {AppInfo.Name}, or in its own folder named {AppName} next to the {AppInfo.Name} folder.\n\n" +
+                "Do you want to open the download page now?",
                 AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
             if (answer == MessageBoxResult.Yes)
             {
