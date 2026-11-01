@@ -68,14 +68,14 @@ public partial class MainWindow
 
         string text = turnOn
             ? $"Confirm storing the tracking data of drive {drive} on the drive itself.\n\n" +
-              $"The read marks, ratings, sort orders, column choices and other tracking data of the files on this drive are kept on this computer now, in your user profile (the folder {MainDataFolder}). " +
+              $"The read marks, ratings, sort orders, column choices and other tracking data of the files on this drive are kept on this computer now, in your user profile, in this folder:\n{MainDataFolder}\n\n" +
               $"If you turn this on, new data is kept in a hidden folder named {folder} in the root of the drive instead, so it follows the drive to other computers that run this program.\n\n" +
               "Do you want to move the data that is kept for this drive on this computer now?\n\n" +
               "Yes: move it to the drive, and keep new data there.\n" +
               "No: keep new data on the drive, but leave the existing data on this computer (it will not be used for this drive any more).\n" +
               "Cancel: change nothing."
             : $"Confirm keeping the tracking data of drive {drive} on this computer again.\n\n" +
-              $"The data kept on the drive can be moved back to this computer, into your user profile (the folder {MainDataFolder}). It is stored there under the drive letter, so it only matches this drive while it is called {drive}. " +
+              $"The data kept on the drive can be moved back to this computer, into your user profile, in this folder:\n{MainDataFolder}\n\nIt is stored there under the drive letter, so it only matches this drive while it is called {drive}. " +
               $"The folder on the drive is not deleted: it is renamed {folder}_BAK as a backup.\n\n" +
               "Do you want to move the data back to this computer now?\n\n" +
               "Yes: move it back, and keep new data on this computer.\n" +
