@@ -147,7 +147,7 @@ public static class ThemedMessageBox
             var def = list.Contains(defaultResult) ? defaultResult : list[0];
             foreach (var r in list)
             {
-                var b = new Button { Content = Label(r), MinWidth = 88, Padding = new Thickness(16, 6, 16, 6), Margin = new Thickness(8, 0, 0, 0), IsDefault = r == def };
+                var b = new Button { Content = Label(r), MinWidth = 106, Padding = new Thickness(16, 6, 16, 6), Margin = new Thickness(8, 0, 0, 0), IsDefault = r == def };
                 if (r == def)   // the default button shows it, as in the other dialogs
                 {
                     b.SetResourceReference(Control.BorderBrushProperty, SystemColors.AccentColorBrushKey);
