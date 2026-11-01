@@ -971,6 +971,14 @@ public partial class MainWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // F1: the help, from wherever the focus is.
+        if (e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            HelpFiles.OpenHelp(AppInfo.Name);
+            e.Handled = true;
+            return;
+        }
+
         // Ctrl+Tab: the list would take it for moving the focus out of it.
         if (e.Key == Key.Tab && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
@@ -1135,6 +1143,8 @@ public partial class MainWindow : Window
             QueueInfoUpdate();              // so may the warning about hidden items that are not selected
         }
     }
+
+    private void MenuHelp_Click(object sender, RoutedEventArgs e) => HelpFiles.OpenHelp(AppInfo.Name);
 
     private void MenuAbout_Click(object sender, RoutedEventArgs e) =>
         new AboutWindow { Owner = this }.ShowDialog();
@@ -1820,16 +1830,6 @@ public partial class MainWindow : Window
         LayoutInfoColumns();
     }
 
-    private void ClearWebRows()
-    {
-        SetInfoRow(WebZoneLabel,     WebZoneBox,     null);
-        SetInfoRow(WebHostLabel,     WebHostBox,     null);
-        SetInfoRow(WebReferrerLabel, WebReferrerBox, null);
-        LayoutInfoColumns();
-    }
-
-    private int _plotVersion;
-
     /// <summary>
     /// Where a file came from: its own Mark of the Web, with what it lacks filled in from the library (and what it says copied to the library).
     /// For something inside an archive (<paramref name="wantArchive"/>) the archive file's. Also used by the picture viewer's Host URL. Not on the UI thread.
@@ -1862,6 +1862,16 @@ public partial class MainWindow : Window
         var referrer = web?.ReferrerUrl ?? saved?.ReferrerUrl;
         return host == web?.HostUrl && referrer == web?.ReferrerUrl ? web : new WebOrigin(web?.ZoneId, host, referrer);
     }
+
+    private void ClearWebRows()
+    {
+        SetInfoRow(WebZoneLabel,     WebZoneBox,     null);
+        SetInfoRow(WebHostLabel,     WebHostBox,     null);
+        SetInfoRow(WebReferrerLabel, WebReferrerBox, null);
+        LayoutInfoColumns();
+    }
+
+    private int _plotVersion;
 
     /// <summary>
     /// The plot from the .nfo file of the selected video or music file, to the right of the preview picture; nothing (and no
@@ -2471,6 +2481,8 @@ public partial class MainWindow : Window
         Add("Open in New Tab", () => VM.OpenNewTab(drive.Root, activate: true));
         Add("Open in Windows Explorer", () => OpenInWindowsExplorer(drive.Root));
         menu.Items.Add(new Separator());
+        var dataItem = Add(DriveDataHeader, () => ToggleDriveData(drive.Root));
+        PrepareDriveDataItem(dataItem, drive.Root);
         Add("Properties", () => PropertiesHelper.Show(new[] { drive.Root }));
         Add("More Options", () => Dispatcher.BeginInvoke(() => ShowWindowsMenuForFolder(drive.Root), DispatcherPriority.Background));
 
@@ -2481,8 +2493,6 @@ public partial class MainWindow : Window
 
     private void FileListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        var dataItem = Add(DriveDataHeader, () => ToggleDriveData(drive.Root));
-        PrepareDriveDataItem(dataItem, drive.Root);
         // Quick clicks on a scroll bar (to page down) must not open the selected item.
         for (var d = e.OriginalSource as DependencyObject; d != null && d != FileListView; d = d is Visual or System.Windows.Media.Media3D.Visual3D
                  ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
@@ -2684,6 +2694,11 @@ public partial class MainWindow : Window
             FilterBar.Visibility == Visibility.Visible && FilterBox.Text.Length > 0 && !VM.InPlaylist
                 ? PicturesInList()
                 : QuickPictureList(folder, current);
+        viewer.MoveCopy = MoveCopyForViewer;
+        var tabOfViewer = VM.ActiveTab;
+        viewer.ShowHostUrlAtStart = tabOfViewer.ViewerShowHostUrl;
+        viewer.HostUrlChanged = on => tabOfViewer.ViewerShowHostUrl = on;
+        viewer.GetHostUrl = path => ReadWebOrigin(path, wantArchive: !System.IO.File.Exists(path))?.HostUrl;
         viewer.GetMarks  = path => VM.GetMarks(path);
         viewer.SetRating = (path, value) =>
         {
@@ -2694,14 +2709,6 @@ public partial class MainWindow : Window
         {
             SelectInList(path);      // the list follows the viewer
             VM.MarkPathRead(path);   // a picture shown here is a picture opened
-        viewer.MoveCopy = MoveCopyForViewer;
-        var tabOfViewer = VM.ActiveTab;
-        viewer.ShowHostUrlAtStart = tabOfViewer.ViewerShowHostUrl;
-        viewer.HostUrlChanged = on => tabOfViewer.ViewerShowHostUrl = on;
-        viewer.GetHostUrl = path => ReadWebOrigin(path, wantArchive: !System.IO.File.Exists(path))?.HostUrl;
-        viewer.MoveCopy = MoveCopyForViewer;
-        viewer.GetHostUrl = path => ReadWebOrigin(path, wantArchive: !System.IO.File.Exists(path))?.HostUrl;
-        viewer.MoveCopy = MoveCopyForViewer;
         };
         return viewer;
     }
@@ -3813,6 +3820,11 @@ public partial class MainWindow : Window
             if (mi.Header is "Mark as Read")   mi.Visibility = isCurrent && VM.FolderStatusText == "Status: Read"   ? Visibility.Collapsed : Visibility.Visible;
             if (mi.Header is "Mark as Unread") mi.Visibility = isCurrent && VM.FolderStatusText == "Status: Unread" ? Visibility.Collapsed : Visibility.Visible;
         }
+
+        // Only a drive has it (after the loop, which enables every item it does not know).
+        var driveRoot = DriveRootOf(path);
+        TreeDriveDataItem.Visibility = driveRoot != null && realFolder ? Visibility.Visible : Visibility.Collapsed;
+        if (driveRoot != null && realFolder) PrepareDriveDataItem(TreeDriveDataItem, driveRoot);
     }
 
     // ── Jump to Last Opened File (as in TeraTool's folder menu) ──────────────
@@ -3823,11 +3835,6 @@ public partial class MainWindow : Window
     }
 
     private void CtxJumpLast_Click(object sender, RoutedEventArgs e) => JumpToLastOpened(VM.CurrentPath);
-
-        // Only a drive has it (after the loop, which enables every item it does not know).
-        var driveRoot = DriveRootOf(path);
-        TreeDriveDataItem.Visibility = driveRoot != null && realFolder ? Visibility.Visible : Visibility.Collapsed;
-        if (driveRoot != null && realFolder) PrepareDriveDataItem(TreeDriveDataItem, driveRoot);
 
     /// <summary>
     /// Goes to the folder (if it is not the one shown) and selects the file that was opened last in it: a file opened in this
@@ -3959,16 +3966,6 @@ public partial class MainWindow : Window
         VM.DropFiles(dialog.FolderPath, items, dialog.IsMove);
     }
 
-    private void CtxCreateShortcut_Click(object sender, RoutedEventArgs e) =>
-        CreateShortcutsFor(FileListView.SelectedItems.OfType<FileItemViewModel>().Where(i => !i.IsInArchive).Select(i => i.FullPath).ToList());
-
-    private void TreeCtxCreateShortcut_Click(object sender, RoutedEventArgs e)
-    {
-        if (_treeMenuNode != null) CreateShortcutsFor(new[] { _treeMenuNode.FullPath });
-    }
-
-    /// <summary>
-    /// Asks in which folder (the folder shown is suggested; Windows' own Create Shortcut always uses the item's folder) and makes a shortcut
     /// <summary>
     /// Move/Copy to Folder from the picture viewer: the same window (it is owned by the viewer, which covers the screen) and the same transfer
     /// as <see cref="MoveCopyTo"/>, but it says what was done, so the viewer can go on to the next picture after a move.
@@ -3996,6 +3993,16 @@ public partial class MainWindow : Window
         return result == null ? null : new PictureViewerWindow.MoveCopyOutcome(dialog.IsMove, dialog.FolderPath, result.Done);
     }
 
+    private void CtxCreateShortcut_Click(object sender, RoutedEventArgs e) =>
+        CreateShortcutsFor(FileListView.SelectedItems.OfType<FileItemViewModel>().Where(i => !i.IsInArchive).Select(i => i.FullPath).ToList());
+
+    private void TreeCtxCreateShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null) CreateShortcutsFor(new[] { _treeMenuNode.FullPath });
+    }
+
+    /// <summary>
+    /// Asks in which folder (the folder shown is suggested; Windows' own Create Shortcut always uses the item's folder) and makes a shortcut
     /// to each item there. The ones that cannot be made are listed at the end. If the folder is the one shown, the list is read again and the
     /// new shortcuts are selected.
     /// </summary>

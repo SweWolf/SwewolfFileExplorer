@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>SweWolf File Explorer Help</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+</style>
+  <style type="text/css">:root {--text: #1f2328;--muted: #59636e;--bg: #ffffff;--line: #d1d9e0;--code-bg: #f3f4f6;--link: #0969da;}@media (prefers-color-scheme: dark) {:root {--text: #e6edf3;--muted: #9198a1;--bg: #0d1117;--line: #3d444d;--code-bg: #1f242c;--link: #4493f8;}}html { background: var(--bg); }body {max-width: 50rem;margin: 0 auto;padding: 1.5rem 1rem 4rem;font-family: "Segoe UI", system-ui, sans-serif;font-size: 16px;line-height: 1.6;color: var(--text);background: var(--bg);}h1, h2, h3, h4 { line-height: 1.25; margin: 2rem 0 0.75rem; }h1 { font-size: 2rem; margin-top: 0.5rem; }h2 { font-size: 1.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--line); }h3 { font-size: 1.2rem; }h4 { font-size: 1rem; }a { color: var(--link); text-decoration: none; }a:hover { text-decoration: underline; }code, pre {font-family: Consolas, "Cascadia Mono", monospace;font-size: 0.9em;background: var(--code-bg);border-radius: 4px;}code { padding: 0.1em 0.35em; }pre { padding: 0.75rem 1rem; overflow-x: auto; }pre code { padding: 0; }table { border-collapse: collapse; margin: 1rem 0; }th, td { border: 1px solid var(--line); padding: 0.35rem 0.75rem; text-align: left; }th { background: var(--code-bg); }</style>
+</head>
+<body>
+<h1 id="swewolf-file-explorer-help">SweWolf File Explorer Help</h1>
+<p>SweWolf File Explorer is a file manager for Windows. It looks and
+works much like Windows Explorer, with tabs, a folder tree and a list of
+files, and adds things Explorer does not have: it remembers which files
+you have opened, shows a picture viewer and a slide show, browses
+archives like folders, and shows a preview, a plot or the prompt of an
+AI picture under the list.</p>
+<h2 id="contents">Contents</h2>
+<ul>
+<li><a href="#getting-started">Getting Started</a></li>
+<li><a href="#the-main-window">The Main Window</a></li>
+<li><a href="#tabs">Tabs</a></li>
+<li><a href="#the-folder-tree">The Folder Tree</a></li>
+<li><a href="#this-pc-and-drives">This PC and Drives</a></li>
+<li><a href="#the-file-list">The File List</a>
+<ul>
+<li><a href="#columns">Columns</a></li>
+<li><a href="#sorting">Sorting</a></li>
+<li><a href="#filtering-the-list">Filtering the List</a></li>
+<li><a href="#typing-a-name">Typing a Name</a></li>
+<li><a href="#selecting-files">Selecting Files</a></li>
+<li><a href="#hidden-items">Hidden Items</a></li>
+<li><a href="#file-name-extensions">File Name Extensions</a></li>
+</ul></li>
+<li><a href="#the-info-panel">The Info Panel</a></li>
+<li><a href="#opening-files">Opening Files</a></li>
+<li><a href="#right-click-menus">Right-Click Menus</a></li>
+<li><a href="#copying-moving-and-deleting">Copying, Moving and
+Deleting</a></li>
+<li><a href="#renaming">Renaming</a></li>
+<li><a href="#creating-things">Creating Things</a></li>
+<li><a href="#shortcuts">Shortcuts</a></li>
+<li><a href="#archives">Archives</a></li>
+<li><a href="#playlists">Playlists</a></li>
+<li><a href="#bookmarks">Bookmarks</a></li>
+<li><a href="#workspaces-and-sessions">Workspaces and Sessions</a></li>
+<li><a href="#the-picture-viewer">The Picture Viewer</a></li>
+<li><a href="#the-play-bar">The Play Bar</a></li>
+<li><a href="#what-you-have-read-ratings-and-tags">What You Have Read,
+Ratings and Tags</a></li>
+<li><a href="#dragging-and-dropping">Dragging and Dropping</a></li>
+<li><a href="#settings">Settings</a></li>
+<li><a href="#starting-from-the-command-line">Starting from the Command
+Line</a></li>
+<li><a href="#keyboard-shortcuts">Keyboard Shortcuts</a></li>
+<li><a href="#log-files">Log Files</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="what-you-need">What You Need</h3>
+<ul>
+<li>Windows 10 or Windows 11, 64-bit.</li>
+<li>Nothing else is required. A few features use free programs when they
+are installed:</li>
+</ul>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Program</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Browsing RAR, 7z, cab, gz and tar files</td>
+<td><a href="https://www.7-zip.org">7-Zip</a></td>
+</tr>
+<tr>
+<td>JPEG XL pictures (<code>.jxl</code>)</td>
+<td><a href="https://imagemagick.org">ImageMagick</a> (or Windows’ own
+JPEG XL Image Extension)</td>
+</tr>
+<tr>
+<td>Preview pictures of videos Windows cannot show</td>
+<td><a href="https://ffmpeg.org">FFmpeg</a> (<code>ffmpeg.exe</code>
+next to the program or on the PATH)</td>
+</tr>
+<tr>
+<td>Playing music and video, and the Play bar for them</td>
+<td>SweWolf Media Player (a sibling program)</td>
+</tr>
+<tr>
+<td><strong>File Info Viewer</strong> in the right-click menus, which
+shows everything about a file</td>
+<td>File Info Viewer (a sibling program)</td>
+</tr>
+</tbody>
+</table>
+<p>SweWolf Media Player and File Info Viewer are looked for next to this
+program, and then in a folder next to it with their own name
+(<code>..\SwewolfMediaPlayer</code>, <code>..\FileInfoViewer</code>). If
+a program is missing, the feature that needs it says so, and everything
+else keeps working. The <strong>File Info Viewer</strong> items are
+simply not shown in the menus when that program is not found.</p>
+<h3 id="your-first-minutes">Your First Minutes</h3>
+<ol type="1">
+<li>The program starts on <strong>This PC</strong>: the drives of your
+computer are listed. Double-click a drive, or click a folder in the tree
+on the left.</li>
+<li>The files of the folder are shown in the list. Press
+<strong>Enter</strong> or double-click a file to open it.</li>
+<li>Click <strong>Folders</strong> in the toolbar if you also want to
+see the folders in the list. They are always in the tree.</li>
+<li>Right-click a file or folder to see what you can do with it.</li>
+</ol>
+<h2 id="the-main-window">The Main Window</h2>
+<p>From top to bottom:</p>
+<ul>
+<li><strong>The menu bar:</strong> Tools, Workspace, Session and
+Help.</li>
+<li><strong>The tab strip:</strong> one tab per folder you have
+open.</li>
+<li><strong>The toolbar:</strong> Back, Forward, Up, the address bar,
+<strong>Go</strong>, Refresh, and the buttons <strong>Tree</strong>,
+<strong>Folders</strong>, <strong>.ext</strong>, <strong>New
+Folder</strong>, <strong>Filter</strong> and <strong>Play</strong>.</li>
+<li><strong>The folder tree</strong> on the left, with its own header
+(Up, Sort By, and an <strong>x</strong> that hides the tree).</li>
+<li><strong>The file list</strong> in the middle.</li>
+<li><strong>The info panel</strong> under the list: the line “File
+14/17”, and below it details, a preview picture and more.</li>
+</ul>
+<p>The window always starts maximized. The tree and the info panel can
+be made bigger or smaller by dragging the line next to them.</p>
+<h3 id="the-address-bar">The Address Bar</h3>
+<p>Type or paste a path and press <strong>Enter</strong>. Quotes around
+a path are ignored, so you can paste a path copied from Windows Explorer
+as it is. You can also type:</p>
+<ul>
+<li>Windows variables such as <code>%APPDATA%</code>,
+<code>%TEMP%</code> or <code>%USERPROFILE%</code>, also with a path
+after them.</li>
+<li>Names like <code>shell:startup</code>, <code>shell:sendto</code>,
+<code>shell:downloads</code> or <code>shell:fonts</code>.</li>
+<li>A path inside an archive:
+<code>D:\Photos\Trip.zip\Day 1</code>.</li>
+</ul>
+<p><strong>Esc</strong> in the address bar puts the folder shown back in
+the box and moves the focus to the list. <strong>F6</strong> moves the
+focus to the address bar and selects its text.</p>
+<h3 id="font-size">Font Size</h3>
+<p>Hold <strong>Ctrl</strong> and turn the mouse wheel over the list or
+over the tree to make its text bigger or smaller. The list and the tree
+have separate sizes, and both are remembered.</p>
+<h2 id="tabs">Tabs</h2>
+<ul>
+<li><strong>Ctrl+T</strong>, <strong>Ctrl+N</strong> or the
+<strong>+</strong> button opens a new tab. A new tab always starts on
+<strong>This PC</strong>.</li>
+<li><strong>Ctrl+W</strong> or <strong>Ctrl+F4</strong> closes the tab.
+<strong>Ctrl+Shift+T</strong> brings back the last closed tab, with its
+history.</li>
+<li><strong>Ctrl+Tab</strong> and <strong>Ctrl+Shift+Tab</strong> move
+to the next and previous tab.</li>
+<li>A middle-click on a tab closes it. A middle-click on a folder opens
+it in a new tab.</li>
+<li>Right-click a tab, or press <strong>F2</strong> with a tab selected,
+to give it a name of your own with <strong>Rename Tab…</strong>. This
+changes only the text on the tab. <strong>Reset Tab Name</strong> brings
+back the name of the folder.</li>
+</ul>
+<p>The active tab is shown in bold, with a colored line on top.</p>
+<h2 id="the-folder-tree">The Folder Tree</h2>
+<p>The tree starts with <strong>Bookmarks</strong>, <strong>Quick
+Access</strong> (Desktop, Downloads, Documents, Pictures, Music and
+Videos) and <strong>This PC</strong>.</p>
+<ul>
+<li>Click a folder to open it. The tree follows you when you open a
+folder in any other way.</li>
+<li><strong>Sort By</strong> sorts the subfolders of the folder you are
+in (Name, Date Created, Date Modified, ascending or descending). The
+choice is remembered for each folder.</li>
+<li>Folders with the Hidden or System attribute are not listed. A line
+under the tree says “N hidden folders (click to show)”.</li>
+<li>Under the tree you see the <strong>Status</strong> of the folder
+(see <a href="#what-you-have-read-ratings-and-tags">What You Have
+Read</a>), its <strong>Rating</strong> and <strong>Expectation</strong>
+when it has them, its <strong>Tags</strong>, and a picture of the folder
+when it has one.</li>
+<li><strong>Set as Tree Root:</strong> right-click a folder in the tree
+to make it the top of the tree (also possible for an archive). Up and
+Backspace then stop there. <strong>Reset Tree Root</strong> brings back
+the normal tree.</li>
+<li>Press <strong>F8</strong>, or click <strong>Tree</strong> in the
+toolbar, to hide and show the tree.</li>
+</ul>
+<p>Typing a letter in the tree selects the next visible folder that
+starts with it.</p>
+<h2 id="this-pc-and-drives">This PC and Drives</h2>
+<p>Click <strong>This PC</strong> in the tree to see your drives in a
+list of their own, as in Windows Explorer: <strong>Name</strong>,
+<strong>Type</strong>, <strong>File System</strong>, <strong>Total
+Size</strong>, <strong>Free Space</strong> and <strong>Tracking Data
+Location</strong> (see below). Double-click a drive to open it.
+Right-click a drive for <strong>Open</strong>, <strong>Open in New
+Tab</strong>, <strong>Open in Windows Explorer</strong>,
+<strong>Properties</strong>, <strong>More Options</strong> and the
+tracking data item. A drive that you connect or remove shows up or goes
+by itself within a couple of seconds; <strong>F5</strong> does it at
+once and also reads the free space again.</p>
+<h3 id="where-the-tracking-data-is-kept">Where the Tracking Data Is
+Kept</h3>
+<p>What the program remembers about your files (read marks, ratings,
+sort orders, column choices and so on, see <a href="#what-you-have-read-ratings-and-tags">What You Have Read</a>) is
+kept in one database on this computer. The column <strong>Tracking Data
+Location</strong> says where it is kept for each drive: <strong>This
+Computer</strong> or <strong>This Drive</strong>.</p>
+<ul>
+<li>A <strong>USB drive, memory card or other removable drive</strong>
+always keeps it on the drive itself, in the hidden folder
+<code>.SweWolfFileExplorerData</code>, so it follows the drive to other
+computers. The item is shown checked and greyed.</li>
+<li>For any other drive, right-click it and choose <strong>Store
+Tracking Data (Read Marks, Folder Options, Ratings…) Locally on This
+Drive</strong>. You are asked first. <strong>Yes</strong> moves what is
+remembered for the drive to the drive, <strong>No</strong> keeps new
+data on the drive but leaves the old data on this computer (it is not
+used for the drive any more), and <strong>Cancel</strong> changes
+nothing.</li>
+<li>Choose the item again to go back. The data is then moved back to
+this computer (it is stored there with the drive letter, so it only fits
+the drive while it keeps that letter), and the folder on the drive is
+renamed <code>.SweWolfFileExplorerData_BAK</code> as a backup. Nothing
+is deleted.</li>
+</ul>
+<h2 id="the-file-list">The File List</h2>
+<p>Press <strong>Enter</strong> or double-click to open a file or
+folder. <strong>Backspace</strong> goes up one folder.
+<strong>Alt+Left</strong> and <strong>Alt+Right</strong> go back and
+forward. <strong>F5</strong> reads the folder again.</p>
+<p>The list is also kept up to date by itself: when another program
+creates, changes or deletes a file in the folder, the list follows, and
+your selection stays.</p>
+<h3 id="columns">Columns</h3>
+<p>Right-click a column header to choose which columns are shown: Name,
+Date Modified, Date Created, Type, Size, and more.
+<strong>More…</strong> opens a window where you can also set the order
+and widths.</p>
+<p>Some columns are hidden until you choose them:</p>
+<ul>
+<li><strong>Artist, Title and Track Number</strong> of music files.</li>
+<li><strong>Length, Bitrate and Dimensions</strong> of music, videos and
+pictures.</li>
+<li><strong>Product Name and Product Version</strong> of programs and
+libraries.</li>
+<li><strong>Rating and Expectation</strong> (they appear when you set a
+value).</li>
+</ul>
+<p>Dates and times are written the way your Windows regional settings
+say.</p>
+<p>The columns fit their text by themselves. <strong>Ctrl+Num +</strong>
+fits them again after you have dragged a width.</p>
+<p>The columns and the order are remembered <strong>for each
+folder</strong>, and a folder without its own choice uses the one of the
+nearest folder above it that has one. In the column menu:</p>
+<ul>
+<li><strong>Forget the Columns of This Folder</strong> removes the
+choice of the folder.</li>
+<li><strong>Use These Columns as the Default</strong> uses the shown
+columns for every folder that has no choice of its own.</li>
+<li><strong>Use These Columns and Sort Order in All Subfolders</strong>
+gives all folders below this one the same.</li>
+</ul>
+<h3 id="sorting">Sorting</h3>
+<p>Click a column header to sort by it, and click again to turn the
+order around. A sort you choose is remembered for that folder.</p>
+<h3 id="filtering-the-list">Filtering the List</h3>
+<p>Click <strong>Filter</strong> or press <strong>Ctrl+F</strong> to
+show the filter bar above the list. What you type shows only the files
+whose names contain it, anywhere in the name. With several words, every
+word must be in the name. <strong>Esc</strong> clears the text, and a
+second <strong>Esc</strong> closes the bar. You can also press
+<strong>Esc</strong> with the focus in the list or the tree to close the
+bar.</p>
+<h3 id="typing-a-name">Typing a Name</h3>
+<p>With the list or the tree in focus, type the first letters of a name
+to jump to it. Type the same letter again to go on to the next name that
+starts with it.</p>
+<h3 id="hidden-items">Hidden Items</h3>
+<p>Files and folders with the Hidden or System attribute are not listed.
+The line “N hidden items (click to show)” under the list shows them for
+the folder you are in, faded.</p>
+<p>When you select every file shown (<strong>Ctrl+A</strong>) and the
+folder has hidden items that are not shown, a red <strong>Warning: N
+hidden items not selected</strong> appears next to that link: a copy or
+move of the selection leaves those items out. Show the hidden items
+first if you want them included. <strong>Tools &gt; Settings &gt; Files
+&gt; Hidden Files</strong> can turn the warning off.</p>
+<h3 id="selecting-files">Selecting Files</h3>
+<p><strong>Ctrl+A</strong> selects all the items of the list, wherever
+the focus is (except in a text box, where it selects the text). The line
+under the list says what is selected: “File 14/17” for one item, and for
+several “7 of 62 files selected” (or “items”, when the list also has
+folders).</p>
+<h3 id="file-name-extensions">File Name Extensions</h3>
+<p>The <strong>.ext</strong> button in the toolbar shows or hides the
+extensions of known file types (<code>.txt</code>, <code>.jpg</code> and
+so on). The same choice is in <strong>Tools &gt; Settings</strong>.
+Extensions of special Windows file types such as <code>.lnk</code> are
+never shown (this can be turned off in the settings).</p>
+<h2 id="the-info-panel">The Info Panel</h2>
+<p>The line under the list says which item is selected (“File 14/17”),
+how many are selected (“7 of 62 files selected”), or how many items
+there are. Below it:</p>
+<ul>
+<li><strong>Details</strong> on the left: the name of the item, and rows
+that fit its kind: type, size, dates, and for pictures, music and videos
+also the dimensions, length, bitrate, artist, title and so on. With
+several items selected you see their number and total size. Two small
+buttons in the corner open <strong>Properties</strong> and <strong>File
+Info Viewer</strong>.</li>
+<li><strong>A preview picture</strong> of the selected picture, or the
+cover of a music file, or a frame of a video. Click the preview to open
+the picture in the picture viewer.</li>
+<li><strong>The plot</strong> of a video or music file, when a
+<code>.nfo</code> file next to it has one.</li>
+<li><strong>The prompt, negative prompt and seed</strong> of an AI
+picture made by ComfyUI, Automatic1111 (also Forge and SD.Next) or
+Wan2GP.</li>
+<li><strong>Where a file came from:</strong> the Zone ID, Host URL and
+Referrer URL that your web browser saved with a downloaded file. They
+are also remembered, so they show even when the file has lost them.</li>
+<li><strong>A map pin</strong> when a picture or video says where it was
+taken. Click the pin to see the place on a map in your browser.
+Right-click the pin to choose another map site, or to copy the
+coordinates.</li>
+</ul>
+<p>The line between the list and the panel can be dragged to make the
+panel taller. The <strong>x</strong> at the far right hides the whole
+panel, and the small <strong>i</strong> button in the info line brings
+it back.</p>
+<h3 id="preview-pictures-of-videos-and-music">Preview Pictures of Videos
+and Music</h3>
+<p>For a video or music file, the preview is the first of these that
+exists: the picture you chose yourself, a picture inside the file, a
+picture file next to it (<code>name-poster.jpg</code>,
+<code>name.jpg</code> …), a poster named in its <code>.nfo</code> file,
+the picture Windows shows for it, a frame of the video. Right-click the
+preview to <strong>Choose Preview Picture…</strong>, to choose
+<strong>No Preview Picture</strong>, to <strong>Use Automatic Preview
+Picture</strong> again, or to <strong>Save Preview Picture
+As…</strong>.</p>
+<p>For a picture file, right-click the preview and choose <strong>Set as
+Folder Picture</strong> to make it the picture of the folder.</p>
+<h3 id="the-plot">The Plot</h3>
+<p>Double-click the plot area of a video or music file, or right-click
+it and choose <strong>Edit Plot…</strong>, to write or change the plot.
+The text is saved in the <code>.nfo</code> file next to the file, which
+is made when it does not exist. An existing <code>.nfo</code> file is
+changed carefully: only the plot changes.</p>
+<h2 id="opening-files">Opening Files</h2>
+<ul>
+<li><strong>Pictures</strong> open in the picture viewer.</li>
+<li><strong>Music and videos</strong> open in SweWolf Media Player. If
+it is not found next to the program, the program Windows has for the
+file opens it.</li>
+<li><strong>Archives</strong> (zip, RAR and so on) are opened like
+folders.</li>
+<li><strong>Everything else</strong> opens in the program Windows has
+for it, started in the folder of the file.</li>
+<li>A <code>.nfo</code> file opens in a text editor (Visual Studio Code
+if you have it, otherwise Notepad).</li>
+</ul>
+<p><strong>Open With…</strong> in the right-click menu lets you choose
+another program. It is not shown for programs and scripts, or for
+folders. <strong>Edit</strong> is shown for the types that have an edit
+command (for example <code>.bat</code> and <code>.cmd</code> files), and
+opens the file in its editor.</p>
+<h2 id="right-click-menus">Right-Click Menus</h2>
+<p>Right-click a file or a folder in the list, or a folder in the tree.
+The menus have the same groups, in this order: opening, cut / copy /
+paste and shortcuts, delete and rename, read marks, rating, terminals,
+new files, properties and <strong>More Options</strong>.</p>
+<p><strong>More Options</strong> (or <strong>Shift +
+right-click</strong>) shows the real Windows menu, with everything that
+other programs have added to it (7-Zip, PowerRename and so on). The
+first time can take a few seconds.</p>
+<p><strong>Send to</strong> works like in Windows Explorer. Right-click
+<strong>Send to</strong> and choose <strong>Edit Send To Menu</strong>
+to open the folder where its shortcuts are.</p>
+<p><strong>Open in Terminal</strong>, <strong>Open in
+PowerShell</strong> and <strong>Open in Command Prompt</strong> start
+the program in the folder. Right-click one of them (or Shift + click) to
+start it as the administrator. You can hide them in <strong>Tools &gt;
+Settings</strong>.</p>
+<h2 id="copying-moving-and-deleting">Copying, Moving and Deleting</h2>
+<p>Use <strong>Ctrl+C</strong>, <strong>Ctrl+X</strong> and
+<strong>Ctrl+V</strong>, the menus, or drag and drop. The clipboard is
+the one of Windows, so you can copy files between this program and
+Windows Explorer.</p>
+<ul>
+<li><strong>Move/Copy to Folder…</strong> is in the right-click menus of
+the list and the tree. A window asks where to: type or browse for a
+folder, or take one from your own list (<strong>Add Folder</strong>,
+<strong>Remove From List</strong>, and arrows to put it in order).
+<strong>Move</strong> is chosen when it opens. It then works like Paste,
+with the same progress window and questions.</li>
+<li><strong>Long copies run in the background</strong> with a progress
+window and a <strong>Cancel</strong> button. Files that were finished
+stay; the one that was being copied is removed again.</li>
+<li><strong>When a name is taken</strong>, you are asked:
+<strong>Replace</strong>, <strong>Keep Both</strong>, <strong>Keep Both,
+Rename Old</strong>, <strong>Skip</strong> or <strong>Cancel</strong>.
+“Do This for All Conflicts” uses your answer for the rest.
+<ul>
+<li><strong>Replace</strong> puts the old file in the Recycle Bin (a
+drive without one says “Replace Permanently”).</li>
+<li><strong>Keep Both</strong> gives the new file a number:
+<code>Name (1).txt</code>.</li>
+<li><strong>Keep Both, Rename Old</strong> gives the new file the name
+and renames the old one to <code>Name (old 1).txt</code>.</li>
+</ul></li>
+<li><strong>Delete</strong> moves to the Recycle Bin, with a progress
+window for many files. Items that cannot go to the Recycle Bin (a
+network drive, a very big file) are listed in the question first.
+<strong>Shift+Delete</strong> deletes for good.</li>
+<li><strong>Files that belong together:</strong> when you copy or move a
+video or music file, you are asked whether the files that belong to it
+by name (subtitles, poster) go along (see <a href="#files-that-belong-together">Files That Belong Together</a>).</li>
+<li>Files you paste from a remote desktop session also work.</li>
+</ul>
+<p>Cut, paste, delete and rename keep your read marks and ratings with
+the files.</p>
+<h2 id="renaming">Renaming</h2>
+<p><strong>F2</strong> or <strong>Rename…</strong> renames the selected
+item. For a file, the name and the extension have separate boxes, so you
+do not change the extension by accident. The buttons <strong>Upper
+Case</strong>, <strong>Lower Case</strong> and <strong>Proper
+Case</strong> change the name.</p>
+<h3 id="smart-rename">Smart Rename</h3>
+<p>For a music or video file, <strong>Use Smart Name</strong> suggests a
+better name:</p>
+<ul>
+<li>Music with tags: <code>Artist - Title</code>.</li>
+<li>Video: <code>Title (Year)</code>, and <code>Title - s01e02</code>
+for episodes of a series.</li>
+</ul>
+<p>Untick the box to get your own name back. <strong>Rename All Selected
+Music Files and Video Files Using Smart Rename</strong> does this for
+all selected files at once, and the button <strong>Undo Rename</strong>
+in the info line takes it back.</p>
+<h3 id="files-that-belong-together">Files That Belong Together</h3>
+<p>When you rename or move a video or music file, the files that belong
+to it by name (<code>Movie.srt</code>, <code>Movie.nfo</code>,
+<code>Movie-poster.jpg</code>) can follow. You are asked first, with the
+list of the files.</p>
+<p><strong>Tools &gt; Settings &gt; File Names</strong> can also offer
+to move a renamed video to your <code>Videos\Movies</code> or
+<code>Videos\TV Shows</code> folder.</p>
+<h2 id="creating-things">Creating Things</h2>
+<ul>
+<li><strong>New Folder</strong> (button, menu, or
+<strong>Ctrl+Shift+N</strong>).</li>
+<li><strong>New Text Document…</strong> asks for a name first. Nothing
+is made if you cancel.</li>
+<li><strong>New File from Clipboard</strong> makes a text file or a
+picture (PNG) from what is on the clipboard. <strong>Ctrl+V</strong>
+with no files on the clipboard but a picture or text offers the
+same.</li>
+<li><strong>Create Playlist…</strong> makes a playlist (see <a href="#playlists">Playlists</a>).</li>
+</ul>
+<h2 id="shortcuts">Shortcuts</h2>
+<p><strong>Create Shortcut…</strong> in the right-click menus makes a
+shortcut (<code>.lnk</code>) to the selected items in a folder that you
+choose. The shortcut is named after the file; a program is named by its
+product name. <strong>Tools &gt; Create Shortcut…</strong> makes a
+shortcut to SweWolf File Explorer itself on the Desktop or in the Start
+menu.</p>
+<h2 id="archives">Archives</h2>
+<p>Zip, cbz, RAR, cbr, 7z, cab, gz and tar files are opened like
+folders: click them in the tree, or press <strong>Enter</strong> on them
+in the list. Nothing is unpacked to look inside. An archive inside an
+archive works too, and the address bar takes such paths.</p>
+<ul>
+<li>Archives are read-only: cut, delete, rename, paste and new folder
+are off inside them.</li>
+<li>Copy files out of an archive and paste them into a real folder to
+unpack them.</li>
+<li>Opening a file inside an archive unpacks it to a temporary folder
+first.</li>
+<li>RAR, 7z, cab, gz and tar need <a href="https://www.7-zip.org">7-Zip</a> to be installed.</li>
+<li>Archives with a password cannot be opened yet.</li>
+</ul>
+<p>Inside a zip the files are shown in the order they are stored; other
+archives are sorted by name.</p>
+<h2 id="playlists">Playlists</h2>
+<p><code>.m3u</code> and <code>.m3u8</code> files are shown in the tree
+after the folders. Open one and its files are shown in the list, in the
+order of the playlist. A file that is missing is dimmed and is never
+played.</p>
+<p>While a playlist is shown, buttons appear in the info line:</p>
+<ul>
+<li><strong>Add Files…</strong> adds files after the selected
+entry.</li>
+<li><strong>Move Up</strong> and <strong>Move Down</strong> move the
+selected entries.</li>
+<li><strong>Save Playlist</strong> (<strong>Ctrl+S</strong>) and
+<strong>Save Playlist As…</strong> save your changes. You are asked
+before you leave a playlist with unsaved changes.</li>
+<li><strong>Delete</strong> (or <strong>Remove from Playlist</strong>)
+takes the selected entries out of the list. The files themselves are
+never touched.</li>
+<li><strong>Ctrl+V</strong> adds the files on the clipboard.</li>
+</ul>
+<p><strong>Create Playlist…</strong> in the right-click menu of a folder
+makes a new playlist in it, with all files, the selected files or none
+to start with.</p>
+<h2 id="bookmarks">Bookmarks</h2>
+<p><strong>Bookmarks</strong> is at the top of the tree. A bookmark is a
+shortcut file in the folder
+<code>%AppData%\SweWolfSoftware\SwewolfFileExplorer\Bookmarks</code>, so
+you can also arrange it in Windows Explorer. Folders in it are
+groups.</p>
+<ul>
+<li><strong>Ctrl+D</strong> or <strong>Add to Bookmarks</strong>
+bookmarks the selected items, or the folder you are in.</li>
+<li><strong>Ctrl+Shift+O</strong> goes to the Bookmarks node.</li>
+<li>Paste (<strong>Ctrl+V</strong>) or drop files, folders or a web
+address into the Bookmarks folder or a group to make bookmarks. A web
+address becomes an Internet shortcut with the title and icon of the
+page.</li>
+<li>A bookmark of a video or music file can start at a time. SweWolf
+Media Player can make such a bookmark.</li>
+<li>Right-click a bookmark to rename or remove it. Removing a bookmark
+never touches the file or folder it points to, and does not ask.</li>
+</ul>
+<h2 id="workspaces-and-sessions">Workspaces and Sessions</h2>
+<p>A <strong>workspace</strong> is a set of folders that you save by
+hand. A <strong>session</strong> is your open tabs, remembered all the
+time.</p>
+<ul>
+<li><strong>Workspace &gt; Save Current Tabs as Workspace…</strong>
+saves the open tabs. <strong>Workspace &gt; Open</strong> opens a saved
+one, in new tabs. You can close the current tabs first, or keep
+them.</li>
+<li><strong>Session &gt; Start New Session…</strong> starts remembering
+your tabs under a name. The window title then shows the session.
+<strong>Session &gt; Open</strong> brings back a session, and
+<strong>Stop Session</strong> stops remembering.</li>
+<li>Both menus have <strong>Delete</strong> and <strong>Show
+Folder</strong>, and <strong>Create Shortcut to Workspace /
+Session…</strong> makes a shortcut that starts the program with it.</li>
+</ul>
+<p>Each workspace and session is one small file that you can copy to
+another computer. A folder that is not available (a drive that is not
+connected) is kept and shown as “(unavailable)”; press
+<strong>F5</strong> to try again.</p>
+<h2 id="the-picture-viewer">The Picture Viewer</h2>
+<p>Open a picture to see it full screen. The viewer goes through the
+pictures of the list, in the order of the list.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Key or action</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Left / Right, Page Up / Page Down, Space, Backspace, N, P</td>
+<td>Previous and next picture</td>
+</tr>
+<tr>
+<td>Home / End</td>
+<td>First and last picture</td>
+</tr>
+<tr>
+<td>Mouse wheel</td>
+<td>Next and previous picture</td>
+</tr>
+<tr>
+<td>Click on the left third / the rest</td>
+<td>Previous / next picture</td>
+</tr>
+<tr>
+<td>Num + / Num -, <strong>Ctrl</strong> + wheel</td>
+<td>Zoom</td>
+</tr>
+<tr>
+<td>Num *</td>
+<td>Fit the picture to the window (also enlarges)</td>
+</tr>
+<tr>
+<td>Num /</td>
+<td>Normal size (fit, never enlarges)</td>
+</tr>
+<tr>
+<td>Drag</td>
+<td>Move a zoomed picture</td>
+</tr>
+<tr>
+<td><strong>Ctrl+K</strong> / <strong>Ctrl+L</strong></td>
+<td>Turn the picture (for viewing only: the file is never changed)</td>
+</tr>
+<tr>
+<td>F11, F, double-click</td>
+<td>Full screen, or a window</td>
+</tr>
+<tr>
+<td>Delete</td>
+<td>Move the picture to the Recycle Bin, after a question</td>
+</tr>
+<tr>
+<td>Esc, X</td>
+<td>Close</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-right-click-menu-of-the-viewer">The Right-Click Menu of the
+Viewer</h3>
+<ul>
+<li><strong>Close</strong>, <strong>Rotate Clockwise</strong>,
+<strong>Rotate Counterclockwise</strong>, <strong>Toggle
+Fullscreen</strong>, <strong>Normal Size</strong> and
+<strong>Stretch</strong> do what the keys above do.</li>
+<li><strong>Show Newest Picture Automatically</strong> watches the
+folder of the picture on show. When another program makes a picture
+there (an image generator, a scanner, a phone that syncs) the viewer
+waits until the file can be read and shows it. Turning it on shows the
+newest picture of the folder at once. It is off every time the viewer
+opens.</li>
+<li><strong>Show Host URL</strong> shows the web address the picture was
+downloaded from in the upper left corner, only the address. Click it to
+open it in your default browser; right-click it to choose another
+browser or to copy it. Pictures with no known address show nothing. The
+choice is kept for the tab you opened the viewer from, until you close
+the program.</li>
+<li><strong>Rating Mode</strong> (<strong>Shift+R</strong>): the number
+keys rate the picture on show: <strong>2</strong> to <strong>9</strong>
+at once, <strong>1</strong> waits two seconds for a <strong>0</strong>
+(<strong>1</strong> then <strong>0</strong> is 10), and a
+<strong>0</strong> on its own removes the rating. The rating is shown,
+and a second later the viewer goes on to the next picture. A picture
+that already has a rating shows “Current rating: 5” when it comes up.
+<strong>Rating…</strong> (<strong>R</strong>) opens the rating box.</li>
+<li><strong>Move/Copy to Folder…</strong> (<strong>M</strong>) opens the
+same window as in the explorer. After a <strong>move</strong> the viewer
+goes on to the next picture; after a <strong>copy</strong> it stays on
+the same one.</li>
+<li><strong>Move to Trash Folder</strong> (<strong>T</strong>) moves the
+picture into a hidden folder called <code>Trash</code> next to it and
+goes on to the next picture. Nothing is deleted. <strong>Take Back from
+Trash Folder</strong> (<strong>Ctrl+Z</strong>) puts the pictures back,
+the last one first, as long as the viewer is open.</li>
+<li><strong>Delete</strong> (<strong>Del</strong>) moves the picture to
+the Recycle Bin, after a question.</li>
+</ul>
+<p>When files belong to the picture (<code>photo.xmp</code>,
+<code>photo.aae</code>, <code>photo.jpg.json</code>, or the RAW file of
+a JPEG and the other way round), <strong>Move/Copy to Folder</strong>
+and <strong>Move to Trash Folder</strong> ask whether they go along:
+<strong>Yes</strong> takes them too, <strong>No</strong> only the
+picture, <strong>Cancel</strong> nothing. The viewer does not move
+pictures inside an archive or a playlist.</p>
+<p>At the end of the list you can <strong>Go to Next Folder</strong>,
+<strong>Start from Beginning</strong> or <strong>Close</strong>. After
+10 seconds the first choice is made for you; move the mouse or press a
+key to stop the count.</p>
+<p>The viewer shows many kinds of pictures: JPEG, PNG, GIF (animated),
+BMP, WebP, TIFF, icons, SVG, JPEG XL, Photoshop (<code>.psd</code>) and
+the pictures inside RAW files (NEF, DNG).</p>
+<h2 id="the-play-bar">The Play Bar</h2>
+<p>Click <strong>Play</strong> in the toolbar, or press
+<strong>Ctrl+P</strong>, to show the Play bar under the info line. It
+plays the pictures, music and videos of the list.</p>
+<ul>
+<li><strong>Previous</strong>, <strong>Play</strong> (it becomes
+<strong>Pause</strong> while something plays) and
+<strong>Next</strong>.</li>
+<li><strong>Play Mode:</strong> Slide Show, Single Play, Repeat, Demo
+Play, Intro Play or Random Order.</li>
+<li><strong>Time per File (s)</strong>, <strong>End of List
+Action</strong> (Go to Next Folder, Start from Beginning or Close),
+<strong>Ask First</strong> and <strong>Time-out (s)</strong>.</li>
+</ul>
+<p>Pictures are shown in the picture viewer. Music and videos play in
+SweWolf Media Player, which the explorer controls. With the Play bar
+shown, a double-click on a video or song starts a playlist from that
+file.</p>
+<p>In the picture viewer the <strong>Pause</strong> key (and
+<strong>P</strong>) pauses a slide show.</p>
+<h2 id="what-you-have-read-ratings-and-tags">What You Have Read, Ratings
+and Tags</h2>
+<p>The program remembers what you have done with your files in a small
+database (SQLite). It is kept in
+<code>%AppData%\SweWolfSoftware\Library</code>, and on a USB drive in a
+hidden folder on the drive itself, so it travels with the drive. Any
+other drive can be told to do the same (see <a href="#where-the-tracking-data-is-kept">Where the Tracking Data Is
+Kept</a>).</p>
+<ul>
+<li><strong>Read marks:</strong> a file counts as read once you open it.
+Unread files are shown in bold (you can choose bold, italic or both in
+the settings). A folder is <strong>Unread</strong>, <strong>Partly
+Read</strong> or <strong>Read</strong>, and the status is shown under
+the tree. <strong>Mark as Read</strong> and <strong>Mark as
+Unread</strong> in the menus change it, also for whole folders.</li>
+<li><strong>Jump to Last Opened File</strong> goes to the file you
+opened last in a folder.</li>
+<li><strong>Rating and Expectation</strong> (<strong>Ctrl+R</strong> and
+<strong>Ctrl+E</strong>): your own numbers from 1 to 10 for files and
+folders. A rating is a whole number; an expectation may have decimals.
+An empty box removes the value.</li>
+<li><strong>Tags of a folder:</strong> <strong>Set Tags…</strong> in the
+tree menu writes the tags to the <code>desktop.ini</code> of the folder,
+the way Windows does. They are shown under the tree.</li>
+<li><strong>Where a file came from</strong> (the web addresses of a
+download) is remembered as described under <a href="#the-info-panel">The
+Info Panel</a>.</li>
+</ul>
+<p>Renaming, moving and deleting in this program keeps all of this
+correct. Changes made by other programs are not seen.</p>
+<h2 id="dragging-and-dropping">Dragging and Dropping</h2>
+<ul>
+<li><strong>Drag files out</strong> of the list to other programs, such
+as Windows Explorer or the upload box of a web page.</li>
+<li><strong>Drop files in</strong> from Windows Explorer onto the list
+or onto a folder in the tree: they are copied or moved, as in Explorer
+(<strong>Ctrl</strong> copies, <strong>Shift</strong> moves; by default
+a move on the same drive and a copy to another). With the <strong>right
+mouse button</strong> a menu asks: <strong>Copy Here</strong>,
+<strong>Move Here</strong>, <strong>Create Shortcut Here</strong> or
+<strong>Cancel</strong>.</li>
+<li><strong>Drop a picture</strong> from a web browser onto the list or
+a folder in the tree to save it there.</li>
+<li>Dropping files into the Bookmarks folder makes bookmarks.</li>
+</ul>
+<p><strong>Tools &gt; Settings &gt; Drag and Drop</strong> can turn off
+dropping files into the program.</p>
+<h2 id="settings">Settings</h2>
+<p>Open <strong>Tools &gt; Settings</strong>. Among other things you can
+choose:</p>
+<ul>
+<li><strong>Style:</strong> Light, Dark, System (follows Windows) or
+Cyber Cyan.</li>
+<li><strong>Appearance:</strong> the style, and how unread files look
+(bold, italic).</li>
+<li><strong>Drag and Drop:</strong> turn off dropping files into the
+program.</li>
+<li><strong>Hidden Files:</strong> the extensions that count as hidden,
+extra extensions to hide inside archives, and the warning when all files
+are selected but hidden items are not.</li>
+<li><strong>File Names:</strong> hide extensions, the registered name of
+file types in the Type column, and the offer to move renamed
+videos.</li>
+<li><strong>Folder Tree:</strong> whether a right-click selects the
+folder.</li>
+<li><strong>Terminal Menu:</strong> which of the three terminals are in
+the menus.</li>
+</ul>
+<p>The settings are saved in
+<code>%AppData%\SweWolfSoftware\SwewolfFileExplorer\settings.json</code>.</p>
+<h2 id="starting-from-the-command-line">Starting from the Command
+Line</h2>
+<p><code>SwewolfFileExplorer.exe &quot;path&quot;</code> starts the program like
+this:</p>
+<ul>
+<li>A <strong>picture:</strong> the picture viewer opens alone, full
+screen. Esc ends the program; <strong>Close</strong> in its menu goes on
+to the explorer.</li>
+<li>A <strong>folder:</strong> the explorer opens with that folder as
+the top of the tree.</li>
+<li>Any <strong>other file:</strong> its folder opens with the file
+selected. Nothing is played or opened.</li>
+<li>A <strong>workspace or session file</strong> (<code>.json</code>):
+it is opened.</li>
+</ul>
+<h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enter / double-click</td>
+<td>Open the file or folder</td>
+</tr>
+<tr>
+<td>Backspace</td>
+<td>Up one folder</td>
+</tr>
+<tr>
+<td>Alt+Left / Alt+Right</td>
+<td>Back / forward</td>
+</tr>
+<tr>
+<td>F1</td>
+<td>This help</td>
+</tr>
+<tr>
+<td>F2</td>
+<td>Rename</td>
+</tr>
+<tr>
+<td>F5</td>
+<td>Refresh</td>
+</tr>
+<tr>
+<td>F6</td>
+<td>Go to the address bar</td>
+</tr>
+<tr>
+<td>F8</td>
+<td>Show or hide the tree</td>
+</tr>
+<tr>
+<td>Delete / Shift+Delete</td>
+<td>Delete to the Recycle Bin / for good</td>
+</tr>
+<tr>
+<td>Ctrl+A</td>
+<td>Select all in the list</td>
+</tr>
+<tr>
+<td>Ctrl+C / Ctrl+X / Ctrl+V</td>
+<td>Copy / cut / paste</td>
+</tr>
+<tr>
+<td>Ctrl+Shift+C</td>
+<td>Copy the path of the selected items</td>
+</tr>
+<tr>
+<td>Ctrl+Shift+N</td>
+<td>New folder</td>
+</tr>
+<tr>
+<td>Ctrl+T or Ctrl+N</td>
+<td>New tab</td>
+</tr>
+<tr>
+<td>Ctrl+W or Ctrl+F4</td>
+<td>Close the tab</td>
+</tr>
+<tr>
+<td>Ctrl+Shift+T</td>
+<td>Reopen the last closed tab</td>
+</tr>
+<tr>
+<td>Ctrl+Tab / Ctrl+Shift+Tab</td>
+<td>Next / previous tab</td>
+</tr>
+<tr>
+<td>Ctrl+F</td>
+<td>Filter bar</td>
+</tr>
+<tr>
+<td>Esc</td>
+<td>Close the filter bar</td>
+</tr>
+<tr>
+<td>Ctrl+D</td>
+<td>Add to Bookmarks</td>
+</tr>
+<tr>
+<td>Ctrl+Shift+O</td>
+<td>Go to the Bookmarks</td>
+</tr>
+<tr>
+<td>Ctrl+R / Ctrl+E</td>
+<td>Rating / expectation</td>
+</tr>
+<tr>
+<td>Ctrl+P</td>
+<td>Show or hide the Play bar</td>
+</tr>
+<tr>
+<td>Ctrl+Num +</td>
+<td>Fit the columns to their text</td>
+</tr>
+<tr>
+<td>Ctrl + mouse wheel</td>
+<td>Bigger or smaller text</td>
+</tr>
+<tr>
+<td>Alt+Enter</td>
+<td>Properties</td>
+</tr>
+<tr>
+<td>Shift + right-click</td>
+<td>The Windows menu</td>
+</tr>
+</tbody>
+</table>
+<h2 id="log-files">Log Files</h2>
+<p>Errors are written to <code>errors.log</code> in
+<code>%AppData%\SweWolfSoftware\SwewolfFileExplorer\Logs</code>.
+<strong>Help &gt; Open Log File</strong> and <strong>Help &gt; Open Log
+Folder</strong> open them. Nothing but errors is logged, and the file
+stays small.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong>The file list does not show a folder I made in another
+program.</strong> Press <strong>F5</strong>. The list follows changes by
+itself, but a few places (some network drives) cannot be watched.</p>
+<p><strong>A RAR or 7z file cannot be opened: “7-Zip is
+needed”.</strong> Install <a href="https://www.7-zip.org">7-Zip</a>. The
+program finds it by itself.</p>
+<p><strong>A JPEG XL picture does not show.</strong> Install <a href="https://imagemagick.org">ImageMagick</a> or Windows’ JPEG XL Image
+Extension from the Microsoft Store.</p>
+<p><strong>A video has no preview picture.</strong> Put
+<code>ffmpeg.exe</code> next to the program or on the PATH, or choose a
+picture yourself (right-click the preview).</p>
+<p><strong>A music or video file opens in another program.</strong>
+SweWolf Media Player was not found next to the program or in
+<code>..\SwewolfMediaPlayer</code>.</p>
+<p><strong>There is no File Info Viewer in the menu.</strong> File Info
+Viewer is a sibling program. The item is only shown when the program is
+found next to this one or in <code>..\FileInfoViewer</code>.</p>
+<p><strong>A drive I connected does not show.</strong> Press
+<strong>F5</strong>, or wait a few seconds. The drives are checked all
+the time.</p>
+<p><strong>Something went wrong.</strong> Look at <strong>Help &gt; Open
+Log File</strong>.</p>
+</body>
+</html>

@@ -97,6 +97,8 @@
             </MenuItem>
 
             <MenuItem Header="_Help">
+                <MenuItem Header="SweWolf File Explorer _Help" InputGestureText="F1" Click="MenuHelp_Click"/>
+                <Separator/>
                 <MenuItem Header="Open _Log File"   Click="MenuOpenLogFile_Click"/>
                 <MenuItem Header="Open Log _Folder" Click="MenuOpenLogFolder_Click"/>
                 <Separator/>
@@ -638,9 +640,9 @@
                             <Separator/>
                             <MenuItem x:Name="TreeFileInfoItem" Header="File Info Viewer" Click="TreeCtxFileInfo_Click" Visibility="Collapsed"
                                       ToolTip="Show everything about this file in File Info Viewer"/>
+                            <MenuItem x:Name="TreeDriveDataItem" Click="TreeCtxDriveData_Click" Visibility="Collapsed"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click" InputGestureText="Alt+Enter"/>
                             <Separator/>
-                            <MenuItem x:Name="TreeDriveDataItem" Click="TreeCtxDriveData_Click" Visibility="Collapsed"/>
                             <MenuItem Header="More Options"    Click="TreeCtxMoreOptions_Click"
                                       ToolTip="The full Windows menu of this folder, with the add-ons. Shift + right-click opens it at once."/>
                         </ContextMenu>
@@ -801,9 +803,9 @@
                                 <DataTemplate><TextBlock Text="{Binding FreeText}" TextAlignment="Right" Margin="0,0,11,0"/></DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
+                        <GridViewColumn Header="Tracking Data Location" Width="180" DisplayMemberBinding="{Binding TrackingText}"/>
                     </GridView>
                 </ListView.View>
-                        <GridViewColumn Header="Tracking Data Location" Width="180" DisplayMemberBinding="{Binding TrackingText}"/>
             </ListView>
             <ListView
                       x:Name="FileListView"
