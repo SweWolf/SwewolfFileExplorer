@@ -37,6 +37,7 @@
                 <MenuItem x:Name="RatingModeMenuItem" Header="Rating Mode" InputGestureText="Shift+R" IsCheckable="True" Click="MenuRatingMode_Click"/>
                 <MenuItem Header="Rating..." InputGestureText="R" Click="MenuRating_Click"/>
                 <Separator/>
+                <MenuItem Header="Move/Copy to Folder..." Click="MenuMoveCopy_Click"/>
                 <MenuItem Header="Move to Trash Folder" InputGestureText="T" Click="MenuTrash_Click"/>
                 <MenuItem x:Name="UndoTrashMenuItem" Header="Take Back from Trash Folder" InputGestureText="Ctrl+Z" Click="MenuUndoTrash_Click"/>
                 <Separator/>

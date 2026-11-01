@@ -3388,9 +3388,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// Pastes what is on the clipboard into <paramref name="destination"/>, a folder of the disk. The files are copied or moved on
     /// a background thread; a long one shows a progress window (file n of N, a bar, Cancel). See <see cref="FileTransfer"/>.
     /// </summary>
-    public async void PasteInto(string destination, List<string>? dropped = null, bool dropMove = false)
+    public async void PasteInto(string destination, List<string>? dropped = null, bool dropMove = false) =>
+        await PasteIntoAsync(destination, dropped, dropMove);
+
+    /// <summary>
+    /// <see cref="PasteInto"/> for a caller that must know how it went (the picture viewer's Move/Copy to Folder): the result of the
+    /// transfer, or null when nothing was done (the user canceled a question, or another paste is going on).
+    /// </summary>
+    public async Task<TransferResult?> PasteIntoAsync(string destination, List<string>? dropped = null, bool dropMove = false)
     {
-        if (_pasting) return;
+        if (_pasting) return null;
 
         // Files dropped from Explorer (or another program) are handled like a paste of those files; the clipboard is not touched.
         List<string> sources;
@@ -3400,7 +3407,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         else
         {
             if (RemoteFiles.HasVirtualFiles()) await PasteRemoteAsync(destination);
-            return;
+            return null;
         }
 
         // Cut video or music files: do the files that belong to them follow? Asked before anything is moved; Cancel stops the paste.
@@ -3414,7 +3421,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 .ToList();
 
             if (media.Count > 0 && !AskAboutRelated(media, new HashSet<string>(sources, StringComparer.OrdinalIgnoreCase), rename: false, out relatedMoves, out notDone, copy: !isCut))
-                return;
+                return null;
         }
 
         // What there really is to do.
@@ -3520,6 +3527,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
             StatusText = $"{(isCut ? "Move" : "Copy")} canceled: {result.Done.Count} of {result.Total} items were done.";
         else if (result.Skipped > 0)
             StatusText = $"{result.Skipped} {(result.Skipped == 1 ? "file was" : "files were")} skipped.";
+
+        return result;
     }
 
     /// <summary>The item directly inside <paramref name="folder"/> that <paramref name="path"/> is (or lies below), else null.</summary>
@@ -3631,8 +3640,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
             var target = Path.GetFileName(destination.TrimEnd('\\', '/'));
             if (string.IsNullOrEmpty(target)) target = destination;   // a drive: D:\\
 
+            // On top of the window that is in front (the picture viewer, when it started the transfer), not behind it.
+            var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
             var dlg = new Views.ProgressDialog(what, heading ?? $"{what} {thing} to '{target}'", progress, () => cts.Cancel(), icon)
-                      { Owner = Application.Current?.MainWindow };
+                      { Owner = owner };
             _ = task.ContinueWith(_ => dlg.Dispatcher.BeginInvoke(new Action(dlg.Finish)), TaskScheduler.Default);
             dlg.ShowDialog();
         }

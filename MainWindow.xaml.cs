@@ -2716,6 +2716,7 @@ public partial class MainWindow : Window
         {
             SelectInList(path);      // the list follows the viewer
             VM.MarkPathRead(path);   // a picture shown here is a picture opened
+        viewer.MoveCopy = MoveCopyForViewer;
         };
         return viewer;
     }
@@ -3983,6 +3984,28 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Asks in which folder (the folder shown is suggested; Windows' own Create Shortcut always uses the item's folder) and makes a shortcut
+    /// <summary>
+    /// Move/Copy to Folder from the picture viewer: the same window (it is owned by the viewer, which covers the screen) and the same transfer
+    /// as <see cref="MoveCopyTo"/>, but it says what was done, so the viewer can go on to the next picture after a move.
+    /// </summary>
+    private async Task<PictureViewerWindow.MoveCopyOutcome?> MoveCopyForViewer(Window owner, string path)
+    {
+        if (!System.IO.File.Exists(path)) return null;
+
+        var dialog = new MoveCopyToDialog(new List<string> { path }) { Owner = owner };
+        if (dialog.ShowDialog() != true) return null;
+
+        try { System.IO.Directory.CreateDirectory(dialog.FolderPath); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(owner, $"Cannot make the folder \"{dialog.FolderPath}\": {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
+            return null;
+        }
+
+        var result = await VM.DropFilesAsync(dialog.FolderPath, new List<string> { path }, dialog.IsMove);
+        return result == null ? null : new PictureViewerWindow.MoveCopyOutcome(dialog.IsMove, dialog.FolderPath, result.Done);
+    }
+
     /// to each item there. The ones that cannot be made are listed at the end. If the folder is the one shown, the list is read again and the
     /// new shortcuts are selected.
     /// </summary>
