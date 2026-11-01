@@ -48,11 +48,21 @@ public partial class PictureViewerWindow
             return;
         }
 
+        // The files that belong to the picture (photo.xmp, the RAW of a JPEG ...): do they go too?
+        bool includeSides = false;
+        var sides = FindSideFiles(path, folder);
+        if (sides.Count > 0)
+        {
+            int answer = AskAboutSideFiles("Move to Trash Folder", $"You are moving \"{Path.GetFileName(path)}\" to the Trash folder.", "to the Trash folder", "Move", sides);
+            if (answer == 2) return;
+            includeSides = answer == 0;
+        }
+
         _trashBusy = true;
         List<(string From, string To)> moved;
         try
         {
-            moved = await Task.Run(() => TrashFiles(path, folder));
+            moved = await Task.Run(() => TrashFiles(path, folder, includeSides));
         }
         catch (Exception ex)
         {
@@ -88,7 +98,7 @@ public partial class PictureViewerWindow
     }
 
     /// <summary>Moves the picture and its side files into the Trash folder (made, and hidden, if needed). The picture must move, or this throws.</summary>
-    private static List<(string From, string To)> TrashFiles(string path, string folder)
+    private static List<(string From, string To)> TrashFiles(string path, string folder, bool includeSides)
     {
         string trash = Path.Combine(folder, TrashFolderName);
         if (!Directory.Exists(trash))
@@ -104,15 +114,7 @@ public partial class PictureViewerWindow
 
         // The side files keep the name the picture got in the Trash folder (it may have a number).
         string newStem = Path.GetFileNameWithoutExtension(target), newFull = Path.GetFileName(target);
-        string stem = Path.GetFileNameWithoutExtension(path), full = Path.GetFileName(path), ext = Path.GetExtension(path);
-
-        var wanted = new List<(string From, string NewName)>();
-        foreach (var e in SideExtensionsByStem)     wanted.Add((Path.Combine(folder, stem + e), newStem + e));
-        foreach (var e in SideExtensionsByFullName) wanted.Add((Path.Combine(folder, full + e), newFull + e));
-        string[] partners = Array.Exists(RawExtensions, r => r.Equals(ext, StringComparison.OrdinalIgnoreCase)) ? JpegExtensions
-                          : Array.Exists(JpegExtensions, j => j.Equals(ext, StringComparison.OrdinalIgnoreCase)) ? RawExtensions
-                          : Array.Empty<string>();
-        foreach (var e in partners) wanted.Add((Path.Combine(folder, stem + e), newStem + e));
+        var wanted = includeSides ? SideCandidates(path, folder, newStem, newFull) : new List<(string From, string NewName)>();
 
         foreach (var (from, newName) in wanted)
         {
@@ -126,6 +128,48 @@ public partial class PictureViewerWindow
             catch { /* a side file that cannot move (in use, no access) stays where it is */ }
         }
         return moved;
+    }
+
+    /// <summary>The names that belong to a picture (side files by the same name, the other half of a RAW + JPEG pair), with the name each gets when the picture is renamed to <paramref name="newStem"/> / <paramref name="newFull"/>. Not checked for existence.</summary>
+    private static List<(string From, string NewName)> SideCandidates(string path, string folder, string newStem, string newFull)
+    {
+        string stem = Path.GetFileNameWithoutExtension(path), full = Path.GetFileName(path), ext = Path.GetExtension(path);
+
+        var wanted = new List<(string From, string NewName)>();
+        foreach (var e in SideExtensionsByStem)     wanted.Add((Path.Combine(folder, stem + e), newStem + e));
+        foreach (var e in SideExtensionsByFullName) wanted.Add((Path.Combine(folder, full + e), newFull + e));
+        string[] partners = Array.Exists(RawExtensions, r => r.Equals(ext, StringComparison.OrdinalIgnoreCase)) ? JpegExtensions
+                          : Array.Exists(JpegExtensions, j => j.Equals(ext, StringComparison.OrdinalIgnoreCase)) ? RawExtensions
+                          : Array.Empty<string>();
+        foreach (var e in partners) wanted.Add((Path.Combine(folder, stem + e), newStem + e));
+        return wanted;
+    }
+
+    /// <summary>The files that exist beside <paramref name="path"/> and belong to it (found by trying the names, never by listing the folder).</summary>
+    private static List<string> FindSideFiles(string path, string folder)
+    {
+        var found = new List<string>();
+        foreach (var (from, _) in SideCandidates(path, folder, "", ""))
+            if (!string.Equals(from, path, StringComparison.OrdinalIgnoreCase) && File.Exists(from)
+                && !found.Contains(from, StringComparer.OrdinalIgnoreCase))
+                found.Add(from);
+        return found;
+    }
+
+    /// <summary>
+    /// "Do you also want to move these files?" (as for video and music files in the Explorer). 0 = Yes (them too), 1 = No (only the picture),
+    /// 2 = Cancel. <paramref name="where"/> is "to the Trash folder" or "to the folder"; <paramref name="verb"/> is Move or Copy.
+    /// </summary>
+    private int AskAboutSideFiles(string title, string head, string where, string verb, IReadOnlyList<string> sides)
+    {
+        var list = RelatedFiles.Describe(sides.Select(Path.GetFileName).ToList()!, Array.Empty<string>());
+        string lower = verb.ToLowerInvariant();
+        string message = $"{head}\n\nDo you also want to {lower} these files {where}?\n\n{list}\n\n" +
+                         $"Yes: {verb} them too.\nNo: {verb} only the picture.\nCancel: Change nothing.";
+
+        var dialog = new ChoiceDialog(message, new[] { "Yes", "No", "Cancel" }, 0, 2) { Title = title, FontSize = 16, MinWidth = 760, Owner = this };
+        dialog.ShowDialog();
+        return dialog.Result;
     }
 
     private async void UndoTrash()

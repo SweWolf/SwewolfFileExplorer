@@ -3988,7 +3988,7 @@ public partial class MainWindow : Window
     /// Move/Copy to Folder from the picture viewer: the same window (it is owned by the viewer, which covers the screen) and the same transfer
     /// as <see cref="MoveCopyTo"/>, but it says what was done, so the viewer can go on to the next picture after a move.
     /// </summary>
-    private async Task<PictureViewerWindow.MoveCopyOutcome?> MoveCopyForViewer(Window owner, string path)
+    private async Task<PictureViewerWindow.MoveCopyOutcome?> MoveCopyForViewer(Window owner, string path, Func<bool, IReadOnlyList<string>?> sidesFor)
     {
         if (!System.IO.File.Exists(path)) return null;
 
@@ -4002,7 +4002,12 @@ public partial class MainWindow : Window
             return null;
         }
 
-        var result = await VM.DropFilesAsync(dialog.FolderPath, new List<string> { path }, dialog.IsMove);
+        var sides = sidesFor(dialog.IsMove);   // which files that belong to the picture go along (null: the user canceled)
+        if (sides == null) return null;
+
+        var items = new List<string> { path };
+        items.AddRange(sides);
+        var result = await VM.DropFilesAsync(dialog.FolderPath, items, dialog.IsMove);
         return result == null ? null : new PictureViewerWindow.MoveCopyOutcome(dialog.IsMove, dialog.FolderPath, result.Done);
     }
 

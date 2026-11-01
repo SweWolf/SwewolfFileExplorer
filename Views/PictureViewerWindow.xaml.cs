@@ -756,6 +756,7 @@ public partial class PictureViewerWindow : Window
 
             case Key.R when plain: AskRating(); break;
 
+            case Key.M when plain: MoveOrCopyCurrent(); break;
             case Key.T when plain: MoveToTrash(); break;
             case Key.Z when ctrl:  UndoTrash();   break;
 
