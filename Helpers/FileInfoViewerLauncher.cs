@@ -10,6 +10,7 @@ public static class FileInfoViewerLauncher
 {
     private const string AppName = "FileInfoViewer";
     private const string DisplayName = "File Info Viewer";
+    private const string DownloadPage = "https://github.com/SweWolf/FileInfoViewer/releases";
 
     private static ImageSource? _icon;
 
@@ -38,7 +39,15 @@ public static class FileInfoViewerLauncher
         var exe = FindExe();
         if (exe == null)
         {
-            MessageBox.Show($"{DisplayName} was not found.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            var answer = MessageBox.Show(
+                $"{DisplayName} was not found. It is a separate program from the same maker: put it in a folder named {AppName} next to this program's folder, or in the same folder as this program.\n\n" +
+                $"You can download it here:\n{DownloadPage}\n\nDo you want to open that page in your web browser?",
+                AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
+            if (answer == MessageBoxResult.Yes)
+            {
+                try { Process.Start(new ProcessStartInfo { FileName = DownloadPage, UseShellExecute = true }); }
+                catch { }
+            }
             return;
         }
 

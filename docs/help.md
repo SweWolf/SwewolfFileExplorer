@@ -58,8 +58,8 @@ archives like folders, and shows a preview, a plot or the prompt of an AI pictur
 
 SweWolf Media Player and File Info Viewer are looked for next to this program, and then in a folder
 next to it with their own name (`..\SwewolfMediaPlayer`, `..\FileInfoViewer`). If a program is missing, the feature that
-needs it says so, and everything else keeps working. The **File Info Viewer** items are simply not shown
-in the menus when that program is not found.
+needs it says so, and everything else keeps working. If **File Info Viewer** is not found, its
+menu item still shows; clicking it says where to download the program (https://github.com/SweWolf/FileInfoViewer) and offers to open that page.
 
 ### Your First Minutes
 
@@ -588,9 +588,9 @@ Put `ffmpeg.exe` next to the program or on the PATH, or choose a picture yoursel
 **A music or video file opens in another program.**
 SweWolf Media Player was not found next to the program or in `..\SwewolfMediaPlayer`.
 
-**There is no File Info Viewer in the menu.**
-File Info Viewer is a sibling program. The item is only shown when the program is found next to this one or in
-`..\FileInfoViewer`.
+**File Info Viewer was not found.**
+File Info Viewer is a sibling program. It must be in the same folder as this program or in `..\FileInfoViewer`. The message
+gives the download address (https://github.com/SweWolf/FileInfoViewer) and offers to open it in your browser.
 
 **A drive I connected does not show.**
 Press **F5**, or wait a few seconds. The drives are checked all the time.

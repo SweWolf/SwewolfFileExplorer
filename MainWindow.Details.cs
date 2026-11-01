@@ -189,8 +189,9 @@ public partial class MainWindow
         DetailsPropertiesButton.Visibility = nodePath != null || !VM.InArchive ? Visibility.Visible : Visibility.Collapsed;
 
         var exe = fileForViewer ? FileInfoViewerLauncher.FindExe() : null;
-        DetailsFileInfoButton.Visibility = exe != null ? Visibility.Visible : Visibility.Collapsed;
-        if (exe != null && DetailsFileInfoIcon.Source == null) DetailsFileInfoIcon.Source = FileInfoViewerLauncher.GetIcon(exe);
+        DetailsFileInfoButton.Visibility = fileForViewer ? Visibility.Visible : Visibility.Collapsed;
+        if (exe != null) DetailsFileInfoIcon.Source = FileInfoViewerLauncher.GetIcon(exe);
+        else if (DetailsFileInfoIcon.Source == null) DetailsFileInfoIcon.Source = IconHelper.GetIconForName("File Info Viewer.exe", false);   // plain program icon until the program is found
     }
 
     private void DetailsProperties_Click(object sender, RoutedEventArgs e)

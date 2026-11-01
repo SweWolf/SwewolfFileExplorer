@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         DataContext = new MainViewModel();
         VM.FolderCreated += OnFolderCreated;
         VM.SelectPathRequested += OnSelectPathRequested;
+        VM.ViewOrder = () => FileListView.Items.OfType<FileItemViewModel>().ToList();
         VM.SelectPathsRequested += OnSelectPathsRequested;
         VM.ClipboardFileRequested += NewFileFromClipboard;   // Ctrl+V with a picture or text on the clipboard, and the user said yes
         VM.AddressPasteRequested += text =>   // Ctrl+V on This PC with text on the clipboard: into the address bar, no Enter
@@ -3674,7 +3675,7 @@ public partial class MainWindow : Window
     private static void ShowFileInfoItem(MenuItem item, bool show)
     {
         var exe = show ? FileInfoViewerLauncher.FindExe() : null;
-        item.Visibility = exe != null ? Visibility.Visible : Visibility.Collapsed;
+        item.Visibility = show ? Visibility.Visible : Visibility.Collapsed;   // shown also when the program is missing: the click says where to get it
         if (exe != null && item.Icon == null && FileInfoViewerLauncher.GetIcon(exe) is { } icon)
             item.Icon = new Image { Source = icon, Width = 16, Height = 16 };
     }
