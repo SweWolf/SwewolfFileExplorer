@@ -641,6 +641,8 @@
                             <MenuItem x:Name="TreeFileInfoItem" Header="File Info Viewer" Click="TreeCtxFileInfo_Click" Visibility="Collapsed"
                                       ToolTip="Show everything about this file in File Info Viewer"/>
                             <MenuItem x:Name="TreeDriveDataItem" Click="TreeCtxDriveData_Click" Visibility="Collapsed"/>
+                            <MenuItem x:Name="TreeCleanUpItem" Click="TreeCtxCleanUp_Click" Visibility="Collapsed"/>
+                            <Separator x:Name="TreeCleanUpSeparator" Visibility="Collapsed"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click" InputGestureText="Alt+Enter"/>
                             <Separator/>
                             <MenuItem Header="More Options"    Click="TreeCtxMoreOptions_Click"

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using SwewolfFileExplorer.Helpers;
+using SwewolfFileExplorer.Views;
 
 namespace SwewolfFileExplorer;
 
@@ -54,6 +55,105 @@ public partial class MainWindow
     private void TreeCtxDriveData_Click(object sender, RoutedEventArgs e)
     {
         if (_treeMenuNode != null && DriveRootOf(_treeMenuNode.FullPath) is { } root) ToggleDriveData(root);
+    }
+
+    private const string CleanUpHeader = "Clean Up Tracking Data";
+    private const string CleanUpTitle  = "Clean Up Tracking Data";
+
+    /// <summary>Header, enabled state and tooltip of "Clean Up Tracking Data" for the drive <paramref name="root"/> (a CD or DVD has nothing to clean).</summary>
+    private static void PrepareCleanUpItem(MenuItem item, string root)
+    {
+        item.Header    = CleanUpHeader;
+        item.IsEnabled = LibraryStore.GetDriveDataKind(root) != LibraryStore.DriveDataKind.NotPossible;
+        item.ToolTip   = "Removes the read marks, ratings, folder options and other tracking data of this drive that belong to files and folders that no longer exist. A backup copy is saved first.";
+    }
+
+    private void TreeCtxCleanUp_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null && DriveRootOf(_treeMenuNode.FullPath) is { } root) CleanUpDriveData(root);
+    }
+
+    private async void CleanUpDriveData(string root)
+    {
+        if (_driveDataBusy) return;
+        if (LibraryStore.GetDriveDataKind(root) == LibraryStore.DriveDataKind.NotPossible) return;
+        string drive = root.TrimEnd('\\', '/');
+
+        var confirm = MessageBox.Show(this,
+            $"Confirm cleaning up the tracking data of drive {drive}.\n\n" +
+            $"This program remembers read marks, ratings, folder options, sort orders and other tracking data for the files and folders on {drive}. " +
+            "If a file or folder was deleted, renamed or moved outside this program, what is remembered about it is still there.\n\n" +
+            $"Clean Up looks at everything that is remembered for drive {drive} and removes the records of files and folders that no longer exist. " +
+            "Nothing is removed for files that are still there, and the files and folders themselves are never touched. " +
+            "The ratings and read marks of a file that was moved or renamed outside this program are lost.\n\n" +
+            "A backup copy of the tracking data is saved first.\n\n" +
+            "Do you want to continue?",
+            CleanUpTitle, MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.OK);
+        if (confirm != MessageBoxResult.OK) return;
+
+        _driveDataBusy = true;
+        try
+        {
+            // What was just marked, rated or moved is written first.
+            await Task.Run(() => LibraryService.WaitForQueued(3000));
+
+            var plan = WaitWindow.Run(this, CleanUpTitle, $"Checking the tracking data of drive {drive}...",
+                "Looking for records of files and folders that no longer exist.",
+                ct => Task.Run(() => LibraryStore.ScanForCleanup(root, ct), ct));
+
+            if (plan == null)
+            {
+                FlashTitle($"{BaseTitle} - Clean up canceled, nothing was changed");
+                return;
+            }
+            if (plan.Problem != null)
+            {
+                MessageBox.Show(this, plan.Problem, CleanUpTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (plan.DeadCount == 0)
+            {
+                MessageBox.Show(this, plan.Total == 0
+                        ? $"Nothing to clean up: no tracking data is remembered for drive {drive}."
+                        : $"Nothing to clean up: all {plan.Total:N0} records of drive {drive} belong to files and folders that still exist.",
+                    CleanUpTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // A safeguard: when most of the records look dead, the drive may be missing something (a folder that did not come up), so ask.
+            if (plan.MostAreDead)
+            {
+                var sure = MessageBox.Show(this,
+                    $"{plan.DeadCount:N0} of the {plan.Total:N0} records of drive {drive} belong to files and folders that no longer exist. That is more than half of them.\n\n" +
+                    "If the drive is not complete (a folder or a disk that did not come up), cleaning up now would remove records you want to keep. A backup copy is saved first, but check that the drive looks as it should.\n\n" +
+                    "Do you want to remove them anyway?",
+                    CleanUpTitle, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+                if (sure != MessageBoxResult.Yes) return;
+            }
+
+            Mouse.OverrideCursor = Cursors.Wait;
+            string? backup = null;
+            string? error;
+            try { error = await Task.Run(() => LibraryStore.ApplyCleanup(plan, out backup)); }
+            finally { Mouse.OverrideCursor = null; }
+
+            if (error != null)
+            {
+                MessageBox.Show(this, $"The tracking data of drive {drive} could not be cleaned up: {error}\n\nNothing was removed.",
+                    CleanUpTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            MessageBox.Show(this,
+                $"Removed {plan.DeadCount:N0} {(plan.DeadCount == 1 ? "record" : "records")} of files and folders that no longer exist from the tracking data of drive {drive} " +
+                $"({plan.Total:N0} records were checked).\n\nA backup copy was saved before the clean up:\n{backup}",
+                CleanUpTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+            VM.RefreshCommand.Execute(null);   // read marks and the rest are read again
+        }
+        finally
+        {
+            _driveDataBusy = false;
+        }
     }
 
     private async void ToggleDriveData(string root)

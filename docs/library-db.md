@@ -113,6 +113,11 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 - **Backups of the main file:** the first start of an app each day makes `Backups\library-yyyyMMdd.db` next to
   `library.db` (SQLite's backup, so it is consistent while another app writes). The last 7 are kept. The USB files are not
   backed up: they travel with the drive. To restore by hand: close both apps and copy a backup over `library.db`.
+- **Clean up a drive** (explorer, a drive's right-click menu, `LibraryStore.ScanForCleanup` / `ApplyCleanup`): the records of a drive (in
+  the main file those whose key starts with the drive letter; in a drive's own file all of them) whose file or folder is gone are
+  deleted, in one transaction, after a copy of the file `Backups\cleanup-yyyyMMdd-HHmmss.db` next to it (last 5 kept). A path inside
+  an archive (a file used as a folder) counts as there while the archive file is; a folder that cannot be listed keeps its rows. Nothing
+  is removed if the drive root cannot be read or has no entries. Volume-keyed rows (CD / DVD) are not cleaned.
 
 ## Notes
 

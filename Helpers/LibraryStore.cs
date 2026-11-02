@@ -18,6 +18,8 @@ public sealed record LibraryRoute(string DbFile, string Prefix, bool Relative, s
 /// what it knows.
 ///
 /// History:
+///   2026-11-02  ScanForCleanup / ApplyCleanup: finds the records of a drive whose file or folder is gone (read only) and removes them
+///               after a backup copy (cleanup-*.db in Backups). No schema change.
 ///   2026-10-31  Resolve: the trimmed path of a drive itself ("D:") now finds the drive's root ("D:\"), so the rows of a drive's own rating go
 ///               to the same file as everything else on it.
 ///   2026-10-31  A drive of any kind that is not removable by itself (internal, network, VeraCrypt) can be told to keep its data on the drive:
@@ -1660,6 +1662,222 @@ public static class LibraryStore
                 }
             }
             catch { }
+        }
+    }
+
+    // ── Cleaning up a drive's data ───────────────────────────────────────────
+
+    /// <summary>What <see cref="ScanForCleanup"/> found: the records of a drive that point to files or folders that are gone.</summary>
+    public sealed class CleanupPlan
+    {
+        internal LibraryRoute? Route;
+        internal readonly List<(string Table, string Key, string? Name)> Dead = new();
+
+        /// <summary>How many records of the drive were looked at.</summary>
+        public int Total;
+        /// <summary>How many of them point to something that no longer exists.</summary>
+        public int DeadCount => Dead.Count;
+        /// <summary>Set when nothing could be done and why (the drive is not ready or looks empty, the scan was canceled).</summary>
+        public string? Problem;
+        /// <summary>More than half of the records are dead (and at least 10): the caller should ask before removing them.</summary>
+        public bool MostAreDead => DeadCount >= 10 && DeadCount * 2 > Total;
+    }
+
+    private enum PathKind { Missing, Folder, InsideArchive, Unknown }
+
+    // Tables whose rows are (Folder, Name): an item in a folder. And tables with one row per folder (Path), some with a file name too.
+    private static readonly string[] ItemTables = { "File", "Rated", "PreviewPick", "ItemInfo", "TrackChoice" };
+    private static readonly string[] FolderTables = { "Folder", "FolderPrefs", "LastOpened", "FolderPicture" };
+
+    /// <summary>
+    /// Looks (read only) at every record of a drive and lists the ones whose file or folder is gone. A path inside an archive counts
+    /// as there as long as the archive file is (archives are not opened). Nothing is removed here: see <see cref="ApplyCleanup"/>.
+    /// The drive must be readable and not empty, else <see cref="CleanupPlan.Problem"/> says so. A folder that cannot be listed keeps
+    /// its records. Call it on a background thread.
+    /// </summary>
+    public static CleanupPlan ScanForCleanup(string root, CancellationToken cancel)
+    {
+        Flush();   // read marks still waiting for the worker are written first
+        var plan = new CleanupPlan();
+        root = Path.GetPathRoot(root) ?? root;
+
+        try
+        {
+            // A drive that is not there, or that looks empty (a drive that has not come up properly), would make every record look dead.
+            if (!Directory.Exists(root) || !Directory.EnumerateFileSystemEntries(root).Any())
+            {
+                plan.Problem = $"Drive {root.TrimEnd('\\', '/')} is not ready, or it looks empty, so nothing was checked.";
+                return plan;
+            }
+        }
+        catch (Exception ex)
+        {
+            plan.Problem = $"Drive {root.TrimEnd('\\', '/')} cannot be read ({ex.Message}), so nothing was checked.";
+            return plan;
+        }
+
+        var route = Resolve(root, create: false);
+        if (route == null || route.Prefix.Length > 0) { plan.Problem = "This drive keeps its tracking data on this computer under its disc number: there is nothing to clean up."; return plan; }
+        plan.Route = route;
+
+        var rootItem = root.TrimEnd('\\', '/');
+        var itemRows   = new List<(string Table, string Folder, string Name)>();
+        var folderRows = new List<(string Table, string Path, string? Name)>();
+
+        lock (Gate)
+        {
+            using var connection = Open(route, create: false);
+            if (connection == null) return plan;   // no file, nothing remembered
+
+            // The main file holds every fixed drive: only the rows of this drive. A drive's own file is all this drive.
+            var (below, above) = SubtreeRange(rootItem);
+            string ItemWhere   = route.Relative ? "" : " WHERE Folder = $k OR (Folder > $a AND Folder < $b)";
+            string FolderWhere = route.Relative ? "" : " WHERE Path = $k OR (Path > $a AND Path < $b)";
+            var p = new (string, object?)[] { ("$k", rootItem), ("$a", below), ("$b", above) };
+
+            foreach (var table in ItemTables)
+            {
+                using var command = Command(connection, $"SELECT Folder, Name FROM {table}{ItemWhere}", route.Relative ? Array.Empty<(string, object?)>() : p);
+                using var reader = command.ExecuteReader();
+                while (reader.Read()) itemRows.Add((table, reader.GetString(0), reader.GetString(1)));
+            }
+            foreach (var table in FolderTables)
+            {
+                bool hasName = table is "LastOpened" or "FolderPicture";
+                using var command = Command(connection, $"SELECT Path{(hasName ? ", Name" : "")} FROM {table}{FolderWhere}", route.Relative ? Array.Empty<(string, object?)>() : p);
+                using var reader = command.ExecuteReader();
+                while (reader.Read()) folderRows.Add((table, reader.GetString(0), hasName ? reader.GetString(1) : null));
+            }
+        }
+
+        plan.Total = itemRows.Count + folderRows.Count;
+
+        // From here on only the disk is asked, with no lock on the database: a slow drive must not hold up the rest of the app.
+        var kinds   = new Dictionary<string, PathKind>(StringComparer.OrdinalIgnoreCase);
+        var entries = new Dictionary<string, HashSet<string>?>(StringComparer.OrdinalIgnoreCase);
+
+        string FullPath(string key) => route.Relative
+            ? (key.Length == 0 ? root : root.TrimEnd('\\', '/') + key)
+            : (key.Length == 2 && key[1] == ':' ? key + "\\" : key);
+
+        PathKind KindOf(string path)
+        {
+            if (kinds.TryGetValue(path, out var known)) return known;
+            PathKind kind;
+            try
+            {
+                if (Directory.Exists(path)) kind = PathKind.Folder;
+                else if (File.Exists(path)) kind = PathKind.InsideArchive;   // a file used as a folder: an archive or a playlist
+                else
+                {
+                    var parent = Path.GetDirectoryName(path.TrimEnd('\\', '/'));
+                    if (string.IsNullOrEmpty(parent)) kind = PathKind.Missing;
+                    else
+                    {
+                        var parentKind = KindOf(parent);
+                        kind = parentKind is PathKind.InsideArchive or PathKind.Unknown ? parentKind : PathKind.Missing;
+                    }
+                }
+            }
+            catch { kind = PathKind.Unknown; }
+            kinds[path] = kind;
+            return kind;
+        }
+
+        // Is the name in the folder? A folder that cannot be listed says yes (nothing is removed on a guess).
+        bool NameIsThere(string folderPath, string name)
+        {
+            if (!entries.TryGetValue(folderPath, out var names))
+            {
+                try { names = new HashSet<string>(Directory.EnumerateFileSystemEntries(folderPath).Select(e => Path.GetFileName(e)), StringComparer.OrdinalIgnoreCase); }
+                catch { names = null; }
+                entries[folderPath] = names;
+            }
+            return names == null || names.Contains(name);
+        }
+
+        bool ItemAlive(string folderKey, string name)
+        {
+            if (name.Length == 0) return true;   // the drive itself (its own rating): the drive is there
+            var folder = FullPath(folderKey);
+            var kind = KindOf(folder);
+            return kind switch
+            {
+                PathKind.Missing => false,
+                PathKind.Folder  => NameIsThere(folder, name),
+                _                => true,   // inside an archive, or not known
+            };
+        }
+
+        int counter = 0;
+        foreach (var (table, folder, name) in itemRows)
+        {
+            if ((++counter & 63) == 0) cancel.ThrowIfCancellationRequested();
+            if (!ItemAlive(folder, name)) plan.Dead.Add((table, folder, name));
+        }
+        foreach (var (table, path, name) in folderRows)
+        {
+            if ((++counter & 63) == 0) cancel.ThrowIfCancellationRequested();
+            var kind = KindOf(FullPath(path));
+            bool alive = kind != PathKind.Missing;
+            if (alive && name != null && kind == PathKind.Folder && !NameIsThere(FullPath(path), name)) alive = false;   // the file it names is gone
+            if (!alive) plan.Dead.Add((table, path, null));   // these tables have one row per folder: the folder is the key
+        }
+        return plan;
+    }
+
+    /// <summary>
+    /// Removes the records <see cref="ScanForCleanup"/> found, after saving a copy of the data file first (cleanup-yyyyMMdd-HHmmss.db in
+    /// the Backups folder next to it; the last 5 are kept). All of it or nothing. Returns null when it worked, else the reason
+    /// (then nothing was changed); <paramref name="backupFile"/> is where the copy is.
+    /// </summary>
+    public static string? ApplyCleanup(CleanupPlan plan, out string? backupFile)
+    {
+        backupFile = null;
+        if (plan.Route == null || plan.Dead.Count == 0) return null;
+        Flush();
+
+        lock (Gate)
+        {
+            try
+            {
+                using var connection = Open(plan.Route, create: false);
+                if (connection == null) return "The data file could not be opened.";
+
+                var folder = BackupFolder(plan.Route.DbFile);
+                Directory.CreateDirectory(folder);
+                var target = Path.Combine(folder, $"cleanup-{DateTime.Now:yyyyMMdd-HHmmss}.db");
+                var temp = target + ".tmp";
+                File.Delete(temp);
+                using (var copy = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temp, Pooling = false }.ToString()))
+                {
+                    copy.Open();
+                    connection.BackupDatabase(copy);
+                }
+                File.Move(temp, target, overwrite: true);
+                backupFile = target;
+
+                using (var transaction = connection.BeginTransaction())
+                {
+                    foreach (var (table, key, name) in plan.Dead)
+                    {
+                        using var delete = name != null
+                            ? Command(connection, $"DELETE FROM {table} WHERE Folder = $k AND Name = $n", ("$k", key), ("$n", name))
+                            : Command(connection, $"DELETE FROM {table} WHERE Path = $k", ("$k", key));
+                        delete.Transaction = transaction;
+                        delete.ExecuteNonQuery();
+                    }
+                    transaction.Commit();
+                }
+
+                foreach (var old in Directory.GetFiles(folder, "cleanup-*.db").OrderByDescending(f => f, StringComparer.OrdinalIgnoreCase).Skip(5))
+                    try { File.Delete(old); } catch { }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
         }
     }
 

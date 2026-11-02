@@ -2492,6 +2492,8 @@ public partial class MainWindow : Window
         menu.Items.Add(new Separator());
         var dataItem = Add(DriveDataHeader, () => ToggleDriveData(drive.Root));
         PrepareDriveDataItem(dataItem, drive.Root);
+        PrepareCleanUpItem(Add(CleanUpHeader, () => CleanUpDriveData(drive.Root)), drive.Root);
+        menu.Items.Add(new Separator());
         Add("Properties", () => PropertiesHelper.Show(new[] { drive.Root }));
         Add("More Options", () => Dispatcher.BeginInvoke(() => ShowWindowsMenuForFolder(drive.Root), DispatcherPriority.Background));
 
@@ -3834,6 +3836,9 @@ public partial class MainWindow : Window
         var driveRoot = DriveRootOf(path);
         TreeDriveDataItem.Visibility = driveRoot != null && realFolder ? Visibility.Visible : Visibility.Collapsed;
         if (driveRoot != null && realFolder) PrepareDriveDataItem(TreeDriveDataItem, driveRoot);
+        TreeCleanUpItem.Visibility = driveRoot != null && realFolder ? Visibility.Visible : Visibility.Collapsed;
+        TreeCleanUpSeparator.Visibility = TreeCleanUpItem.Visibility;
+        if (driveRoot != null && realFolder) PrepareCleanUpItem(TreeCleanUpItem, driveRoot);
     }
 
     // ── Jump to Last Opened File (as in TeraTool's folder menu) ──────────────

@@ -138,7 +138,7 @@ Typing a letter in the tree selects the next visible folder that starts with it.
 Click **This PC** in the tree to see your drives in a list of their own, as in Windows Explorer:
 **Name**, **Type**, **File System**, **Total Size**, **Free Space** and **Tracking Data Location**
 (see below). Double-click a drive to open it. Right-click a drive for **Open**, **Open in New Tab**, **Open in Windows
-Explorer**, **Properties**, **More Options** and the tracking data item. A drive that you connect or remove
+Explorer**, the two tracking data items (**Store Tracking Data...** and **Clean Up Tracking Data**), **Properties** and **More Options**. A drive that you connect or remove
 shows up or goes by itself within a couple of seconds; **F5** does it at once and also reads the free space again.
 
 ### Where the Tracking Data Is Kept
@@ -156,6 +156,22 @@ What the program remembers about your files (read marks, ratings, sort orders, c
 - Choose the item again to go back. The data is then moved back to this computer (it is stored there with the drive
   letter, so it only fits the drive while it keeps that letter), and the folder on the drive is renamed
   `.SweWolfFileExplorerData_BAK` as a backup. Nothing is deleted.
+
+### Cleaning Up the Tracking Data of a Drive
+
+If you delete, rename or move files and folders outside this program (for example in Windows Explorer), what the
+program remembers about them stays behind. Right-click a drive and choose **Clean Up Tracking Data** to remove it.
+You are asked to confirm first. The program then looks at everything it remembers for that drive and removes the
+records of files and folders that no longer exist. Files that are still there are never touched, and neither are
+the files and folders themselves. The ratings and read marks of a file that you moved or renamed outside the program
+are lost, because the program cannot know where it went.
+
+- A copy of the tracking data is saved before anything is removed, in a **Backups** folder next to the data file
+  (`cleanup-<date and time>.db`). The last 5 are kept.
+- A file inside a compressed file counts as there as long as the compressed file is.
+- If the drive is not ready, or looks empty, nothing is checked. If more than half of the records would be removed,
+  you are asked once more, because the drive may be missing something that did not come up.
+- When it is done, a message tells you how many records were removed. **Cancel** while it checks changes nothing.
 
 ## The File List
 
