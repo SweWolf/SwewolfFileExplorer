@@ -72,9 +72,10 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Rating,       "Rating",       RatingColumn, visible: false),
             new ColumnInfo(SortColumn.Expectation,  "Expectation",   ExpectationColumn, visible: false)
         });
+        FolderTabViewModel.FileWorkEnded += () => Dispatcher.BeginInvoke(QueueAutoFit, System.Windows.Threading.DispatcherPriority.Background);
         VM.DisplayNamesChanged += () => { ApplyFilter(); QueueAutoFit(); };   // the extensions are shown or hidden: the filter works on the names shown, and the Name column fits them
         VM.TagsLoaded += () => { if (IsTagColumn(_sortColumn)) ApplySort(_sortColumn, _sortAscending); QueueAutoFit(); };
-        VM.ItemsChangedInPlace += () => { if (_sortColumn != SortColumn.None) ApplySort(_sortColumn, _sortAscending); };   // a file changed size or date: the order may too
+        VM.ItemsChangedInPlace += () => { if (_sortColumn != SortColumn.None) ApplySort(_sortColumn, _sortAscending); QueueAutoFit(); };   // a file changed size or date: the order may too
 
         VM.PropertyChanged += (_, e) =>
         {
@@ -1036,6 +1037,7 @@ public partial class MainWindow : Window
     private void QueueAutoFit()
     {
         if (_autoFitQueued || !AppSettingsStore.Current.AutoFitColumns) return;
+        if (FolderTabViewModel.FileWorkRunning) return;   // a copy / delete is going on: the widths stay, and one fit comes when it is over (FileWorkEnded)
         _autoFitQueued = true;
         Dispatcher.BeginInvoke(() =>
         {

@@ -2555,6 +2555,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     private bool _deleting;
 
+    // While files are being copied, moved or deleted the list changes in many small steps (a replaced file goes and comes back, sizes grow):
+    // the window leaves the column widths alone until the work is over (FileWorkEnded), so they never jump back and forth.
+    private static int _fileWork;
+    public static bool FileWorkRunning => _fileWork > 0;
+    public static event Action? FileWorkEnded;
+    private static void BeginFileWork() => Interlocked.Increment(ref _fileWork);
+    private static void EndFileWork() { if (Interlocked.Decrement(ref _fileWork) == 0) FileWorkEnded?.Invoke(); }
+
     private static string? ParentFolder(string path) =>
         Path.GetDirectoryName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
 
@@ -2581,6 +2589,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         TransferResult outcome;
         _deleting = true;
+        BeginFileWork();
         try
         {
             // Windows' own Recycle Bin call deletes for good what cannot go to the bin (the user said yes to that above).
@@ -2588,7 +2597,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                                                  "Deleting", names, ParentFolder(items[0].Path) ?? "", heading: $"Deleting {names}",
                                                  icon: IconHelper.GetRecycleBinIcon(full: true));
         }
-        finally { _deleting = false; }
+        finally { _deleting = false; EndFileWork(); }
 
         var deleted = outcome.Done.Select(d => d.From).ToList();
 
@@ -3475,8 +3484,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (toDo.Count > 0)
         {
             _pasting = true;
+            BeginFileWork();
             try { result = await RunTransferAsync(toDo, destination, isCut); }
-            finally { _pasting = false; }
+            finally { _pasting = false; EndFileWork(); }
         }
 
         if (result.Failed.Count > 0)
@@ -3611,8 +3621,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         TransferResult result;
         _pasting = true;
+        BeginFileWork();
         try { result = await RunTransferAsync(new List<string> { path }, chosen, move: true); }
-        finally { _pasting = false; }
+        finally { _pasting = false; EndFileWork(); }
 
         if (result.Failed.Count > 0)
             MessageBox.Show($"The file could not be moved: {result.Failed[0].Reason}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -3684,11 +3695,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private async Task PasteRemoteAsync(string destination)
     {
         _pasting = true;
+        BeginFileWork();
         TransferResult result;
         var policy = NewConflictPolicy();
         try { result = await RunWithProgressAsync((progress, token) => RemoteFiles.RunAsync(destination, progress, token, policy),
                                                   "Copying", "files from the clipboard", destination, policy); }
-        finally { _pasting = false; }
+        finally { _pasting = false; EndFileWork(); }
 
         if (result.Failed.Count > 0)
         {
