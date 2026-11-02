@@ -22,6 +22,8 @@ public partial class SettingsWindow : Window
         SuggestMoveBox.IsChecked           = current.SuggestMoveAfterSmartRename;
         RightClickSelectsNodeBox.IsChecked = current.RightClickSelectsTreeNode;
         DisableDragDropBox.IsChecked       = current.DisableInternalDragDrop;
+        PreloadPlayerBox.IsChecked         = current.PreloadMediaPlayer;
+        MediaPlayerGroup.Visibility        = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, nothing to preload
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
         TerminalBox.IsChecked              = current.ShowOpenInTerminal;
         PowerShellBox.IsChecked            = current.ShowOpenInPowerShell;
@@ -53,6 +55,7 @@ public partial class SettingsWindow : Window
         settings.SuggestMoveAfterSmartRename = SuggestMoveBox.IsChecked == true;
         settings.RightClickSelectsTreeNode = RightClickSelectsNodeBox.IsChecked == true;
         settings.DisableInternalDragDrop = DisableDragDropBox.IsChecked == true;
+        settings.PreloadMediaPlayer      = PreloadPlayerBox.IsChecked == true;
         settings.WarnHiddenNotSelected   = WarnHiddenNotSelectedBox.IsChecked == true;
         settings.ShowOpenInTerminal      = TerminalBox.IsChecked == true;
         settings.ShowOpenInPowerShell    = PowerShellBox.IsChecked == true;

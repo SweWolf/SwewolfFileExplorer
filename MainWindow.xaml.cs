@@ -136,6 +136,14 @@ public partial class MainWindow : Window
         VM.Session.Changed += UpdateSessionUi;
         UpdateSessionUi();
 
+        // A few seconds after the window is on screen: load the media player once in the background (antivirus scan, disk cache).
+        ContentRendered += (_, _) =>
+        {
+            var warmUp = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            warmUp.Tick += (_, _) => { warmUp.Stop(); MediaPlayerLauncher.WarmUpPlayer(); };
+            warmUp.Start();
+        };
+
         // A workspace or session file given on the command line is opened (replacing the tab the program starts with).
         Loaded += (_, _) =>
         {
@@ -4283,9 +4291,58 @@ public partial class MainWindow : Window
         return CanSaveIn(shown) ? shown : null;
     }
 
+    // ── Files dropped on a program: it is started with them as arguments, as in Windows Explorer ──
+
+    private static readonly HashSet<string> DropProgramExtensions = new(StringComparer.OrdinalIgnoreCase) { ".exe", ".com", ".bat", ".cmd", ".scr" };
+
+    /// <summary>The program row under the mouse that can take the dropped files (a real file on the disk, not dropped on itself), else null.</summary>
+    private string? DropProgramUnder(DragEventArgs e, List<string>? files)
+    {
+        if (files == null || AppSettingsStore.Current.DisableInternalDragDrop) return null;   // Settings > Drag and Drop turns every file drop off
+        if (FindItemUnder<FileItemViewModel>(e.OriginalSource) is not { IsDirectory: false, IsInArchive: false } row) return null;
+        if (!DropProgramExtensions.Contains(System.IO.Path.GetExtension(row.FullPath)) || !System.IO.File.Exists(row.FullPath)) return null;
+        if (files.Any(f => string.Equals(f, row.FullPath, StringComparison.OrdinalIgnoreCase))) return null;
+        return row.FullPath;
+    }
+
+    /// <summary>Copy (or Link) is shown, never Move: a Move would make the sender delete the files it dropped.</summary>
+    private static DragDropEffects DropProgramEffect(DragEventArgs e) =>
+        (e.AllowedEffects & DragDropEffects.Copy) != 0 ? DragDropEffects.Copy
+        : (e.AllowedEffects & DragDropEffects.Link) != 0 ? DragDropEffects.Link : DragDropEffects.None;
+
+    /// <summary>
+    /// One argument in the form both a program and a batch file read back correctly: in quotes, a folder without its trailing backslash (it would
+    /// escape the closing quote), and a drive root (<c>D:\</c>, which has no spaces) not in quotes.
+    /// </summary>
+    private static string QuoteArgument(string path)
+    {
+        var p = path.Length > 3 ? path.TrimEnd('\\') : path;
+        return p.EndsWith('\\') ? p : "\"" + p + "\"";
+    }
+
+    private void RunProgramWithFiles(string program, List<string> files)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = program,
+                Arguments = string.Join(" ", files.Select(QuoteArgument)),
+                WorkingDirectory = System.IO.Path.GetDirectoryName(program) ?? "",
+                UseShellExecute = true,   // Windows asks for the administrator itself when the program needs it
+            });
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223) { /* the user said no to the administrator question */ }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cannot start \"{System.IO.Path.GetFileName(program)}\": {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void FileListView_DragOver(object sender, DragEventArgs e)
     {
         e.Handled = true;
+        if (DropProgramUnder(e, DroppedFiles(e.Data)) != null) { e.Effects = DropProgramEffect(e); return; }
         var folder = ListDropFolder(e);
         if (folder == null) { e.Effects = DragDropEffects.None; return; }
         if (DroppedImage.CanAccept(e.Data)) { e.Effects = VM.ActiveTab.IsBookmarksFolder(folder) ? DragDropEffects.None : DragDropEffects.Copy; return; }
@@ -4297,6 +4354,15 @@ public partial class MainWindow : Window
     private void FileListView_Drop(object sender, DragEventArgs e)
     {
         e.Handled = true;
+        var dropped = DroppedFiles(e.Data);
+        if (DropProgramUnder(e, dropped) is { } program && dropped != null)
+        {
+            _rightDrag = false;
+            e.Effects = DropProgramEffect(e);
+            // The sender (Explorer ...) waits until Drop returns: the program starts afterwards.
+            Dispatcher.BeginInvoke(new Action(() => RunProgramWithFiles(program, dropped)), System.Windows.Threading.DispatcherPriority.Background);
+            return;
+        }
         var folder = ListDropFolder(e);
         if (folder != null) HandleDrop(e, folder);
     }

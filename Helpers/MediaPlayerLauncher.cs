@@ -54,6 +54,29 @@ public static class MediaPlayerLauncher
         return candidates.FirstOrDefault(File.Exists);
     }
 
+    private static bool _warmedUp;
+
+    /// <summary>
+    /// Once per run (Settings > Media Player > preload, on by default): starts the player with <c>--warm-up</c>, which loads its video engine
+    /// and ends by itself with no window. The first load of the engine can take 20 to 75 seconds (antivirus scan, cold disk cache); doing it
+    /// here, in the background at low priority, makes the first real video open fast. Does nothing when the player is not found.
+    /// </summary>
+    public static void WarmUpPlayer()
+    {
+        if (_warmedUp || !AppSettingsStore.Current.PreloadMediaPlayer) return;
+        _warmedUp = true;
+        var exe = FindPlayer();
+        if (exe == null) return;
+        try
+        {
+            var info = new ProcessStartInfo { FileName = exe, UseShellExecute = false, CreateNoWindow = true };
+            info.ArgumentList.Add("--warm-up");
+            var process = Process.Start(info);
+            try { if (process != null) process.PriorityClass = ProcessPriorityClass.BelowNormal; } catch (Exception) { }
+        }
+        catch (Exception) { /* a warm-up that cannot start is no loss */ }
+    }
+
     /// <summary>
     /// Starts the player with the file. <paramref name="libraryPath"/> is what the file is called in the library when it differs
     /// from the file played (a file unpacked from an archive to a temporary folder).

@@ -506,6 +506,7 @@ Renaming, moving and deleting in this program keeps all of this correct. Changes
   mouse button** a menu asks: **Copy Here**, **Move Here**, **Create Shortcut Here** or **Cancel**.
 - **Drop a picture** from a web browser onto the list or a folder in the tree to save it there.
 - Dropping files into the Bookmarks folder makes bookmarks.
+- **Drop files on a program** (`.exe`, `.com`, `.bat`, `.cmd` or `.scr`) in the list to start it with the dropped files as arguments, as Windows Explorer does.
 
 **Tools > Settings > Drag and Drop** can turn off dropping files into the program.
 
@@ -521,6 +522,7 @@ Open **Tools > Settings**. Among other things you can choose:
 - **File Names:** hide extensions, the registered name of file types in the Type column, and the offer to move renamed videos.
 - **Folder Tree:** whether a right-click selects the folder.
 - **Terminal Menu:** which of the three terminals are in the menus.
+- **Media Player:** preload SweWolf Media Player in the background at startup (on by default; only shown when the player is found). The first start of the player can be slow while your antivirus program scans its files; the preload does that once, with no window, so videos open fast later.
 
 The settings are saved in `%AppData%\SweWolfSoftware\SwewolfFileExplorer\settings.json`.
 

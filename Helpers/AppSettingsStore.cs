@@ -93,6 +93,10 @@ public class AppSettings
     /// </summary>
     public bool DisableInternalDragDrop { get; set; } = false;
 
+    /// <summary>Settings > Media Player > "Preload SweWolf Media Player in the Background at Startup" (on by default; the box is only shown when the
+    /// player is found). Once per run the player is started with --warm-up so its first real start is fast.</summary>
+    public bool PreloadMediaPlayer { get; set; } = true;
+
     /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the
     /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
     public bool WarnHiddenNotSelected { get; set; } = true;
