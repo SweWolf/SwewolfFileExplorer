@@ -199,19 +199,19 @@
                 <Button Command="{Binding BackCommand}"
                         ToolTip="Back (Alt+Left)"
                         Padding="6,4">
-                    <TextBlock Text="&#x276E;" FontSize="13" FontFamily="Segoe UI"/>
+                    <TextBlock Text="&#xE76B;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                 </Button>
 
                 <Button Command="{Binding ForwardCommand}"
                         ToolTip="Forward (Alt+Right)"
                         Padding="6,4">
-                    <TextBlock Text="&#x276F;" FontSize="13" FontFamily="Segoe UI"/>
+                    <TextBlock Text="&#xE76C;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                 </Button>
 
                 <Button Command="{Binding UpCommand}"
                         ToolTip="Up one level (Backspace)"
                         Padding="6,4">
-                    <TextBlock Text="&#x2191;" FontSize="13" FontFamily="Segoe UI"/>
+                    <TextBlock Text="&#xE74A;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                 </Button>
 
                 <Separator/>
@@ -264,7 +264,7 @@
                                       ToolTip="Show the whole computer in the folder tree again"/>
                         </ContextMenu>
                     </Button.ContextMenu>
-                    <TextBlock Text="&#x2192;" FontSize="13" FontFamily="Segoe UI"/>
+                    <TextBlock Text="&#xE72A;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                 </Button>
 
                 <Separator/>
@@ -272,7 +272,7 @@
                 <Button Command="{Binding RefreshCommand}"
                         ToolTip="Refresh (F5)"
                         Padding="6,4">
-                    <TextBlock Text="&#x21BB;" FontSize="13" FontFamily="Segoe UI"/>
+                    <TextBlock Text="&#xE72C;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                 </Button>
 
                 <Separator/>
@@ -362,7 +362,7 @@
                         <Button Grid.Column="0" Command="{Binding UpCommand}"
                                 ToolTip="Up one level (Backspace)"
                                 Padding="6,2" Margin="0,1,6,0" VerticalAlignment="Top">
-                            <TextBlock Text="&#x2191;" FontSize="13" FontFamily="Segoe UI"/>
+                            <TextBlock Text="&#xE74A;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                         </Button>
 
                         <WrapPanel Grid.Column="1" VerticalAlignment="Center">
