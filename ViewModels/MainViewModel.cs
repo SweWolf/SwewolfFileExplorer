@@ -293,6 +293,50 @@ public class MainViewModel : INotifyPropertyChanged
         ReopenTabCommand.RaiseCanExecuteChanged();
     }
 
+    /// <summary>Closes every tab except <paramref name="keep"/>, which becomes the active one (the tab's right-click menu).</summary>
+    public void CloseOtherTabs(FolderTabViewModel keep) => CloseTabs(Tabs.Where(t => t != keep).ToList(), keep);
+
+    /// <summary>Closes the tabs to the left of <paramref name="from"/>.</summary>
+    public void CloseTabsToTheLeft(FolderTabViewModel from)
+    {
+        int i = Tabs.IndexOf(from);
+        if (i > 0) CloseTabs(Tabs.Take(i).ToList(), from);
+    }
+
+    /// <summary>Closes the tabs to the right of <paramref name="from"/>.</summary>
+    public void CloseTabsToTheRight(FolderTabViewModel from)
+    {
+        int i = Tabs.IndexOf(from);
+        if (i >= 0 && i < Tabs.Count - 1) CloseTabs(Tabs.Skip(i + 1).ToList(), from);
+    }
+
+    // The tab that stays is made active when the active one is among those closed. The tabs go from the right, one by one, as if closed
+    // by hand (Ctrl+Shift+T brings them back, the last closed first); a playlist with unsaved changes asks, and Cancel there stops the rest.
+    private void CloseTabs(List<FolderTabViewModel> toClose, FolderTabViewModel stays)
+    {
+        if (toClose.Contains(_activeTab)) ActiveTab = stays;
+        for (int i = toClose.Count - 1; i >= 0; i--)
+        {
+            CloseTab(toClose[i]);
+            if (Tabs.Contains(toClose[i])) break;   // the user canceled the question about a playlist
+        }
+    }
+
+    /// <summary>A new tab next to <paramref name="source"/> that shows the same folder (with its tree root and name), made active.</summary>
+    public void DuplicateTab(FolderTabViewModel source)
+    {
+        int index = Tabs.IndexOf(source);
+        if (index < 0) return;
+
+        var copy = AddTab(null);
+        copy.Restore(source.CaptureState());
+        Tabs.Move(Tabs.IndexOf(copy), index + 1);
+        ActiveTab = copy;
+
+        NextTabCommand.RaiseCanExecuteChanged();
+        PreviousTabCommand.RaiseCanExecuteChanged();
+    }
+
     /// <summary>Brings back the most recently closed tab, where it was, and makes it active.</summary>
     private void ReopenTab()
     {

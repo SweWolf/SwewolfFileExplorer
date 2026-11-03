@@ -830,7 +830,28 @@ public partial class MainWindow : Window
         var reset = new MenuItem { Header = "Reset Tab Name", ToolTip = "Show the name of the folder on this tab again", IsEnabled = tab.CustomTitle != null };
         reset.Click += (_, _) => tab.SetCustomTitle(null);
 
-        new ContextMenu { Items = { rename, reset }, Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, IsOpen = true };
+        // As in Windows Explorer's tab menu (plus Close Tabs to the Left).
+        int index = VM.Tabs.IndexOf(tab);
+        var close = new MenuItem { Header = "Close Tab", InputGestureText = "Ctrl+W" };
+        close.Click += (_, _) => VM.CloseTabCommand.Execute(tab);
+
+        var closeOthers = new MenuItem { Header = "Close Other Tabs", IsEnabled = VM.Tabs.Count > 1 };
+        closeOthers.Click += (_, _) => VM.CloseOtherTabs(tab);
+
+        var closeLeft = new MenuItem { Header = "Close Tabs to the Left", IsEnabled = index > 0 };
+        closeLeft.Click += (_, _) => VM.CloseTabsToTheLeft(tab);
+
+        var closeRight = new MenuItem { Header = "Close Tabs to the Right", IsEnabled = index >= 0 && index < VM.Tabs.Count - 1 };
+        closeRight.Click += (_, _) => VM.CloseTabsToTheRight(tab);
+
+        var duplicate = new MenuItem { Header = "Duplicate Tab", ToolTip = "Open the same folder in a new tab next to this one" };
+        duplicate.Click += (_, _) => VM.DuplicateTab(tab);
+
+        new ContextMenu
+        {
+            Items = { rename, reset, new Separator(), close, closeOthers, closeLeft, closeRight, duplicate },
+            Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint, IsOpen = true,
+        };
     }
 
     /// <summary>F2 with a tab clicked (the tab strip has the focus) renames that tab, as F2 renames a file in the list.</summary>

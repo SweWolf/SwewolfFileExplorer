@@ -111,6 +111,10 @@ smaller. The list and the tree have separate sizes, and both are remembered.
 - Right-click a tab, or press **F2** with a tab selected, to give it a name of your own with
   **Rename Tab...**. This changes only the text on the tab. **Reset Tab Name** brings back the
   name of the folder.
+- The right-click menu of a tab also has **Close Tab**, **Close Other Tabs**, **Close Tabs to the Left**,
+  **Close Tabs to the Right** and **Duplicate Tab**. The tab you clicked stays and becomes the active one;
+  **Ctrl+Shift+T** brings the closed tabs back, one at a time. **Duplicate Tab** opens the same folder (with the
+  same tree root and tab name) in a new tab next to it.
 
 The active tab is shown in bold, with a colored line on top.
 
