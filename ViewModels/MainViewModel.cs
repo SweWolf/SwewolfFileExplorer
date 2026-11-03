@@ -340,6 +340,10 @@ public class MainViewModel : INotifyPropertyChanged
     public RelayCommand ForwardCommand         => _activeTab.ForwardCommand;
     public RelayCommand UpCommand              => _activeTab.UpCommand;
     public RelayCommand RefreshCommand         => _activeTab.RefreshCommand;
+    public string BackTip                      => _activeTab.BackTip;
+    public string ForwardTip                   => _activeTab.ForwardTip;
+    public string UpTip                        => _activeTab.UpTip;
+    public string RefreshTip                   => _activeTab.RefreshTip;
     public RelayCommand NavigateCommand        => _activeTab.NavigateCommand;
     public RelayCommand DeleteCommand          => _activeTab.DeleteCommand;
     public RelayCommand PermanentDeleteCommand => _activeTab.PermanentDeleteCommand;

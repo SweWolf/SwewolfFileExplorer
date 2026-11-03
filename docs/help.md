@@ -175,8 +175,11 @@ are lost, because the program cannot know where it went.
 
 ## The File List
 
-Press **Enter** or double-click to open a file or folder. **Backspace** goes up one folder.
-**Alt+Left** and **Alt+Right** go back and forward. **F5** reads the folder again.
+Press **Enter** or double-click to open a file or folder. **Backspace** goes up one folder in the list, and
+**Alt+Up** goes up one folder from anywhere (the tree, the list, the address bar); from the root of a drive it goes to
+**This PC**, and **Alt+Left** then takes you back to the drive. **Alt+Left** and **Alt+Right**
+go back and forward. **F5** reads the folder again. The tooltips of the toolbar buttons Back, Forward, Up and
+Refresh name the folder they go to.
 
 The list is also kept up to date by itself: when another program creates, changes or deletes a
 file in the folder, the list follows, and your selection stays.
@@ -556,7 +559,8 @@ The settings are saved in `%AppData%\SweWolfSoftware\SwewolfFileExplorer\setting
 | Key | Action |
 |---|---|
 | Enter / double-click | Open the file or folder |
-| Backspace | Up one folder |
+| Backspace | Up one folder (in the list) |
+| Alt+Up | Up one folder, from anywhere |
 | Alt+Left / Alt+Right | Back / forward |
 | F1 | This help |
 | F2 | Rename |

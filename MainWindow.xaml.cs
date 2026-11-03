@@ -989,6 +989,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Alt+Up: up one level, from wherever the focus is (the tree, the list and a combo box would each take the key for themselves).
+        // With Alt held WPF reports the key as Key.System and the real key as SystemKey.
+        if ((e.Key == Key.System ? e.SystemKey : e.Key) == Key.Up && Keyboard.Modifiers == ModifierKeys.Alt)
+        {
+            if (VM.UpCommand.CanExecute(null)) VM.UpCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         // Ctrl+Tab: the list would take it for moving the focus out of it.
         if (e.Key == Key.Tab && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {

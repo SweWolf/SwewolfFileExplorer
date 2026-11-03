@@ -318,6 +318,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                                   DeleteCommand, PermanentDeleteCommand, NewFolderCommand,
                                   CopyCommand, CutCommand, PasteCommand, CopyPathCommand })
             c.RaiseCanExecuteChanged();
+        RaiseNavTips();
     }
 
     // ── Tree initialization ──────────────────────────────────────────────────
@@ -897,26 +898,57 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         if (_backHistory.Count == 0) return;
         _forwardHistory.Push(_currentPath);
-        Navigate(_backHistory.Pop(), addToHistory: false);
+        GoToHistoryEntry(_backHistory.Pop());
     }
 
     private void GoForward()
     {
         if (_forwardHistory.Count == 0) return;
         _backHistory.Push(_currentPath);
-        Navigate(_forwardHistory.Pop(), addToHistory: false);
+        GoToHistoryEntry(_forwardHistory.Pop());
     }
 
+    // An empty history entry is This PC (reached with Up from the root of a drive).
+    private void GoToHistoryEntry(string path)
+    {
+        if (path.Length == 0) ShowThisPc();
+        else Navigate(path, addToHistory: false);
+    }
+
+    /// <summary>
+    /// Up one level, along the whole tree as Windows Explorer does: a folder goes to its parent, and the root of a drive goes to This PC.
+    /// (Back then returns to the drive.)
+    /// </summary>
     private void GoUp()
     {
         if (!CanGoUp()) return;
+
+        if (IsDriveRoot(_currentPath))
+        {
+            var from = _currentPath;
+            ShowThisPc();
+            if (IsThisPcShown)   // not when the user canceled a question (an unsaved playlist)
+            {
+                _backHistory.Push(from);
+                _forwardHistory.Clear();
+                UpdateNavState();
+            }
+            return;
+        }
+
         var parent = Directory.GetParent(_currentPath);
         if (parent != null) Navigate(parent.FullName);
     }
 
-    // With a root for the tree, Up stops there: nothing above it exists in this tab.
+    /// <summary>The root of a drive with a letter ("D:\"): the next step up is This PC. (A network share has no place above it in the tree.)</summary>
+    private static bool IsDriveRoot(string path) =>
+        path.Length >= 2 && path[1] == ':' && path.TrimEnd('\\', '/').Length == 2;
+
+    // With a root for the tree, Up stops there: nothing above it exists in this tab. On This PC and Quick Access there is no
+    // folder, and nothing above them in the tree.
     private bool CanGoUp() =>
-        !string.IsNullOrEmpty(_currentPath) && Directory.GetParent(_currentPath) != null
+        !string.IsNullOrEmpty(_currentPath) && !_noFolderShown
+        && (Directory.GetParent(_currentPath) != null || IsDriveRoot(_currentPath))
         && !(RootPath != null && IsSamePath(_currentPath, RootPath));
 
     // ── Workspaces and sessions: what a tab remembers ────────────────────────
@@ -3772,6 +3804,56 @@ public class FolderTabViewModel : INotifyPropertyChanged
         BackCommand.RaiseCanExecuteChanged();
         ForwardCommand.RaiseCanExecuteChanged();
         UpCommand.RaiseCanExecuteChanged();
+        RaiseNavTips();
+    }
+
+    // ── The tooltips of Back, Forward, Up and Refresh: they name the folder they go to, as in Windows Explorer ──
+
+    private void RaiseNavTips()
+    {
+        OnPropertyChanged(nameof(BackTip));
+        OnPropertyChanged(nameof(ForwardTip));
+        OnPropertyChanged(nameof(UpTip));
+        OnPropertyChanged(nameof(RefreshTip));
+    }
+
+    /// <summary>"Back to Comics (Alt+Left)": the folder the button goes back to.</summary>
+    public string BackTip => _backHistory.Count > 0 ? $"Back to {NameForTip(_backHistory.Peek())} (Alt+Left)" : "Back (Alt+Left)";
+
+    /// <summary>"Forward to DEMOS (Alt+Right)".</summary>
+    public string ForwardTip => _forwardHistory.Count > 0 ? $"Forward to {NameForTip(_forwardHistory.Peek())} (Alt+Right)" : "Forward (Alt+Right)";
+
+    /// <summary>"Up to "New D (D:)" (Alt+Up)": the folder above the one shown.</summary>
+    public string UpTip
+    {
+        get
+        {
+            if (!CanGoUp()) return "Up one level (Alt+Up)";
+            if (IsDriveRoot(_currentPath)) return "Up to \"This PC\" (Alt+Up)";
+            var parent = Directory.GetParent(_currentPath);
+            return parent == null ? "Up one level (Alt+Up)" : $"Up to \"{NameForTip(parent.FullName)}\" (Alt+Up)";
+        }
+    }
+
+    /// <summary>"Refresh "C64Music" (F5)".</summary>
+    public string RefreshTip => HasFolder && !string.IsNullOrEmpty(_currentPath) ? $"Refresh \"{NameForTip(_currentPath)}\" (F5)" : "Refresh (F5)";
+
+    /// <summary>
+    /// A folder's name for a tooltip: the last part of its path; a drive as the tree calls it ("New D (D:)", from the drives under This PC:
+    /// no disk is asked, a tooltip must not stall on a slow drive).
+    /// </summary>
+    private string NameForTip(string path)
+    {
+        if (path.Length == 0) return "This PC";   // an empty history entry
+        var trimmed = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var root = Path.GetPathRoot(path);
+        if (!string.IsNullOrEmpty(root) && string.Equals(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), trimmed, StringComparison.OrdinalIgnoreCase))
+        {
+            var drive = _thisPcNode?.Children.FirstOrDefault(c => string.Equals(c.FullPath, root, StringComparison.OrdinalIgnoreCase));
+            return drive?.Name ?? trimmed;
+        }
+        var name = Path.GetFileName(trimmed);
+        return string.IsNullOrEmpty(name) ? trimmed : name;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
