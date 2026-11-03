@@ -97,6 +97,10 @@ public class AppSettings
     /// player is found). Once per run the player is started with --warm-up so its first real start is fast.</summary>
     public bool PreloadMediaPlayer { get; set; } = true;
 
+    /// <summary>The user's own VirusTotal API key, encrypted with Windows DPAPI for this Windows user and written as base64
+    /// (Settings > VirusTotal; <c>VirusTotal.GetApiKey / SetApiKey</c>). Empty = no key: "Send to VirusTotal" only opens the page.</summary>
+    public string VirusTotalApiKeyProtected { get; set; } = "";
+
     /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the
     /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
     public bool WarnHiddenNotSelected { get; set; } = true;

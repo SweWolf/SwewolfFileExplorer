@@ -68,6 +68,19 @@
             <CheckBox x:Name="DisableDragDropBox" Content="Disable Internal Drag and Drop"
                       ToolTip="On: files cannot be copied or moved by dragging them onto the list or the tree, and dragging with the right mouse button is off. Dragging a picture in from a web browser, and dragging files out of the list to a web browser or another program with the left button, always work."/>
         </GroupBox>
+        <GroupBox Header="VirusTotal" Padding="8" Margin="0,8,0,0">
+            <StackPanel>
+                <TextBlock TextWrapping="Wrap" Text="Your own free API key lets Send to VirusTotal show the result here and upload a file VirusTotal does not know yet. Without a key it only opens VirusTotal's page for the file."/>
+                <DockPanel Margin="0,6,0,0" LastChildFill="True">
+                    <TextBlock DockPanel.Dock="Left" Text="API key:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <PasswordBox x:Name="VirusTotalKeyBox" MaxLength="64"
+                                 ToolTip="The 64 characters you get on VirusTotal's website. It is kept encrypted for your Windows user. Leave it empty to remove it."/>
+                </DockPanel>
+                <TextBlock Margin="0,6,0,0">
+                    <Hyperlink NavigateUri="https://www.virustotal.com/gui/my-apikey" RequestNavigate="VirusTotalKeyLink_Navigate">Get a Free API Key</Hyperlink>
+                </TextBlock>
+            </StackPanel>
+        </GroupBox>
         <GroupBox x:Name="MediaPlayerGroup" Header="Media Player" Padding="8" Margin="0,8,0,0">
             <CheckBox x:Name="PreloadPlayerBox" Content="Preload SweWolf Media Player in the Background at Startup"
                       ToolTip="The first start of the player can take a long time while the antivirus program scans its files. On: when this program starts, the player is loaded once in the background, with no window, so it opens fast later."/>

@@ -3781,12 +3781,92 @@ public partial class MainWindow : Window
                 try { hash = await Task.Run(() => VirusTotal.Sha256Async(path, CancellationToken.None)); }
                 finally { Mouse.OverrideCursor = null; }
             }
-            Process.Start(new ProcessStartInfo { FileName = VirusTotal.PageFor(hash), UseShellExecute = true });
+            var key = VirusTotal.GetApiKey();
+            if (key == null) OpenVirusTotalPage(hash);   // no key: only the page of the hash
+            else await CheckOnVirusTotalAsync(path, hash, key);
+        }
+        catch (VirusTotalException ex)
+        {
+            MessageBox.Show(this, ex.Message, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, $"The file could not be sent to VirusTotal.\n\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    private static void OpenVirusTotalPage(string hash)
+    {
+        try { Process.Start(new ProcessStartInfo { FileName = VirusTotal.PageFor(hash), UseShellExecute = true }); }
+        catch { }
+    }
+
+    private sealed record VirusTotalOutcome(VirusTotalReport? Report, string? Error);
+
+    /// <summary>
+    /// With an API key: asks VirusTotal about the hash. Known: the result is shown. Unknown: only after the user says yes the file is
+    /// uploaded (a window with Cancel while it is sent and scanned) and then the result is shown.
+    /// </summary>
+    private async Task CheckOnVirusTotalAsync(string path, string hash, string key)
+    {
+        string name = System.IO.Path.GetFileName(path);
+
+        VirusTotalReport? report;
+        Mouse.OverrideCursor = Cursors.Wait;
+        try { report = await VirusTotal.LookupAsync(hash, key, CancellationToken.None); }
+        finally { Mouse.OverrideCursor = null; }
+
+        if (report == null)
+        {
+            long size = new System.IO.FileInfo(path).Length;
+            if (size > VirusTotal.UploadLimit)
+            {
+                MessageBox.Show(this, $"VirusTotal does not know \"{name}\" yet, and the file is too big to upload (VirusTotal takes 650 MB at the most). " +
+                                      "Its page for the file will open in your browser.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+                OpenVirusTotalPage(hash);
+                return;
+            }
+
+            var answer = MessageBox.Show(this,
+                $"VirusTotal does not know \"{name}\" yet ({DriveRow.FormatSize(size)}).\n\n" +
+                "Do you want to upload it, so that it is scanned?\n\n" +
+                "Anything you upload becomes visible to VirusTotal's partners and customers. Do not upload private files.",
+                AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+            if (answer != MessageBoxResult.Yes) return;
+
+            var outcome = WaitWindow.Run(this, AppInfo.Name, "Uploading the file to VirusTotal and waiting for the scan...", name, async ct =>
+            {
+                try
+                {
+                    var id = await VirusTotal.UploadAsync(path, key, ct);
+                    return new VirusTotalOutcome(await VirusTotal.WaitForAnalysisAsync(id, key, ct), null);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) { return new VirusTotalOutcome(null, ex.Message); }
+            });
+            if (outcome == null) return;   // canceled
+            if (outcome.Error != null)
+            {
+                MessageBox.Show(this, outcome.Error, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            report = outcome.Report!;
+        }
+
+        ShowVirusTotalReport(name, hash, report);
+    }
+
+    private void ShowVirusTotalReport(string name, string hash, VirusTotalReport r)
+    {
+        bool flagged = r.Malicious > 0 || r.Suspicious > 0;
+        string verdict = flagged
+            ? $"{r.Malicious} of {r.Total} scanners flagged this file as malicious, and {r.Suspicious} as suspicious."
+            : $"None of the {r.Total} scanners flagged this file. That is no guarantee that it is safe.";
+        string when = r.Scanned is { } t ? $"\n\nScanned: {t:yyyy-MM-dd HH:mm}" : "";
+
+        var open = MessageBox.Show(this, $"{name}\n\n{verdict}{when}\n\nDo you want to open the full report on VirusTotal?",
+                                   AppInfo.Name, MessageBoxButton.YesNo, flagged ? MessageBoxImage.Warning : MessageBoxImage.Information, MessageBoxResult.No);
+        if (open == MessageBoxResult.Yes) OpenVirusTotalPage(hash);
     }
 
     // ── Open in Terminal / PowerShell / Command Prompt ───────────────────────

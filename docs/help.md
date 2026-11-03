@@ -262,6 +262,17 @@ the virus scanners say about the file.
   sent it there yet.
 - It works for one file at a time, also for a file inside a compressed file (it is unpacked to a temporary folder first).
 
+**With your own API key** (**Tools > Settings > General > VirusTotal**; the link there takes you to VirusTotal's page
+where you get a free key) the program asks VirusTotal itself and shows the answer in a message ("0 of 70 scanners
+flagged this file"), with an offer to open the full report.
+
+- If VirusTotal has never seen the file, you are asked **"Do you want to upload it, so that it is scanned?"** (No is the
+  default). Anything you upload becomes visible to VirusTotal's partners and customers, so never upload private files.
+  A window with **Cancel** shows while the file is sent and scanned, which can take a minute or two.
+- Files up to 650 MB can be uploaded. A free key allows 4 requests a minute and 500 a day, and is meant for personal use.
+  Each user needs their own key.
+- The key is saved encrypted for your Windows user, not as plain text. Clear the box to remove it.
+
 ## The Info Panel
 
 The line under the list says which item is selected ("File 14/17"), how many are selected ("7 of 62 files selected"), or how many items there are.

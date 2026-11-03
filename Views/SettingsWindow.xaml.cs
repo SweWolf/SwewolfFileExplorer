@@ -23,6 +23,7 @@ public partial class SettingsWindow : Window
         RightClickSelectsNodeBox.IsChecked = current.RightClickSelectsTreeNode;
         DisableDragDropBox.IsChecked       = current.DisableInternalDragDrop;
         PreloadPlayerBox.IsChecked         = current.PreloadMediaPlayer;
+        VirusTotalKeyBox.Password          = VirusTotal.GetApiKey() ?? "";
         MediaPlayerGroup.Visibility        = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, nothing to preload
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
         TerminalBox.IsChecked              = current.ShowOpenInTerminal;
@@ -40,9 +41,26 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void VirusTotalKeyLink_Navigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        e.Handled = true;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = VirusTotal.KeyPage, UseShellExecute = true }); }
+        catch { }
+    }
+
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {
+        var key = VirusTotalKeyBox.Password.Trim();
+        if (key.Length > 0 && !VirusTotal.IsValidKeyFormat(key))
+        {
+            MessageBox.Show(this, "A VirusTotal API key has 64 letters and digits. Copy it again from VirusTotal's website, or leave the box empty.",
+                            AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            VirusTotalKeyBox.Focus();
+            return;
+        }
+
         var settings = AppSettingsStore.Current;
+        VirusTotal.SetApiKey(key);
         settings.Style = Styles[StyleBox.SelectedIndex];
         settings.UnreadBold   = UnreadBoldBox.IsChecked == true;
         settings.UnreadItalic = UnreadItalicBox.IsChecked == true;
