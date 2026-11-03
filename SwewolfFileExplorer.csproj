@@ -42,6 +42,7 @@
 
   <ItemGroup>
     <Resource Include="Resourses\fluent_file_explorer.ico" />
+    <Resource Include="Resourses\virustotal.ico" />
   </ItemGroup>
 
   <!-- The debug symbols of SkiaSharp's native libraries (106 MB) come along with them; nobody needs them. -->

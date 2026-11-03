@@ -249,6 +249,19 @@ The **.ext** button in the toolbar shows or hides the extensions of known file t
 `.jpg` and so on). The same choice is in **Tools > Settings**. Extensions of special Windows file
 types such as `.lnk` are never shown (this can be turned off in the settings).
 
+## Checking a File on VirusTotal
+
+Right-click a file and choose **Send to VirusTotal** (it has a group of its own in the menu, below
+**Add to Bookmarks**). The program works out the file's SHA-256 fingerprint and opens
+[VirusTotal](https://www.virustotal.com)'s page for that fingerprint in your web browser. There you see what
+the virus scanners say about the file.
+
+- **Nothing is uploaded**, and no account or key is needed: only the fingerprint is sent. A big file takes a
+  moment to work out, with a window that has **Cancel**.
+- If VirusTotal has never seen the file, its page says so. That does not mean the file is safe, only that nobody has
+  sent it there yet.
+- It works for one file at a time, also for a file inside a compressed file (it is unpacked to a temporary folder first).
+
 ## The Info Panel
 
 The line under the list says which item is selected ("File 14/17"), how many are selected ("7 of 62 files selected"), or how many items there are.

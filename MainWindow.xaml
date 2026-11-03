@@ -591,6 +591,10 @@
                                       ToolTip="Make this folder the top of the folder tree in this tab. Not remembered."/>
                             <MenuItem Header="Reset Tree Root" Click="TreeCtxResetRoot_Click"
                                       ToolTip="Show the whole computer in the folder tree again"/>
+                            <!-- Send to VirusTotal: only for a packed file or playlist node, a group of its own -->
+                            <Separator x:Name="TreeVirusTotalSeparator" Visibility="Collapsed"/>
+                            <MenuItem x:Name="TreeVirusTotalItem" Header="Send to VirusTotal" Click="TreeCtxVirusTotal_Click" Visibility="Collapsed"
+                                      ToolTip="Look up this file on VirusTotal: its SHA-256 is worked out and VirusTotal's page for it opens in your browser. Nothing is uploaded."/>
                             <Separator/>
                             <MenuItem Header="Cut"             Click="TreeCtxCut_Click"   InputGestureText="Ctrl+X"/>
                             <MenuItem Header="Copy"            Click="TreeCtxCopy_Click"  InputGestureText="Ctrl+C"/>
@@ -957,6 +961,10 @@
                                   ToolTip="Right-click to edit this menu"/>
                         <MenuItem Header="Add to Bookmarks" Click="CtxBookmark_Click" InputGestureText="Ctrl+D"
                                   ToolTip="Keep a shortcut to the selected folders and files (or to this folder) in the Bookmarks at the top of the tree"/>
+                        <!-- Send to VirusTotal: a group of its own (one file only; the icon is set in code) -->
+                        <Separator x:Name="ListVirusTotalSeparator" Visibility="Collapsed"/>
+                        <MenuItem x:Name="ListVirusTotalItem" Header="Send to VirusTotal" Click="CtxVirusTotal_Click" Visibility="Collapsed"
+                                  ToolTip="Look up this file on VirusTotal: its SHA-256 is worked out and VirusTotal's page for it opens in your browser. Nothing is uploaded."/>
                         <Separator/>
                         <MenuItem Header="Cut"        Click="CtxCut_Click"       InputGestureText="Ctrl+X"/>
                         <MenuItem Header="Copy"       Click="CtxCopy_Click"      InputGestureText="Ctrl+C"/>

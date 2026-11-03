@@ -3028,6 +3028,7 @@ public partial class MainWindow : Window
 
         ShowTerminalItems(ListTerminalSeparator, TerminalItems(ListTerminalItem, ListPowerShellItem, ListCommandItem), ListTerminalFolder());
         ShowFileInfoItem(ListFileInfoItem, FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false });
+        ShowVirusTotalItem(ListVirusTotalSeparator, ListVirusTotalItem, FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false });
 
         var menu = (ContextMenu)sender;
         foreach (var mi in menu.Items.OfType<MenuItem>())
@@ -3734,6 +3735,60 @@ public partial class MainWindow : Window
         if (_treeMenuNode is { } node && System.IO.File.Exists(node.FullPath)) FileInfoViewerLauncher.Open(node.FullPath);
     }
 
+    // ── Send to VirusTotal ───────────────────────────────────────────────────
+
+    /// <summary>Shows the item and the separator above it (a group of its own) for one file, with VirusTotal's icon.</summary>
+    private static void ShowVirusTotalItem(Separator separator, MenuItem item, bool show)
+    {
+        var v = show ? Visibility.Visible : Visibility.Collapsed;
+        separator.Visibility = v;
+        item.Visibility = v;
+        if (show && item.Icon == null && VirusTotal.Icon is { } icon)
+            item.Icon = new Image { Source = icon, Width = 16, Height = 16 };
+    }
+
+    private async void CtxVirusTotal_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileListView.SelectedItems.Count != 1 || FileListView.SelectedItem is not FileItemViewModel { IsDirectory: false } item) return;
+        var path = FolderTabViewModel.RealPathOf(item);   // a file inside an archive is unpacked to the temp folder first
+        if (path != null) await SendToVirusTotalAsync(path);
+    }
+
+    private async void TreeCtxVirusTotal_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode is { } node && System.IO.File.Exists(node.FullPath)) await SendToVirusTotalAsync(node.FullPath);
+    }
+
+    /// <summary>
+    /// Works out the SHA-256 of the file in the background (a wait cursor; for a big file a window with Cancel) and opens
+    /// VirusTotal's page for it. Nothing is uploaded.
+    /// </summary>
+    private async Task SendToVirusTotalAsync(string path)
+    {
+        try
+        {
+            long size = new System.IO.FileInfo(path).Length;
+            string? hash;
+            if (size > 50L * 1024 * 1024)
+            {
+                hash = WaitWindow.Run(this, AppInfo.Name, "Working out the SHA-256 of the file...", System.IO.Path.GetFileName(path),
+                                      ct => VirusTotal.Sha256Async(path, ct));
+                if (hash == null) return;   // canceled
+            }
+            else
+            {
+                Mouse.OverrideCursor = Cursors.Wait;
+                try { hash = await Task.Run(() => VirusTotal.Sha256Async(path, CancellationToken.None)); }
+                finally { Mouse.OverrideCursor = null; }
+            }
+            Process.Start(new ProcessStartInfo { FileName = VirusTotal.PageFor(hash), UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"The file could not be sent to VirusTotal.\n\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     // ── Open in Terminal / PowerShell / Command Prompt ───────────────────────
 
     /// <summary>
@@ -3829,6 +3884,7 @@ public partial class MainWindow : Window
         bool canChange    = CanChangeFolder(path);   // a drive cannot be cut, deleted or renamed
         // Only for a file node of the tree (a packed file or a playlist) that lies on the disk, never a folder.
         ShowFileInfoItem(TreeFileInfoItem, (_treeMenuNode.IsArchive || _treeMenuNode.IsPlaylist) && System.IO.File.Exists(path));
+        ShowVirusTotalItem(TreeVirusTotalSeparator, TreeVirusTotalItem, (_treeMenuNode.IsArchive || _treeMenuNode.IsPlaylist) && System.IO.File.Exists(path));
 
         // Read the SendTo folder each time, so new shortcuts show up at once (as in the list's menu). Not for a drive.
         FillSendToMenu(TreeSendToMenu, canChange ? SendToHelper.GetEntries() : new(), TreeSendToItem_Click);
