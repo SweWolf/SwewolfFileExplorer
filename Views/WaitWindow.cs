@@ -16,9 +16,10 @@ public sealed class WaitWindow : Window
     private readonly TextBlock _heading;
     private bool _done;
 
-    private WaitWindow(string title, string heading, string detail)
+    private WaitWindow(string title, string heading, string detail, System.Windows.Media.ImageSource? icon)
     {
         Title                 = title;
+        if (icon != null) Icon = icon;   // the icon in the title bar (default: the app's own)
         Width                 = 460;
         SizeToContent         = SizeToContent.Height;
         ResizeMode            = ResizeMode.NoResize;
@@ -67,9 +68,10 @@ public sealed class WaitWindow : Window
     }
 
     /// <summary>Shows the window over <paramref name="owner"/>, runs <paramref name="work"/> and returns what it gave (default if it failed or was canceled).</summary>
-    public static T? Run<T>(Window? owner, string title, string heading, string detail, Func<CancellationToken, Task<T>> work)
+    public static T? Run<T>(Window? owner, string title, string heading, string detail, Func<CancellationToken, Task<T>> work,
+                            System.Windows.Media.ImageSource? icon = null)
     {
-        var window = new WaitWindow(title, heading, detail);
+        var window = new WaitWindow(title, heading, detail, icon);
         if (owner is { IsVisible: true }) window.Owner = owner;
 
         T? result = default;

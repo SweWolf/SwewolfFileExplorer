@@ -3774,7 +3774,7 @@ public partial class MainWindow : Window
             if (size > 50L * 1024 * 1024)
             {
                 hash = WaitWindow.Run(this, VirusTotalCaption, "Working out the SHA-256 of the file...", System.IO.Path.GetFileName(path),
-                                      ct => VirusTotal.Sha256Async(path, ct));
+                                      ct => VirusTotal.Sha256Async(path, ct), VirusTotal.Icon);
                 if (hash == null) return;   // canceled
             }
             else
@@ -3789,11 +3789,11 @@ public partial class MainWindow : Window
         }
         catch (VirusTotalException ex)
         {
-            MessageBox.Show(this, ex.Message, VirusTotalCaption, MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, ex.Message, VirusTotalCaption, MessageBoxButton.OK, MessageBoxImage.Warning, MessageBoxResult.None, VirusTotal.Icon);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"The file could not be sent to VirusTotal.\n\n{ex.Message}", VirusTotalCaption, MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, $"The file could not be sent to VirusTotal.\n\n{ex.Message}", VirusTotalCaption, MessageBoxButton.OK, MessageBoxImage.Warning, MessageBoxResult.None, VirusTotal.Icon);
         }
     }
 
@@ -3824,7 +3824,7 @@ public partial class MainWindow : Window
             if (size > VirusTotal.UploadLimit)
             {
                 MessageBox.Show(this, $"VirusTotal does not know \"{name}\" yet, and the file is too big to upload (VirusTotal takes 650 MB at the most). " +
-                                      "Its page for the file will open in your browser.", VirusTotalCaption, MessageBoxButton.OK, MessageBoxImage.Information);
+                                      "Its page for the file will open in your browser.", VirusTotalCaption, MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.None, VirusTotal.Icon);
                 OpenVirusTotalPage(hash);
                 return;
             }
@@ -3833,7 +3833,7 @@ public partial class MainWindow : Window
                 $"VirusTotal does not know \"{name}\" yet ({DriveRow.FormatSize(size)}).\n\n" +
                 "Do you want to upload it, so that it is scanned?\n\n" +
                 "Anything you upload becomes visible to VirusTotal's partners and customers. Do not upload private files.",
-                VirusTotalCaption, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+                VirusTotalCaption, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No, VirusTotal.Icon);
             if (answer != MessageBoxResult.Yes) return;
 
             var outcome = WaitWindow.Run(this, VirusTotalCaption, "Uploading the file to VirusTotal and waiting for the scan...", name, async ct =>
@@ -3845,11 +3845,11 @@ public partial class MainWindow : Window
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { return new VirusTotalOutcome(null, ex.Message); }
-            });
+            }, VirusTotal.Icon);
             if (outcome == null) return;   // canceled
             if (outcome.Error != null)
             {
-                MessageBox.Show(this, outcome.Error, VirusTotalCaption, MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(this, outcome.Error, VirusTotalCaption, MessageBoxButton.OK, MessageBoxImage.Warning, MessageBoxResult.None, VirusTotal.Icon);
                 return;
             }
             report = outcome.Report!;
@@ -3867,7 +3867,7 @@ public partial class MainWindow : Window
         string when = r.Scanned is { } t ? $"\n\nScanned: {t:yyyy-MM-dd HH:mm}" : "";
 
         var open = MessageBox.Show(this, $"{name}\n\n{verdict}{when}\n\nDo you want to open the full report on VirusTotal?",
-                                   VirusTotalCaption, MessageBoxButton.YesNo, flagged ? MessageBoxImage.Warning : MessageBoxImage.Information, MessageBoxResult.No);
+                                   VirusTotalCaption, MessageBoxButton.YesNo, flagged ? MessageBoxImage.Warning : MessageBoxImage.Information, MessageBoxResult.No, VirusTotal.Icon);
         if (open == MessageBoxResult.Yes) OpenVirusTotalPage(hash);
     }
 
