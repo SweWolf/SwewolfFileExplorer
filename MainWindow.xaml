@@ -181,8 +181,8 @@
         </Border>
 
         <!-- ── Toolbar ─────────────────────────────────────────────── -->
-        <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
-            <ToolBar Band="0" BandIndex="0">
+        <ToolBarTray x:Name="MainToolBarTray" DockPanel.Dock="Top" IsLocked="True" SizeChanged="MainToolBarTray_SizeChanged">
+            <ToolBar x:Name="MainToolBar" Band="0" BandIndex="0">
 
                 <ToolBar.Resources>
                     <!-- The text of a toggle button that is on sits on the accent color: it needs its own contrast. -->
@@ -218,7 +218,7 @@
 
                 <!-- Address bar. The Fluent text box draws a thicker line along its bottom edge and shows no focus in a toolbar:
                      it gets a flat template, and the frame around it does the work: 1 px line, 2 px in the accent color with focus. -->
-                <Border CornerRadius="3" BorderThickness="1" Padding="1" VerticalAlignment="Center">
+                <Border x:Name="AddressFrame" CornerRadius="3" BorderThickness="1" Padding="1" VerticalAlignment="Center">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
@@ -234,7 +234,7 @@
                     <TextBox x:Name="AddressBar"
                              Text="{Binding AddressText, UpdateSourceTrigger=PropertyChanged}"
                              PreviewKeyDown="AddressBar_PreviewKeyDown"
-                             Width="456"
+                             Width="638"
                              VerticalContentAlignment="Center"
                              Padding="4,3"
                              BorderThickness="0"

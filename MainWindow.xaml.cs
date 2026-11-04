@@ -33,6 +33,7 @@ public partial class MainWindow : Window
         // The height of the info panel as the user left it; the preview box follows the panel's size.
         InfoRow.Height = new GridLength(Math.Max(InfoPanelMinHeight, AppSettingsStore.Current.InfoPanelHeight));
         InfoPanel.SizeChanged += (_, _) => FitPreviewBox();
+        Loaded += (_, _) => FitAddressBar();   // the toolbar's first size change came before IsLoaded
         TreeColumn.Width = _treeWidth;
         DataContext = new MainViewModel();
         VM.FolderCreated += OnFolderCreated;
