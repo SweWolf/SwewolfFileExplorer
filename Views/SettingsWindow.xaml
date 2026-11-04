@@ -71,19 +71,25 @@
         <GroupBox Header="VirusTotal" Padding="8" Margin="0,8,0,0">
             <StackPanel>
                 <TextBlock TextWrapping="Wrap" Text="Your own free API key lets Send to VirusTotal show the result here and upload a file VirusTotal does not know yet. Without a key it only opens VirusTotal's page for the file."/>
-                <DockPanel Margin="0,6,0,0" LastChildFill="True">
-                    <TextBlock DockPanel.Dock="Left" Text="API key:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <ToggleButton x:Name="VirusTotalKeyEye" DockPanel.Dock="Right" Width="34" Margin="6,0,0,0" Padding="0" TabIndex="1" IsTabStop="True"
-                                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                  FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Content="&#xE7B3;"
-                                  ToolTip="Show the API key" Checked="VirusTotalKeyEye_Changed" Unchecked="VirusTotalKeyEye_Changed"/>
-                    <Grid KeyboardNavigation.TabIndex="0">
+                <!-- Three columns in the order of the tab key: the label, the key (a PasswordBox, or a TextBox while the eye is pressed), the eye -->
+                <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="API key:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Grid Grid.Column="1">
                         <PasswordBox x:Name="VirusTotalKeyBox" MaxLength="64"
                                      ToolTip="The 64 characters you get on VirusTotal's website. It is kept encrypted for your Windows user. Leave it empty to remove it."/>
                         <TextBox x:Name="VirusTotalKeyText" MaxLength="64" Visibility="Collapsed"
                                  ToolTip="The 64 characters you get on VirusTotal's website. It is kept encrypted for your Windows user. Leave it empty to remove it."/>
                     </Grid>
-                </DockPanel>
+                    <ToggleButton x:Name="VirusTotalKeyEye" Grid.Column="2" Width="34" Margin="6,0,0,0" Padding="0"
+                                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                  FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Content="&#xE7B3;"
+                                  ToolTip="Show the API key" Checked="VirusTotalKeyEye_Changed" Unchecked="VirusTotalKeyEye_Changed"/>
+                </Grid>
                 <TextBlock Margin="0,6,0,0">
                     <Hyperlink NavigateUri="https://www.virustotal.com/gui/my-apikey" RequestNavigate="VirusTotalKeyLink_Navigate">Get a Free API Key</Hyperlink>
                 </TextBlock>

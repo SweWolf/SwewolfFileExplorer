@@ -3867,7 +3867,7 @@ public partial class MainWindow : Window
         string when = r.Scanned is { } t ? $"\n\nScanned: {t:yyyy-MM-dd HH:mm}" : "";
 
         var open = MessageBox.Show(this, $"{name}\n\n{verdict}{when}\n\nDo you want to open the full report on VirusTotal?",
-                                   VirusTotalCaption, MessageBoxButton.YesNo, flagged ? MessageBoxImage.Warning : MessageBoxImage.Information, MessageBoxResult.No, VirusTotal.Icon);
+                                   VirusTotalCaption, MessageBoxButton.YesNo, flagged ? MessageBoxImage.Warning : MessageBoxImage.Information, MessageBoxResult.Yes, VirusTotal.Icon);
         if (open == MessageBoxResult.Yes) OpenVirusTotalPage(hash);
     }
 
