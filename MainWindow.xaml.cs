@@ -3833,7 +3833,7 @@ public partial class MainWindow : Window
                 $"VirusTotal does not know \"{name}\" yet ({DriveRow.FormatSize(size)}).\n\n" +
                 "Do you want to upload it, so that it is scanned?\n\n" +
                 "Anything you upload becomes visible to VirusTotal's partners and customers. Do not upload private files.",
-                VirusTotalCaption, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No, VirusTotal.Icon);
+                VirusTotalCaption, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes, VirusTotal.Icon);
             if (answer != MessageBoxResult.Yes) return;
 
             var outcome = WaitWindow.Run(this, VirusTotalCaption, "Uploading the file to VirusTotal and waiting for the scan...", name, async ct =>
