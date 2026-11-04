@@ -6,7 +6,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 namespace SwewolfFileExplorer.Helpers;
 
@@ -47,22 +46,22 @@ public static class VirusTotal
     private static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan };   // each call has its own cancel token
     private static ImageSource? _icon;
 
-    /// <summary>VirusTotal's own favicon (16 px, embedded as a resource), kept after the first lookup.</summary>
+    /// <summary>
+    /// VirusTotal's own favicon (https://www.virustotal.com/gui/images/favicon.svg, one path, 100 x 89), drawn as a vector so it is sharp
+    /// at any size and DPI; the menu shows it in a 16 x 16 box.
+    /// </summary>
     public static ImageSource? Icon
     {
         get
         {
             if (_icon != null) return _icon;
-            try
-            {
-                var decoder = new IconBitmapDecoder(new Uri("pack://application:,,,/SwewolfFileExplorer;component/Resourses/virustotal.ico"),
-                                                    BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-                var frame = decoder.Frames.OrderByDescending(f => f.PixelWidth).First();
-                frame.Freeze();
-                _icon = frame;
-            }
-            catch { }
-            return _icon;
+            var geometry = Geometry.Parse("F0 M45.292,44.5 L0,89 H100 V0 H0 L45.292,44.5 Z M90,80 H22 L57.987,44.8 L22,9 H90 V80 Z");   // F0 = even-odd
+            var brush = new SolidColorBrush(Color.FromRgb(0x0b, 0x4d, 0xda));
+            var drawing = new GeometryDrawing(brush, null, geometry);
+            drawing.Freeze();
+            var image = new DrawingImage(drawing);
+            image.Freeze();
+            return _icon = image;
         }
     }
 
