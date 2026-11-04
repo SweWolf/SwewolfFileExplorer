@@ -41,6 +41,29 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>The eye button: a PasswordBox cannot show its text, so a plain TextBox takes its place and the text is passed across.</summary>
+    private void VirusTotalKeyEye_Changed(object sender, RoutedEventArgs e)
+    {
+        bool show = VirusTotalKeyEye.IsChecked == true;
+        if (show)
+        {
+            VirusTotalKeyText.Text = VirusTotalKeyBox.Password;
+            VirusTotalKeyBox.Visibility = Visibility.Collapsed;
+            VirusTotalKeyText.Visibility = Visibility.Visible;
+            VirusTotalKeyText.Focus();
+            VirusTotalKeyText.CaretIndex = VirusTotalKeyText.Text.Length;
+        }
+        else
+        {
+            VirusTotalKeyBox.Password = VirusTotalKeyText.Text;
+            VirusTotalKeyText.Visibility = Visibility.Collapsed;
+            VirusTotalKeyBox.Visibility = Visibility.Visible;
+            VirusTotalKeyBox.Focus();
+        }
+        VirusTotalKeyEye.Content = show ? "" : "";   // eye / eye with a slash
+        VirusTotalKeyEye.ToolTip = show ? "Hide the API key" : "Show the API key";
+    }
+
     private void VirusTotalKeyLink_Navigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
     {
         e.Handled = true;
@@ -50,12 +73,12 @@ public partial class SettingsWindow : Window
 
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {
-        var key = VirusTotalKeyBox.Password.Trim();
+        var key = (VirusTotalKeyEye.IsChecked == true ? VirusTotalKeyText.Text : VirusTotalKeyBox.Password).Trim();
         if (key.Length > 0 && !VirusTotal.IsValidKeyFormat(key))
         {
             MessageBox.Show(this, "A VirusTotal API key has 64 letters and digits. Copy it again from VirusTotal's website, or leave the box empty.",
                             AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-            VirusTotalKeyBox.Focus();
+            (VirusTotalKeyEye.IsChecked == true ? (System.Windows.Controls.Control)VirusTotalKeyText : VirusTotalKeyBox).Focus();
             return;
         }
 
