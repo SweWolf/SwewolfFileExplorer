@@ -1086,11 +1086,14 @@
                             <!-- The plot from the video's .nfo file, to the right of the preview picture, only when there is one
                                  (it takes no space otherwise). A long plot scrolls; the whole text is also in the tooltip. -->
                             <Grid x:Name="PlotArea" Grid.Column="2" Margin="16,0,0,0" Background="Transparent" Visibility="Collapsed"
-                                  PreviewMouseLeftButtonDown="PlotArea_PreviewMouseLeftButtonDown">
+                                  PreviewMouseLeftButtonDown="PlotArea_PreviewMouseLeftButtonDown"
+                                  ContextMenuOpening="PlotArea_ContextMenuOpening">
                                 <Grid.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Header="Edit Plot..." Click="PlotEdit_Click"
                                                   ToolTip="Change the plot of this file, which is kept in its .nfo file (a double-click does the same)"/>
+                                        <MenuItem x:Name="PlotEditNfoItem" Header="Edit NFO File" Click="PlotEditNfo_Click" Visibility="Collapsed"
+                                                  ToolTip="Open the .nfo file of this video or music file in the text editor"/>
                                     </ContextMenu>
                                 </Grid.ContextMenu>
                                 <ScrollViewer x:Name="PlotScroll" Visibility="Collapsed"

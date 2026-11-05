@@ -1973,6 +1973,25 @@ public partial class MainWindow : Window
 
     private void PlotEdit_Click(object sender, RoutedEventArgs e) => EditPlot();
 
+    // The .nfo file that belongs to the file whose plot is shown (the same names the plot is read from), or null if there is none.
+    private string? ExistingNfoOfPlotItem() =>
+        _plotItem == null ? null : NfoPoster.NfoFilesOf(_plotItem.FullPath).FirstOrDefault(System.IO.File.Exists);
+
+    // "Edit NFO File" is only in the menu when the .nfo file exists.
+    private void PlotArea_ContextMenuOpening(object sender, ContextMenuEventArgs e) =>
+        PlotEditNfoItem.Visibility = ExistingNfoOfPlotItem() != null ? Visibility.Visible : Visibility.Collapsed;
+
+    // Opens the .nfo file as a double-click on it does: in the text editor (a System Information file with Windows' program).
+    private void PlotEditNfo_Click(object sender, RoutedEventArgs e)
+    {
+        var nfo = ExistingNfoOfPlotItem();
+        if (nfo == null) return;
+
+        if (NfoOpener.TryOpenInTextEditor(nfo)) return;
+        try { Process.Start(new ProcessStartInfo(nfo) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, $"Cannot open \"{System.IO.Path.GetFileName(nfo)}\": {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
     private void EditPlot()
     {
         if (_plotItem == null) return;
