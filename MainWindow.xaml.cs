@@ -1806,7 +1806,8 @@ public partial class MainWindow : Window
     {
         bool plot = PlotArea.Visibility == Visibility.Visible, ai = AiInfoArea.Visibility == Visibility.Visible;
         bool right = AiSeedBox.Visibility == Visibility.Visible || WebZoneBox.Visibility == Visibility.Visible
-                  || WebHostBox.Visibility == Visibility.Visible || WebReferrerBox.Visibility == Visibility.Visible;
+                  || WebHostBox.Visibility == Visibility.Visible || WebReferrerBox.Visibility == Visibility.Visible
+                  || AudioSourceBox.Visibility == Visibility.Visible;
 
         InfoRightArea.Visibility = right ? Visibility.Visible : Visibility.Collapsed;
         PlotColumn.Width   = new GridLength(plot || (!ai && !right) ? 1 : 0, GridUnitType.Star);   // free room goes to the plot column when nothing else is shown
@@ -1863,12 +1864,16 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrEmpty(path)) { ClearWebRows(); return; }
 
-        var origin = await Task.Run(() => ReadWebOrigin(path, wantArchive));
+        // The audio source (a music file's own web page) is only looked for in a selected music file on the disk.
+        bool wantAudioSource = item is { IsDirectory: false, IsInArchive: false };
+        var (origin, audioSource) = await Task.Run(() =>
+            (ReadWebOrigin(path, wantArchive), wantAudioSource ? AudioSourceReader.Read(path) : null));
         if (version != _webVersion) return;
 
         SetInfoRow(WebZoneLabel,     WebZoneBox,     origin?.ZoneText);
         SetInfoRow(WebHostLabel,     WebHostBox,     origin?.HostUrl, openable: true);
         SetInfoRow(WebReferrerLabel, WebReferrerBox, origin?.ReferrerUrl, openable: true);
+        SetInfoRow(AudioSourceLabel, AudioSourceBox, audioSource, openable: true);
         LayoutInfoColumns();
     }
 
@@ -1910,6 +1915,7 @@ public partial class MainWindow : Window
         SetInfoRow(WebZoneLabel,     WebZoneBox,     null);
         SetInfoRow(WebHostLabel,     WebHostBox,     null);
         SetInfoRow(WebReferrerLabel, WebReferrerBox, null);
+        SetInfoRow(AudioSourceLabel, AudioSourceBox, null);
         LayoutInfoColumns();
     }
 

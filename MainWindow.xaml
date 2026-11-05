@@ -1156,6 +1156,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <TextBlock x:Name="AiSeedLabel" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" FontSize="12" FontWeight="Bold" Text="Seed"
@@ -1198,6 +1199,16 @@
                                 <TextBlock x:Name="WebReferrerLabel" Grid.Row="4" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Referrer URL"
                                            VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
                                 <TextBox x:Name="WebReferrerBox" Grid.Row="4" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
+                                         Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
+                                         VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
+                                         PreviewKeyDown="AiSeedBox_PreviewKeyDown"
+                                         MouseDoubleClick="WebUrlBox_DoubleClick" ContextMenuOpening="WebUrlBox_ContextMenuOpening">
+                                </TextBox>
+
+                                <!-- Audio Source: the page of a music file (the WOAS tag of an MP3, or the song id in a Suno WAV's comment; AudioSourceReader). -->
+                                <TextBlock x:Name="AudioSourceLabel" Grid.Row="5" Grid.Column="0" FontSize="12" FontWeight="Bold" Text="Audio Source"
+                                           VerticalAlignment="Top" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <TextBox x:Name="AudioSourceBox" Grid.Row="5" Grid.Column="1" IsReadOnly="True" TextWrapping="NoWrap" FontSize="13"
                                          Height="26" VerticalAlignment="Top" VerticalContentAlignment="Top" Visibility="Collapsed"
                                          VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Hidden" Background="Transparent" Padding="2" BorderThickness="0"
                                          PreviewKeyDown="AiSeedBox_PreviewKeyDown"

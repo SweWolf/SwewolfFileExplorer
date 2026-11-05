@@ -289,6 +289,11 @@ Below it:
   Forge and SD.Next) or Wan2GP.
 - **Where a file came from:** the Zone ID, Host URL and Referrer URL that your web browser saved
   with a downloaded file. They are also remembered, so they show even when the file has lost them.
+- **Audio Source:** the web page of a music file, shown under the Referrer URL. It is read from the
+  file's own "audio source" tag (an MP3 from Suno has one). A Suno WAV has no such tag, but its
+  comment holds the song's ID, and the page address is made from that. A Suno MP4 video has neither,
+  but the song's ID is stored in its provenance data, which is used the same way. Double-click it, or
+  right-click it, to open the page in your browser.
 - **A map pin** when a picture or video says where it was taken. Click the pin to see the place on a
   map in your browser. Right-click the pin to choose another map site, or to copy the coordinates.
 
