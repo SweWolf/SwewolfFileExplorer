@@ -353,6 +353,9 @@ files between this program and Windows Explorer.
 - **Move/Copy to Folder...** is in the right-click menus of the list and the tree. A window asks where to: type
   or browse for a folder, or take one from your own list (**Add Folder**, **Remove From List**, and arrows to put it in order).
   **Move** is chosen when it opens. It then works like Paste, with the same progress window and questions.
+  Check **Open This Folder in a New Tab When Finished** to see the result: when the move or copy is done, the folder opens
+  in a new tab with the moved or copied items selected. If a tab already shows that folder, the program switches to that
+  tab instead. The program remembers the checkbox. Nothing opens if you cancel. (The picture viewer's window has no such checkbox.)
 - **Long copies run in the background** with a progress window and a **Cancel** button. Files
   that were finished stay; the one that was being copied is removed again.
 - **When a name is taken**, you are asked: **Replace**, **Keep Both**, **Keep Both, Rename Old**, **Skip**

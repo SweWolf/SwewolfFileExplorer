@@ -4128,7 +4128,7 @@ public partial class MainWindow : Window
     /// Asks where to (a typed or browsed folder, or one from the user's list; Move is pre-selected) and then moves or copies the items there
     /// with the same code as Paste and drag and drop: progress window, questions about names that are taken, related files, the library follows.
     /// </summary>
-    private void MoveCopyTo(List<string> items, bool inArchive)
+    private async void MoveCopyTo(List<string> items, bool inArchive)
     {
         if (inArchive)
         {
@@ -4154,7 +4154,51 @@ public partial class MainWindow : Window
             return;
         }
 
-        VM.DropFiles(dialog.FolderPath, items, dialog.IsMove);
+        var result = await VM.DropFilesAsync(dialog.FolderPath, items, dialog.IsMove);
+
+        // "Open This Folder in a New Tab When Finished": only when something was done and the user did not cancel.
+        if (dialog.OpenInNewTab && result is { Canceled: false } && result.Done.Count > 0)
+            ShowFolderInTab(dialog.FolderPath, result.Done.Select(d => d.To).ToList());
+    }
+
+    /// <summary>
+    /// Shows <paramref name="folder"/> in a new tab (made active), or switches to the tab that already shows it, and selects the
+    /// <paramref name="items"/> there (the top-level items in the folder: a moved folder is selected, not its files). A tab that comes to the
+    /// front reads its folder again in the background, so the selection is tried again for a moment until the items are listed.
+    /// </summary>
+    private void ShowFolderInTab(string folder, List<string> items)
+    {
+        static bool Same(string? a, string? b) =>
+            !string.IsNullOrEmpty(a) && !string.IsNullOrEmpty(b)
+            && string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+
+        var existing = VM.Tabs.FirstOrDefault(t => Same(t.CurrentPath, folder));
+        if (existing != null) VM.ActiveTab = existing;
+        else VM.OpenNewTab(folder, activate: true);
+
+        // What stands out in the folder: the item itself, or for something deeper (a merged folder reports its files) the folder it is in.
+        var top = items
+            .Select(p => System.IO.Path.GetRelativePath(folder, p))
+            .Where(r => !r.StartsWith("..", StringComparison.Ordinal) && !System.IO.Path.IsPathRooted(r))
+            .Select(r => System.IO.Path.Combine(folder, r.Split('\\', '/')[0]))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (top.Count == 0) return;
+
+        int attempts = 0;
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        timer.Tick += (_, _) =>
+        {
+            attempts++;
+            var set = new HashSet<string>(top, StringComparer.OrdinalIgnoreCase);
+            bool listed = VM.CurrentItems.Any(i => set.Contains(i.FullPath));
+            if (listed || attempts >= 20)   // up to about 3 seconds
+            {
+                timer.Stop();
+                if (listed) OnSelectPathsRequested(top);
+            }
+        };
+        timer.Start();
     }
 
     /// <summary>
@@ -4165,7 +4209,7 @@ public partial class MainWindow : Window
     {
         if (!System.IO.File.Exists(path)) return null;
 
-        var dialog = new MoveCopyToDialog(new List<string> { path }) { Owner = owner };
+        var dialog = new MoveCopyToDialog(new List<string> { path }, showOpenInTab: false) { Owner = owner };
         if (dialog.ShowDialog() != true) return null;
 
         try { System.IO.Directory.CreateDirectory(dialog.FolderPath); }

@@ -109,6 +109,9 @@ public class AppSettings
     /// <summary>The user's own list of folders in the "Move/Copy to Folder" window (right-click menus), in the order they chose.</summary>
     public List<string> MoveCopyFolders { get; set; } = new();
 
+    /// <summary>The checkbox "Open This Folder in a New Tab When Finished" of the "Move/Copy to Folder" window: kept from one time to the next (off at first).</summary>
+    public bool MoveCopyOpenInNewTab { get; set; } = false;
+
     /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
     public bool ShowOpenInTerminal { get; set; } = true;
 

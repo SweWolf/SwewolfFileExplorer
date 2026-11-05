@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Move/Copy to Folder"
-        Width="760" Height="520" MinWidth="560" MinHeight="420"
+        Width="760" Height="580" MinWidth="560" MinHeight="480"
         WindowStartupLocation="CenterOwner"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="ClearType"
@@ -16,6 +16,8 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -64,21 +66,19 @@
                     ToolTip="Browse for folder"/>
         </Grid>
 
-        <Grid Grid.Row="5" Margin="0,8,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+        <!-- Says what will happen to a folder that is not there yet -->
+        <TextBlock x:Name="HintText" Grid.Row="5" Margin="0,6,0,0" TextWrapping="Wrap"
+                   Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
 
-            <!-- Says what will happen to a folder that is not there yet -->
-            <TextBlock x:Name="HintText" Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"
-                       Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+        <!-- After the move or copy the folder is shown in a tab (a tab that already shows it is switched to; the items are selected) -->
+        <CheckBox x:Name="OpenFolderCheck" Grid.Row="6" Margin="0,10,0,0" TabIndex="9"
+                  Content="Open This Folder in a New Tab When Finished"
+                  ToolTip="When the move or copy is done, the folder is shown in a new tab with the moved or copied items selected. If a tab already shows that folder, it is switched to instead."/>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,0">
-                <Button Content="OK" TabIndex="9" MinWidth="110" Margin="0,0,10,0" IsDefault="True" Click="OkButton_Click"
-                        BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"/>
-                <Button Content="Cancel" TabIndex="10" MinWidth="110" IsCancel="True"/>
-            </StackPanel>
-        </Grid>
+        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="OK" TabIndex="10" MinWidth="110" Margin="0,0,10,0" IsDefault="True" Click="OkButton_Click"
+                    BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"/>
+            <Button Content="Cancel" TabIndex="11" MinWidth="110" IsCancel="True"/>
+        </StackPanel>
     </Grid>
 </Window>

@@ -24,10 +24,17 @@ public partial class MoveCopyToDialog : Window
     /// <summary>True for Move, false for Copy.</summary>
     public bool IsMove { get; private set; } = true;
 
-    public MoveCopyToDialog(IReadOnlyList<string> sources)
+    /// <summary>True if the checkbox "Open This Folder in a New Tab When Finished" was checked when the window closed with OK.</summary>
+    public bool OpenInNewTab { get; private set; }
+
+    /// <param name="showOpenInTab">False hides the "open in a new tab" checkbox (the picture viewer covers the screen: a tab opened behind it would not be seen).</param>
+    public MoveCopyToDialog(IReadOnlyList<string> sources, bool showOpenInTab = true)
     {
         _sources = sources;
         InitializeComponent();
+
+        OpenFolderCheck.Visibility = showOpenInTab ? Visibility.Visible : Visibility.Collapsed;
+        OpenFolderCheck.IsChecked  = showOpenInTab && AppSettingsStore.Current.MoveCopyOpenInNewTab;
 
         _folders = new ObservableCollection<string>(AppSettingsStore.Current.MoveCopyFolders);
         FolderList.ItemsSource = _folders;
@@ -142,6 +149,17 @@ public partial class MoveCopyToDialog : Window
         }
 
         FolderPath   = Path.GetFullPath(FolderBox.Text.Trim());
+
+        if (OpenFolderCheck.Visibility == Visibility.Visible)
+        {
+            OpenInNewTab = OpenFolderCheck.IsChecked == true;
+            if (AppSettingsStore.Current.MoveCopyOpenInNewTab != OpenInNewTab)
+            {
+                AppSettingsStore.Current.MoveCopyOpenInNewTab = OpenInNewTab;   // remembered for next time
+                AppSettingsStore.Save(AppSettingsStore.Current);
+            }
+        }
+
         DialogResult = true;
     }
 
