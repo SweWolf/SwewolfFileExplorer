@@ -117,6 +117,44 @@ public class TreeItemViewModel : INotifyPropertyChanged
             Children.Add(new TreeItemViewModel("", "", null));
     }
 
+    /// <summary>
+    /// For the nodes made when a folder is expanded: every one gets the expand arrow at once, and a background thread then takes the
+    /// arrow away from the folders that have nothing to show. (Asking each folder on the UI thread, one listing per subfolder, froze the
+    /// window for about 10 seconds when a click in the tree had to expand a drive with many folders on a busy disk, 2026-11-05.)
+    /// </summary>
+    private static void CheckArrowsInBackground(List<TreeItemViewModel> nodes)
+    {
+        if (nodes.Count == 0) return;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) { foreach (var n in nodes) n.DropArrowIfEmpty(n.HasSubDirectories()); return; }
+
+        Task.Run(() =>
+        {
+            // A few at a time, and the answers are given to the window in small batches, so it is never busy for long.
+            var empty = new List<TreeItemViewModel>();
+            foreach (var node in nodes)
+            {
+                if (!node.HasSubDirectories()) empty.Add(node);
+                if (empty.Count >= 20) { Post(empty); empty = new List<TreeItemViewModel>(); }
+            }
+            Post(empty);
+
+            void Post(List<TreeItemViewModel> list)
+            {
+                if (list.Count == 0) return;
+                dispatcher.BeginInvoke(() => { foreach (var n in list) n.DropArrowIfEmpty(false); },
+                    System.Windows.Threading.DispatcherPriority.Background);
+            }
+        });
+    }
+
+    // Takes the dummy child away (no arrow) if the node is still unopened and has only the dummy.
+    private void DropArrowIfEmpty(bool hasSubDirectories)
+    {
+        if (hasSubDirectories || _childrenLoaded) return;
+        if (Children.Count == 1 && string.IsNullOrEmpty(Children[0].FullPath)) Children.Clear();
+    }
+
     private bool HasSubDirectories()
     {
         try
@@ -271,6 +309,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
     private List<TreeItemViewModel> BuildFolderChildren(Dictionary<string, TreeItemViewModel>? reuse = null)
     {
         var nodes = new List<TreeItemViewModel>();
+        var needCheck = new List<TreeItemViewModel>();
         var (folders, archives, hidden) = ListChildren();
 
         foreach (var dir in SortFolders(folders))
@@ -286,8 +325,9 @@ public class TreeItemViewModel : INotifyPropertyChanged
                     sortOf: _sortOf,
                     showHiddenOf: _showHiddenOf,
                     isHidden: hidden.Contains(dir));
-                item.InitializeLazyLoad();
+                item.Children.Add(new TreeItemViewModel("", "", null));   // the arrow at once; a background check removes it where there is nothing below
                 nodes.Add(item);
+                needCheck.Add(item);
             }
             catch { /* skip inaccessible */ }
         }
@@ -313,6 +353,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
             catch { /* skip inaccessible */ }
         }
 
+        CheckArrowsInBackground(needCheck);
         return nodes;
     }
 
