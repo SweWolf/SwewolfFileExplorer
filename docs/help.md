@@ -474,7 +474,7 @@ remembered all the time.
   saved one, in new tabs. You can close the current tabs first, or keep them.
 - **Session > Start New Session...** starts remembering your tabs under a name. The window title
   then shows the session. **Session > Open** brings back a session, and **Stop Session** stops remembering.
-- Both menus have **Delete** and **Show Folder**, and **Create Shortcut to Workspace / Session...**
+- Both menus have **Delete** and **Show Folder** (it opens the folder in a new tab), and **Create Shortcut to Workspace / Session...**
   makes a shortcut that starts the program with it.
 
 Each workspace and session is one small file that you can copy to another computer. A folder

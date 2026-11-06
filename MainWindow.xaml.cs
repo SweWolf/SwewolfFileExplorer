@@ -1450,11 +1450,14 @@ public partial class MainWindow : Window
     private void WorkspaceShowFolder_Click(object sender, RoutedEventArgs e) => ShowFolder(StoreKind.Workspace);
     private void SessionShowFolder_Click(object sender, RoutedEventArgs e)   => ShowFolder(StoreKind.Session);
 
-    private static void ShowFolder(StoreKind kind)
+    // The folder of the saved workspaces / sessions is shown in a new tab of this program (not in Windows Explorer).
+    private void ShowFolder(StoreKind kind)
     {
         try
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{WorkspaceStore.Folder(kind)}\"") { UseShellExecute = true });
+            var folder = WorkspaceStore.Folder(kind);
+            System.IO.Directory.CreateDirectory(folder);
+            VM.OpenNewTab(folder, activate: true);
         }
         catch { }
     }
