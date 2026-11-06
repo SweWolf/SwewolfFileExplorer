@@ -1372,6 +1372,20 @@
                         </StackPanel>
                     </StackPanel>
 
+                    <!-- Scroll the file list to the very top / bottom (MainWindow.ScrollList): at the right end of the info line -->
+                    <StackPanel x:Name="ScrollButtons" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,2,0">
+                        <Button x:Name="ScrollTopButton" Height="20" MinHeight="0" MinWidth="34" Padding="6,0" Margin="0,0,3,0"
+                                Focusable="False" Click="ScrollTop_Click" ToolTip="Scroll the List to the Top">
+                            <Path Width="10" Height="10" Stretch="Fill" Data="M0,0 H10 V1.5 H0 Z M5,3.5 L10,10 H0 Z"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        <Button x:Name="ScrollBottomButton" Height="20" MinHeight="0" MinWidth="34" Padding="6,0"
+                                Focusable="False" Click="ScrollBottom_Click" ToolTip="Scroll the List to the Bottom">
+                            <Path Width="10" Height="10" Stretch="Fill" Data="M0,8.5 H10 V10 H0 Z M0,0 H10 L5,6.5 Z"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                    </StackPanel>
+
                     <!-- The Play bar, as TeraTool's box under the list, with one change: Play and Pause are one button. Under the info line,
                          above the preview picture; wraps onto a second line in a narrow window. Phase 1 plays pictures (see docs/slideshow-and-play-modes-plan.md). -->
                     <!-- Only there while the panel under this line is hidden: shows it again -->

@@ -2160,6 +2160,33 @@ public partial class MainWindow : Window
 
     private void InfoPanelShow_Click(object sender, RoutedEventArgs e) => VM.ShowInfoPanel = true;
 
+    // ── Scroll the list to the very top / bottom (buttons at the right end of the info line) ──
+
+    private void ScrollTop_Click(object sender, RoutedEventArgs e) => ScrollList(top: true);
+
+    private void ScrollBottom_Click(object sender, RoutedEventArgs e) => ScrollList(top: false);
+
+    /// <summary>Scrolls the file list as far up or down as it goes; the selection is not changed.</summary>
+    private void ScrollList(bool top)
+    {
+        var sv = FindScrollViewer(FileListView);
+        if (sv == null) return;
+        if (top) sv.ScrollToTop(); else sv.ScrollToBottom();
+    }
+
+    private static System.Windows.Controls.ScrollViewer? FindScrollViewer(System.Windows.DependencyObject root)
+    {
+        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is System.Windows.Controls.ScrollViewer sv) return sv;
+            var found = FindScrollViewer(child);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
     /// <summary>
     /// The "x" at the far right of the panel hides everything under the info line (the details, the preview picture, the plot ...): the row
     /// is then only as high as the info line (and the Play bar when it is open), the dividers are not needed, and a small button at the
@@ -2170,6 +2197,7 @@ public partial class MainWindow : Window
         bool on = VM.ShowInfoPanel;
         InfoBody.Visibility            = on ? Visibility.Visible : Visibility.Collapsed;
         InfoPanelShowButton.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        ScrollButtons.Margin           = new Thickness(0, 0, on ? 2 : 34, 0);   // leaves room for the "show panel" button
         InfoDivider.Visibility         = on ? Visibility.Visible : Visibility.Collapsed;
         InfoLineDivider.Visibility     = on ? Visibility.Visible : Visibility.Collapsed;
 
