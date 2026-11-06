@@ -28,6 +28,18 @@ public static class SendToHelper
     public static List<SendToEntry> GetEntries() =>
         ReadFolder(Environment.GetFolderPath(Environment.SpecialFolder.SendTo));
 
+    // The shell takes seconds to find the icons of the SendTo shortcuts the first time (it reads each target program from the disk).
+    // They are frozen bitmaps, so a background thread can fetch them once (MainWindow does that when the window is shown) and the menu,
+    // which still reads the folder each time, takes them from here. An icon is looked up again when its shortcut file changes.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Path, DateTime Written), ImageSource?> IconCache = new();
+
+    private static ImageSource? IconOf(string path)
+    {
+        DateTime written;
+        try { written = File.GetLastWriteTimeUtc(path); } catch { return IconHelper.GetIcon(path); }
+        return IconCache.GetOrAdd((path, written), _ => IconHelper.GetIcon(path));
+    }
+
     private static List<SendToEntry> ReadFolder(string folder)
     {
         var result = new List<SendToEntry>();
@@ -52,7 +64,7 @@ public static class SendToHelper
                     {
                         Name     = System.IO.Path.GetFileName(path),
                         Path     = path,
-                        Icon     = IconHelper.GetIcon(path),
+                        Icon     = IconOf(path),
                         Children = children
                     });
                 }
@@ -62,7 +74,7 @@ public static class SendToHelper
                     {
                         Name = System.IO.Path.GetFileNameWithoutExtension(path),
                         Path = path,
-                        Icon = IconHelper.GetIcon(path)
+                        Icon = IconOf(path)
                     });
                 }
             }
