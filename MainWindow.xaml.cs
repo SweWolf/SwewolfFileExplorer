@@ -1126,6 +1126,27 @@ public partial class MainWindow : Window
             return;
         }
 
+        // The Play / Pause key of the keyboard (not every keyboard has one): with the Play bar closed it opens the bar, as Ctrl+P does;
+        // with the bar open it is a click on the bar's Play / Pause button. (Once a media player is in front it gets the key itself.)
+        if ((e.Key == Key.MediaPlayPause || e.Key == Key.Play) && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            if (PlayBar.Visibility != Visibility.Visible) ShowPlayBar(true);
+            else PlayButton_Click(PlayButton, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        // The Previous / Next Track keys of the keyboard: the Play bar's Previous File / Next File buttons, when the bar is open
+        // (with the bar closed the keys are left alone).
+        if ((e.Key == Key.MediaPreviousTrack || e.Key == Key.MediaNextTrack) && Keyboard.Modifiers == ModifierKeys.None
+            && PlayBar.Visibility == Visibility.Visible)
+        {
+            if (e.Key == Key.MediaPreviousTrack) PlayPrevious_Click(PlayPreviousButton, new RoutedEventArgs());
+            else                                 PlayNext_Click(PlayNextButton, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
         // Alt+Up: up one level, from wherever the focus is (the tree, the list and a combo box would each take the key for themselves).
         // With Alt held WPF reports the key as Key.System and the real key as SystemKey.
         if ((e.Key == Key.System ? e.SystemKey : e.Key) == Key.Up && Keyboard.Modifiers == ModifierKeys.Alt)

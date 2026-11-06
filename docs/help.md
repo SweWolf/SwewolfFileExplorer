@@ -534,6 +534,11 @@ the pictures inside RAW files (NEF, DNG).
 Click **Play** in the toolbar, or press **Ctrl+P**, to show the Play bar under the info line. It plays the pictures,
 music and videos of the list.
 
+If your keyboard has a **Play/Pause** key, it opens the Play bar when the bar is closed. When the bar is open
+it works like the bar's **Play** / **Pause** button, and the **Previous Track** and **Next Track** keys work like
+the **Previous** and **Next** buttons, as long as this program has the keyboard focus (a media player in front
+gets the keys itself).
+
 - **Previous**, **Play** (it becomes **Pause** while something plays) and **Next**.
 - **Play Mode:** Slide Show, Single Play, Repeat, Demo Play, Intro Play or Random Order.
 - **Time per File (s)**, **End of List Action** (Go to Next Folder, Start from Beginning or Close),
@@ -628,6 +633,8 @@ The settings are saved in `%AppData%\SweWolfSoftware\SwewolfFileExplorer\setting
 | Ctrl+Shift+O | Go to the Bookmarks |
 | Ctrl+R / Ctrl+E | Rating / expectation |
 | Ctrl+P | Show or hide the Play bar |
+| Play/Pause key | Open the Play bar; with it open: Play / Pause |
+| Previous / Next Track keys | With the Play bar open: Previous / Next |
 | Ctrl+Num + | Fit the columns to their text |
 | Ctrl + mouse wheel | Bigger or smaller text |
 | Alt+Enter | Properties |
