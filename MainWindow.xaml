@@ -733,18 +733,18 @@
                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
                 <DockPanel LastChildFill="True">
                     <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
-                    <Button x:Name="FilterClearButton" DockPanel.Dock="Right" Content="&#x2715;" FontSize="11" Padding="7,2" Margin="6,0,0,0"
+                    <Button x:Name="FilterClearButton" DockPanel.Dock="Right" TabIndex="6" Content="&#x2715;" FontSize="11" Padding="7,2" Margin="6,0,0,0"
                             ToolTip="Clear the filter (Esc)" Click="FilterClear_Click"/>
                     <TextBlock x:Name="FilterCountText" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12"
                                Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
                     <!-- The rating filter: right of the name box. The value box is only used by the three comparisons. -->
-                    <ComboBox x:Name="RatingValueBox" DockPanel.Dock="Right" Width="84" MinWidth="84" FontSize="12" Margin="6,0,0,0" SelectedIndex="4"
+                    <ComboBox x:Name="RatingValueBox" DockPanel.Dock="Right" TabIndex="5" Width="84" MinWidth="84" FontSize="12" Margin="6,0,0,0" SelectedIndex="4"
                               ToolTip="The rating to compare with (1 to 10)" SelectionChanged="RatingFilter_Changed" IsEnabled="False">
                         <ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/><ComboBoxItem Content="4"/>
                         <ComboBoxItem Content="5"/><ComboBoxItem Content="6"/><ComboBoxItem Content="7"/><ComboBoxItem Content="8"/>
                         <ComboBoxItem Content="9"/><ComboBoxItem Content="10"/>
                     </ComboBox>
-                    <ComboBox x:Name="RatingModeBox" DockPanel.Dock="Right" Width="120" FontSize="12" Margin="6,0,0,0" SelectedIndex="0"
+                    <ComboBox x:Name="RatingModeBox" DockPanel.Dock="Right" TabIndex="4" Width="120" FontSize="12" Margin="6,0,0,0" SelectedIndex="0"
                               ToolTip="Show only the items with a certain rating. Items with no rating are hidden by At Least, Exactly and At Most."
                               SelectionChanged="RatingFilter_Changed">
                         <ComboBoxItem Content="Any Rating"/>
@@ -754,7 +754,25 @@
                         <ComboBoxItem Content="Unrated Only"/>
                     </ComboBox>
                     <TextBlock Text="Rating:" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="24,0,0,0" FontSize="12"/>
-                    <TextBox x:Name="FilterBox" Padding="3" MinWidth="200"
+                    <!-- The date filter: between the name box and the rating. The date picker is only shown when a comparison is chosen. -->
+                    <TextBox x:Name="DateTimeBox" DockPanel.Dock="Right" TabIndex="3" Width="100" FontSize="12" Padding="3" Margin="6,0,0,0" Visibility="Collapsed"
+                             VerticalContentAlignment="Center" MaxLength="12"
+                             ToolTip="The time of day (hours and minutes, written as Windows shows the time). Up and Down arrows or the mouse wheel change the minutes, Page Up and Page Down the hours."
+                             TextChanged="DateTime_TextChanged" LostFocus="DateTime_LostFocus"
+                             PreviewKeyDown="DateTime_PreviewKeyDown" PreviewMouseWheel="DateTime_PreviewMouseWheel"
+                             PreviewMouseLeftButtonDown="DateTime_PreviewMouseLeftButtonDown"/>
+                    <DatePicker x:Name="DateValuePicker" DockPanel.Dock="Right" TabIndex="2" Width="130" FontSize="12" Margin="6,0,0,0" Visibility="Collapsed"
+                                ToolTip="The date to compare with."
+                                SelectedDateChanged="DateFilter_Changed"/>
+                    <ComboBox x:Name="DateModeBox" DockPanel.Dock="Right" TabIndex="1" Width="120" FontSize="12" Margin="6,0,0,0" SelectedIndex="0"
+                              ToolTip="Show only the items modified later or earlier than a date and time. An item modified at exactly that minute is included."
+                              SelectionChanged="DateFilter_Changed">
+                        <ComboBoxItem Content="Any Date"/>
+                        <ComboBoxItem Content="Later Than"/>
+                        <ComboBoxItem Content="Earlier Than"/>
+                    </ComboBox>
+                    <TextBlock Text="Modified:" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="24,0,0,0" FontSize="12"/>
+                    <TextBox x:Name="FilterBox" TabIndex="0" Padding="3" MinWidth="200"
                              ToolTip="Only the items whose name contains these letters are shown. Several words: every word must be in the name."
                              TextChanged="FilterBox_TextChanged" PreviewKeyDown="FilterBox_PreviewKeyDown"/>
                 </DockPanel>

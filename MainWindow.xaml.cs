@@ -233,6 +233,7 @@ public partial class MainWindow : Window
         {
             FilterBox.Text = "";   // clears the filter (TextChanged)
             RatingModeBox.SelectedIndex = RatingAny;   // and the rating filter
+            DateModeBox.SelectedIndex = DateAny;       // and the date filter
             if (focusList) FileListView.Focus();
         }
     }
@@ -283,6 +284,7 @@ public partial class MainWindow : Window
     {
         FilterBox.Text = "";
         RatingModeBox.SelectedIndex = RatingAny;
+        DateModeBox.SelectedIndex = DateAny;
         FilterBox.Focus();
     }
 
@@ -326,8 +328,10 @@ public partial class MainWindow : Window
             var terms = _filterTerms;
             int mode  = _ratingMode;
             int value = _ratingValue;
+            int dateMode = _dateMode;
+            DateTime day = _dateValue;
 
-            if (terms.Length == 0 && mode == RatingAny)
+            if (terms.Length == 0 && mode == RatingAny && dateMode == DateAny)
             {
                 view.IsLiveFiltering = false;
                 view.Filter = null;
@@ -336,19 +340,24 @@ public partial class MainWindow : Window
             {
                 view.Filter = o => o is FileItemViewModel item
                                    && terms.All(t => item.DisplayName.Contains(t, StringComparison.CurrentCultureIgnoreCase))
-                                   && RatingMatches(item.Rating, mode, value);
+                                   && RatingMatches(item.Rating, mode, value)
+                                   && DateMatches(item.DateModified, dateMode, day);
 
-                // An item rated while the filter is on (here, in the picture viewer) comes or goes at once.
+                // An item rated (here, in the picture viewer) or changed while the filter is on comes or goes at once.
+                bool live = false;
                 if (mode != RatingAny)
                 {
                     if (!view.LiveFilteringProperties.Contains(nameof(FileItemViewModel.Rating)))
                         view.LiveFilteringProperties.Add(nameof(FileItemViewModel.Rating));
-                    view.IsLiveFiltering = true;
+                    live = true;
                 }
-                else
+                if (dateMode != DateAny)
                 {
-                    view.IsLiveFiltering = false;
+                    if (!view.LiveFilteringProperties.Contains(nameof(FileItemViewModel.DateModified)))
+                        view.LiveFilteringProperties.Add(nameof(FileItemViewModel.DateModified));
+                    live = true;
                 }
+                view.IsLiveFiltering = live;
             }
         }
         UpdateFilterCount();
@@ -379,10 +388,116 @@ public partial class MainWindow : Window
         ApplyFilter();
     }
 
-    /// <summary>"12 of 125" while a filter (name or rating) is on.</summary>
+    // The date filter ("modified later / earlier than"): modes are the order of the choices in DateModeBox. Only the day counts (no time of
+    // day), and the chosen day itself is included in both comparisons.
+    private const int DateAny = 0, DateLater = 1, DateEarlier = 2;
+    private int _dateMode = DateAny;
+    private DateTime _dateValue = DateTime.Today;
+
+    // The chosen moment is a date and a time of day to the minute (no seconds); a file's own seconds are left out, so a file modified at
+    // 14:30:45 matches 14:30 in both comparisons.
+    private static bool DateMatches(DateTime modified, int mode, DateTime when)
+    {
+        if (mode == DateAny) return true;
+        var m = modified.AddTicks(-(modified.Ticks % TimeSpan.TicksPerMinute));
+        return mode == DateLater ? m >= when : m <= when;
+    }
+
+    private TimeSpan _timeOfDay;          // the time box, to the minute
+    private bool _timeEdited;             // the user changed the time: it is not reset to the mode's default any more
+    private bool _settingTime;            // the code writes the box: not an edit
+
+    private static string TimeText(TimeSpan t) => DateTime.Today.Add(t).ToString("t", CultureInfo.CurrentCulture);   // as Windows writes the time (24 h or AM / PM)
+
+    private void SetTimeBox(TimeSpan t)
+    {
+        _timeOfDay = new TimeSpan(t.Hours, t.Minutes, 0);
+        _settingTime = true;
+        DateTimeBox.Text = TimeText(_timeOfDay);
+        _settingTime = false;
+    }
+
+    private void UpdateDateValue() => _dateValue = (DateValuePicker.SelectedDate ?? DateTime.Today).Date + _timeOfDay;
+
+    private void DateFilter_Changed(object sender, EventArgs e)
+    {
+        if (DateModeBox == null || DateValuePicker == null || DateTimeBox == null || FileListView == null) return;   // raised while the window is being built
+
+        int old = _dateMode;
+        _dateMode = Math.Max(0, DateModeBox.SelectedIndex);
+        bool show = _dateMode != DateAny;
+        DateValuePicker.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        DateTimeBox.Visibility     = show ? Visibility.Visible : Visibility.Collapsed;
+        if (!show) _timeEdited = false;
+        if (show && DateValuePicker.SelectedDate == null) DateValuePicker.SelectedDate = DateTime.Today;   // raises this again with the date
+
+        // Later Than starts at the beginning of the day and Earlier Than at its end, so the whole chosen day is included until the user picks a time.
+        if (show && !_timeEdited && (old != _dateMode || DateTimeBox.Text.Length == 0))
+            SetTimeBox(_dateMode == DateEarlier ? new TimeSpan(23, 59, 0) : TimeSpan.Zero);
+
+        UpdateDateValue();
+        ApplyFilter();
+    }
+
+    private void DateTime_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_settingTime) return;
+        if (!DateTime.TryParse(DateTimeBox.Text, CultureInfo.CurrentCulture, DateTimeStyles.NoCurrentDateDefault, out var parsed)) return;   // half typed: wait
+
+        _timeEdited = true;
+        _timeOfDay = new TimeSpan(parsed.Hour, parsed.Minute, 0);
+        UpdateDateValue();
+        ApplyFilter();
+    }
+
+    // The theme's small "x" in the box (it clears a text box) sets the time to midnight, 00:00, instead of leaving the box empty.
+    private void DateTime_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        for (var d = e.OriginalSource as DependencyObject; d != null && d != DateTimeBox; d = VisualTreeHelper.GetParent(d))
+        {
+            if (d is not System.Windows.Controls.Primitives.ButtonBase) continue;
+            _timeEdited = true;
+            SetTimeBox(TimeSpan.Zero);
+            UpdateDateValue();
+            ApplyFilter();
+            e.Handled = true;
+            return;
+        }
+    }
+
+    // Text that is not a time goes back to the last good one.
+    private void DateTime_LostFocus(object sender, RoutedEventArgs e) => SetTimeBox(_timeOfDay);
+
+    private void ChangeTime(int minutes)
+    {
+        _timeEdited = true;
+        var t = _timeOfDay + TimeSpan.FromMinutes(minutes);
+        if (t < TimeSpan.Zero) t = TimeSpan.Zero;
+        if (t > new TimeSpan(23, 59, 0)) t = new TimeSpan(23, 59, 0);
+        SetTimeBox(t);
+        UpdateDateValue();
+        ApplyFilter();
+    }
+
+    private void DateTime_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        int minutes = e.Key switch { Key.Up => 1, Key.Down => -1, Key.PageUp => 60, Key.PageDown => -60, _ => 0 };
+        if (minutes == 0) return;
+        ChangeTime(minutes);
+        e.Handled = true;
+    }
+
+    private void DateTime_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (!DateTimeBox.IsKeyboardFocused) return;
+        ChangeTime(e.Delta > 0 ? 1 : -1);
+        e.Handled = true;
+    }
+
+    /// <summary>"12 of 125" while a filter (name, rating or date) is on.</summary>
     private void UpdateFilterCount()
     {
-        bool on = _filterTerms.Length > 0 || _ratingMode != RatingAny;
+        bool on = _filterTerms.Length > 0 || _ratingMode != RatingAny || _dateMode != DateAny;
         FilterCountText.Text = on ? $"{FileListView.Items.Count} of {VM.CurrentItems.Count}" : "";
     }
 
@@ -2760,7 +2875,7 @@ public partial class MainWindow : Window
         // Pictures another program added while the viewer is open: the folder is read again at the end of the list. With a filter
         // on in the Explorer the list as filtered is kept (the viewer goes through what the list shows).
         viewer.RefreshPictures = (folder, current) =>
-            FilterBar.Visibility == Visibility.Visible && FilterBox.Text.Length > 0 && !VM.InPlaylist
+            FilterBar.Visibility == Visibility.Visible && (FilterBox.Text.Length > 0 || _ratingMode != RatingAny || _dateMode != DateAny) && !VM.InPlaylist
                 ? PicturesInList()
                 : QuickPictureList(folder, current);
         viewer.MoveCopy = MoveCopyForViewer;

@@ -222,6 +222,13 @@ only the files whose names contain it, anywhere in the name. With several words,
 be in the name. **Esc** clears the text, and a second **Esc** closes the bar. You can also press
 **Esc** with the focus in the list or the tree to close the bar.
 
+The bar also has a **Modified** choice: **Later Than** or **Earlier Than** shows a date box and a time box
+(hours and minutes, written as Windows writes the time, with AM or PM if your settings use it). The
+list shows only the items modified after or before that moment; an item modified at exactly that
+minute is included. Later Than starts at 00:00 and Earlier Than at 23:59, so the whole chosen day is
+included until you change the time. In the time box the Up and Down arrows or the mouse wheel change
+the minutes, and Page Up and Page Down the hours. **Any Date** turns the date filter off. **Rating** works the same way for ratings. All the filters work together.
+
 ### Typing a Name
 
 With the list or the tree in focus, type the first letters of a name to jump to it. Type the same
