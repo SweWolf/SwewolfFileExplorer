@@ -32,7 +32,7 @@ public static class RemoteFiles
         catch (COMException) { return false; }
     }
 
-    private sealed record Entry(string RawName, bool IsDirectory, long Size, DateTime? Written);
+    private sealed record Entry(string RawName, bool IsDirectory, long Size, DateTime? Written, DateTime? Created = null);
 
     /// <summary>
     /// Copies the virtual files on the clipboard into <paramref name="destination"/>. Runs on a thread of its own (the clipboard
@@ -287,6 +287,7 @@ public static class RemoteFiles
             // snapshot. Less arrived: the file got shorter, or the connection broke.
             if (entry.Size >= 0 && written < entry.Size) throw new IOException("the file got shorter while it was being copied, or the connection was interrupted");
             if (entry.Written is { } time) File.SetLastWriteTime(temp, time);
+            if (entry.Created is { } made) File.SetCreationTime(temp, made);
 
             if (renameOld)
             {
@@ -347,7 +348,7 @@ public static class RemoteFiles
     // ── The list of names ─────────────────────────────────────────────────────
 
     private const int DescriptorSize = 592;   // FILEDESCRIPTORW
-    private const uint FD_ATTRIBUTES = 0x4, FD_WRITESTIME = 0x20, FD_FILESIZE = 0x40;
+    private const uint FD_ATTRIBUTES = 0x4, FD_CREATETIME = 0x8, FD_WRITESTIME = 0x20, FD_FILESIZE = 0x40;
 
     private static List<Entry> ReadDescriptors(ComTypes.IDataObject data)
     {
@@ -382,16 +383,24 @@ public static class RemoteFiles
                     long fileSize = (flags & FD_FILESIZE) != 0
                         ? ((long)BitConverter.ToUInt32(bytes, o + 64) << 32) | BitConverter.ToUInt32(bytes, o + 68)
                         : -1;
-                    DateTime? written = null;
+                    // FILEDESCRIPTORW: flags 0, clsid 4, sizel 20, pointl 28, attributes 36, creation 40, access 48, last write 56,
+                    // size high 64, size low 68, name 72. (Before 2026-11-06 the write time was read at 52: half of two different
+                    // times, so the dates were nonsense, e.g. the year 6716.) FILETIME is UTC; the local time zone is applied here.
+                    DateTime? written = null, created = null;
                     if ((flags & FD_WRITESTIME) != 0)
                     {
-                        long ft = BitConverter.ToInt64(bytes, o + 52);
+                        long ft = BitConverter.ToInt64(bytes, o + 56);
                         if (ft > 0) try { written = DateTime.FromFileTimeUtc(ft).ToLocalTime(); } catch { }
+                    }
+                    if ((flags & FD_CREATETIME) != 0)
+                    {
+                        long ft = BitConverter.ToInt64(bytes, o + 40);
+                        if (ft > 0) try { created = DateTime.FromFileTimeUtc(ft).ToLocalTime(); } catch { }
                     }
                     var name = Encoding.Unicode.GetString(bytes, o + 72, 520);
                     int nul = name.IndexOf('\0');
                     if (nul >= 0) name = name[..nul];
-                    list.Add(new Entry(name, isDir, fileSize, written));
+                    list.Add(new Entry(name, isDir, fileSize, written, created));
                 }
                 return list;
             }
