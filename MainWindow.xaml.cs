@@ -141,6 +141,13 @@ public partial class MainWindow : Window
         // A few seconds after the window is on screen: load the media player once in the background (antivirus scan, disk cache).
         ContentRendered += (_, _) =>
         {
+            // The first Send to menu of a run took about 7 s on the UI thread (the shell looks up the icon of each SendTo shortcut: its target
+            // program is read from the disk); the second takes 64 ms. So the first lookup is done now, in the background, and the shell keeps the answers.
+            var sendToWarm = new Thread(() => { try { SendToHelper.GetEntries(); } catch { } }) { IsBackground = true, Name = "SendTo warm-up" };
+            sendToWarm.SetApartmentState(ApartmentState.STA);
+            sendToWarm.Priority = ThreadPriority.BelowNormal;
+            sendToWarm.Start();
+
             var warmUp = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
             warmUp.Tick += (_, _) => { warmUp.Stop(); MediaPlayerLauncher.WarmUpPlayer(); };
             warmUp.Start();
