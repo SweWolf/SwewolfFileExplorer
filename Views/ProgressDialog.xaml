@@ -11,6 +11,27 @@
         ResizeMode="NoResize"
         ShowInTaskbar="False">
 
+    <Window.Resources>
+        <!-- The progress bar in two looks (Settings > General > Progress Bars): the frame and the fill have the same corners.
+             PART_Track / PART_Indicator are what ProgressBar looks for. -->
+        <ControlTemplate x:Key="SquareBarTemplate" TargetType="ProgressBar">
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Background="Transparent">
+                <Grid x:Name="PART_Track">
+                    <Border x:Name="PART_Indicator" HorizontalAlignment="Left"
+                            Background="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"/>
+                </Grid>
+            </Border>
+        </ControlTemplate>
+        <ControlTemplate x:Key="RoundedBarTemplate" TargetType="ProgressBar">
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Background="Transparent" CornerRadius="7">
+                <Grid x:Name="PART_Track">
+                    <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="6"
+                            Background="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"/>
+                </Grid>
+            </Border>
+        </ControlTemplate>
+    </Window.Resources>
+
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

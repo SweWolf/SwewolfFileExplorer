@@ -21,6 +21,8 @@ public partial class ProgressDialog : Window
         _progress = progress;
         _cancel   = cancel;
         InitializeComponent();
+        Bar.Template     = (System.Windows.Controls.ControlTemplate)FindResource(
+                               Helpers.AppSettingsStore.Current.RoundedProgressBars ? "RoundedBarTemplate" : "SquareBarTemplate");
         Title            = title;
         if (icon != null) Icon = icon;   // a delete shows the Recycle Bin
         HeadingText.Text = heading;

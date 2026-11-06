@@ -93,6 +93,10 @@ public class AppSettings
     /// </summary>
     public bool DisableInternalDragDrop { get; set; } = false;
 
+    /// <summary>Settings > General > Progress Bars > "Rounded Progress Bars" (off by default = square): the look of the bar in the copy / move /
+    /// delete progress window. Frame and fill always have the same corners.</summary>
+    public bool RoundedProgressBars { get; set; } = false;
+
     /// <summary>Settings > Media Player > "Preload SweWolf Media Player in the Background at Startup" (on by default; the box is only shown when the
     /// player is found). Once per run the player is started with --warm-up so its first real start is fast.</summary>
     public bool PreloadMediaPlayer { get; set; } = true;
