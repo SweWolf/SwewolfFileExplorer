@@ -587,6 +587,7 @@ Renaming, moving and deleting in this program keeps all of this correct. Changes
 Open **Tools > Settings**. Among other things you can choose:
 
 - **Style:** Light, Dark, System (follows Windows) or Cyber Cyan.
+- **Font:** the font of the file list and the folder tree (the size is set with Ctrl + mouse wheel).
 - **Appearance:** the style, and how unread files look (bold, italic).
 - **Drag and Drop:** turn off dropping files into the program.
 - **Hidden Files:** the extensions that count as hidden, extra extensions to hide inside archives, and the warning when

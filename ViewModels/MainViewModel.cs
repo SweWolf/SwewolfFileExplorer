@@ -559,6 +559,24 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>The font of the list, the drives list and the tree: the one chosen in Settings, else the theme's own.</summary>
+    public System.Windows.Media.FontFamily ContentFontFamily
+    {
+        get
+        {
+            var name = _shared.Settings.FontFamily;
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                try { return new System.Windows.Media.FontFamily(name); } catch { /* a font that is gone: the usual one */ }
+            }
+            return System.Windows.Application.Current?.TryFindResource("ContentControlThemeFontFamily") as System.Windows.Media.FontFamily
+                   ?? System.Windows.SystemFonts.MessageFontFamily;
+        }
+    }
+
+    /// <summary>The font was changed in Settings.</summary>
+    public void FontFamilyChanged() => OnPropertyChanged(nameof(ContentFontFamily));
+
     private static double ClampFontSize(double size) => AppSettingsStore.ClampFontSize(size);
 
     public bool ConsumeProgrammaticTreeSelection(TreeItemViewModel node) =>

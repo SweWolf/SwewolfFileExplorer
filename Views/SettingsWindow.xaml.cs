@@ -7,11 +7,50 @@ public partial class SettingsWindow : Window
 {
     private static readonly string[] Styles = { "Light", "Dark", "System", "Cyber Cyan" };
 
+    private const string DefaultFontText = "Default";
+
+    private static string DefaultFontLine() =>
+        $"{DefaultFontText} ({(Application.Current?.TryFindResource("ContentControlThemeFontFamily") as System.Windows.Media.FontFamily ?? SystemFonts.MessageFontFamily).Source})";
+
+    /// <summary>Every installed font, each written in itself so the list shows what the user will get. A symbol font (Wingdings ...) would show
+    /// only symbols, so its name is written in the usual font and the font is shown in a sample after it.</summary>
+    private void FillFontList()
+    {
+        var chosen = (FontBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "";
+        var items = new List<System.Windows.Controls.ComboBoxItem> { new() { Content = DefaultFontLine(), Tag = "" } };
+        foreach (var family in System.Windows.Media.Fonts.SystemFontFamilies.OrderBy(f => f.Source, StringComparer.CurrentCultureIgnoreCase))
+        {
+            // Only fonts that write letters: a symbol font (Wingdings ...) or an icon font (Segoe MDL2 Assets ...) means nothing here.
+            bool letters;
+            try
+            {
+                letters = new System.Windows.Media.Typeface(family, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal).TryGetGlyphTypeface(out var g)
+                          && !g.Symbol && g.CharacterToGlyphMap.ContainsKey('A') && g.CharacterToGlyphMap.ContainsKey('a') && g.CharacterToGlyphMap.ContainsKey('e');
+            }
+            catch { letters = false; }
+            if (!letters) continue;
+            var item = new System.Windows.Controls.ComboBoxItem { Content = family.Source, Tag = family.Source, FontFamily = family };
+            items.Add(item);
+        }
+        FontBox.Items.Clear();
+        foreach (var item in items) FontBox.Items.Add(item);
+        FontBox.SelectedIndex = 0;   // a saved font that is not installed any more stays on the default
+        for (int i = 1; i < items.Count; i++)
+            if (string.Equals((string)items[i].Tag, chosen, StringComparison.OrdinalIgnoreCase)) { FontBox.SelectedIndex = i; break; }
+    }
+
     public SettingsWindow()
     {
         InitializeComponent();
         var current = AppSettingsStore.Current;
         StyleBox.SelectedIndex = Math.Max(0, Array.IndexOf(Styles, current.Style));
+        // The font list: the first line is the program's usual font. Only that and the chosen font are there at first; the whole list
+        // (every font written in itself) is made once the window is up, as making it takes about a second.
+        FontBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = DefaultFontLine(), Tag = "" });
+        if (!string.IsNullOrWhiteSpace(current.FontFamily))
+            FontBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = current.FontFamily, Tag = current.FontFamily });
+        FontBox.SelectedIndex = FontBox.Items.Count - 1;
+        Loaded += (_, _) => Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, FillFontList);
         UnreadBoldBox.IsChecked   = current.UnreadBold;
         UnreadItalicBox.IsChecked = current.UnreadItalic;
         HiddenExtensionsBox.Text  = current.HiddenExtensions;
@@ -86,6 +125,7 @@ public partial class SettingsWindow : Window
         var settings = AppSettingsStore.Current;
         VirusTotal.SetApiKey(key);
         settings.Style = Styles[StyleBox.SelectedIndex];
+        settings.FontFamily = (FontBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "";
         settings.UnreadBold   = UnreadBoldBox.IsChecked == true;
         settings.UnreadItalic = UnreadItalicBox.IsChecked == true;
         settings.HiddenExtensions = string.Join(";", HiddenItems.Parse(HiddenExtensionsBox.Text));   // tidied: no dots or blanks

@@ -115,7 +115,7 @@ public partial class MainWindow : Window
                 UpdateDrivesList();
 
             // The text of the list got bigger or smaller (Ctrl + wheel, or another tab with another size): so do the columns.
-            if (e.PropertyName == nameof(MainViewModel.ListFontSize)) QueueAutoFit();
+            if (e.PropertyName is nameof(MainViewModel.ListFontSize) or nameof(MainViewModel.ContentFontFamily)) QueueAutoFit();
         };
 
         VM.Tabs.CollectionChanged += (_, e) => { if (e.Action == NotifyCollectionChangedAction.Add) ResetPlayMode(); };   // a new tab: Slide Show again
@@ -1330,6 +1330,7 @@ public partial class MainWindow : Window
         if (new SettingsWindow { Owner = this }.ShowDialog() == true)
         {
             VM.RefreshCommand.Execute(null);
+            VM.FontFamilyChanged();         // the font of the list and the tree may have changed
             VM.ExtensionSettingChanged();   // "Hide Extensions for Known File Types" may have changed: every tab and the button follow
             QueueInfoUpdate();              // so may the warning about hidden items that are not selected
         }

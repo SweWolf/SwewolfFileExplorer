@@ -57,6 +57,13 @@
                 </ComboBox>
             </StackPanel>
         </GroupBox>
+        <GroupBox Header="Font" Padding="8" Margin="0,8,0,0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Font:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox x:Name="FontBox" Width="240" MaxDropDownHeight="360"
+                          ToolTip="The font of the file list and the folder tree. Bold and italic are used for unread files, so they cannot be chosen here. The size is set with Ctrl + mouse wheel, or Ctrl+Plus and Ctrl+Minus."/>
+            </StackPanel>
+        </GroupBox>
         <GroupBox Header="Progress Bars" Padding="8" Margin="0,8,0,0">
             <StackPanel Orientation="Horizontal">
                 <RadioButton x:Name="SquareBarsBox" Content="Square" GroupName="BarLook" Margin="0,0,16,0"

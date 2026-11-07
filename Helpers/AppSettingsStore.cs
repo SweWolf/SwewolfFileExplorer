@@ -17,6 +17,9 @@ public class AppSettings
     public double ListFontSize { get; set; } = DefaultFontSize;
     public double TreeFontSize { get; set; } = DefaultFontSize;
 
+    /// <summary>Font of the file list, the drives list and the tree (Tools > Settings > Font). Empty = the program's usual font.</summary>
+    public string FontFamily { get; set; } = "";
+
     /// <summary>
     /// The columns of the list are sized to their widest text after the list is filled, when the font size changes and when a column
     /// is shown (the user: always on for now; a setting may come: settings.json only, no window yet).
