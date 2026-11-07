@@ -58,6 +58,14 @@ public partial class MoveCopyToDialog : Window
         SelectedText.ToolTip = string.Join(Environment.NewLine, shown) + (_sources.Count > shown.Count ? $"{Environment.NewLine}... and {_sources.Count - shown.Count} more" : "");
     }
 
+    /// <summary>A name with no drive or root (Test5) is a folder inside the folder the items are in, as in Explorer's address bar.</summary>
+    private string Resolve(string folder)
+    {
+        if (Path.IsPathRooted(folder)) return folder;
+        var baseFolder = _sources.Count > 0 ? Path.GetDirectoryName(_sources[0].TrimEnd('\\', '/')) : null;
+        return string.IsNullOrEmpty(baseFolder) ? folder : Path.Combine(baseFolder, folder);
+    }
+
     private void SaveFolders()
     {
         AppSettingsStore.Current.MoveCopyFolders = _folders.ToList();
@@ -87,14 +95,17 @@ public partial class MoveCopyToDialog : Window
     private void FolderBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         var text = FolderBox.Text.Trim();
-        HintText.Text = text.Length > 0 && Path.IsPathRooted(text) && !Directory.Exists(text)
-            ? "This folder does not exist yet. It will be created."
-            : "";
+        string full = "";
+        try { full = text.Length > 0 ? Path.GetFullPath(Resolve(text)) : ""; } catch { /* not a usable path: Check says so on OK */ }
+        HintText.Text = full.Length > 0 && !Directory.Exists(full)
+            ? (Path.IsPathRooted(text) ? "This folder does not exist yet. It will be created."
+                                       : $"This folder does not exist yet. It will be created: {full}")
+            : (full.Length > 0 && !Path.IsPathRooted(text) ? $"A folder next to the items: {full}" : "");
     }
 
     private void AddButton_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new OpenFolderDialog { Title = "Choose a folder to add to the list", InitialDirectory = NearestExistingFolder(FolderBox.Text) };
+        var dlg = new OpenFolderDialog { Title = "Choose a folder to add to the list", InitialDirectory = NearestExistingFolder(Resolve(FolderBox.Text.Trim())) };
         if (dlg.ShowDialog(this) != true) return;
 
         string folder = dlg.FolderName;
@@ -132,7 +143,7 @@ public partial class MoveCopyToDialog : Window
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new OpenFolderDialog { Title = "Choose the folder", InitialDirectory = NearestExistingFolder(FolderBox.Text) };
+        var dlg = new OpenFolderDialog { Title = "Choose the folder", InitialDirectory = NearestExistingFolder(Resolve(FolderBox.Text.Trim())) };
         if (dlg.ShowDialog(this) == true) FolderBox.Text = dlg.FolderName;
     }
 
@@ -148,7 +159,7 @@ public partial class MoveCopyToDialog : Window
             return;
         }
 
-        FolderPath   = Path.GetFullPath(FolderBox.Text.Trim());
+        FolderPath   = Path.GetFullPath(Resolve(FolderBox.Text.Trim()));
 
         if (OpenFolderCheck.Visibility == Visibility.Visible)
         {
@@ -170,8 +181,7 @@ public partial class MoveCopyToDialog : Window
 
         try
         {
-            if (!Path.IsPathRooted(folder)) return "Enter the whole path of the folder, for example D:\\Videos\\Movies.";
-            var full = Path.GetFullPath(folder);
+            var full = Path.GetFullPath(Resolve(folder));
             if (File.Exists(full)) return "That is the name of a file, not a folder.";
 
             // Moving to the folder the items are in changes nothing (copying there makes copies with new names).
