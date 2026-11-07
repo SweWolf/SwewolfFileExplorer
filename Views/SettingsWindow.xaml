@@ -164,6 +164,26 @@
         </GroupBox>
                 </StackPanel>
             </TabItem>
+            <TabItem Header="Security">
+                <StackPanel Margin="8">
+        <GroupBox Header="Starting Programs" Padding="8" Margin="0,8,0,0">
+            <StackPanel>
+                <CheckBox x:Name="AskBeforeProgramsBox" Content="Ask Before Starting a Program"
+                          ToolTip="On: before a program is started from the file list, from a bookmark, or by dropping files on it, a question shows its name and path, and you choose Start or Cancel. In the question you can choose not to be asked again for that file, or for any file (the same as turning this off)."/>
+                <CheckBox x:Name="AskInArchivesBox" Content="Ask Before Starting a Program Inside a Compressed File (Recommended)" Margin="0,6,0,0"
+                          ToolTip="On: the same question for a program inside a zip, RAR or other compressed file, with a warning, and Cancel as the default button. It has its own setting because a program from a compressed file has not been checked by Windows."/>
+                <Button x:Name="ForgetChoicesButton" Content="Ask Again About All Programs..." HorizontalAlignment="Left" Margin="0,10,0,0" Padding="10,3"
+                        ToolTip="Forgets every &quot;Don't Ask Again for This File&quot; you chose in the question, so you are asked about those programs again. It happens at once, not when you press OK."
+                        Click="ForgetChoices_Click"/>
+                <TextBlock Text="File Types That Count as Programs:" Margin="0,14,0,4"/>
+                <UniformGrid x:Name="ProgramKindsPanel" Columns="2"/>
+                <TextBlock Text="Other File Types (Separated by Semicolons):" Margin="0,8,0,4"/>
+                <TextBox x:Name="ProgramExtensionsBox"
+                         ToolTip="Extensions of your own, for example sh;lnk. Only the last extension of a file name counts. Right-click for Clear."/>
+            </StackPanel>
+        </GroupBox>
+                </StackPanel>
+            </TabItem>
         </TabControl>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">

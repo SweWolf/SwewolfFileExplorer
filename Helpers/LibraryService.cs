@@ -54,6 +54,9 @@ public static class LibraryService
     public static void SetItemInfo(string filePath, string? hostUrl, string? referrerUrl) =>
         Queue(() => LibraryStore.SetItemInfo(filePath, hostUrl, referrerUrl));
 
+    /// <summary>Remembers, in the background, "Don't ask again for this file" for a program (the question before it is started).</summary>
+    public static void SetNoAskStart(string programPath) => Queue(() => LibraryStore.SetNoAskStart(programPath));
+
     /// <summary>Waits until everything queued is written: call when the app closes.</summary>
     public static void Flush(int timeoutMilliseconds = 3000)
     {

@@ -2365,7 +2365,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             }
         }
 
-        if (OpenFile(path))
+        if (OpenFile(path, item.IsInArchive ? item.FullPath : null))
         {
             MarkRead(new[] { item }, read: true);
             LibraryService.SetLastOpened(item.FullPath);   // "Jump to Last Opened File" finds it
@@ -2383,10 +2383,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
             UpdateReadState(_currentPath);
     }
 
-    public static bool OpenFile(string path)
+    /// <param name="archivePath">The path inside a compressed file when <paramref name="path"/> is the unpacked copy of it, else null.</param>
+    public static bool OpenFile(string path, string? archivePath = null)
     {
         // A .nfo file: Windows gives them to System Information, but almost all are text or XML; those go to the text editor.
         if (NfoOpener.TryOpenInTextEditor(path)) return true;
+
+        // A program: the question first (Settings > Security). Not started and not marked read when the user says Cancel.
+        if (!Views.StartProgramDialog.Confirm(path, archivePath)) return false;
 
         try
         {

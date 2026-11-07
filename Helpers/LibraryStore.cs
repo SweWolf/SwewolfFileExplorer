@@ -18,6 +18,10 @@ public sealed record LibraryRoute(string DbFile, string Prefix, bool Relative, s
 /// what it knows.
 ///
 /// History:
+///   2026-11-07  ClearAllNoAskStart: forgets every NoAskStart in the main file and in the files of the connected drives (no schema change).
+///   2026-11-07  Schema 12: ItemInfo.NoAskStart (per program: the user said "Don't ask again for this file" in the question before it is started;
+///               a program inside a compressed file is keyed by its path in the archive). GetNoAskStart / SetNoAskStart; Move carries it. An
+///               existing table gets the column added; an older copy ignores it.
 ///   2026-11-02  ScanForCleanup / ApplyCleanup: finds the records of a drive whose file or folder is gone (read only) and removes them
 ///               after a backup copy (cleanup-*.db in Backups). No schema change.
 ///   2026-10-31  Resolve: the trimmed path of a drive itself ("D:") now finds the drive's root ("D:\"), so the rows of a drive's own rating go
@@ -69,7 +73,7 @@ public static class LibraryStore
 {
     public const string UsbFolderName = ".SweWolfFileExplorerData";
     public const string DbFileName = "library.db";
-    private const int SchemaVersion = 11;
+    private const int SchemaVersion = 12;
 
     /// <summary>One thing at a time on the database files (inside this app).</summary>
     public static readonly object Gate = new();
@@ -632,6 +636,7 @@ public static class LibraryStore
                     Name        TEXT NOT NULL COLLATE NOCASE,
                     HostUrl     TEXT,
                     ReferrerUrl TEXT,
+                    NoAskStart  INTEGER,
                     PRIMARY KEY (Folder, Name)
                 ) WITHOUT ROWID;
                 CREATE TABLE IF NOT EXISTS PreviewPick (
@@ -685,6 +690,17 @@ public static class LibraryStore
                 {
                     using var add = connection.CreateCommand();
                     add.CommandText = "ALTER TABLE FolderPrefs ADD COLUMN Columns TEXT";
+                    add.ExecuteNonQuery();
+                }
+            }
+
+            // Schema 8 to 11 had no ItemInfo.NoAskStart.
+            using (var hasNoAsk = Command(connection, "SELECT COUNT(*) FROM pragma_table_info('ItemInfo') WHERE name = 'NoAskStart'"))
+            {
+                if (Convert.ToInt32(hasNoAsk.ExecuteScalar()) == 0)
+                {
+                    using var add = connection.CreateCommand();
+                    add.CommandText = "ALTER TABLE ItemInfo ADD COLUMN NoAskStart INTEGER";
                     add.ExecuteNonQuery();
                 }
             }
@@ -1407,6 +1423,111 @@ public static class LibraryStore
         }
     }
 
+    /// <summary>True when the user said "Don't ask again for this file" before starting this program (ItemInfo.NoAskStart). Creates nothing.</summary>
+    public static bool GetNoAskStart(string filePath)
+    {
+        var path = filePath.TrimEnd('\\', '/');
+        var folder = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(folder)) return false;
+
+        lock (Gate)
+        {
+            try
+            {
+                var route = Resolve(folder, create: false);
+                if (route == null) return false;
+
+                using var connection = Open(route, create: false);
+                if (connection == null) return false;
+
+                var (parentKey, name) = RatedKey(route, path);
+                using var command = Command(connection, "SELECT NoAskStart FROM ItemInfo WHERE Folder = $f AND Name = $n",
+                    ("$f", parentKey), ("$n", name));
+                var value = command.ExecuteScalar();
+                return value != null && value != DBNull.Value && Convert.ToInt32(value) != 0;
+            }
+            catch (Exception ex)
+            {
+                RepairAfter(ex, path);
+                return false;
+            }
+        }
+    }
+
+    /// <summary>Remembers (or forgets, with false) "Don't ask again for this file" for a program. A user action, so it may make the library file
+    /// on a drive, like a rating. Only the NoAskStart column changes: the addresses of the row are kept.</summary>
+    public static bool SetNoAskStart(string filePath, bool noAsk = true)
+    {
+        var path = filePath.TrimEnd('\\', '/');
+        var folder = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(folder)) return false;
+
+        lock (Gate)
+        {
+            try
+            {
+                var route = Resolve(folder, create: noAsk);
+                if (route == null) return false;
+
+                using var connection = Open(route, create: noAsk);
+                if (connection == null) return false;
+
+                var (parentKey, name) = RatedKey(route, path);
+                using var write = Command(connection,
+                    "INSERT INTO ItemInfo (Folder, Name, NoAskStart) VALUES ($f, $n, $v) ON CONFLICT(Folder, Name) DO UPDATE SET NoAskStart = $v",
+                    ("$f", parentKey), ("$n", name), ("$v", noAsk ? 1 : 0));
+                write.ExecuteNonQuery();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                RepairAfter(ex, path);
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// "Ask again about every program": clears every "Don't ask again for this file" in the main file and in the library file of each drive
+    /// that is connected now (a drive that is not connected keeps its choices). A row left with nothing in it is removed. Returns how many
+    /// programs were cleared.
+    /// </summary>
+    public static int ClearAllNoAskStart(bool includeDrives = true)
+    {
+        var files = new List<LibraryRoute> { new(MainDbFile, "", false, "") };
+        foreach (var drive in includeDrives ? Directory.GetLogicalDrives() : Array.Empty<string>())
+        {
+            try
+            {
+                if (DriveTypeOf(drive) == DriveCdRom) continue;
+                var usb = Path.Combine(drive, UsbFolderName, DbFileName);
+                if (File.Exists(usb)) files.Add(new LibraryRoute(usb, "", true, drive));
+            }
+            catch { /* a drive that cannot be asked is left alone */ }
+        }
+
+        int cleared = 0;
+        lock (Gate)
+        {
+            foreach (var route in files)
+            {
+                try
+                {
+                    using var connection = Open(route, create: false);
+                    if (connection == null) continue;
+                    using (var count = Command(connection, "SELECT COUNT(*) FROM ItemInfo WHERE NoAskStart IS NOT NULL AND NoAskStart <> 0"))
+                        cleared += Convert.ToInt32(count.ExecuteScalar());
+                    using (var update = Command(connection, "UPDATE ItemInfo SET NoAskStart = NULL WHERE NoAskStart IS NOT NULL"))
+                        update.ExecuteNonQuery();
+                    using (var empty = Command(connection, "DELETE FROM ItemInfo WHERE NoAskStart IS NULL AND HostUrl IS NULL AND ReferrerUrl IS NULL"))
+                        empty.ExecuteNonQuery();
+                }
+                catch (Exception ex) { RepairAfter(ex, route.DbFile); }
+            }
+        }
+        return cleared;
+    }
+
     // ── Sort order of a folder ───────────────────────────────────────────────
 
     /// <summary>
@@ -1944,7 +2065,7 @@ public static class LibraryStore
         var picks   = ReadAll(session, fromConnection,
             "SELECT Folder, Name, Picture FROM PreviewPick WHERE (Folder = $p AND Name = $n) OR Folder = $k OR (Folder > $a AND Folder < $b)", p);
         var infos   = ReadAll(session, fromConnection,
-            "SELECT Folder, Name, HostUrl, ReferrerUrl FROM ItemInfo WHERE (Folder = $p AND Name = $n) OR Folder = $k OR (Folder > $a AND Folder < $b)", p);
+            "SELECT Folder, Name, HostUrl, ReferrerUrl, NoAskStart FROM ItemInfo WHERE (Folder = $p AND Name = $n) OR Folder = $k OR (Folder > $a AND Folder < $b)", p);
         var tracks  = ReadAll(session, fromConnection,
             "SELECT Folder, Name, AudioIndex, AudioName, SubtitleOff, SubtitleIndex, SubtitleName, VideoIndex, VideoName FROM TrackChoice WHERE (Folder = $p AND Name = $n) OR Folder = $k OR (Folder > $a AND Folder < $b)", p);
         var lasts   = ReadAll(session, fromConnection,
@@ -2005,8 +2126,8 @@ public static class LibraryStore
         {
             var (folder, name) = IsTheItem(r[0], r[1]) ? (toParent, toName) : (Remap((string)r[0]!), (string)r[1]!);
             using var insert = session.Command(toConnection,
-                "INSERT OR REPLACE INTO ItemInfo (Folder, Name, HostUrl, ReferrerUrl) VALUES ($f, $n, $h, $r)",
-                ("$f", folder), ("$n", name), ("$h", r[2]), ("$r", r[3]));
+                "INSERT OR REPLACE INTO ItemInfo (Folder, Name, HostUrl, ReferrerUrl, NoAskStart) VALUES ($f, $n, $h, $r, $x)",
+                ("$f", folder), ("$n", name), ("$h", r[2]), ("$r", r[3]), ("$x", r[4]));
             insert.ExecuteNonQuery();
         }
 

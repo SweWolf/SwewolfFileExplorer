@@ -113,6 +113,23 @@ public class AppSettings
     public bool WarnHiddenNotSelected { get; set; } = true;
 
 
+    /// <summary>Settings > Security > "Ask Before Starting a Program" (on by default: the program asks until the user says it should not).
+    /// Not used yet: the question itself is not built (see the plan in dev-notes).</summary>
+    public bool AskBeforeStartingPrograms { get; set; } = true;
+
+    /// <summary>Settings > Security > "Ask Before Starting a Program Inside a Compressed File" (on by default): its own setting, apart from the one above.</summary>
+    public bool AskBeforeStartingProgramsInArchives { get; set; } = true;
+
+    /// <summary>Settings > Security: the extensions that count as programs for that question, separated by semicolons.</summary>
+    public string ProgramExtensions
+    {
+        get => _programExtensions;
+        // A list saved by the first version (exactly its default, in any order) gets the new default, which also has JavaScript, VBScript's .vbe and
+        // .wsh; a list the user changed is kept as it is.
+        set => _programExtensions = HiddenItems.Parse(value ?? "").SetEquals(HiddenItems.Parse(ProgramTypes.FirstDefaultExtensions)) ? ProgramTypes.DefaultExtensions : value ?? "";
+    }
+    private string _programExtensions = ProgramTypes.DefaultExtensions;
+
     /// <summary>The user's own list of folders in the "Move/Copy to Folder" window (right-click menus), in the order they chose.</summary>
     public List<string> MoveCopyFolders { get; set; } = new();
 

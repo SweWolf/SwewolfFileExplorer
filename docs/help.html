@@ -885,6 +885,56 @@ arguments, as Windows Explorer does.</li>
 </ul>
 <p><strong>Tools &gt; Settings &gt; Drag and Drop</strong> can turn off
 dropping files into the program.</p>
+<h2 id="starting-programs">Starting Programs</h2>
+<p>Before the program starts a program (a double-click or Enter on it in
+the list, a bookmark that points to it, or files dropped on it) it asks
+<strong>Do you want to start this program?</strong> The question shows
+the program’s own icon (or the icon of its file type), the name and the
+whole path, and then, a moment later, what can be read from the file:
+product, description, company, version, size, date and where it was
+downloaded from.</p>
+<ul>
+<li><strong>Start</strong> starts the program. <strong>Cancel</strong>
+does not. For a script (a batch file, VBScript, JavaScript, PowerShell,
+Python), or any file type of your own that looks like text, <strong>Open
+in Visual Studio Code</strong> (or <strong>Open in Notepad</strong>)
+shows it in your text editor, so you can read what it does before you
+start it. <strong>Send to VirusTotal</strong> (above the boxes) checks
+the file on VirusTotal, as in the right-click menu; only that file is
+checked, not the files (such as DLL files) it uses.</li>
+<li><strong>Don’t Ask Again for This File</strong> (used only when you
+press Start) remembers that file by its path.</li>
+<li><strong>Don’t Ask Again for</strong> a file type (used only when you
+press Start) names the kind of file and its extensions, for example
+“VBScript Files (.vbs, .vbe)”, and takes them off the list of file types
+that count as programs. Put them back in <strong>Tools &gt; Settings
+&gt; Security</strong>. Not offered for a program inside a compressed
+file.</li>
+<li><strong>Don’t Ask Again for Any File</strong> (used only when you
+press Start) turns the question off. Turn it on again in <strong>Tools
+&gt; Settings &gt; Security</strong>.</li>
+<li>A program <strong>inside a compressed file</strong> has its own
+setting, <strong>Ask Before Starting a Program Inside a Compressed
+File</strong>. The question then has a warning and
+<strong>Cancel</strong> is the default button. Its “Don’t Ask Again for
+Any Program Inside a Compressed File” box turns only that setting
+off.</li>
+</ul>
+<p>In <strong>Tools &gt; Settings &gt; Security</strong> you can
+also:</p>
+<ul>
+<li>Choose which kinds of files count as programs with check boxes
+(programs, installers, batch files, VBScript, JavaScript, Windows Script
+Host files, HTML applications, PowerShell scripts, Python scripts, Java
+programs) and add other file types of your own, separated by semicolons.
+Right-click the box of your own file types for
+<strong>Clear</strong>.</li>
+<li>Press <strong>Ask Again About All Programs…</strong> to forget every
+“Don’t Ask Again for This File” you chose. It happens at once, not when
+you press OK.</li>
+</ul>
+<p>Windows’ own <strong>More Options</strong> menu is not covered:
+Windows asks for itself there.</p>
 <h2 id="settings">Settings</h2>
 <p>Open <strong>Tools &gt; Settings</strong>. Among other things you can
 choose:</p>
@@ -905,6 +955,10 @@ file types in the Type column, and the offer to move renamed
 videos.</li>
 <li><strong>Folder Tree:</strong> whether a right-click selects the
 folder.</li>
+<li><strong>Security:</strong> ask before a program is started (and,
+separately, one inside a compressed file), which file types count as
+programs, and forgetting the “Don’t Ask Again” choices (see Starting
+Programs).</li>
 <li><strong>Terminal Menu:</strong> which of the three terminals are in
 the menus.</li>
 <li><strong>Media Player:</strong> preload SweWolf Media Player in the

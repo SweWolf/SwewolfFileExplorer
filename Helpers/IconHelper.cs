@@ -305,6 +305,22 @@ public static class IconHelper
         }
     }
 
+    /// <summary>The large (32 px) icon of this kind of file, from the name alone (no disk access): for a dialog, where the small one would be blurry.</summary>
+    public static ImageSource? GetLargeIconForName(string name)
+    {
+        var ext = Path.GetExtension(name);
+        var shfi = new SHFILEINFO();
+        var result = SHGetFileInfo("file" + ext, FILE_ATTRIBUTE_NORMAL, ref shfi, (uint)Marshal.SizeOf(shfi), SHGFI_ICON | SHGFI_USEFILEATTRIBUTES);
+        if (result == IntPtr.Zero || shfi.hIcon == IntPtr.Zero) return null;
+        try
+        {
+            var source = Imaging.CreateBitmapSourceFromHIcon(shfi.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            source.Freeze();
+            return source;
+        }
+        finally { DestroyIcon(shfi.hIcon); }
+    }
+
     /// <summary>The icon for a file or folder with this name, without it being on the disk.</summary>
     public static ImageSource? GetIconForName(string name, bool isDirectory)
     {

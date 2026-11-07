@@ -66,6 +66,16 @@ public partial class SettingsWindow : Window
         VirusTotalKeyBox.Password          = VirusTotal.GetApiKey() ?? "";
         MediaPlayerGroup.Visibility        = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, nothing to preload
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
+        AskBeforeProgramsBox.IsChecked     = current.AskBeforeStartingPrograms;
+        AskInArchivesBox.IsChecked         = current.AskBeforeStartingProgramsInArchives;
+        foreach (var (label, extensions) in ProgramTypes.Groups)
+            ProgramKindsPanel.Children.Add(new System.Windows.Controls.CheckBox
+            {
+                Content = label, Margin = new Thickness(0, 2, 12, 2),
+                ToolTip = "Counts as programs: " + string.Join(", ", extensions.Select(e => "." + e)),
+            });
+        ShowProgramTypes(current.ProgramExtensions);
+        MakeExtensionsMenu();
         TerminalBox.IsChecked              = current.ShowOpenInTerminal;
         PowerShellBox.IsChecked            = current.ShowOpenInPowerShell;
         CommandPromptBox.IsChecked         = current.ShowOpenInCommandPrompt;
@@ -111,6 +121,43 @@ public partial class SettingsWindow : Window
         catch { }
     }
 
+    /// <summary>Checks the kinds that a list contains and puts the rest in the "other" box.</summary>
+    private void ShowProgramTypes(string list)
+    {
+        var (checks, other) = ProgramTypes.Split(list);
+        var boxes = ProgramKindsPanel.Children.OfType<System.Windows.Controls.CheckBox>().ToList();
+        for (int i = 0; i < boxes.Count; i++) boxes[i].IsChecked = checks[i];
+        ProgramExtensionsBox.Text = other;
+    }
+
+    /// <summary>The usual text box menu plus Clear (made in code: a menu with handlers does not belong in a style).</summary>
+    private void MakeExtensionsMenu()
+    {
+        var menu = new System.Windows.Controls.ContextMenu();
+        foreach (var command in new System.Windows.Input.RoutedUICommand[] { System.Windows.Input.ApplicationCommands.Cut, System.Windows.Input.ApplicationCommands.Copy, System.Windows.Input.ApplicationCommands.Paste })
+            menu.Items.Add(new System.Windows.Controls.MenuItem { Command = command, CommandTarget = ProgramExtensionsBox });
+        menu.Items.Add(new System.Windows.Controls.Separator());
+        menu.Items.Add(new System.Windows.Controls.MenuItem { Command = System.Windows.Input.ApplicationCommands.SelectAll, CommandTarget = ProgramExtensionsBox });
+        var clear = new System.Windows.Controls.MenuItem { Header = "Clear" };
+        clear.Click += (_, _) => { ProgramExtensionsBox.Clear(); ProgramExtensionsBox.Focus(); };
+        menu.Items.Add(clear);
+        ProgramExtensionsBox.ContextMenu = menu;
+    }
+
+    private const string ForgetCaption = "Security Settings - Ask Again About All Programs";
+
+    private void ForgetChoices_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show(this, "You will be asked about every program again, also the ones you told the program not to ask about." + Environment.NewLine + Environment.NewLine
+                + "Do you want to continue?", ForgetCaption, MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel) != MessageBoxResult.OK) return;
+        LibraryService.Flush();   // a choice still waiting to be written must not come back
+        var count = LibraryStore.ClearAllNoAskStart();
+        MessageBox.Show(this, count == 0 ? "No program was set to start without a question."
+                                         : count == 1 ? "1 program will be asked about again."
+                                                      : $"{count} programs will be asked about again.",
+                        ForgetCaption, MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {
         var key = (VirusTotalKeyEye.IsChecked == true ? VirusTotalKeyText.Text : VirusTotalKeyBox.Password).Trim();
@@ -140,6 +187,10 @@ public partial class SettingsWindow : Window
         settings.PreloadMediaPlayer      = PreloadPlayerBox.IsChecked == true;
         settings.RoundedProgressBars     = RoundedBarsBox.IsChecked == true;
         settings.WarnHiddenNotSelected   = WarnHiddenNotSelectedBox.IsChecked == true;
+        settings.AskBeforeStartingPrograms = AskBeforeProgramsBox.IsChecked == true;
+        settings.AskBeforeStartingProgramsInArchives = AskInArchivesBox.IsChecked == true;
+        settings.ProgramExtensions         = ProgramTypes.Join(ProgramKindsPanel.Children.OfType<System.Windows.Controls.CheckBox>().Select(c => c.IsChecked == true).ToList(),
+                                                               ProgramExtensionsBox.Text);   // tidied: no dots or blanks
         settings.ShowOpenInTerminal      = TerminalBox.IsChecked == true;
         settings.ShowOpenInPowerShell    = PowerShellBox.IsChecked == true;
         settings.ShowOpenInCommandPrompt = CommandPromptBox.IsChecked == true;

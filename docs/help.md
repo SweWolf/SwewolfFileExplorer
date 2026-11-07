@@ -582,6 +582,29 @@ Renaming, moving and deleting in this program keeps all of this correct. Changes
 
 **Tools > Settings > Drag and Drop** can turn off dropping files into the program.
 
+## Starting Programs
+
+Before the program starts a program (a double-click or Enter on it in the list, a bookmark that points to it, or files dropped on it) it
+asks **Do you want to start this program?** The question shows the program's own icon (or the icon of its file type), the name and the whole path, and then, a moment later, what can be read from
+the file: product, description, company, version, size, date and where it was downloaded from.
+
+- **Start** starts the program. **Cancel** does not. For a script (a batch file, VBScript, JavaScript, PowerShell, Python), or any file type of your own that looks like text, **Open in Visual Studio Code** (or **Open in Notepad**) shows it in your text editor, so you can read what it does before you start it. **Send to VirusTotal** (above the boxes) checks the file on VirusTotal, as in the right-click menu; only that file is checked, not the files (such as DLL files) it uses.
+- **Don't Ask Again for This File** (used only when you press Start) remembers that file by its path.
+- **Don't Ask Again for** a file type (used only when you press Start) names the kind of file and its extensions, for example "VBScript Files (.vbs, .vbe)", and
+  takes them off the list of file types that count as programs. Put them back in **Tools > Settings > Security**. Not offered for a program inside a compressed file.
+- **Don't Ask Again for Any File** (used only when you press Start) turns the question off. Turn it on again in **Tools > Settings > Security**.
+- A program **inside a compressed file** has its own setting, **Ask Before Starting a Program Inside a Compressed File**. The question then has a warning
+  and **Cancel** is the default button. Its "Don't Ask Again for Any Program Inside a Compressed File" box turns only that setting off.
+
+In **Tools > Settings > Security** you can also:
+
+- Choose which kinds of files count as programs with check boxes (programs, installers, batch files, VBScript, JavaScript, Windows Script Host
+  files, HTML applications, PowerShell scripts, Python scripts, Java programs) and add other file types of your own, separated by semicolons.
+  Right-click the box of your own file types for **Clear**.
+- Press **Ask Again About All Programs...** to forget every "Don't Ask Again for This File" you chose. It happens at once, not when you press OK.
+
+Windows' own **More Options** menu is not covered: Windows asks for itself there.
+
 ## Settings
 
 Open **Tools > Settings**. Among other things you can choose:
@@ -594,6 +617,7 @@ Open **Tools > Settings**. Among other things you can choose:
   all files are selected but hidden items are not.
 - **File Names:** hide extensions, the registered name of file types in the Type column, and the offer to move renamed videos.
 - **Folder Tree:** whether a right-click selects the folder.
+- **Security:** ask before a program is started (and, separately, one inside a compressed file), which file types count as programs, and forgetting the "Don't Ask Again" choices (see Starting Programs).
 - **Terminal Menu:** which of the three terminals are in the menus.
 - **Media Player:** preload SweWolf Media Player in the background at startup (on by default; only shown when the player is found). The first start of the player can be slow while your antivirus program scans its files; the preload does that once, with no window, so videos open fast later.
 

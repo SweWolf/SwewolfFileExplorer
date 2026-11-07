@@ -50,6 +50,7 @@ CREATE TABLE ItemInfo (
     Name        TEXT NOT NULL COLLATE NOCASE,   -- the file name
     HostUrl     TEXT,                           -- the address the file was downloaded from; NULL = unknown
     ReferrerUrl TEXT,                           -- the page that linked to it; NULL = unknown
+    NoAskStart  INTEGER,                        -- schema 12: 1 = the user said "Don't ask again for this file" in the question before a program is started; NULL / 0 = ask
     PRIMARY KEY (Folder, Name)
 ) WITHOUT ROWID;
 
@@ -135,6 +136,7 @@ Only exceptions are stored: **a file without a row is unread**, a folder without
 - **Where a file came from** (schema 8, `ItemInfo`): the addresses are stored exactly as they are (nothing is cut off). The explorer copies them from the file's Mark of the Web (the NTFS stream `Zone.Identifier`: `HostUrl`, `ReferrerUrl`) when the file is selected, one file at a time, never a whole folder, and only into a library file that exists already (it never creates one on a USB drive just for this). An empty value never replaces a stored one. When showing a file the explorer prefers the Mark of the Web and falls back to this table per field, so a file that lost its mark (copied to exFAT, zipped, re-saved) still shows its addresses. An importer may write rows with the same key rules as `Rated` (`Folder` = key of the folder, `Name` = file name; a row with both values empty need not exist). `Forget` and `Move` carry the rows, for folders everything below them too.
 - **Sort order** (schema 4): saved when the user clicks a column header in the list or chooses the Sort By order of the tree;
   read the first time a folder is shown in a run. `Forget` and `Move` carry the `FolderPrefs` rows with the folder.
+- **Start a program without asking** (schema 12, `ItemInfo.NoAskStart`): set when the user ticks "Don't Ask Again for This File" in the question the explorer shows before it starts a program (Settings > Security). Keyed like the other `ItemInfo` rows, by path, not by hash (the user rebuilds his own programs all the time); a program inside a compressed file is keyed by its path in the archive. The row may hold only this column (both addresses NULL). Written only by a user action, so it may create the library file on a drive, like a rating. `Forget` and `Move` carry it.
 - **Columns of a folder** (schema 11, `FolderPrefs.Columns`): saved when the user shows, hides or moves a column in a folder; a folder with no value shows the explorer's default columns (`columns.json`, which also holds the widths). A row can hold only `Columns` (the sort fields then stay NULL).
 - **Folder picture** (schema 7): the name of a picture file that the user chose (Set as Folder Picture) for the folder; used before the automatic search. Renaming the file in its folder carries the name; moving or deleting it removes the choice; the folder's own rows follow the folder.
 - **Last opened file** (schema 6): written when the explorer opens a file (or shows a picture in its viewer); not by Mark as Read. A
