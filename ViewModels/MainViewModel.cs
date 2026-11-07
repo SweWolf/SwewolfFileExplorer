@@ -376,6 +376,7 @@ public class MainViewModel : INotifyPropertyChanged
     }
 
     public string StatusText => _activeTab.StatusText;
+    public bool StatusIsError => _activeTab.StatusIsError;
 
     public ObservableCollection<FileItemViewModel> CurrentItems => _activeTab.CurrentItems;
     public ObservableCollection<TreeItemViewModel>  TreeItems    => _activeTab.TreeItems;

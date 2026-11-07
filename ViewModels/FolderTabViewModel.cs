@@ -53,7 +53,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public string AddressText
     {
         get => _addressText;
-        set { if (_addressText == value) return; _addressText = value; OnPropertyChanged(); }
+        set
+        {
+            if (_addressText == value) return;
+            _addressText = value;
+            OnPropertyChanged();
+            // The red error ("Path not found ...") goes as soon as the user starts correcting the address.
+            if (StatusIsError) StatusText = "";
+        }
     }
 
     /// <summary>
@@ -229,8 +236,17 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public string StatusText
     {
         get => _statusText;
-        set { _statusText = value; OnPropertyChanged(); }
+        set { _statusText = value; OnPropertyChanged(); OnPropertyChanged(nameof(StatusIsError)); }
     }
+
+    /// <summary>The status text is an error message (shown in red).</summary>
+    public bool StatusIsError =>
+        _statusText.StartsWith("Path not found", StringComparison.Ordinal) ||
+        _statusText.StartsWith("Cannot ", StringComparison.Ordinal) ||
+        _statusText.StartsWith("Access denied", StringComparison.Ordinal) ||
+        _statusText.StartsWith("Error:", StringComparison.Ordinal) ||
+        _statusText.StartsWith("Unknown shell folder", StringComparison.Ordinal) ||
+        _statusText.StartsWith("The folder no longer exists", StringComparison.Ordinal);
 
     public FileItemViewModel? SelectedItem
     {
@@ -708,6 +724,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 if (archiveError != null) { StatusText = $"Cannot open the archive: {archiveError}"; return; }
                 if (File.Exists(path)) { OpenFile(path); return; }
                 StatusText = $"Path not found: {path}";
+                // As in Windows Explorer: an error box with the error sound, so the typed mistake is not overlooked.
+                MessageBox.Show($"Windows cannot find '{path}'. Check the spelling and try again.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
         }

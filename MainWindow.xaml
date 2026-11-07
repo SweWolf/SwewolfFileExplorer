@@ -1477,8 +1477,19 @@
                        Visibility="{Binding StatusText, Converter={StaticResource TextToVisibility}}">
                 <StatusBarItem>
                     <!-- The status bar has no theme of its own: without this the text is black on the dark styles. -->
-                    <TextBlock Text="{Binding StatusText}" FontSize="12"
-                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBlock Text="{Binding StatusText}" FontSize="12">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StatusIsError}" Value="True">
+                                        <Setter Property="Foreground" Value="#FFFF5A5A"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StatusBarItem>
             </StatusBar>
         </Grid>
