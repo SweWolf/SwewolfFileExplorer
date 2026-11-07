@@ -68,13 +68,19 @@ public static class HiddenItems
         return _archiveExtensions;
     }
 
-    /// <summary>"bup; .IFO, db" gives bup, ifo, db: separators are ; , or a space, a leading dot is allowed.</summary>
+    /// <summary>
+    /// "bup; .IFO, db" gives bup, ifo, db: separators are ; , a space, a tab or a line break, and a typed extension may come with a dot, a "*." (as in
+    /// *.sh), quotes, or as a double extension (tar.gz gives gz: only the last one counts). Nothing but the plain extension is kept.
+    /// </summary>
     public static HashSet<string> Parse(string text)
     {
         var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var part in text.Split(new[] { ';', ',', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+        foreach (var part in text.Split(new[] { ';', ',', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
         {
-            var ext = part.Trim().TrimStart('.');
+            var ext = part.Trim().Trim('"', '\'', '“', '”').TrimStart('*', '.');
+            int dot = ext.LastIndexOf('.');
+            if (dot >= 0) ext = ext[(dot + 1)..];
+            ext = ext.Trim();
             if (ext.Length > 0) set.Add(ext);
         }
         return set;
