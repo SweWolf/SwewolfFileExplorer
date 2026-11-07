@@ -126,7 +126,12 @@ public class AppSettings
         get => _programExtensions;
         // A list saved by the first version (exactly its default, in any order) gets the new default, which also has JavaScript, VBScript's .vbe and
         // .wsh; a list the user changed is kept as it is.
-        set => _programExtensions = HiddenItems.Parse(value ?? "").SetEquals(HiddenItems.Parse(ProgramTypes.FirstDefaultExtensions)) ? ProgramTypes.DefaultExtensions : value ?? "";
+        set
+        {
+            var parsed = HiddenItems.Parse(value ?? "");
+            _programExtensions = parsed.SetEquals(HiddenItems.Parse(ProgramTypes.FirstDefaultExtensions)) || parsed.SetEquals(HiddenItems.Parse(ProgramTypes.SecondDefaultExtensions))
+                ? ProgramTypes.DefaultExtensions : value ?? "";
+        }
     }
     private string _programExtensions = ProgramTypes.DefaultExtensions;
 

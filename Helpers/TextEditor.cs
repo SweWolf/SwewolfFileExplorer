@@ -14,6 +14,29 @@ public static class TextEditor
     private static Editor? _found;
     private static bool _looked;
 
+    private static Editor? _ise;
+    private static bool _iseLooked;
+
+    /// <summary>The editor for this file: for a .ps1 the Windows PowerShell ISE (what "Edit" gives in Explorer), if installed; else <see cref="Find"/>.</summary>
+    public static Editor? FindFor(string fileName)
+    {
+        if (ProgramTypes.IsPowerShellScript(fileName))
+        {
+            if (!_iseLooked)
+            {
+                _iseLooked = true;
+                try
+                {
+                    var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "WindowsPowerShell", "v1.0", "powershell_ise.exe");
+                    if (File.Exists(path)) _ise = new Editor(path, "Windows PowerShell ISE", IconHelper.GetIcon(path));
+                }
+                catch { }
+            }
+            if (_ise != null) return _ise;
+        }
+        return Find();
+    }
+
     /// <summary>The editor and its name for a button ("Visual Studio Code", "Notepad"), or null if none can be found. Looked up once per run.</summary>
     public static Editor? Find()
     {

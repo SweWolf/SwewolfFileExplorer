@@ -116,7 +116,7 @@ public sealed class StartProgramDialog : Window
 
         // A script (a batch file, Python, VBScript ...) can be read before it is started: "Open in Visual Studio Code" or "Open in Notepad", the same
         // editor as for .nfo files (the one in settings.json, else VS Code, else Notepad). Not for programs (binary files).
-        var foundEditor = TextEditor.Find();
+        var foundEditor = TextEditor.FindFor(shownName);
         void AddEditButton(TextEditor.Editor editor)
         {
             var edit = new Button

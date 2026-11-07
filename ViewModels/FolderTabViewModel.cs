@@ -2395,6 +2395,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
         try
         {
             // As Windows Explorer does: the program (a .bat file, an .exe ...) starts in the folder of the file.
+            // A .ps1 that counts as a program (Settings > Security) runs in PowerShell; Windows itself would open it in Notepad.
+            // When .ps1 is not in the list it goes the normal Windows way (Notepad), for safety.
+            if (Helpers.ProgramTypes.IsPowerShellScript(path) && Helpers.ProgramTypes.IsProgram(path))
+            {
+                Process.Start(Helpers.ProgramTypes.PowerShellStart(path));
+                return true;
+            }
             var psi = new ProcessStartInfo { FileName = path, UseShellExecute = true };
             var folder = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder)) psi.WorkingDirectory = folder;

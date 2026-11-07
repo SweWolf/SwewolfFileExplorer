@@ -7,9 +7,27 @@ namespace SwewolfFileExplorer.Helpers;
 /// </summary>
 public static class ProgramTypes
 {
-    /// <summary>Types Windows starts when they are opened, and scripts that run when a script program is installed. No .ps1 (Windows opens it
-    /// in Notepad), no .dll (never started by a double-click), no .lnk.</summary>
-    public const string DefaultExtensions = "exe;com;bat;cmd;scr;msi;vbs;vbe;js;jse;wsf;wsh;hta;jar;py;pyw";
+    /// <summary>Types Windows starts when they are opened, and scripts. .ps1 is in since 2026-11-07: Windows opens it in Notepad, so the explorer
+    /// runs it in PowerShell itself once the question is answered (<see cref="PowerShellStart"/>). No .dll (never started by a double-click), no .lnk.</summary>
+    public const string DefaultExtensions = "exe;com;bat;cmd;scr;msi;vbs;vbe;js;jse;wsf;wsh;hta;jar;ps1;py;pyw";
+
+    /// <summary>The default before .ps1 was added (2026-11-07): a saved list equal to it is upgraded too.</summary>
+    public const string SecondDefaultExtensions = "exe;com;bat;cmd;scr;msi;vbs;vbe;js;jse;wsf;wsh;hta;jar;py;pyw";
+
+    public static bool IsPowerShellScript(string path) => string.Equals(Path.GetExtension(path), ".ps1", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Starts a .ps1 in Windows PowerShell (a window of its own that stays open, so the output can be read). The process-wide execution policy is
+    /// bypassed, as Explorer's "Run with PowerShell" does: the user has just answered the Security Check (or turned it off).</summary>
+    public static System.Diagnostics.ProcessStartInfo PowerShellStart(string script, IEnumerable<string>? arguments = null)
+    {
+        var exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+        var psi = new System.Diagnostics.ProcessStartInfo(File.Exists(exe) ? exe : "powershell.exe") { UseShellExecute = false };
+        foreach (var a in new[] { "-NoExit", "-ExecutionPolicy", "Bypass", "-File", script }) psi.ArgumentList.Add(a);
+        if (arguments != null) foreach (var a in arguments) psi.ArgumentList.Add(a);
+        var folder = Path.GetDirectoryName(script);
+        if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder)) psi.WorkingDirectory = folder;
+        return psi;
+    }
 
     /// <summary>The default of the first version (2026-11-07, before JavaScript and VBScript's .vbe were added): a saved list equal to it is upgraded.</summary>
     public const string FirstDefaultExtensions = "exe;com;bat;cmd;scr;msi;vbs;wsf;hta;jar;py;pyw";
