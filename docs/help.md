@@ -100,7 +100,9 @@ path copied from Windows Explorer as it is. You can also type:
 ### Font Size
 
 Hold **Ctrl** and turn the mouse wheel over the list or over the tree to make its text bigger or
-smaller. The list and the tree have separate sizes, and both are remembered.
+smaller. **Ctrl+Plus** and **Ctrl+Minus** do the same (for the tree when it has the focus, else for
+the list), and **Ctrl+0** brings the text back to the normal size (14). The list and the tree have
+separate sizes, and both are remembered.
 
 ## Tabs
 
@@ -202,7 +204,7 @@ Some columns are hidden until you choose them:
 
 Dates and times are written the way your Windows regional settings say.
 
-The columns fit their text by themselves. **Ctrl+Num +** fits them again after you have dragged a width.
+The columns fit their text by themselves. Right-click a column header and choose **Size All Columns to Fit** to fit them again after you have dragged a width.
 
 The columns and the order are remembered **for each folder**, and a folder without its own choice
 uses the one of the nearest folder above it that has one. In the column menu:
@@ -635,7 +637,8 @@ The settings are saved in `%AppData%\SweWolfSoftware\SwewolfFileExplorer\setting
 | Ctrl+P | Show or hide the Play bar |
 | Play/Pause key | Open the Play bar; with it open: Play / Pause |
 | Previous / Next Track keys | With the Play bar open: Previous / Next |
-| Ctrl+Num + | Fit the columns to their text |
+| Ctrl+Plus / Ctrl+Minus | Bigger or smaller text |
+| Ctrl+0 | Normal text size |
 | Ctrl + mouse wheel | Bigger or smaller text |
 | Alt+Enter | Properties |
 | Shift + right-click | The Windows menu |

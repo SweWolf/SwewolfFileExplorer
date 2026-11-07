@@ -818,7 +818,7 @@ public partial class MainWindow : Window
         more.Click += (_, _) => ShowChooseDetails();
         menu.Items.Add(more);
 
-        var fit = new MenuItem { Header = "Size All Columns to Fit", InputGestureText = "Ctrl+Num +" };
+        var fit = new MenuItem { Header = "Size All Columns to Fit" };
         fit.Click += (_, _) => AutoFitColumns();
         menu.Items.Add(fit);
 
@@ -1194,10 +1194,16 @@ public partial class MainWindow : Window
             FileListView.SelectAll();
             e.Handled = true;
         }
-        // Ctrl + numeric keypad plus: size every column to its widest text, as in Explorer.
-        else if (e.Key == Key.Add && Keyboard.Modifiers == ModifierKeys.Control)
+        // Ctrl + plus / minus / 0: font size of the tree (when it has the focus) or else of the list, like Ctrl + mouse wheel; 0 = back to the default.
+        else if (Keyboard.Modifiers is ModifierKeys.Control or (ModifierKeys.Control | ModifierKeys.Shift)
+                 && e.Key is Key.OemPlus or Key.Add or Key.OemMinus or Key.Subtract or Key.D0 or Key.NumPad0)
         {
-            AutoFitColumns();
+            bool tree = NavigationTree.IsKeyboardFocusWithin;
+            int step = e.Key is Key.OemPlus or Key.Add ? 1 : e.Key is Key.OemMinus or Key.Subtract ? -1 : 0;
+            double now = tree ? VM.TreeFontSize : VM.ListFontSize;
+            double value = step == 0 ? AppSettings.DefaultFontSize : now + step;
+            if (tree) VM.TreeFontSize = value; else VM.ListFontSize = value;
+            FlashTitle($"{BaseTitle} - {(tree ? "Tree" : "List")} font size: {(tree ? VM.TreeFontSize : VM.ListFontSize):0.#} pt");
             e.Handled = true;
         }
     }

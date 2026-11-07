@@ -784,6 +784,7 @@
                       ItemsSource="{Binding DriveRows}"
                       SelectionMode="Single"
                       FontSize="{Binding ListFontSize}"
+                      PreviewMouseWheel="List_PreviewMouseWheel"
                       BorderThickness="0"
                       MouseDoubleClick="DrivesListView_MouseDoubleClick"
                       KeyDown="DrivesListView_KeyDown"

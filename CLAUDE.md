@@ -268,7 +268,7 @@ SwewolfFileExplorer/
 | Ctrl+Shift+T | Reopen the last closed tab (up to 20, with its history and sort) |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / Previous tab |
 | Middle-click | On a tab: close it. On a folder: open it in a new tab |
-| Ctrl+Num + | Size all columns to fit their widest text |
+| Ctrl+Plus / Ctrl+Minus / Ctrl+0 | Font size bigger / smaller / back to the default (14; the tree when it has the focus, else the list; also the numpad keys). Changed 2026-11-06: Ctrl+Num + no longer fits the columns (that is only in the header menu now); the Ctrl + wheel also works on the This PC drives grid |
 | Ctrl+D | Bookmark the folder shown |
 | Ctrl+Shift+O | The "Bookmarks" node of the tree gets the focus and is selected (the list shows the bookmarks); shows the tree first if it is hidden; says so in the title bar when the tree has a root of its own (no Bookmarks node). `MainWindow.GoToBookmarksNode`, `FolderTabViewModel.BookmarksNode`. Compiled only (2026-10-27) |
 | Ctrl+F | Show / hide the filter bar above the list (the list shows only the names that contain what is typed) |

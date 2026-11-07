@@ -9,7 +9,7 @@ public class AppSettings
     /// <summary>Show the folders in the file list. Off by default: they are in the tree already.</summary>
     public bool ShowFolders { get; set; }
 
-    public const double DefaultFontSize = 13;
+    public const double DefaultFontSize = 14;
     public const double MinFontSize = 8;
     public const double MaxFontSize = 40;
 
