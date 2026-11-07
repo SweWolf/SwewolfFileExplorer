@@ -65,6 +65,9 @@ public partial class InputDialog : Window
             }
         }
         SetName(defaultValue);
+        TextBoxMenu.Attach(InputTextBox);   // Tab selects all, right-click has Clear
+        TextBoxMenu.Attach(ExtTextBox);
+        Width = 456;   // the name box 20 % wider than before (380): file names can be long
 
         if (caseButtons || smartApplies)
         {
