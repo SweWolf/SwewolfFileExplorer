@@ -64,7 +64,7 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Size,         "Size",          SizeColumn),
             new ColumnInfo(SortColumn.Artist,       "Artist",        ArtistColumn, visible: false),
             new ColumnInfo(SortColumn.Title,        "Title",         TitleColumn, visible: false),
-            new ColumnInfo(SortColumn.TrackNumber,  "Track Number",  TrackColumn, visible: false),
+            new ColumnInfo(SortColumn.TrackNumber,  "#",             TrackColumn, visible: false, menuTitle: "# (Track Number)"),
             new ColumnInfo(SortColumn.Length,       "Length",        LengthColumn, visible: false),
             new ColumnInfo(SortColumn.Bitrate,      "Bitrate",       BitrateColumn, visible: false),
             new ColumnInfo(SortColumn.Dimensions,   "Dimensions",    DimensionsColumn, visible: false),
@@ -566,14 +566,17 @@ public partial class MainWindow : Window
     {
         public SortColumn Key { get; }
         public string Title { get; }
+        /// <summary>The name in the header menu and in the Choose Details window (the header itself says <see cref="Title"/>: "#" for the track number).</summary>
+        public string MenuTitle { get; }
         public GridViewColumn Column { get; }
         public bool Visible { get; set; }
         public double Width { get; set; }
 
-        public ColumnInfo(SortColumn key, string title, GridViewColumn column, bool visible = true)
+        public ColumnInfo(SortColumn key, string title, GridViewColumn column, bool visible = true, string? menuTitle = null)
         {
             Key     = key;
             Title   = title;
+            MenuTitle = menuTitle ?? title;
             Column  = column;
             Visible = visible;
             Width   = column.Width;
@@ -804,7 +807,7 @@ public partial class MainWindow : Window
         {
             var item = new MenuItem
             {
-                Header      = info.Title,
+                Header      = info.MenuTitle,
                 IsCheckable = true,
                 IsChecked   = info.Visible,
                 IsEnabled   = info.Key != SortColumn.Name   // Name is always shown
@@ -868,7 +871,7 @@ public partial class MainWindow : Window
         var dlg = new ChooseDetailsDialog(_layout.Select(c => new ColumnChoice
         {
             Key       = c.Key.ToString(),
-            Title     = c.Title,
+            Title     = c.MenuTitle,
             IsVisible = c.Visible,
             Width     = Math.Round(c.Width),
             CanHide   = c.Key != SortColumn.Name
@@ -1279,7 +1282,8 @@ public partial class MainWindow : Window
         foreach (var col in _layout.Where(c => c.Visible))
         {
             // The header gets room for the sort arrow too, so sorting does not clip it.
-            double width = TextWidth(col.Title + " ▲") + 16;
+            // A right-aligned header (Size, #) needs a little more: it has the template's margin on the right and was cut off on the left ("# ▲" showed only "▲").
+            double width = TextWidth(col.Title + " ▲") + 16 + (col.Key is SortColumn.Size or SortColumn.TrackNumber ? 14 : 0);
 
             // Only the longest texts are measured (by number of characters): a folder of thousands of files would take too long
             // otherwise, and the widest text is among the longest.
@@ -1289,7 +1293,7 @@ public partial class MainWindow : Window
             {
                 // Cell padding (a little more for the slant of italic letters); the Name cell also holds the 16 px icon and its 5 px margin,
                 // the Size cell has the 11 px right margin of its template (it was cut off: "940.6 KI").
-                double w = TextWidth(text) + 16 + (col.Key == SortColumn.Name ? 21 : 0) + (col.Key == SortColumn.Size ? 11 : 0);
+                double w = TextWidth(text) + 16 + (col.Key == SortColumn.Name ? 21 : 0) + (col.Key is SortColumn.Size or SortColumn.TrackNumber ? 11 : 0);
                 if (w > width) width = w;
             }
 

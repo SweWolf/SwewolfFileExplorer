@@ -941,8 +941,19 @@
                         <GridViewColumn Header="Title" Width="220" x:Name="TitleColumn"
                                         DisplayMemberBinding="{Binding Title}"/>
 
-                        <GridViewColumn Header="Track Number" Width="110" x:Name="TrackColumn"
-                                        DisplayMemberBinding="{Binding TrackText}"/>
+                        <!-- Track number: the header is "#" as in Explorer, and the numbers are right-aligned like Size (header and cells). -->
+                        <GridViewColumn Header="#" Width="70" x:Name="TrackColumn">
+                            <GridViewColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" HorizontalAlignment="Right" TextAlignment="Right"/>
+                                </DataTemplate>
+                            </GridViewColumn.HeaderTemplate>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding TrackText}" TextAlignment="Right" Margin="0,0,11,0"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
 
                         <!-- What is known about the file itself (read in the background, like the tags): music, video and pictures.
                              Left-aligned, header too, like the other columns (only Size is right-aligned). Dimensions is width x height in one column. -->

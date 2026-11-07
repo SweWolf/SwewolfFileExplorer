@@ -197,7 +197,7 @@ Type, Size, and more. **More...** opens a window where you can also set the orde
 
 Some columns are hidden until you choose them:
 
-- **Artist, Title and Track Number** of music files.
+- **Artist, Title and # (Track Number)** of music files. The track numbers are right-aligned.
 - **Length, Bitrate and Dimensions** of music, videos and pictures.
 - **Product Name and Product Version** of programs and libraries.
 - **Rating and Expectation** (they appear when you set a value).
