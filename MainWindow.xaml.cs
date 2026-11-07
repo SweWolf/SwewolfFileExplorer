@@ -2046,7 +2046,7 @@ public partial class MainWindow : Window
     /// Where a file came from: its own Mark of the Web, with what it lacks filled in from the library (and what it says copied to the library).
     /// For something inside an archive (<paramref name="wantArchive"/>) the archive file's. Also used by the picture viewer's Host URL. Not on the UI thread.
     /// </summary>
-    private static WebOrigin? ReadWebOrigin(string path, bool wantArchive)
+    internal static WebOrigin? ReadWebOrigin(string path, bool wantArchive)
     {
         if (wantArchive)
         {

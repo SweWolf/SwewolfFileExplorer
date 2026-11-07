@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using SwewolfFileExplorer.Helpers;
 
@@ -16,7 +17,8 @@ namespace SwewolfFileExplorer.Views;
 /// </summary>
 public sealed class StartProgramDialog : Window
 {
-    private readonly TextBlock _details = new() { Opacity = 0.85, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 0), MaxWidth = 640, Text = "Reading details..." };
+    private readonly TextBlock _origin = new() { Opacity = 0.85, TextWrapping = TextWrapping.Wrap, MaxWidth = 640, Visibility = Visibility.Collapsed };
+    private readonly TextBlock _details =new() { Opacity = 0.85, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 0), MaxWidth = 640, Text = "Reading details..." };
     private readonly CheckBox _thisFile = new() { Margin = new Thickness(0, 14, 0, 0) };
     private readonly CheckBox _anyFile = new() { Content = "Don't Ask Again for Any File", Margin = new Thickness(0, 6, 0, 0) };
 
@@ -85,6 +87,8 @@ public sealed class StartProgramDialog : Window
             });
         _details.Margin = new Thickness(46, 10, 0, 0);
         panel.Children.Add(_details);
+        _origin.Margin = new Thickness(46, 10, 0, 0);   // a group of its own under the details: the extra information
+        panel.Children.Add(_origin);
 
         if (inArchive)
             panel.Children.Add(new TextBlock
@@ -194,6 +198,11 @@ public sealed class StartProgramDialog : Window
                 }, TaskScheduler.FromCurrentSynchronizationContext());
             var text = await Task.Run(() => DetailsOf(program, archivePath));
             _details.Text = text;
+            var (host, referrer, note) = await Task.Run(() => OriginOf(program, archivePath));
+            if (host != null) AddUrlLine(_origin, "Host URL", host);
+            if (referrer != null) AddUrlLine(_origin, "Referrer URL", referrer);
+            if (note != null) _origin.Inlines.Add(new Run(note));
+            if (_origin.Inlines.Count > 0) _origin.Visibility = Visibility.Visible;
 
             if (foundEditor != null && !ProgramTypes.IsScript(shownName) && !ProgramTypes.IsBinaryType(shownName)
                 && await Task.Run(() => ProgramTypes.LooksLikeText(program)))
@@ -232,13 +241,42 @@ public sealed class StartProgramDialog : Window
             lines.Add($"Size: {DriveRow.FormatSize(info.Length)}");
             lines.Add($"Date modified: {info.LastWriteTime:yyyy-MM-dd HH:mm}");
 
-            // Where it was downloaded from: the file's own Mark of the Web, or the compressed file's (everything in it came with that download).
-            var origin = MarkOfTheWeb.Read(archivePath != null ? ArchiveSupport.DiskArchiveOf(archivePath) ?? "" : program);
-            if (origin?.HostUrl is { Length: > 0 } host) lines.Add($"Downloaded from: {host}");
-            else if (origin?.ZoneId is 3 or 4) lines.Add("Downloaded from the internet");
         }
         catch { /* what could not be read is left out */ }
         return lines.Count == 0 ? "No details could be read." : string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>Where the file was downloaded from (Host URL, Referrer URL; the file's own Mark of the Web, or the compressed file's, since everything in
+    /// it came with that download). Empty values are null; with neither address but a download zone, Host is "the internet" text in <c>Note</c>.</summary>
+    public static (string? Host, string? Referrer, string? Note) OriginOf(string program, string? archivePath)
+    {
+        try
+        {
+            // The same reading as the info panel's rows: the file's own mark, what it lacks from the library (a file that lost its mark still has them).
+            var origin = MainWindow.ReadWebOrigin(archivePath ?? program, wantArchive: archivePath != null);
+            var host = origin?.HostUrl is { Length: > 0 } h ? h : null;
+            var referrer = origin?.ReferrerUrl is { Length: > 0 } r ? r : null;
+            var note = host == null && referrer == null && origin?.ZoneId is 3 or 4 ? "Downloaded from the internet" : null;
+            return (host, referrer, note);
+        }
+        catch { return (null, null, null); }
+    }
+
+    /// <summary>A "Label: address" line; an http / https address is underlined, has a hand cursor and opens in the default browser.</summary>
+    private static void AddUrlLine(TextBlock block, string label, string url)
+    {
+        if (block.Inlines.Count > 0) block.Inlines.Add(new LineBreak());
+        block.Inlines.Add(new Run(label + ": "));
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            var link = new Run(url) { TextDecorations = TextDecorations.Underline, Cursor = System.Windows.Input.Cursors.Hand, ToolTip = "Open in the default browser" };
+            link.MouseLeftButtonUp += (_, _) =>
+            {
+                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true }); } catch { }
+            };
+            block.Inlines.Add(link);
+        }
+        else block.Inlines.Add(new Run(url));
     }
 
     /// <summary>
