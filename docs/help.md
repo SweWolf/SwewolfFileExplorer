@@ -594,7 +594,7 @@ the file: product, description, company, version, size, date and where it was do
   takes them off the list of file types that count as programs. Put them back in **Tools > Settings > Security**. Not offered for a program inside a compressed file.
 - **Don't Ask Again for Any File** (used only when you press Start) turns the question off. Turn it on again in **Tools > Settings > Security**.
 - A program **inside a compressed file** has its own setting, **Ask Before Starting a Program Inside a Compressed File**. The question then has a warning
-  and **Cancel** is the default button. Its "Don't Ask Again for Any Program Inside a Compressed File" box turns only that setting off.
+  and **Cancel** is the default button. **Don't Ask Again for Any Program Inside** (the name of the compressed file) stops the question for every program in that one compressed file; "Don't Ask Again for Any Program Inside a Compressed File" turns only that setting off.
 
 In **Tools > Settings > Security** you can also:
 

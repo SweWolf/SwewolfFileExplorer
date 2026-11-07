@@ -26,6 +26,12 @@ public sealed class StartProgramDialog : Window
     /// its messages. When it is not set (a test) the dialog has no such button.</summary>
     public static Func<string, Window, Task>? VirusTotalCheck { get; set; }
 
+    private readonly CheckBox _thisArchive = new() { Margin = new Thickness(0, 6, 0, 0) };
+
+    /// <summary>The packed file on the disk (the outermost one) that holds the program, or null for a program on the disk.</summary>
+    public string? DiskArchive { get; }
+
+    public bool DontAskForThisArchive => _thisArchive.IsChecked == true;
     public bool DontAskForThisFile => _thisFile.IsChecked == true;
     public bool DontAskForThisFileType => _fileType.IsChecked == true;
     public bool DontAskForAnyFile => _anyFile.IsChecked == true;
@@ -36,6 +42,7 @@ public sealed class StartProgramDialog : Window
     public StartProgramDialog(string program, string? archivePath, int argumentCount)
     {
         bool inArchive = archivePath != null;
+        if (inArchive) DiskArchive = ArchiveSupport.DiskArchiveOf(archivePath!);
         Title = "Security Check";
         FontSize = 14;
         SizeToContent = SizeToContent.WidthAndHeight;
@@ -143,6 +150,14 @@ public sealed class StartProgramDialog : Window
             _fileType.Margin = new Thickness(46, 6, 0, 0);
             panel.Children.Add(_fileType);
         }
+        // For a program inside a compressed file: "any program inside THIS compressed file", named by the packed file on the disk (in the middle, the user's idea).
+        if (inArchive && DiskArchive != null)
+        {
+            _thisArchive.Content = "Don't Ask Again for Any Program Inside " + Path.GetFileName(DiskArchive);
+            _thisArchive.ToolTip = "Programs inside " + DiskArchive + " start without this question from now on. You can undo it in Tools > Settings > Security (Ask Again About All Programs).";
+            _thisArchive.Margin = new Thickness(46, 6, 0, 0);
+            panel.Children.Add(_thisArchive);
+        }
         _anyFile.Margin = new Thickness(46, 6, 0, 0);
         if (inArchive) _anyFile.Content = "Don't Ask Again for Any Program Inside a Compressed File";
         panel.Children.Add(_anyFile);
@@ -241,6 +256,8 @@ public sealed class StartProgramDialog : Window
         bool inArchive = archivePath != null;
         if (!(inArchive ? settings.AskBeforeStartingProgramsInArchives : settings.AskBeforeStartingPrograms)) return true;   // two settings, one for each kind
         if (LibraryStore.GetNoAskStart(shown)) return true;
+        var diskArchive = inArchive ? ArchiveSupport.DiskArchiveOf(archivePath!) : null;
+        if (diskArchive != null && LibraryStore.GetNoAskStart(diskArchive)) return true;   // "any program inside this compressed file": the choice sits on the packed file
 
         var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive && w.IsVisible)
                     ?? Application.Current?.MainWindow;
@@ -249,6 +266,7 @@ public sealed class StartProgramDialog : Window
         if (dialog.ShowDialog() != true) return false;
 
         if (dialog.DontAskForThisFile) LibraryService.SetNoAskStart(shown);
+        if (dialog.DontAskForThisArchive && diskArchive != null) LibraryService.SetNoAskStart(diskArchive);
         if (dialog.DontAskForThisFileType && !inArchive)
         {
             settings.ProgramExtensions = ProgramTypes.RemoveKind(settings.ProgramExtensions, program);
