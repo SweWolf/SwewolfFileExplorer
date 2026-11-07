@@ -42,6 +42,8 @@
 
   <ItemGroup>
     <Resource Include="Resourses\fluent_file_explorer.ico" />
+    <!-- Shown by Windows at once, long before WPF and the main window are ready; closes by itself when the main window appears. -->
+    <SplashScreen Include="Resourses\splash.png" />
   </ItemGroup>
 
   <!-- The debug symbols of SkiaSharp's native libraries (106 MB) come along with them; nobody needs them. -->
