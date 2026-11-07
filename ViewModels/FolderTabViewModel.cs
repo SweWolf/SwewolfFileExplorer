@@ -284,7 +284,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         ForwardCommand   = new RelayCommand(_ => GoForward(),     _ => _forwardHistory.Count > 0);
         UpCommand        = new RelayCommand(_ => GoUp(),          _ => CanGoUp());
         RefreshCommand   = new RelayCommand(_ => Refresh());
-        NavigateCommand  = new RelayCommand(_ => Navigate(AddressText));   // Enter in the address bar: what was typed
+        NavigateCommand  = new RelayCommand(_ => Navigate(TidyTypedPath(AddressText)));   // Enter in the address bar: what was typed, spelled the Windows way (the box then shows that)
         // An archive is read-only: only copying out of it is possible.
         DeleteCommand    = new RelayCommand(_ => DeleteSelected(), _ => _selectedItems.Count > 0 && (!_inArchive || _inPlaylist));   // in a playlist: remove from the list
         PermanentDeleteCommand = new RelayCommand(_ => DeleteSelected(permanent: true), _ => _selectedItems.Count > 0 && !_inArchive);
@@ -685,6 +685,67 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         if (string.IsNullOrEmpty(text)) return "";
         return text.Replace("\"", "").Replace("\u201C", "").Replace("\u201D", "").Replace("\u201E", "").Trim();
+    }
+
+    /// <summary>
+    /// What the user typed in the address bar, written the way Windows spells it: <c>d:/mytemp</c> becomes <c>D:\MyTemp</c> (backslashes, a capital
+    /// drive letter, each folder with the capitals it really has on the disk). Only a plain disk path is touched; a packed file in it is spelled
+    /// too and what lies inside it is kept as typed. Anything else (a shell: name, a %VARIABLE%, a network path, a path that does not exist)
+    /// comes back as it was.
+    /// </summary>
+    internal static string TidyTypedPath(string? typed)
+    {
+        var text = CleanTypedPath(typed);
+        try
+        {
+            if (text.Length == 0 || text.Contains('%') || text.StartsWith("shell:", StringComparison.OrdinalIgnoreCase) || text.StartsWith(@"\\") || text.StartsWith("//")) return text;
+            if (text.Length >= 2 && text[1] == ':' && char.IsLetter(text[0]))
+            {
+                if (text.Length == 2) text += @"\";
+                else if (text[2] != '\\' && text[2] != '/') text = text[..2] + @"\" + text[2..];   // d:mytemp: the missing backslash is what the user meant (Windows itself would use that drive's current folder)
+            }
+            else return text;
+            if (text.IndexOfAny(new[] { '*', '?' }) >= 0) return text;
+
+            var full = Path.GetFullPath(text);
+            var root = Path.GetPathRoot(full) ?? "";
+            if (root.Length < 3 || !Directory.Exists(root)) return text;
+
+            var result = char.ToUpperInvariant(root[0]) + root[1..];
+            var parts = full[root.Length..].Split('\\', StringSplitOptions.RemoveEmptyEntries);
+            bool inArchive = false;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string? real = null;
+                if (!inArchive)
+                {
+                    if (Directory.Exists(result))
+                    {
+                        try { real = new DirectoryInfo(result).EnumerateFileSystemInfos(parts[i]).FirstOrDefault()?.Name; } catch { /* unreadable: kept as typed */ }
+                    }
+                }
+                else
+                {
+                    // Inside a packed file: the names are those the archive lists (a folder in it, or a packed file in it).
+                    try { real = ArchiveSupport.List(result).FirstOrDefault(e => string.Equals(e.Name, parts[i], StringComparison.OrdinalIgnoreCase))?.Name; }
+                    catch { /* not readable: kept as typed */ }
+                }
+                if (real == null) return Path.Combine(result, string.Join('\\', parts.Skip(i)));   // not there: the rest as typed
+                result = Path.Combine(result, real);
+
+                if (!inArchive && !Directory.Exists(result))
+                {
+                    // A file on the disk: only a packed file can be gone into.
+                    if (!ArchiveSupport.IsArchiveName(real)) return i + 1 < parts.Length ? Path.Combine(result, string.Join('\\', parts.Skip(i + 1))) : result;
+                    inArchive = true;
+                }
+            }
+            return result;
+        }
+        catch
+        {
+            return text;
+        }
     }
 
     private void NavigateCore(string? path, bool addToHistory, FolderListing? listing)

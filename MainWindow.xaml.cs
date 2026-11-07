@@ -301,12 +301,19 @@ public partial class MainWindow : Window
     /// </summary>
     private void AddressBar_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key is Key.Enter or Key.Return) KeepAddressCaretAtEnd();   // the navigation (a key binding) may spell the text again: the caret must not jump to the start
         if (e.Key != Key.Escape || Keyboard.Modifiers != ModifierKeys.None) return;
 
         VM.AddressText = VM.CurrentPath;
         FileListView.Focus();
         e.Handled = true;
     }
+
+    /// <summary>When the address bar's text is replaced by the spelled path (Enter or Go), WPF puts the caret at the start: put it back at the end, so the user can go on typing.</summary>
+    private void KeepAddressCaretAtEnd() =>
+        Dispatcher.BeginInvoke(() => AddressBar.CaretIndex = AddressBar.Text.Length, System.Windows.Threading.DispatcherPriority.Background);
+
+    private void AddressGo_Click(object sender, RoutedEventArgs e) => KeepAddressCaretAtEnd();
 
     private void FilterBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {

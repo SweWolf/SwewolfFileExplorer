@@ -254,6 +254,7 @@
                 </Border>
 
                 <Button Command="{Binding NavigateCommand}"
+                        Click="AddressGo_Click"
                         ToolTip="Go (right-click for more)"
                         Padding="6,4">
                     <Button.ContextMenu>
