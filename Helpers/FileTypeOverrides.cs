@@ -4,7 +4,8 @@ using System.Text.Json;
 namespace SwewolfFileExplorer.Helpers;
 
 /// <summary>
-/// The user's own descriptions of file types, from %AppData%\SweWolfSoftware\SwewolfFileExplorer\FileTypes.json.
+/// The descriptions and icons of file types: the program's own list (embedded, Resourses\FileTypes.default.json) and the user's own
+/// %AppData%\SweWolfSoftware\SwewolfFileExplorer\FileTypes.json, which wins where it names an extension.
 /// Only a lookup: when the file or the extension is not there, nothing is overridden and the Type column
 /// works exactly as before (Windows' name, or the registered name when that setting is on).
 ///
@@ -17,6 +18,27 @@ internal static class FileTypeOverrides
 {
     /// <summary>"builtin:name" in an icon means the icon Resourses\FileTypeIcons\name.ico that is embedded in the program.</summary>
     public const string BuiltInPrefix = "builtin:";
+
+    /// <summary>The program's own list, embedded in the EXE (Resourses\FileTypes.default.json).</summary>
+    private const string BuiltInResource = "FileTypes.default.json";
+
+    private static bool _useBuiltIn = true;
+
+    /// <summary>
+    /// Settings > "Use SweWolf File Explorer's Own Definition of File Type Names and Icons": the embedded list is used (on by default).
+    /// Off, only the user's own FileTypes.json counts. Changing it forgets the lists and the icons and names found so far.
+    /// </summary>
+    public static bool UseBuiltIn
+    {
+        get => _useBuiltIn;
+        set
+        {
+            if (_useBuiltIn == value) return;
+            _useBuiltIn = value;
+            Reload();
+            IconHelper.ResetFileTypeCaches();
+        }
+    }
 
     private sealed record Entry(string? Description, string? Icon);
 
@@ -77,36 +99,59 @@ internal static class FileTypeOverrides
             if (_entries != null) return _entries;
 
             var map = new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
-            try
+
+            // 1. The program's own list, embedded in the EXE (Settings: "Use SweWolf File Explorer's Own Definition ...").
+            if (UseBuiltIn)
             {
-                string path = FilePath;
-                if (File.Exists(path))
+                try
                 {
-                    var options = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
-                    using var doc = JsonDocument.Parse(File.ReadAllText(path), options);
-                    if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                    using var res = typeof(FileTypeOverrides).Assembly.GetManifestResourceStream(BuiltInResource);
+                    if (res != null)
                     {
-                        foreach (var entry in doc.RootElement.EnumerateObject())
-                        {
-                            if (entry.Value.ValueKind != JsonValueKind.Object) continue;
-                            string? text = entry.Value.TryGetProperty("description", out var d) && d.ValueKind == JsonValueKind.String ? d.GetString()?.Trim() : null;
-                            string? icon = entry.Value.TryGetProperty("icon", out var ic) && ic.ValueKind == JsonValueKind.String ? ic.GetString()?.Trim() : null;
-                            string key = Normalize(entry.Name);
-                            if (key.Length > 0 && (!string.IsNullOrEmpty(text) || !string.IsNullOrEmpty(icon)))
-                                map[key] = new Entry(string.IsNullOrEmpty(text) ? null : text, string.IsNullOrEmpty(icon) ? null : icon);
-                        }
+                        using var reader = new StreamReader(res, System.Text.Encoding.UTF8);
+                        Merge(map, reader.ReadToEnd());
                     }
                 }
+                catch (Exception ex)
+                {
+                    try { LogFiles.AppendError("The built-in file type list could not be read: " + ex.Message); } catch { }
+                    map.Clear();
+                }
+            }
+
+            // 2. The user's own FileTypes.json: what it names wins, property by property (it is always used: the user made it).
+            try
+            {
+                if (File.Exists(FilePath)) Merge(map, File.ReadAllText(FilePath));
             }
             catch (Exception ex)
             {
-                // A broken file must never break the list: use the normal names and say so in the log.
-                try { LogFiles.AppendError("FileTypes.json could not be read, so the normal file type names are used: " + ex.Message); } catch { }
-                map.Clear();
+                // A broken file must never break the list: the rest is used, and the log says what happened.
+                try { LogFiles.AppendError("FileTypes.json could not be read, so it is ignored: " + ex.Message); } catch { }
             }
 
             _entries = map;
             return map;
+        }
+    }
+
+    /// <summary>Reads a list (JSON text) into the map: an extension that is already there keeps what the new text does not say.</summary>
+    private static void Merge(Dictionary<string, Entry> map, string json)
+    {
+        var options = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
+        using var doc = JsonDocument.Parse(json, options);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object) return;
+
+        foreach (var entry in doc.RootElement.EnumerateObject())
+        {
+            if (entry.Value.ValueKind != JsonValueKind.Object) continue;
+            string? text = entry.Value.TryGetProperty("description", out var d) && d.ValueKind == JsonValueKind.String ? d.GetString()?.Trim() : null;
+            string? icon = entry.Value.TryGetProperty("icon", out var ic) && ic.ValueKind == JsonValueKind.String ? ic.GetString()?.Trim() : null;
+            string key = Normalize(entry.Name);
+            if (key.Length == 0 || (string.IsNullOrEmpty(text) && string.IsNullOrEmpty(icon))) continue;
+
+            map.TryGetValue(key, out var old);
+            map[key] = new Entry(string.IsNullOrEmpty(text) ? old?.Description : text, string.IsNullOrEmpty(icon) ? old?.Icon : icon);
         }
     }
 }

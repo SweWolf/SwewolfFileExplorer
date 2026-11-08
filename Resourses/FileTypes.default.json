@@ -1,0 +1,12 @@
+{
+  "htm": { "description": "HTML Document"},
+  "html": { "description": "HTML Document"},
+  "ico": { "description": "Icon" },
+  "jpg": { "description": "JPEG Image", "icon": "builtin:shell32_16823"},
+  "jpeg": { "description": "JPEG Image", "icon": "builtin:shell32_16823"},
+  "png": { "description": "PNG Image", "icon": "builtin:shell32_16823"},
+  "mkv": { "description": "Matroska Video", "icon": "builtin:shell32_224"},
+  "mp3": { "icon": "builtin:imageres_131"},
+  "wav": { "description": "WAV Audio File", "icon": "builtin:imageres_131"},
+  "mp4": { "description": "MP4 Video", "icon": "builtin:shell32_224"}
+}

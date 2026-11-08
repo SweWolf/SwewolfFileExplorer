@@ -57,6 +57,7 @@ public partial class SettingsWindow : Window
         HiddenExtensionsInArchivesBox.Text = current.HiddenExtensionsInArchives;
         HideShellExtensionsBox.IsChecked   = current.HideShellExtensions;
         HideKnownExtensionsBox.IsChecked   = current.HideKnownExtensions;
+        OwnFileTypesBox.IsChecked          = current.UseOwnFileTypeDefinitions;
         RegisteredTypeNamesBox.IsChecked   = current.UseRegisteredTypeNames;
         SuggestMoveBox.IsChecked           = current.SuggestMoveAfterSmartRename;
         RightClickSelectsNodeBox.IsChecked = current.RightClickSelectsTreeNode;
@@ -179,6 +180,8 @@ public partial class SettingsWindow : Window
         settings.HiddenExtensionsInArchives = string.Join(";", HiddenItems.Parse(HiddenExtensionsInArchivesBox.Text));
         settings.HideShellExtensions = HideShellExtensionsBox.IsChecked == true;
         settings.HideKnownExtensions = HideKnownExtensionsBox.IsChecked == true;
+        settings.UseOwnFileTypeDefinitions = OwnFileTypesBox.IsChecked == true;
+        FileTypeOverrides.UseBuiltIn = settings.UseOwnFileTypeDefinitions;   // forgets the names and icons found so far
         settings.UseRegisteredTypeNames = RegisteredTypeNamesBox.IsChecked == true;
         IconHelper.UseRegisteredTypeNames = settings.UseRegisteredTypeNames;   // forgets the type names found so far
         settings.SuggestMoveAfterSmartRename = SuggestMoveBox.IsChecked == true;

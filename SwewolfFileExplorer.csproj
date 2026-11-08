@@ -43,6 +43,10 @@
   <ItemGroup>
     <!-- Icons that FileTypes.json can name as "builtin:<file name without .ico>" (same look on every Windows version, also in the single-file EXE).
          Every .ico dropped in this folder is included. -->
+    <!-- The program's own list of file type names and icons (Settings: Use SweWolf File Explorer's Own Definition ...). -->
+    <EmbeddedResource Include="Resourses\FileTypes.default.json">
+      <LogicalName>FileTypes.default.json</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="Resourses\FileTypeIcons\*.ico">
       <LogicalName>FileTypeIcons/%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>

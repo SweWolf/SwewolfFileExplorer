@@ -521,6 +521,16 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>The file type definitions changed (Settings): every item of every tab and every tree node gets its icon again.</summary>
+    public void FileTypeIconsChanged()
+    {
+        foreach (var tab in Tabs)
+        {
+            foreach (var item in tab.CurrentItems) item.LoadIconAsync();
+            tab.RefreshTreeIcons(IconHelper.TreeIconSize);
+        }
+    }
+
     /// <summary>The names the lists show are worked out again in every tab (also after Settings changed the setting), and the button follows.</summary>
     public void ExtensionSettingChanged()
     {

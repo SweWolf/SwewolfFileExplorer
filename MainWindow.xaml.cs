@@ -1355,6 +1355,7 @@ public partial class MainWindow : Window
             VM.RefreshCommand.Execute(null);
             VM.FontFamilyChanged();         // the font of the list and the tree may have changed
             VM.ExtensionSettingChanged();   // "Hide Extensions for Known File Types" may have changed: every tab and the button follow
+            VM.FileTypeIconsChanged();      // so may the file type definitions (names are worked out again just above, icons here)
             QueueInfoUpdate();              // so may the warning about hidden items that are not selected
         }
     }

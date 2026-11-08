@@ -555,6 +555,15 @@ public static class IconHelper
         return icon;
     }
 
+    /// <summary>The file type definitions changed (the setting for the built-in list, or the user's file): the names and icons found so far are forgotten.</summary>
+    public static void ResetFileTypeCaches()
+    {
+        lock (NameTypes) NameTypes.Clear();
+        lock (NameIcons) NameIcons.Clear();
+        lock (NameIconTasks) NameIconTasks.Clear();
+        lock (OwnIcons) OwnIcons.Clear();
+    }
+
     private static bool _useRegisteredTypeNames;
 
     /// <summary>
