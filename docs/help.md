@@ -347,6 +347,16 @@ Right-click a file or a folder in the list, or a folder in the tree. The menus h
 groups, in this order: opening, cut / copy / paste and shortcuts, delete and rename, read marks, rating,
 terminals, new files, properties and **More Options**.
 
+The menu of the list depends on where you click:
+
+- **On files:** only what acts on the files (open, cut, copy, delete, rename, rating and so on). Paste, the
+  terminals and the New items are not shown (Ctrl+V still works).
+- **On a folder in the list:** the same as the tree's menu for that folder. **Paste** and the **New** items put
+  things inside that folder.
+- **On the empty part of the list, or anywhere on the info line and the panel under the list:** the menu of the
+  folder shown (terminals, New items, Paste, Properties and so on). Use the info line when the list is so full
+  that there is no empty part left.
+
 **More Options** (or **Shift + right-click**) shows the real Windows menu, with everything that
 other programs have added to it (7-Zip, PowerRename and so on). The first time can take a few seconds.
 

@@ -1075,7 +1075,7 @@
                 </Thumb.Template>
             </Thumb>
 
-            <Border x:Name="InfoPanel" Grid.Column="2" Grid.Row="2" Padding="10,8"
+            <Border x:Name="InfoPanel" Grid.Column="2" Grid.Row="2" Padding="10,8" ContextMenuOpening="InfoPanel_ContextMenuOpening"
                     Background="{DynamicResource PaneBrush}"
                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0">
                 <Grid>

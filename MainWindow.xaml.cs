@@ -3174,8 +3174,17 @@ public partial class MainWindow : Window
 
     // ── Rating and expectation ────────────────────────────────────────────────
 
-    private void CtxRating_Click(object sender, RoutedEventArgs e)      => RateSelectedItems(rating: true);
-    private void CtxExpectation_Click(object sender, RoutedEventArgs e) => RateSelectedItems(rating: false);
+    private void CtxRating_Click(object sender, RoutedEventArgs e)
+    {
+        if (_menuMode == ListMenuMode.Empty) RateFolder(VM.CurrentPath, rating: true);
+        else RateSelectedItems(rating: true);
+    }
+
+    private void CtxExpectation_Click(object sender, RoutedEventArgs e)
+    {
+        if (_menuMode == ListMenuMode.Empty) RateFolder(VM.CurrentPath, rating: false);
+        else RateSelectedItems(rating: false);
+    }
 
     private void TreeCtxRating_Click(object sender, RoutedEventArgs e)
     {
@@ -3287,19 +3296,111 @@ public partial class MainWindow : Window
 
     // ── Context menu ──────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// What the list's right-click menu is for: <b>Files</b> (one or more files, or several items: only what acts on them),
+    /// <b>FolderRow</b> (exactly one folder row: the same as the tree's menu for that folder, so Paste and New go into it) or
+    /// <b>Empty</b> (the empty part of the list, or the info panel under it: the folder shown).
+    /// </summary>
+    private enum ListMenuMode { Files, FolderRow, Empty }
+
+    private ListMenuMode _menuMode = ListMenuMode.Empty;
+
+    /// <summary>The folder the list's menu acts on in folder mode: the folder row clicked, else (empty area) the folder shown.</summary>
+    private string ListMenuFolder() =>
+        _menuMode == ListMenuMode.FolderRow && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true } dir
+            ? dir.FullPath
+            : VM.CurrentPath;
+
+    /// <summary>A right-click on the info panel (the info line, the empty parts) gives the list's menu for the folder shown.</summary>
+    private void InfoPanel_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (!VM.HasFolder) return;
+
+        e.Handled = true;
+        _contextOverEmpty = true;
+        FileContextMenu.PlacementTarget = FileListView;
+        FileContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+        FileContextMenu.IsOpen = true;
+    }
+
+    private static readonly HashSet<string> EmptyAreaItems = new()
+    {
+        "Open in Windows Explorer", "Add to Bookmarks", "Paste", "Create Playlist...", "Jump to Last Opened File",
+        "Rating...", "Expectation...", "Open in Terminal", "Open in PowerShell", "Open in Command Prompt",
+        "New Folder", "New Text Document...", "New File from Clipboard", "Properties", "More Options"
+    };
+
+    private static readonly HashSet<string> FolderOnlyItems = new()
+    {
+        "Paste", "Create Playlist...", "Jump to Last Opened File", "Open in Terminal", "Open in PowerShell", "Open in Command Prompt",
+        "New Folder", "New Text Document...", "New File from Clipboard"
+    };
+
+    /// <summary>Hides what does not belong to the kind of click, then the separators that are left with nothing between them.</summary>
+    private void ApplyListMenuMode(ContextMenu menu)
+    {
+        foreach (var mi in menu.Items.OfType<MenuItem>())
+        {
+            var header = mi.Header as string;
+            if (header == null) continue;
+
+            bool hide = _menuMode switch
+            {
+                ListMenuMode.Empty => !EmptyAreaItems.Contains(header),
+                ListMenuMode.Files => FolderOnlyItems.Contains(header),
+                _ => false
+            };
+            if (hide) mi.Visibility = Visibility.Collapsed;
+        }
+
+        // Send to VirusTotal and File Info Viewer belong to one file only.
+        if (_menuMode != ListMenuMode.Files)
+        {
+            ListVirusTotalItem.Visibility = Visibility.Collapsed;
+            ListFileInfoItem.Visibility = Visibility.Collapsed;
+        }
+
+        bool itemBefore = false;
+        Separator? pending = null;
+        foreach (var item in menu.Items)
+        {
+            if (item is Separator s)
+            {
+                s.Visibility = Visibility.Collapsed;
+                if (itemBefore) pending = s;
+            }
+            else if (item is UIElement { Visibility: Visibility.Visible })
+            {
+                if (pending != null) { pending.Visibility = Visibility.Visible; pending = null; }
+                itemBefore = true;
+            }
+        }
+    }
+
     private void ContextMenu_Opened(object sender, RoutedEventArgs e)
     {
-        bool hasSelection = FileListView.SelectedItem != null;
-        bool canPaste     = VM.PasteCommand.CanExecute(null);
+        int selectedCount = FileListView.SelectedItems.Count;
+        _menuMode = _contextOverEmpty || selectedCount == 0 ? ListMenuMode.Empty
+                  : selectedCount == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true } ? ListMenuMode.FolderRow
+                  : ListMenuMode.Files;
+
+        // Start from everything shown: the code below and ApplyListMenuMode hide what does not fit this time.
+        foreach (var item in ((ContextMenu)sender).Items.OfType<UIElement>()) item.Visibility = Visibility.Visible;
+
+        bool hasSelection = _menuMode != ListMenuMode.Empty && FileListView.SelectedItem != null;
+        bool canPaste    = VM.PasteCommand.CanExecute(null);
         bool inArchive    = VM.InArchive;   // read-only: files can be opened and copied out, nothing else
         bool hasFolder    = VM.HasFolder;   // false on This PC and Quick Access: the list is empty and there is no folder to act on
+        string menuFolder = ListMenuFolder();   // where Paste and New go: the folder row clicked, else the folder shown
+        bool menuFolderOk = hasFolder && !string.IsNullOrEmpty(menuFolder) && System.IO.Directory.Exists(menuFolder);
 
         // Read the SendTo folder each time, so new shortcuts show up at once.
         FillSendToMenu(SendToMenu, hasSelection && !inArchive ? SendToHelper.GetEntries() : new(), SendToItem_Click);
 
         ShowTerminalItems(ListTerminalSeparator, TerminalItems(ListTerminalItem, ListPowerShellItem, ListCommandItem), ListTerminalFolder());
-        ShowFileInfoItem(ListFileInfoItem, FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false });
-        ShowVirusTotalItem(ListVirusTotalSeparator, ListVirusTotalItem, FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false });
+        bool oneFile = _menuMode == ListMenuMode.Files && FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false };
+        ShowFileInfoItem(ListFileInfoItem, oneFile);
+        ShowVirusTotalItem(ListVirusTotalSeparator, ListVirusTotalItem, oneFile);
 
         var menu = (ContextMenu)sender;
         foreach (var mi in menu.Items.OfType<MenuItem>())
@@ -3331,18 +3432,17 @@ public partial class MainWindow : Window
                 "Paste"      => canPaste,
                 "Copy as Path" => hasSelection,
                 "Create Shortcut..." => hasSelection && !inArchive,   // a shortcut cannot point inside a compressed file
-                "Create Playlist..." => !inArchive && hasFolder && System.IO.Directory.Exists(VM.CurrentPath),
+                "Create Playlist..." => !inArchive && menuFolderOk,
                 "Mark as Read" or "Mark as Unread" => hasSelection,
-                "Rating..." or "Expectation..." => hasSelection,
+                "Rating..." or "Expectation..." => hasSelection || (_menuMode == ListMenuMode.Empty && hasFolder && !string.IsNullOrEmpty(VM.CurrentPath)),
                 "Delete" or "Remove from Playlist" => hasSelection && (!inArchive || VM.InPlaylist),
                 "Rename..."  => hasSelection && !inArchive,
                 "Rename All Selected Music Files and Video Files Using Smart Rename" =>
                     !inArchive && FileListView.SelectedItems.OfType<FileItemViewModel>().Any(i => !i.IsDirectory && !i.IsInArchive && SmartName.Applies(i.Name)),
-                "New Folder" => !inArchive && hasFolder,
-                "New Text Document..." => !inArchive && hasFolder && System.IO.Directory.Exists(VM.CurrentPath)
-                                          && !FolderTabViewModel.IsUnderBookmarks(VM.CurrentPath),
-                "New File from Clipboard" => !inArchive && hasFolder && System.IO.Directory.Exists(VM.CurrentPath)
-                                             && !FolderTabViewModel.IsUnderBookmarks(VM.CurrentPath) && ClipboardFile.Detect() != ClipboardFile.Kind.None,
+                "New Folder" => !inArchive && menuFolderOk,
+                "New Text Document..." => !inArchive && menuFolderOk && !FolderTabViewModel.IsUnderBookmarks(menuFolder),
+                "New File from Clipboard" => !inArchive && menuFolderOk
+                                             && !FolderTabViewModel.IsUnderBookmarks(menuFolder) && ClipboardFile.Detect() != ClipboardFile.Kind.None,
                 "Properties" => !inArchive && (hasSelection || hasFolder),
                 "Jump to Last Opened File" => hasFolder,
                 "More Options" => !inArchive && (hasSelection || (hasFolder && System.IO.Directory.Exists(VM.CurrentPath))),
@@ -3355,6 +3455,8 @@ public partial class MainWindow : Window
             if (mi.Header is "Mark as Read")   mi.Visibility = files.Count == 0 || files.Any(i => i.IsUnread)  ? Visibility.Visible : Visibility.Collapsed;
             if (mi.Header is "Mark as Unread") mi.Visibility = files.Count == 0 || files.Any(i => !i.IsUnread) ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        ApplyListMenuMode(menu);
     }
 
     /// <summary>
@@ -3537,7 +3639,17 @@ public partial class MainWindow : Window
         FileListView.ScrollIntoView(items[0]);
     }
 
-    private void CtxProperties_Click(object sender, RoutedEventArgs e) => ShowProperties();
+    private void CtxProperties_Click(object sender, RoutedEventArgs e)
+    {
+        // The empty area (and the info panel) is the folder shown, even when something is still selected.
+        if (_menuMode == ListMenuMode.Empty && !VM.InArchive && VM.HasFolder && !string.IsNullOrEmpty(VM.CurrentPath))
+        {
+            try { PropertiesHelper.Show(new[] { VM.CurrentPath }, OnPropertiesChanged); }
+            catch (Exception ex) { MessageBox.Show(this, $"Cannot show the properties:\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning); }
+            return;
+        }
+        ShowProperties();
+    }
 
     private void CtxOpen_Click(object sender, RoutedEventArgs e)
     {
@@ -3609,9 +3721,19 @@ public partial class MainWindow : Window
 
     private void CtxCut_Click(object sender, RoutedEventArgs e)     => VM.CutCommand.Execute(null);
     private void CtxCopy_Click(object sender, RoutedEventArgs e)    => VM.CopyCommand.Execute(null);
-    private void CtxPaste_Click(object sender, RoutedEventArgs e)   => VM.PasteCommand.Execute(null);
+    private void CtxPaste_Click(object sender, RoutedEventArgs e)
+    {
+        // On a folder row the files go into that folder, as with the tree's menu.
+        if (_menuMode == ListMenuMode.FolderRow) VM.PasteInto(ListMenuFolder());
+        else VM.PasteCommand.Execute(null);
+    }
+
     private void CtxDelete_Click(object sender, RoutedEventArgs e)  => VM.DeleteCommand.Execute(null);
-    private void CtxNewFolder_Click(object sender, RoutedEventArgs e) => VM.NewFolderCommand.Execute(null);
+    private void CtxNewFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_menuMode == ListMenuMode.FolderRow) VM.CreateFolderIn(ListMenuFolder());
+        else VM.NewFolderCommand.Execute(null);
+    }
 
     private void CtxRename_Click(object sender, RoutedEventArgs e)
     {
@@ -3826,7 +3948,15 @@ public partial class MainWindow : Window
         if (_treeMenuNode != null) AddBookmarks(new[] { _treeMenuNode.FullPath });
     }
 
-    private void CtxBookmark_Click(object sender, RoutedEventArgs e) => BookmarkSelectionOrFolder(menu: true);
+    private void CtxBookmark_Click(object sender, RoutedEventArgs e)
+    {
+        if (_menuMode == ListMenuMode.Empty)
+        {
+            if (VM.HasFolder && !string.IsNullOrEmpty(VM.CurrentPath)) AddBookmarks(new[] { VM.CurrentPath });
+            return;
+        }
+        BookmarkSelectionOrFolder(menu: true);
+    }
 
     /// <summary>Ctrl+D and the list's menu: the selected files and folders of the list, or the folder shown when nothing is selected (or the list does not have the focus).</summary>
     /// <summary>
@@ -3974,7 +4104,7 @@ public partial class MainWindow : Window
     private string? ListExplorerTarget()
     {
         if (VM.InArchive) return null;
-        if (FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel item) return item.FullPath;
+        if (_menuMode != ListMenuMode.Empty && FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel item) return item.FullPath;
         return VM.HasFolder ? VM.CurrentPath : null;
     }
 
@@ -4211,7 +4341,7 @@ public partial class MainWindow : Window
     private string? ListTerminalFolder()
     {
         if (VM.InArchive) return null;
-        var path = FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true } dir
+        var path = _menuMode != ListMenuMode.Empty && FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: true } dir
             ? dir.FullPath
             : (VM.HasFolder ? VM.CurrentPath : null);
         return !string.IsNullOrEmpty(path) && System.IO.Directory.Exists(path) ? path : null;
@@ -4290,7 +4420,7 @@ public partial class MainWindow : Window
         if (_treeMenuNode != null) JumpToLastOpened(_treeMenuNode.FullPath);
     }
 
-    private void CtxJumpLast_Click(object sender, RoutedEventArgs e) => JumpToLastOpened(VM.CurrentPath);
+    private void CtxJumpLast_Click(object sender, RoutedEventArgs e) => JumpToLastOpened(ListMenuFolder());
 
     /// <summary>
     /// Goes to the folder (if it is not the one shown) and selects the file that was opened last in it: a file opened in this
@@ -5287,14 +5417,14 @@ public partial class MainWindow : Window
         OnSelectPathRequested(path);   // the new file is selected (when its folder is the one shown)
     }
 
-    private void CtxNewTextDocument_Click(object sender, RoutedEventArgs e) => NewTextDocument(VM.CurrentPath);
+    private void CtxNewTextDocument_Click(object sender, RoutedEventArgs e) => NewTextDocument(ListMenuFolder());
 
     private void TreeCtxNewTextDocument_Click(object sender, RoutedEventArgs e)
     {
         if (_treeMenuNode != null) NewTextDocument(_treeMenuNode.FullPath);
     }
 
-    private void CtxNewFileFromClipboard_Click(object sender, RoutedEventArgs e) => NewFileFromClipboard(VM.CurrentPath);
+    private void CtxNewFileFromClipboard_Click(object sender, RoutedEventArgs e) => NewFileFromClipboard(ListMenuFolder());
 
     private void TreeCtxNewFileFromClipboard_Click(object sender, RoutedEventArgs e)
     {

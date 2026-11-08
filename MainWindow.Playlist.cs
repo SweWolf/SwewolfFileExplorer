@@ -33,9 +33,10 @@ public partial class MainWindow
 
     private void CtxCreatePlaylist_Click(object sender, RoutedEventArgs e)
     {
-        var folder = VM.CurrentPath;
+        var folder = ListMenuFolder();
         if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) return;
-        CreatePlaylist(folder, FileListView.SelectedItems.OfType<FileItemViewModel>().Where(i => !i.IsDirectory).ToList());
+        // Folder mode (a folder row or the empty area): the playlist is for the folder, not for what happens to be selected.
+        CreatePlaylist(folder, null);
     }
 
     private void TreeCtxCreatePlaylist_Click(object sender, RoutedEventArgs e)
