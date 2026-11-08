@@ -163,9 +163,10 @@ public class FileItemViewModel : INotifyPropertyChanged
         // The icon of the type of file (kept per extension, no disk access) for everything inside an archive and for every file
         // that has no icon of its own: at once. Only a folder, and a file with its own icon (exe, ico, shortcut), is read from
         // the disk, in the background: hundreds of icon reads at once held up a cloud drive for seconds.
+        int size = IconHelper.ListIconSize;   // follows the list's font size
         if (IsInArchive || (!IsDirectory && !IconHelper.HasOwnIcon(Name)))
         {
-            if (IconHelper.TryGetCachedIconForName(Name, IsDirectory, out var known))
+            if (IconHelper.TryGetCachedIconForName(Name, IsDirectory, out var known, size))
             {
                 Icon = known;   // this kind of file was looked up before: no waiting
                 return;
@@ -173,7 +174,7 @@ public class FileItemViewModel : INotifyPropertyChanged
 
             // The first of its kind: one lookup in the background for all files of that kind, then the icon is set.
             var dispatcher = Application.Current?.Dispatcher;
-            _ = IconHelper.GetIconForNameAsync(Name, IsDirectory).ContinueWith(
+            _ = IconHelper.GetIconForNameAsync(Name, IsDirectory, size).ContinueWith(
                 t => dispatcher?.InvokeAsync(() => Icon = t.Result),
                 TaskContinuationOptions.OnlyOnRanToCompletion);
             return;
@@ -181,7 +182,7 @@ public class FileItemViewModel : INotifyPropertyChanged
 
         Task.Run(() =>
         {
-            var icon = IsInArchive ? IconHelper.GetIconForName(Name, IsDirectory) : IconHelper.GetIcon(FullPath);
+            var icon = IsInArchive ? IconHelper.GetIconForName(Name, IsDirectory, size) : IconHelper.GetIcon(FullPath, true, size);
             Application.Current?.Dispatcher.InvokeAsync(() => Icon = icon);
         });
     }

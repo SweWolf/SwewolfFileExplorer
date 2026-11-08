@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -74,13 +74,84 @@ public static class IconHelper
     private const uint FILE_ATTRIBUTE_NORMAL    = 0x00000080;
     private const uint FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
 
-    public static ImageSource? GetIcon(string path, bool small = true)
+    // ── Icon size follows the font size (list and tree each have their own) ───────────────────────────────
+
+    /// <summary>The icon size, in device-independent pixels, of the file list and of the tree: 16 at the normal font, bigger with a bigger font.</summary>
+    public static int ListIconSize { get; set; } = 16;
+    public static int TreeIconSize { get; set; } = 16;
+
+    /// <summary>The icon that goes with a font size in points: a little bigger than the text is high, never below 16.</summary>
+    public static int IconSizeForFont(double fontPoints) => Math.Max(16, (int)Math.Round(fontPoints * 1.25));
+
+    [DllImport("user32.dll")] private static extern uint GetDpiForSystem();
+    [DllImport("user32.dll")] private static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint PrivateExtractIcons(string file, int index, int cx, int cy, IntPtr[]? icons, int[]? ids, uint count, uint flags);
+    [DllImport("shell32.dll")] private static extern int SHGetImageList(int imageList, ref Guid riid, out IntPtr ppv);
+    [DllImport("comctl32.dll")] private static extern bool ImageList_GetIconSize(IntPtr himl, out int cx, out int cy);
+
+    private static readonly Guid IidImageList = new("46EB5926-582E-4017-9FDF-E8998DAA0950");
+
+    private static double DpiScale => Math.Max(1.0, GetDpiForSystem() / 96.0);
+
+    /// <summary>The size in device pixels for an icon of this many device-independent pixels.</summary>
+    private static int Pixels(int size) => Math.Max(16, (int)Math.Round(size * DpiScale));
+
+    /// <summary>Is this bigger than the shell's small icon (16 px at 100 %)? Then it has to come from one of the bigger image lists.</summary>
+    private static bool NeedsBigger(int size) => Pixels(size) > GetSystemMetrics(49 /* SM_CXSMICON */);
+
+    /// <summary>
+    /// The icon the shell shows for this path (or, with <paramref name="byAttributes"/>, for this kind of file: only the extension counts),
+    /// taken from the smallest of the shell's image lists (32, 48, 256 px) that is big enough and scaled down to the wanted size,
+    /// so a bigger font gets a sharp icon and not a stretched small one. Null if the shell gives none.
+    /// </summary>
+    private static ImageSource? ShellIconAtSize(string path, uint attributes, bool byAttributes, int size)
     {
-        // An Internet shortcut with the favicon of its page: read from the .ico itself. The shell remembers the icon of a path from the
-        // first time anybody asked for it (found by a test: a .url rewritten with an icon kept its plain one), which a bookmark made a
-        // moment ago may have got stuck with.
-        if (small && path.EndsWith(".url", StringComparison.OrdinalIgnoreCase) && TryGetUrlIcon(path) is { } favicon)
+        try
+        {
+            int px = Pixels(size);
+            var shfi = new SHFILEINFO();
+            uint flags = SHGFI_SYSICONINDEX | (byAttributes ? SHGFI_USEFILEATTRIBUTES : 0u);
+            if (SHGetFileInfo(path, attributes, ref shfi, (uint)Marshal.SizeOf(shfi), flags) == IntPtr.Zero) return null;
+
+            foreach (int list in new[] { 0 /* SHIL_LARGE */, 2 /* SHIL_EXTRALARGE */, 4 /* SHIL_JUMBO */ })
+            {
+                var iid = IidImageList;
+                if (SHGetImageList(list, ref iid, out var himl) != 0 || himl == IntPtr.Zero) continue;
+                try
+                {
+                    if (!ImageList_GetIconSize(himl, out int cx, out _)) continue;
+                    if (cx < px && list != 4) continue;   // too small: the next list
+
+                    var bgra = Bgra(ImageList_GetIcon(himl, shfi.iIcon, 1 /* ILD_TRANSPARENT */));
+                    if (bgra == null) return null;
+                    if (bgra.PixelWidth == px && bgra.PixelHeight == px) return bgra;
+
+                    var scaled = new TransformedBitmap(bgra, new ScaleTransform((double)px / bgra.PixelWidth, (double)px / bgra.PixelHeight));
+                    scaled.Freeze();
+                    return scaled;
+                }
+                finally { Marshal.Release(himl); }
+            }
+        }
+        catch { /* the small icon is used */ }
+        return null;
+    }
+
+    /// <summary>The icons of the nodes of the tree, at the size that goes with the tree's font.</summary>
+    public static ImageSource? TreeIcon(string path) => GetIcon(path, true, TreeIconSize);
+    public static ImageSource? TreeIconForName(string name, bool isDirectory) => GetIconForName(name, isDirectory, TreeIconSize);
+
+    /// <summary>The icon of a file or folder on the disk. <paramref name="size"/> is in device-independent pixels (16 = the usual small icon).</summary>
+    public static ImageSource? GetIcon(string path, bool small = true, int size = 16)
+    {
+        // An Internet shortcut with the favicon of its page: read from the .ico itself, at any size. The shell remembers the icon of a path
+        // from the first time anybody asked for it (found by a test: a .url rewritten with an icon kept its plain one), which a bookmark made
+        // a moment ago may have got stuck with, and its bigger icons can come out empty.
+        if (small && path.EndsWith(".url", StringComparison.OrdinalIgnoreCase) && TryGetUrlIcon(path, size) is { } favicon)
             return favicon;
+
+        if (small && NeedsBigger(size) && ShellIconAtSize(path, 0, false, size) is { } big) return big;
 
         var shfi = new SHFILEINFO();
         uint flags = SHGFI_ICON | (small ? SHGFI_SMALLICON : 0u);
@@ -128,15 +199,35 @@ public static class IconHelper
         finally { DestroyIcon(hIcon); }
     }
 
-    // The shortcut arrow of the shell, found once: the system image list draws an icon with and without the link overlay, and what
-    // differs is the arrow. (size, the pixels of the icon with the arrow, which pixels are the arrow); null if Windows gives no arrow.
-    private static readonly Lazy<(int Size, byte[] Pixels, bool[] Mask)?> ArrowOverlay = new(() =>
+    // The shortcut arrow of the shell, found once per size of image list: the image list draws an icon with and without the link overlay,
+    // and what differs is the arrow. (size, the pixels of the icon with the arrow, which pixels are the arrow); null if Windows gives no arrow.
+    // list = -1: the small list; 0, 2, 4: the shell's large, extra large and jumbo lists.
+    private static readonly Dictionary<int, (int Size, byte[] Pixels, bool[] Mask)?> ArrowCache = new();
+
+    private static (int Size, byte[] Pixels, bool[] Mask)? ArrowFor(int list)
     {
+        lock (ArrowCache)
+            if (ArrowCache.TryGetValue(list, out var known)) return known;
+        var built = BuildArrow(list);
+        lock (ArrowCache) ArrowCache[list] = built;
+        return built;
+    }
+
+    private static (int Size, byte[] Pixels, bool[] Mask)? BuildArrow(int list)
+    {
+        IntPtr himl = IntPtr.Zero;
+        bool release = false;
         try
         {
             var shfi = new SHFILEINFO();
-            var himl = SHGetFileInfo("x.url", FILE_ATTRIBUTE_NORMAL, ref shfi, (uint)Marshal.SizeOf(shfi),
-                                     SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);
+            himl = SHGetFileInfo("x.url", FILE_ATTRIBUTE_NORMAL, ref shfi, (uint)Marshal.SizeOf(shfi),
+                                 SHGFI_SYSICONINDEX | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);
+            if (list >= 0)
+            {
+                var iid = IidImageList;
+                if (SHGetImageList(list, ref iid, out himl) != 0) return null;
+                release = true;
+            }
             int overlay = SHGetIconOverlayIndex(null, IDO_SHGIOI_LINK);
             if (himl == IntPtr.Zero || overlay <= 0) return null;
 
@@ -154,7 +245,8 @@ public static class IconHelper
             return any ? (n, b, mask) : null;
         }
         catch { return null; }
-    });
+        finally { if (release && himl != IntPtr.Zero) Marshal.Release(himl); }
+    }
 
     /// <summary>
     /// The picture of an .ico file nearest <paramref name="size"/> (the smallest one that is big enough, else the biggest). WPF's icon
@@ -163,9 +255,23 @@ public static class IconHelper
     /// </summary>
     private static BitmapSource? LoadIconFrame(string iconFile, int size)
     {
+        byte[] bytes;
         try
         {
-            using var stream = new FileStream(iconFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var file = new FileStream(iconFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            bytes = new byte[file.Length];
+            file.ReadExactly(bytes);
+        }
+        catch { return null; }
+        return LoadIconFrame(bytes, size);
+    }
+
+    /// <summary>The same for the bytes of an .ico (a file already read, or an icon embedded in the program).</summary>
+    private static BitmapSource? LoadIconFrame(byte[] bytes, int size)
+    {
+        try
+        {
+            using var stream = new MemoryStream(bytes);
             var decoder = new IconBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
             return decoder.Frames.Where(f => f.PixelWidth >= size).OrderBy(f => f.PixelWidth).FirstOrDefault()
                    ?? decoder.Frames.OrderByDescending(f => f.PixelWidth).First();
@@ -174,7 +280,6 @@ public static class IconHelper
 
         try
         {
-            var bytes = File.ReadAllBytes(iconFile);
             if (bytes.Length < 22 || bytes[2] != 1 || bytes[3] != 0) return null;
 
             int count = bytes[4] | bytes[5] << 8;
@@ -202,7 +307,7 @@ public static class IconHelper
     /// The icon of an Internet shortcut that names an .ico file (<c>IconFile=</c>): the picture in it nearest the size of a list icon,
     /// with the shortcut arrow on it as Explorer draws it. Null for any other shortcut (it then gets the shell's icon).
     /// </summary>
-    private static ImageSource? TryGetUrlIcon(string path)
+    private static ImageSource? TryGetUrlIcon(string path, int iconSize)
     {
         try
         {
@@ -211,8 +316,15 @@ public static class IconHelper
                 if (line.StartsWith("IconFile=", StringComparison.OrdinalIgnoreCase)) { iconFile = line[9..].Trim(); break; }
             if (iconFile == null || !iconFile.EndsWith(".ico", StringComparison.OrdinalIgnoreCase) || !File.Exists(iconFile)) return null;
 
-            var overlay = ArrowOverlay.Value;
-            int size = overlay?.Size ?? 16;
+            // The arrow comes from the smallest image list that is big enough for the wanted size; the favicon is drawn at that list's size
+            // (so the arrow fits it) and the result is scaled down to the wanted size.
+            int px = Pixels(iconSize);
+            (int Size, byte[] Pixels, bool[] Mask)? overlay = null;
+            if (px <= GetSystemMetrics(49 /* SM_CXSMICON */)) overlay = ArrowFor(-1);
+            else
+                foreach (int list in new[] { 0, 2, 4 })
+                    if (ArrowFor(list) is { } cand && (cand.Size >= px || list == 4)) { overlay = cand; break; }
+            int size = overlay?.Size ?? px;
 
             var frame = LoadIconFrame(iconFile, size);
             if (frame == null) return null;
@@ -230,7 +342,9 @@ public static class IconHelper
                 for (int i = 0; i < o.Mask.Length; i++)
                     if (o.Mask[i]) Array.Copy(o.Pixels, i * 4, pixels, i * 4, 4);
 
-            var result = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, pixels, w * 4);
+            BitmapSource result = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, pixels, w * 4);
+            if (w != px)
+                result = new TransformedBitmap(result, new ScaleTransform((double)px / w, (double)px / h));
             result.Freeze();
             return result;
         }
@@ -250,6 +364,7 @@ public static class IconHelper
         string ext = Path.GetExtension(fileName);
         if (ext.Length == 0) return false;
         if (AlwaysOwnIcon.Contains(ext)) return true;
+        if (FileTypeOverrides.HasIcon(ext)) return false;   // the user gave this type an icon: it is the icon of the type, not read from each file
 
         lock (OwnIcons)
         {
@@ -273,6 +388,75 @@ public static class IconHelper
         return own;
     }
 
+    // ── The user's own icons (FileTypes.json) ─────────────────────────────────
+
+    /// <summary>
+    /// The icon FileTypes.json names for this extension, at the wanted icon size; null when there is none or it cannot be read
+    /// (the normal icon is then used, and the reason goes to errors.log). "file,index" reads an icon out of a DLL or EXE, anything
+    /// else is a picture file (.ico: the frame nearest the size; .png, .jpg ... scaled).
+    /// </summary>
+    private static ImageSource? LoadOverrideIcon(string extension, int iconSize)
+    {
+        var spec = FileTypeOverrides.GetIcon(extension);
+        if (spec == null) return null;
+
+        try
+        {
+            var (file, index) = spec.Value;
+            bool builtIn = file.StartsWith(FileTypeOverrides.BuiltInPrefix, StringComparison.OrdinalIgnoreCase);
+            if (!builtIn && !File.Exists(file)) throw new FileNotFoundException("The icon file was not found: " + file);
+
+            int size = Pixels(iconSize);
+            BitmapSource? frame;
+
+            if (builtIn)
+            {
+                string name = file[FileTypeOverrides.BuiltInPrefix.Length..].Trim();
+                if (name.EndsWith(".ico", StringComparison.OrdinalIgnoreCase)) name = name[..^4];
+                using var res = typeof(IconHelper).Assembly.GetManifestResourceStream($"FileTypeIcons/{name}.ico")
+                                ?? throw new FileNotFoundException($"There is no built-in icon named \"{name}\".");
+                var bytes = new byte[res.Length];
+                res.ReadExactly(bytes);
+                frame = LoadIconFrame(bytes, size);
+            }
+            else if (index != null)
+            {
+                var icons = new IntPtr[1];
+                if (PrivateExtractIcons(file, index.Value, size, size, icons, null, 1, 0) < 1 || icons[0] == IntPtr.Zero)   // at the size wanted, not a fixed one
+                    throw new InvalidOperationException($"There is no icon number {index} in {file}");
+                try
+                {
+                    frame = Imaging.CreateBitmapSourceFromHIcon(icons[0], Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                    frame.Freeze();
+                }
+                finally { DestroyIcon(icons[0]); }
+            }
+            else if (file.EndsWith(".ico", StringComparison.OrdinalIgnoreCase))
+            {
+                frame = LoadIconFrame(file, size);
+            }
+            else
+            {
+                var bytes = File.ReadAllBytes(file);
+                var decoder = BitmapDecoder.Create(new MemoryStream(bytes), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                frame = decoder.Frames[0];
+            }
+            if (frame == null) throw new InvalidOperationException("The icon could not be read: " + file);
+
+            BitmapSource scaled = frame;
+            if (frame.PixelWidth != size || frame.PixelHeight != size)
+                scaled = new TransformedBitmap(frame, new ScaleTransform((double)size / frame.PixelWidth, (double)size / frame.PixelHeight));
+            var bgra = new FormatConvertedBitmap(scaled, PixelFormats.Bgra32, null, 0);
+            bgra.Freeze();
+            return bgra;
+        }
+        catch (Exception ex)
+        {
+            try { LogFiles.AppendError($"The icon for .{extension.TrimStart('.')} in FileTypes.json could not be used, so the normal icon is shown: {ex.Message}"); } catch { }
+            return null;
+        }
+    }
+
     // Icons and type names of things that are not on the disk (the content of an archive): found from the name alone,
     // and kept per extension, so a zip with thousands of files asks the shell a few times and not thousands.
     private static readonly Dictionary<string, ImageSource?> NameIcons = new(StringComparer.OrdinalIgnoreCase);
@@ -282,10 +466,13 @@ public static class IconHelper
         isDirectory ? "<folder>" : Path.GetExtension(name);
 
     /// <summary>The icon of this kind of file if it has been looked up already (instant); false if it has not.</summary>
-    public static bool TryGetCachedIconForName(string name, bool isDirectory, out ImageSource? icon)
+    public static bool TryGetCachedIconForName(string name, bool isDirectory, out ImageSource? icon, int size = 16)
     {
-        lock (NameIcons) return NameIcons.TryGetValue(NameKey(name, isDirectory), out icon);
+        lock (NameIcons) return NameIcons.TryGetValue(CacheKey(NameKey(name, isDirectory), size), out icon);
     }
+
+    // The icons of the kinds are kept per size (the list and the tree can have different font sizes, and the font size can change).
+    private static string CacheKey(string key, int size) => size == 16 ? key : key + "@" + size;
 
     private static readonly Dictionary<string, Task<ImageSource?>> NameIconTasks = new(StringComparer.OrdinalIgnoreCase);
 
@@ -294,13 +481,13 @@ public static class IconHelper
     /// the first lookup of a kind can take a while (the shell loads the program that owns it), and a folder of 500 files
     /// has a few dozen kinds.
     /// </summary>
-    public static Task<ImageSource?> GetIconForNameAsync(string name, bool isDirectory)
+    public static Task<ImageSource?> GetIconForNameAsync(string name, bool isDirectory, int size = 16)
     {
-        string key = NameKey(name, isDirectory);
+        string key = CacheKey(NameKey(name, isDirectory), size);
         lock (NameIconTasks)
         {
             if (!NameIconTasks.TryGetValue(key, out var task))
-                NameIconTasks[key] = task = Task.Run(() => GetIconForName(name, isDirectory));
+                NameIconTasks[key] = task = Task.Run(() => GetIconForName(name, isDirectory, size));
             return task;
         }
     }
@@ -322,18 +509,31 @@ public static class IconHelper
     }
 
     /// <summary>The icon for a file or folder with this name, without it being on the disk.</summary>
-    public static ImageSource? GetIconForName(string name, bool isDirectory)
+    public static ImageSource? GetIconForName(string name, bool isDirectory, int size = 16)
     {
         string key = NameKey(name, isDirectory);
+        string cacheKey = CacheKey(key, size);
         lock (NameIcons)
         {
-            if (NameIcons.TryGetValue(key, out var known)) return known;
+            if (NameIcons.TryGetValue(cacheKey, out var known)) return known;
+        }
+
+        if (!isDirectory && LoadOverrideIcon(key, size) is { } custom)   // the user's own icon from FileTypes.json
+        {
+            lock (NameIcons) NameIcons[cacheKey] = custom;
+            return custom;
         }
 
         var shfi = new SHFILEINFO();
         uint flags = SHGFI_ICON | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES;
         uint attrs = isDirectory ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
         string lookup = isDirectory ? "folder" : "file" + key;   // only the extension counts with USEFILEATTRIBUTES
+
+        if (NeedsBigger(size) && ShellIconAtSize(lookup, attrs, true, size) is { } big)   // a bigger font: a sharp bigger icon
+        {
+            lock (NameIcons) NameIcons[cacheKey] = big;
+            return big;
+        }
 
         ImageSource? icon = null;
         var result = SHGetFileInfo(lookup, attrs, ref shfi, (uint)Marshal.SizeOf(shfi), flags);
@@ -351,7 +551,7 @@ public static class IconHelper
             }
         }
 
-        lock (NameIcons) NameIcons[key] = icon;
+        lock (NameIcons) NameIcons[cacheKey] = icon;
         return icon;
     }
 
@@ -410,7 +610,8 @@ public static class IconHelper
             if (NameTypes.TryGetValue(key, out var known)) return known;
         }
 
-        string? type = _useRegisteredTypeNames ? RegisteredTypeName(key) : null;
+        string? type = FileTypeOverrides.GetDescription(key);   // the user's own FileTypes.json, if it names this extension
+        if (type == null && _useRegisteredTypeNames) type = RegisteredTypeName(key);
         if (type == null)   // the usual way (and the way when the extension has no class of its own)
         {
             var shfi = new SHFILEINFO();

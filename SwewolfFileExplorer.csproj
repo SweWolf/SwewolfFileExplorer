@@ -41,6 +41,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Icons that FileTypes.json can name as "builtin:<file name without .ico>" (same look on every Windows version, also in the single-file EXE).
+         Every .ico dropped in this folder is included. -->
+    <EmbeddedResource Include="Resourses\FileTypeIcons\*.ico">
+      <LogicalName>FileTypeIcons/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Resourses\fluent_file_explorer.ico" />
     <!-- Shown by Windows at once, long before WPF and the main window are ready; closes by itself when the main window appears. -->
     <SplashScreen Include="Resourses\splash.png" />

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -224,6 +224,47 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>Puts the loaded subfolders of <paramref name="path"/> in their (new) order.</summary>
     public void ResortTree(string path) => ResortNodes(TreeItems, path);
 
+    /// <summary>
+    /// The tree's font size changed, and with it the icon size: every node gets its icon again at the new size. The icons are read on a
+    /// background thread (each folder asks the shell) and handed to the nodes in small batches.
+    /// </summary>
+    public void RefreshTreeIcons(int size)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+
+        var nodes = new List<TreeItemViewModel>();
+        void Collect(IEnumerable<TreeItemViewModel> list)
+        {
+            foreach (var n in list) { nodes.Add(n); Collect(n.Children); }
+        }
+        Collect(TreeItems);
+
+        Task.Run(() =>
+        {
+            var batch = new List<(TreeItemViewModel Node, System.Windows.Media.ImageSource Icon)>();
+
+            void Post(List<(TreeItemViewModel Node, System.Windows.Media.ImageSource Icon)> done)
+            {
+                if (done.Count == 0) return;
+                dispatcher.BeginInvoke(() =>
+                {
+                    if (IconHelper.TreeIconSize != size) return;   // the font changed again meanwhile: a later round is on its way
+                    foreach (var (node, icon) in done) node.Icon = icon;
+                }, System.Windows.Threading.DispatcherPriority.Background);
+            }
+
+            foreach (var node in nodes)
+            {
+                System.Windows.Media.ImageSource? icon = null;
+                try { icon = node.ComputeIcon(size); } catch { /* the node keeps its icon */ }
+                if (icon != null) batch.Add((node, icon));
+                if (batch.Count >= 30) { Post(batch); batch = new(); }
+            }
+            Post(batch);
+        });
+    }
+
     private static void ResortNodes(IEnumerable<TreeItemViewModel> nodes, string path)
     {
         foreach (var node in nodes)
@@ -423,7 +464,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
             row.Update(drive.Label, drive.TypeName, drive.FileSystem, drive.Total, drive.Free, drive.Tracking);
             at++;
         }
+        DriveRowsChanged?.Invoke();
     }
+
+    /// <summary>The drives list got other rows or other numbers (the window fits its columns to the text again).</summary>
+    public static event Action? DriveRowsChanged;
 
     /// <summary>
     /// The drives that are ready now. Can be slow (a network drive that is gone, a drive still mounting): call it off the UI thread.
@@ -463,7 +508,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     private TreeItemViewModel MakeDriveNode(DriveEntry drive)
     {
-        var item = new TreeItemViewModel(drive.Label, drive.Root, IconHelper.GetIcon(drive.Root),
+        var item = new TreeItemViewModel(drive.Label, drive.Root, IconHelper.TreeIcon(drive.Root),
                                          sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
         item.InitializeLazyLoad();
         return item;
@@ -585,7 +630,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // A group: a folder of bookmarks. No path of its own, so a click on it shows nothing.
         if (entry.IsGroup)
         {
-            var group = new TreeItemViewModel(entry.Name, entry.Path, IconHelper.GetIconForName("folder", true), isVirtual: true,
+            var group = new TreeItemViewModel(entry.Name, entry.Path, IconHelper.TreeIconForName("folder", true), isVirtual: true,
                                               sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree) { Bookmark = entry };
             foreach (var child in entry.Children) if (IsTreeBookmark(child)) group.Children.Add(MakeBookmarkNode(child));
             return group;
@@ -593,15 +638,15 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         // A shortcut that points to nothing usable.
         if (entry.Target == null)
-            return new TreeItemViewModel(entry.Name, "", IconHelper.GetIconForName("folder", true), isVirtual: true, isHidden: true) { Bookmark = entry };
+            return new TreeItemViewModel(entry.Name, "", IconHelper.TreeIconForName("folder", true), isVirtual: true, isHidden: true) { Bookmark = entry };
 
         // A file: no children; a click goes to its folder and selects it (see the window).
         if (entry.IsFile)
-            return new TreeItemViewModel(entry.Name, entry.Target, IconHelper.GetIconForName(Path.GetFileName(entry.Target), false), isVirtual: true,
+            return new TreeItemViewModel(entry.Name, entry.Target, IconHelper.TreeIconForName(Path.GetFileName(entry.Target), false), isVirtual: true,
                                          isHidden: !entry.Available) { Bookmark = entry };
 
         // A folder, which opens up like any folder of the tree (faded when it is not there: a disk that is not connected).
-        var folder = new TreeItemViewModel(entry.Name, entry.Target, IconHelper.GetIconForName("folder", true), sortOf: _shared.GetTreeSort,
+        var folder = new TreeItemViewModel(entry.Name, entry.Target, IconHelper.TreeIconForName("folder", true), sortOf: _shared.GetTreeSort,
                                            showHiddenOf: _shared.ShowsHiddenInTree, isHidden: !entry.Available) { Bookmark = entry };
         if (entry.Available) folder.InitializeLazyLoad();
         return folder;
@@ -613,7 +658,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     private void AddQuickAccessPath(TreeItemViewModel parent, string name, string? path)
     {
         if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
-        var item = new TreeItemViewModel(name, path, IconHelper.GetIcon(path), sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
+        var item = new TreeItemViewModel(name, path, IconHelper.TreeIcon(path), sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
         item.InitializeLazyLoad();
         parent.Children.Add(item);
     }
@@ -1225,19 +1270,19 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (Directory.Exists(path))
         {
             isArchive = inArchive = false;
-            icon = IconHelper.GetIcon(path);
+            icon = IconHelper.TreeIcon(path);
         }
         else if (File.Exists(path))
         {
             isArchive = true; inArchive = false;   // a packed file on the disk
-            icon = IconHelper.GetIcon(path);
+            icon = IconHelper.TreeIcon(path);
         }
         else
         {
             var entry = ArchiveSupport.GetEntry(path);   // inside an archive: a folder, or a zip in the zip
             isArchive = entry != null && !entry.IsDirectory;
             inArchive = true;
-            icon = IconHelper.GetIconForName(name, !isArchive);
+            icon = IconHelper.TreeIconForName(name, !isArchive);
         }
 
         var node = new TreeItemViewModel(name, path, icon, sortOf: _shared.GetTreeSort,

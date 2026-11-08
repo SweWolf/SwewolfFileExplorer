@@ -26,6 +26,10 @@ public class MainViewModel : INotifyPropertyChanged
 
     public MainViewModel()
     {
+        // The icons start at the size that goes with the saved font sizes, before any tab makes its first icon.
+        IconHelper.ListIconSize = IconHelper.IconSizeForFont(_shared.Settings.ListFontSize);
+        IconHelper.TreeIconSize = IconHelper.IconSizeForFont(_shared.Settings.TreeFontSize);
+
         Session = new SessionRecorder(this);
         Tabs.CollectionChanged += (_, _) => Session.TouchStructure();
 
@@ -543,6 +547,15 @@ public class MainViewModel : INotifyPropertyChanged
             _shared.Settings.ListFontSize = value;
             AppSettingsStore.Save(_shared.Settings);
             OnPropertyChanged();
+
+            // The icons follow the font: a new size gives every item of every tab its icon again (the kinds are kept per size, so this is quick).
+            int size = IconHelper.IconSizeForFont(value);
+            if (size == IconHelper.ListIconSize) return;
+            IconHelper.ListIconSize = size;
+            OnPropertyChanged(nameof(ListIconSize));
+            foreach (var tab in Tabs)
+                foreach (var item in tab.CurrentItems)
+                    item.LoadIconAsync();
         }
     }
 
@@ -556,8 +569,18 @@ public class MainViewModel : INotifyPropertyChanged
             _shared.Settings.TreeFontSize = value;
             AppSettingsStore.Save(_shared.Settings);
             OnPropertyChanged();
+
+            int size = IconHelper.IconSizeForFont(value);
+            if (size == IconHelper.TreeIconSize) return;
+            IconHelper.TreeIconSize = size;
+            OnPropertyChanged(nameof(TreeIconSize));
+            foreach (var tab in Tabs) tab.RefreshTreeIcons(size);
         }
     }
+
+    /// <summary>The size of the icons of the list and of the tree (device-independent pixels): they follow the font sizes.</summary>
+    public int ListIconSize => IconHelper.ListIconSize;
+    public int TreeIconSize => IconHelper.TreeIconSize;
 
     /// <summary>The font of the list, the drives list and the tree: the one chosen in Settings, else the theme's own.</summary>
     public System.Windows.Media.FontFamily ContentFontFamily

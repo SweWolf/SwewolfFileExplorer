@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -16,7 +16,31 @@ public class TreeItemViewModel : INotifyPropertyChanged
 
     public string Name { get; }
     public string FullPath { get; }
-    public ImageSource? Icon { get; }
+    private ImageSource? _icon;
+    public ImageSource? Icon
+    {
+        get => _icon;
+        set { _icon = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// The icon of this node at the given size (when the tree's font size changes), worked out the same way as when the node was made.
+    /// Null = keep the icon it has (the dummy child, and the nodes with a drawn icon). Reads the disk: call it from a background thread.
+    /// </summary>
+    public ImageSource? ComputeIcon(int size)
+    {
+        if (IconShape != null) return null;
+        if (Bookmark != null)
+        {
+            if (Bookmark.IsGroup || Bookmark.Target == null) return IconHelper.GetIconForName("folder", true, size);
+            return Bookmark.IsFile ? IconHelper.GetIconForName(Path.GetFileName(Bookmark.Target), false, size)
+                                   : IconHelper.GetIconForName("folder", true, size);
+        }
+        if (string.IsNullOrEmpty(FullPath)) return null;
+        if (_inArchive) return IconHelper.GetIconForName(Name, !IsArchive, size);
+        return IconHelper.GetIcon(FullPath, true, size);
+    }
+
     public ObservableCollection<TreeItemViewModel> Children { get; } = new();
 
     /// <summary>A drawn icon for the nodes that are no folder: "bookmark", "star" (Quick Access) or "pc" (This PC). Null = <see cref="Icon"/> is used.</summary>
@@ -97,7 +121,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
     {
         Name = name;
         FullPath = fullPath;
-        Icon = icon;
+        _icon = icon;
         _childrenLoaded = isVirtual;
         _sortOf = sortOf;
         IsArchive = isArchive;
@@ -321,7 +345,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
                 var item = new TreeItemViewModel(
                     Path.GetFileName(dir) ?? dir,
                     dir,
-                    IconHelper.GetIcon(dir),
+                    IconHelper.TreeIcon(dir),
                     sortOf: _sortOf,
                     showHiddenOf: _showHiddenOf,
                     isHidden: hidden.Contains(dir));
@@ -342,7 +366,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
                 var item = new TreeItemViewModel(
                     Path.GetFileName(file),
                     file,
-                    IconHelper.GetIcon(file),
+                    IconHelper.TreeIcon(file),
                     sortOf: _sortOf,
                     isArchive: !playlist,
                     showHiddenOf: _showHiddenOf,
@@ -410,7 +434,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
 
         foreach (var folder in SortEntries(entries.Where(e => e.IsDirectory)))
         {
-            var item = new TreeItemViewModel(folder.Name, folder.FullPath, IconHelper.GetIconForName(folder.Name, true),
+            var item = new TreeItemViewModel(folder.Name, folder.FullPath, IconHelper.TreeIconForName(folder.Name, true),
                 sortOf: _sortOf, inArchive: true);
             item.InitializeLazyLoad();
             Children.Add(item);
@@ -419,7 +443,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
         // A zip inside the zip.
         foreach (var archive in SortEntries(entries.Where(e => e.IsArchive)))
         {
-            var item = new TreeItemViewModel(archive.Name, archive.FullPath, IconHelper.GetIconForName(archive.Name, false),
+            var item = new TreeItemViewModel(archive.Name, archive.FullPath, IconHelper.TreeIconForName(archive.Name, false),
                 sortOf: _sortOf, isArchive: true, inArchive: true);
             item.InitializeLazyLoad();
             Children.Add(item);

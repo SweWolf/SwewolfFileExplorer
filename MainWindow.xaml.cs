@@ -113,11 +113,22 @@ public partial class MainWindow : Window
 
             // This PC shows the drives list instead of the file list (an empty name: another tab became active).
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.IsThisPcShown))
+            {
                 UpdateDrivesList();
+                QueueDrivesFit();
+            }
 
             // The text of the list got bigger or smaller (Ctrl + wheel, or another tab with another size): so do the columns.
-            if (e.PropertyName is nameof(MainViewModel.ListFontSize) or nameof(MainViewModel.ContentFontFamily)) QueueAutoFit();
+            if (e.PropertyName is nameof(MainViewModel.ListFontSize) or nameof(MainViewModel.ContentFontFamily))
+            {
+                QueueAutoFit();
+                QueueDrivesFit();
+            }
         };
+
+        // The drives list of This PC fits its columns to its text too (when it is shown, when its rows change, when the font changes).
+        FolderTabViewModel.DriveRowsChanged += QueueDrivesFit;
+        DrivesListView.Loaded += (_, _) => QueueDrivesFit();
 
         VM.Tabs.CollectionChanged += (_, e) => { if (e.Action == NotifyCollectionChangedAction.Add) ResetPlayMode(); };   // a new tab: Slide Show again
 
@@ -1292,9 +1303,9 @@ public partial class MainWindow : Window
                               .OrderByDescending(t => t.Length).Take(30);
             foreach (var text in longest)
             {
-                // Cell padding (a little more for the slant of italic letters); the Name cell also holds the 16 px icon and its 5 px margin,
-                // the Size cell has the 11 px right margin of its template (it was cut off: "940.6 KI").
-                double w = TextWidth(text) + 16 + (col.Key == SortColumn.Name ? 21 : 0) + (col.Key is SortColumn.Size or SortColumn.TrackNumber ? 11 : 0);
+                // Cell padding (a little more for the slant of italic letters); the Name cell also holds the icon (it follows the list's font
+                // size: 16 px or more) and its 5 px margin, the Size cell has the 11 px right margin of its template (it was cut off: "940.6 KI").
+                double w = TextWidth(text) + 16 + (col.Key == SortColumn.Name ? IconHelper.ListIconSize + 5 : 0) + (col.Key is SortColumn.Size or SortColumn.TrackNumber ? 11 : 0);
                 if (w > width) width = w;
             }
 
@@ -2688,6 +2699,46 @@ public partial class MainWindow : Window
         bool drives = VM.IsThisPcShown;
         DrivesListView.Visibility = drives ? Visibility.Visible : Visibility.Collapsed;
         FileListView.Visibility   = drives ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private bool _drivesFitQueued;
+
+    /// <summary>Fits the columns of the drives list once the current burst of changes is over (same switch as the file list: AutoFitColumns).</summary>
+    private void QueueDrivesFit()
+    {
+        if (_drivesFitQueued || !AppSettingsStore.Current.AutoFitColumns) return;
+        _drivesFitQueued = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _drivesFitQueued = false;
+            AutoFitDriveColumns();
+        }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>Gives each column of the drives list the width of its widest text (header included), as the file list does.</summary>
+    private void AutoFitDriveColumns()
+    {
+        if (!DrivesListView.IsLoaded || DrivesListView.View is not GridView grid) return;
+
+        var typeface = new Typeface(DrivesListView.FontFamily, DrivesListView.FontStyle, DrivesListView.FontWeight, DrivesListView.FontStretch);
+        double dpi = VisualTreeHelper.GetDpi(DrivesListView).PixelsPerDip;
+
+        double TextWidth(string text) => string.IsNullOrEmpty(text) ? 0 :
+            new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface,
+                              DrivesListView.FontSize, Brushes.Black, new NumberSubstitution(),
+                              TextFormattingMode.Display, dpi).WidthIncludingTrailingWhitespace;
+
+        // Name, Type, File System, Total Size, Free Space, Tracking Data Location (the order of the columns in the XAML).
+        Func<DriveRow, string>[] cells = { r => r.Name, r => r.TypeName, r => r.FileSystem, r => r.TotalText, r => r.FreeText, r => r.TrackingText };
+
+        for (int i = 0; i < grid.Columns.Count && i < cells.Length; i++)
+        {
+            bool right = i is 3 or 4;   // the two sizes: right-aligned, with the template's 11 px margin on the right
+            double width = TextWidth(grid.Columns[i].Header as string + " ▲") + 16 + (right ? 14 : 0);
+            foreach (var row in VM.DriveRows)
+                width = Math.Max(width, TextWidth(cells[i](row)) + 16 + (i == 0 ? 16 + 5 : 0) + (right ? 11 : 0));   // the Name cell holds the 16 px icon and its 5 px margin
+            grid.Columns[i].Width = Math.Ceiling(width);
+        }
     }
 
     private void OpenDrive(DriveRow? drive)

@@ -682,7 +682,7 @@
                                             </Style.Triggers>
                                         </Style>
                                     </StackPanel.Style>
-                                    <Image Source="{Binding Icon}" Width="16" Height="16"
+                                    <Image Source="{Binding Icon}" Width="{Binding DataContext.TreeIconSize, RelativeSource={RelativeSource AncestorType=Window}}" Height="{Binding DataContext.TreeIconSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                            VerticalAlignment="Center" Margin="0,0,5,0"
                                            RenderOptions.BitmapScalingMode="NearestNeighbor">
                                         <Image.Style>
@@ -697,8 +697,9 @@
                                         </Image.Style>
                                     </Image>
                                     <!-- Drawn icons (16 x 16, fixed colors that work on light and dark): a bookmark ribbon, a star, a computer -->
-                                    <Canvas Width="16" Height="16" Margin="0,0,5,0" VerticalAlignment="Center"
-                                            Visibility="{Binding IconShape, Converter={StaticResource TextToVisibility}}">
+                                    <Viewbox Width="{Binding DataContext.TreeIconSize, RelativeSource={RelativeSource AncestorType=Window}}" Height="{Binding DataContext.TreeIconSize, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,0,5,0" VerticalAlignment="Center"
+                                             Visibility="{Binding IconShape, Converter={StaticResource TextToVisibility}}">
+                                        <Canvas Width="16" Height="16">
                                         <Path Fill="#2F6FD6" Data="M3.5,1.5 H12.5 V14.5 L8,10.8 L3.5,14.5 Z"
                                               Visibility="{Binding IconShape, Converter={StaticResource ShapeIs}, ConverterParameter=bookmark}"/>
                                         <Path Fill="#F0B400" Data="M8,0.8 L10.1,5.7 L15.4,6.1 L11.3,9.5 L12.6,14.7 L8,11.9 L3.4,14.7 L4.7,9.5 L0.6,6.1 L5.9,5.7 Z"
@@ -706,6 +707,7 @@
                                         <Path Fill="#3E8EDE" Data="M1.5,2 H14.5 V11 H1.5 Z M5,12.2 H11 V13.6 H5 Z"
                                               Visibility="{Binding IconShape, Converter={StaticResource ShapeIs}, ConverterParameter=pc}"/>
                                     </Canvas>
+                                    </Viewbox>
                                     <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
@@ -898,7 +900,7 @@
                                             </Style>
                                         </StackPanel.Style>
                                         <Image Source="{Binding Icon}"
-                                               Width="16" Height="16"
+                                               Width="{Binding DataContext.ListIconSize, RelativeSource={RelativeSource AncestorType=Window}}" Height="{Binding DataContext.ListIconSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                                VerticalAlignment="Center"
                                                Margin="0,0,5,0"
                                                RenderOptions.BitmapScalingMode="NearestNeighbor"/>
