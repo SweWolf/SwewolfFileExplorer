@@ -36,7 +36,8 @@ public class AppSettings
     public bool UseRegisteredTypeNames { get; set; }
 
     /// <summary>The program's own list of file type names and icons (embedded in the EXE) is used. Off = only the user's FileTypes.json and Windows.</summary>
-    public bool UseOwnFileTypeDefinitions { get; set; } = true;
+    public bool UseOwnFileTypeNames { get; set; } = true;
+    public bool UseOwnFileTypeIcons { get; set; } = true;
 
     /// <summary>The picture of the current folder is shown under the tree (the "x" on it hides it; a button in the status line brings it back).</summary>
     public bool ShowFolderPicture { get; set; } = true;

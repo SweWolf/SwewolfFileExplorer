@@ -40,22 +40,21 @@ internal static class FileTypeOverrides
     /// <summary>The program's own list, embedded in the EXE (Resourses\FileTypes.default.json).</summary>
     private const string BuiltInResource = "FileTypes.default.json";
 
-    private static bool _useBuiltIn = true;
+    private static bool _useBuiltInNames = true;
+    private static bool _useBuiltInIcons = true;
 
     /// <summary>
-    /// Settings > "Use SweWolf File Explorer's Own Definition of File Type Names and Icons": the embedded list is used (on by default).
-    /// Off, only the user's own FileTypes.json counts. Changing it forgets the lists and the icons and names found so far.
+    /// Settings > "Use SweWolf File Explorer's Own Definition of File Type Names" and "... of Icons" (both on by default; the icons only on Windows 11):
+    /// which parts of the embedded list are used. Off, only the user's own FileTypes.json counts for that part.
+    /// Changing it forgets the lists and the icons and names found so far.
     /// </summary>
-    public static bool UseBuiltIn
+    public static void SetBuiltIn(bool names, bool icons)
     {
-        get => _useBuiltIn;
-        set
-        {
-            if (_useBuiltIn == value) return;
-            _useBuiltIn = value;
-            Reload();
-            IconHelper.ResetFileTypeCaches();
-        }
+        if (_useBuiltInNames == names && _useBuiltInIcons == icons) return;
+        _useBuiltInNames = names;
+        _useBuiltInIcons = icons;
+        Reload();
+        IconHelper.ResetFileTypeCaches();
     }
 
     private sealed record Entry(string? Description, string? Icon);
@@ -154,7 +153,7 @@ internal static class FileTypeOverrides
             _stamp = CurrentStamp();
 
             // 1. The program's own list, embedded in the EXE (Settings: "Use SweWolf File Explorer's Own Definition ...").
-            if (UseBuiltIn)
+            if (_useBuiltInNames || _useBuiltInIcons)
             {
                 try
                 {
@@ -162,7 +161,7 @@ internal static class FileTypeOverrides
                     if (res != null)
                     {
                         using var reader = new StreamReader(res, System.Text.Encoding.UTF8);
-                        Merge(map, reader.ReadToEnd());
+                        Merge(map, reader.ReadToEnd(), _useBuiltInNames, _useBuiltInIcons);
                     }
                 }
                 catch (Exception ex)
@@ -189,7 +188,7 @@ internal static class FileTypeOverrides
     }
 
     /// <summary>Reads a list (JSON text) into the map: an extension that is already there keeps what the new text does not say.</summary>
-    private static void Merge(Dictionary<string, Entry> map, string json)
+    private static void Merge(Dictionary<string, Entry> map, string json, bool useNames = true, bool useIcons = true)
     {
         var options = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
         using var doc = JsonDocument.Parse(json, options);
@@ -200,6 +199,8 @@ internal static class FileTypeOverrides
             if (entry.Value.ValueKind != JsonValueKind.Object) continue;
             string? text = entry.Value.TryGetProperty("description", out var d) && d.ValueKind == JsonValueKind.String ? d.GetString()?.Trim() : null;
             string? icon = entry.Value.TryGetProperty("icon", out var ic) && ic.ValueKind == JsonValueKind.String ? ic.GetString()?.Trim() : null;
+            if (!useNames) text = null;
+            if (!useIcons) icon = null;
             string key = Normalize(entry.Name);
             if (key.Length == 0 || (string.IsNullOrEmpty(text) && string.IsNullOrEmpty(icon))) continue;
 

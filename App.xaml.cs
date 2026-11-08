@@ -90,7 +90,7 @@ public partial class App : Application
         ThemeService.Initialize();
         ThemeService.Apply(AppSettingsStore.Current.Style);
         IconHelper.UseRegisteredTypeNames = AppSettingsStore.Current.UseRegisteredTypeNames;
-        FileTypeOverrides.UseBuiltIn = AppSettingsStore.Current.UseOwnFileTypeDefinitions;
+        FileTypeOverrides.SetBuiltIn(AppSettingsStore.Current.UseOwnFileTypeNames, AppSettingsStore.Current.UseOwnFileTypeIcons);
         MenuSpacing.Install();   // the right-click menus a little lower per item
         base.OnStartup(e);
 
