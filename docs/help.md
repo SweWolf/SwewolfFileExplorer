@@ -372,7 +372,7 @@ them in **Tools > Settings**.
 Use **Ctrl+C**, **Ctrl+X** and **Ctrl+V**, the menus, or drag and drop. The clipboard is the one of Windows, so you can copy
 files between this program and Windows Explorer.
 
-- **Move/Copy to Folder...** is in the right-click menus of the list and the tree. A window asks where to: type
+- **Move/Copy to Folder...** (**Ctrl+M**) is in the right-click menus of the list and the tree. A window asks where to: type
   or browse for a folder, or take one from your own list (**Add Folder**, **Remove From List**, and arrows to put it in order).
   **Move** is chosen when it opens. It then works like Paste, with the same progress window and questions.
   Check **Open This Folder in a New Tab When Finished** to see the result: when the move or copy is done, the folder opens

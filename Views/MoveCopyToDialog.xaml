@@ -24,7 +24,18 @@
         </Grid.RowDefinitions>
 
         <!-- What is going to be moved or copied -->
-        <TextBlock x:Name="SelectedText" Grid.Row="0" Margin="0,0,0,12" TextTrimming="CharacterEllipsis"/>
+        <!-- "Selected:" is a label; the name is a read-only box (so it can be copied, e.g. to name the new folder) that looks like text -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Selected:" FontWeight="Bold" Margin="0,0,5,0" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+            <TextBox x:Name="SelectedText" IsReadOnly="True" BorderThickness="0" Padding="0" Margin="0"
+                     Background="Transparent" VerticalAlignment="Center" VerticalContentAlignment="Center">
+                <TextBox.Template>
+                    <ControlTemplate TargetType="TextBox">
+                        <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
+                    </ControlTemplate>
+                </TextBox.Template>
+            </TextBox>
+        </DockPanel>
 
         <!-- The two radio buttons come first in the tab order, with nothing between them (arrow keys move between them) -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">

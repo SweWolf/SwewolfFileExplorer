@@ -29,6 +29,7 @@ public partial class MainWindow : Window
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ToggleFilterBar()), Key.F, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => GoToDefaultFolder()), Key.Home, ModifierKeys.Alt));   // Alt+Home: the default folder
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => BookmarkSelectionOrFolder()), Key.D, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => MoveCopyShortcut()), Key.M, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => GoToBookmarksNode()), Key.O, ModifierKeys.Control | ModifierKeys.Shift));   // Ctrl+Shift+O: the focus goes to the Bookmarks node
 
         // The height of the info panel as the user left it; the preview box follows the panel's size.
@@ -4505,6 +4506,18 @@ public partial class MainWindow : Window
 
     private void CtxMoveCopyTo_Click(object sender, RoutedEventArgs e) =>
         MoveCopyTo(FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList(), inArchive: VM.InArchive || VM.InPlaylist);
+
+    /// <summary>Ctrl+M: Move/Copy to Folder for the selected folder when the tree has the focus, else for the selected items of the list.</summary>
+    private void MoveCopyShortcut()
+    {
+        if (NavigationTree.IsKeyboardFocusWithin && NavigationTree.SelectedItem is TreeItemViewModel node)
+        {
+            _treeMenuNode = node;
+            TreeCtxMoveCopyTo_Click(this, new RoutedEventArgs());
+        }
+        else if (FileListView.SelectedItems.Count > 0)
+            CtxMoveCopyTo_Click(this, new RoutedEventArgs());
+    }
 
     private void TreeCtxMoveCopyTo_Click(object sender, RoutedEventArgs e)
     {

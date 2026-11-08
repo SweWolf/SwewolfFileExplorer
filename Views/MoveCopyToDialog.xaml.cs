@@ -49,10 +49,9 @@ public partial class MoveCopyToDialog : Window
     {
         string NameOf(string p) => Path.GetFileName(p.TrimEnd('\\', '/')) is { Length: > 0 } n ? n : p;
 
-        SelectedText.Inlines.Add(new System.Windows.Documents.Run("Selected: ") { FontWeight = FontWeights.Bold });
-        SelectedText.Inlines.Add(new System.Windows.Documents.Run(_sources.Count == 1
+        SelectedText.Text = _sources.Count == 1
             ? NameOf(_sources[0])
-            : $"{_sources.Count} items ({string.Join(", ", _sources.Take(3).Select(NameOf))}{(_sources.Count > 3 ? ", ..." : "")})"));
+            : $"{_sources.Count} items ({string.Join(", ", _sources.Take(3).Select(NameOf))}{(_sources.Count > 3 ? ", ..." : "")})";
 
         var shown = _sources.Take(25).ToList();
         SelectedText.ToolTip = string.Join(Environment.NewLine, shown) + (_sources.Count > shown.Count ? $"{Environment.NewLine}... and {_sources.Count - shown.Count} more" : "");
