@@ -50,6 +50,7 @@
     <EmbeddedResource Include="Resourses\FileTypeIcons\*.ico">
       <LogicalName>FileTypeIcons/%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
+    <!-- Nothing of Microsoft's is shipped: the default list uses "win11:" icons read from the user's own Windows 11. -->
   </ItemGroup>
 
   <ItemGroup>

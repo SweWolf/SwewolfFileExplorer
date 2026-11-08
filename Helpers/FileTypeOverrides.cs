@@ -19,6 +19,24 @@ internal static class FileTypeOverrides
     /// <summary>"builtin:name" in an icon means the icon Resourses\FileTypeIcons\name.ico that is embedded in the program.</summary>
     public const string BuiltInPrefix = "builtin:";
 
+    /// <summary>
+    /// "win11:file.dll,-number" in an icon: an icon of Windows 11's own DLLs (their numbers are those of Windows 11 and differ on Windows 10).
+    /// Used only on Windows 11 or later (build 22000 and up); on an older Windows the entry gives no icon, so the type keeps the icon Windows has for it.
+    /// Nothing of Microsoft's is copied into the program: the icon is read from the user's own Windows.
+    /// </summary>
+    public const string Win11Prefix = "win11:";
+
+    /// <summary>True on Windows 11 or later (build 22000 and up).</summary>
+    public static bool IsWindows11 { get; } = Environment.OSVersion.Version.Build >= 22000;
+
+    /// <summary>True when the icon of this extension is a "win11:" one (a failure to read it is then not logged: it is the program's own default).</summary>
+    public static bool IsWin11Icon(string extension)
+    {
+        var map = Load();
+        return map.TryGetValue(Normalize(extension), out var e) && e.Icon != null
+               && e.Icon.Trim().Trim('"').StartsWith(Win11Prefix, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>The program's own list, embedded in the EXE (Resourses\FileTypes.default.json).</summary>
     private const string BuiltInResource = "FileTypes.default.json";
 
@@ -67,6 +85,11 @@ internal static class FileTypeOverrides
         if (map.Count == 0 || !map.TryGetValue(Normalize(extension), out var e) || string.IsNullOrWhiteSpace(e.Icon)) return null;
 
         string raw = e.Icon.Trim().Trim('"');
+        if (raw.StartsWith(Win11Prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!IsWindows11) return null;                       // an older Windows: the icon Windows has for the type is used
+            raw = raw[Win11Prefix.Length..].Trim();
+        }
         if (raw.StartsWith(BuiltInPrefix, StringComparison.OrdinalIgnoreCase)) return (raw, null);   // an icon inside the EXE: no path, no index
 
         string spec = Environment.ExpandEnvironmentVariables(raw);

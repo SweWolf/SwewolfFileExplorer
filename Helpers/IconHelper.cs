@@ -452,6 +452,7 @@ public static class IconHelper
         }
         catch (Exception ex)
         {
+            if (FileTypeOverrides.IsWin11Icon(extension)) return null;   // the program's own default for Windows 11: no log line if this Windows differs
             try { LogFiles.AppendError($"The icon for .{extension.TrimStart('.')} in FileTypes.json could not be used, so the normal icon is shown: {ex.Message}"); } catch { }
             return null;
         }
