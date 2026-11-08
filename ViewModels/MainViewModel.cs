@@ -30,6 +30,7 @@ public class MainViewModel : INotifyPropertyChanged
         IconHelper.ListIconSize = IconHelper.IconSizeForFont(_shared.Settings.ListFontSize);
         IconHelper.TreeIconSize = IconHelper.IconSizeForFont(_shared.Settings.TreeFontSize);
 
+        UserRefreshCommand = new RelayCommand(_ => UserRefresh());
         Session = new SessionRecorder(this);
         Tabs.CollectionChanged += (_, _) => Session.TouchStructure();
 
@@ -519,6 +520,24 @@ public class MainViewModel : INotifyPropertyChanged
             AppSettingsStore.Save(_shared.Settings);
             ExtensionSettingChanged();
         }
+    }
+
+    /// <summary>
+    /// F5 and the Refresh button (not every refresh the program does by itself): the user's FileTypes.json is looked at first, and if it was
+    /// edited the names and icons of every tab and the tree follow, then the folder is read again.
+    /// </summary>
+    public RelayCommand UserRefreshCommand { get; }
+
+    private void UserRefresh()
+    {
+        if (FileTypeOverrides.ReloadIfChanged())
+        {
+            foreach (var tab in Tabs)
+                foreach (var item in tab.CurrentItems)
+                    if (!item.IsDirectory) item.TypeName = IconHelper.GetTypeNameForName(item.Name);
+            FileTypeIconsChanged();
+        }
+        RefreshCommand.Execute(null);
     }
 
     /// <summary>The file type definitions changed (Settings): every item of every tab and every tree node gets its icon again.</summary>

@@ -26,7 +26,7 @@
 
     <!-- Window-level keyboard shortcuts -->
     <Window.InputBindings>
-        <KeyBinding Key="F5"    Command="{Binding RefreshCommand}"/>
+        <KeyBinding Key="F5"    Command="{Binding UserRefreshCommand}"/>
         <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding NewFolderCommand}"/>
         <KeyBinding Key="T" Modifiers="Ctrl" Command="{Binding NewTabCommand}"/>
         <KeyBinding Key="N" Modifiers="Ctrl" Command="{Binding NewTabCommand}"/>
@@ -270,7 +270,7 @@
 
                 <Separator/>
 
-                <Button Command="{Binding RefreshCommand}"
+                <Button Command="{Binding UserRefreshCommand}"
                         ToolTip="{Binding RefreshTip}"
                         Padding="6,4">
                     <TextBlock Text="&#xE72C;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>

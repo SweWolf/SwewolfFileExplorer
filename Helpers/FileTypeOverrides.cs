@@ -84,6 +84,35 @@ internal static class FileTypeOverrides
     /// <summary>True when the file gives this extension an icon (so the icon of the type is used, not one read from each file).</summary>
     public static bool HasIcon(string extension) => GetIcon(extension) != null;
 
+    // What the user's file looked like when it was read (time and size, or "none"), so a refresh can tell if it was edited since.
+    private static string _stamp = "";
+
+    private static string CurrentStamp()
+    {
+        try
+        {
+            var info = new FileInfo(FilePath);
+            return info.Exists ? info.LastWriteTimeUtc.Ticks + ":" + info.Length : "none";
+        }
+        catch { return "none"; }
+    }
+
+    /// <summary>
+    /// For F5 and the Refresh button: if the user's FileTypes.json was added, changed or removed since it was read, the lists and the names
+    /// and icons found so far are forgotten (they are read again at the next lookup) and true is returned. Cheap: it only looks at the file's
+    /// time and size, and reads nothing when the file is as it was.
+    /// </summary>
+    public static bool ReloadIfChanged()
+    {
+        lock (Gate)
+        {
+            if (_entries == null || CurrentStamp() == _stamp) return false;
+            _entries = null;
+        }
+        IconHelper.ResetFileTypeCaches();
+        return true;
+    }
+
     /// <summary>Forget what was read, so the file is read again at the next lookup.</summary>
     public static void Reload()
     {
@@ -99,6 +128,7 @@ internal static class FileTypeOverrides
             if (_entries != null) return _entries;
 
             var map = new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
+            _stamp = CurrentStamp();
 
             // 1. The program's own list, embedded in the EXE (Settings: "Use SweWolf File Explorer's Own Definition ...").
             if (UseBuiltIn)
