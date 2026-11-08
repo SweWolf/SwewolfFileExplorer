@@ -542,7 +542,7 @@ the **Previous** and **Next** buttons, as long as this program has the keyboard 
 gets the keys itself).
 
 - **Previous**, **Play** (it becomes **Pause** while something plays) and **Next**.
-- **Play Mode:** Slide Show, Single Play, Repeat, Demo Play, Intro Play or Random Order.
+- **Play Mode:** Continuous Play (also called Slide Show), Single Play, Repeat, Demo Play, Intro Play or Random Order.
 - **Time per File (s)**, **End of List Action** (Go to Next Folder, Start from Beginning or Close),
   **Ask First** and **Time-out (s)**.
 

@@ -283,7 +283,9 @@ public partial class MainWindow
     private void SetPlayButton(bool running, bool paused)
     {
         _playRunning = running;
-        PlayButtonIcon.Text = running && !paused ? "⏸" : "▶";
+        PlayButtonIcon.Data = System.Windows.Media.Geometry.Parse(running && !paused
+            ? "M0,0 H3.5 V12 H0 Z M7,0 H10.5 V12 H7 Z"      // pause: two bars
+            : "M0,0 L10.5,6 L0,12 Z");                      // play: triangle
         PlayButtonText.Text = running && !paused ? "Pause" : "Play";
         PlayButton.ToolTip = running ? "Pause or resume the music or video" : "Play the list from the selected file";
     }
@@ -394,6 +396,9 @@ public partial class MainWindow
         bool timed = mode is ModeDemo or ModeIntro;
         long startMs = mode == ModeDemo ? DemoStartMs : 0;
         bool noResume = timed || !_resumeAllowed;
+        // The player comes to the front only for the file the user chose (the first of a run, or a double-click): when the list moves on
+        // to the next track it must not take the focus from whatever the user is doing.
+        bool bringToFront = _resumeAllowed;
 
         if (!_link.Connected && !await _link.ConnectAsync(300))
         {
@@ -416,7 +421,7 @@ public partial class MainWindow
         }
         else
         {
-            _link.Send(new PipeCommand("play", path, path, StartMs: startMs, NoResume: noResume, Front: true, Playlist: true));
+            _link.Send(new PipeCommand("play", path, path, StartMs: startMs, NoResume: noResume, Front: bringToFront, Playlist: true));
         }
 
         _resumeAllowed = false;   // from here on the list plays every file from its start
@@ -532,6 +537,62 @@ public partial class MainWindow
     {
         if (_mediaWait != null) _mediaWait.TrySetResult(MediaOutcome.Next);
         else MoveSelection(+1);
+    }
+
+    // ── Stop and Show Media Player ────────────────────────────────────────────
+
+    /// <summary>
+    /// Sends a command to SweWolf Media Player, also when the explorer does not run a playlist (a file opened alone has no link yet).
+    /// False when no player answers on the pipe.
+    /// </summary>
+    private async Task<bool> SendToPlayerAsync(PipeCommand command)
+    {
+        if (_link != null && _link.Connected) return _link.Send(command);
+
+        using var probe = new PlayerLink();
+        return await probe.ConnectAsync(300) && probe.Send(command);
+    }
+
+    /// <summary>The window of a running SweWolf Media Player that does not talk on the pipe (an older one), found by its process name.</summary>
+    private static System.Diagnostics.Process? FindPlayerProcess()
+    {
+        foreach (var p in System.Diagnostics.Process.GetProcessesByName("SwewolfMediaPlayer"))
+            if (p.MainWindowHandle != IntPtr.Zero) return p;
+        return null;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int cmd);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    /// <summary>Stop: closes the player and ends the list. A player that is not SweWolf Media Player cannot be reached: nothing happens.</summary>
+    private async void PlayStop_Click(object sender, RoutedEventArgs e)
+    {
+        _mediaWait?.TrySetResult(MediaOutcome.Stop);   // the list ends at once, without waiting for the player's answer
+        if (await SendToPlayerAsync(new PipeCommand("close"))) return;
+
+        try { FindPlayerProcess()?.CloseMainWindow(); }   // an older player without the pipe
+        catch (Exception) { /* it was gone already */ }
+    }
+
+    /// <summary>Show Media Player: brings the player to the front; a minimized window comes back as it was before (maximized stays maximized).</summary>
+    private async void ShowPlayer_Click(object sender, RoutedEventArgs e)
+    {
+        if (await SendToPlayerAsync(new PipeCommand("front"))) return;
+
+        try
+        {
+            var p = FindPlayerProcess();   // an older player without the pipe
+            if (p != null)
+            {
+                if (IsIconic(p.MainWindowHandle)) ShowWindow(p.MainWindowHandle, 9);   // SW_RESTORE
+                SetForegroundWindow(p.MainWindowHandle);
+                return;
+            }
+        }
+        catch (Exception) { /* fall through to the message */ }
+
+        MessageBox.Show(this, "SweWolf Media Player is not running.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     /// <summary>Selects the previous or next item of the list (Previous / Next of the bar when no playlist is playing).</summary>

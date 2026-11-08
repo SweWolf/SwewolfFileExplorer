@@ -323,10 +323,11 @@
 
                 <!-- Shows and hides the Play bar in the info panel (Ctrl+P): hidden when the program starts -->
                 <ToggleButton x:Name="PlayToggle" Click="PlayToggle_Click"
-                              ToolTip="Show the Play Bar: Slide Show and Play Modes (Ctrl+P)"
+                              ToolTip="Show the Play Bar: Continuous Play and Other Play Modes (Ctrl+P)"
                               Padding="6,4">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x25B6;" FontSize="11" FontFamily="Segoe UI Symbol" Margin="0,1,4,0"/>
+                        <Path Data="M0,0 L9.5,5.5 L0,11 Z" Width="9.5" Height="11" Stretch="Fill" SnapsToDevicePixels="True" VerticalAlignment="Center" Margin="0,0,5,0"
+                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                         <TextBlock Text="Play" FontSize="12"/>
                     </StackPanel>
                 </ToggleButton>
@@ -1413,22 +1414,34 @@
                     </Button>
 
                     <Border x:Name="PlayBar" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" Visibility="Collapsed" Padding="0,2,0,4">
+                        <DockPanel LastChildFill="True">
+                        <Button x:Name="ShowPlayerButton" DockPanel.Dock="Right" Click="ShowPlayer_Click" Content="Show Media Player" FontSize="12" Padding="12,2" Margin="8,2,0,2"
+                                ToolTip="Bring SweWolf Media Player to the front (and back from the taskbar if it was minimized)"/>
                         <WrapPanel Orientation="Horizontal">
-                            <Button x:Name="PlayPreviousButton" Click="PlayPrevious_Click" ToolTip="Previous File" Padding="8,2" Margin="0,2,4,2"
-                                    Content="&#x25C0;&#x2502;" FontFamily="Segoe UI Symbol" FontSize="12"/>
                             <Button x:Name="PlayButton" Click="PlayButton_Click" ToolTip="Play the pictures of the list from the selected one" Padding="12,2" Margin="0,2,4,2" MinWidth="76">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock x:Name="PlayButtonIcon" Text="&#x25B6;" FontFamily="Segoe UI Symbol" FontSize="11" Margin="0,1,6,0"/>
+                                    <Path x:Name="PlayButtonIcon" Data="M0,0 L10.5,6 L0,12 Z" Width="10.5" Height="12" Stretch="Fill" SnapsToDevicePixels="True" Margin="0,0,7,0"
+                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                                     <TextBlock x:Name="PlayButtonText" Text="Play" FontSize="12"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="PlayNextButton" Click="PlayNext_Click" ToolTip="Next File" Padding="8,2" Margin="0,2,0,2"
-                                    Content="&#x2502;&#x25B6;" FontFamily="Segoe UI Symbol" FontSize="12"/>
+                            <Button x:Name="PlayStopButton" Click="PlayStop_Click" ToolTip="Stop: close SweWolf Media Player and end the list" Padding="12,0" Height="{Binding ActualHeight, ElementName=PlayButton}" Margin="0,2,4,2">
+                                <Path Data="M0,0 H11 V11 H0 Z" Width="11" Height="11" Stretch="Fill" SnapsToDevicePixels="True"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            </Button>
+                            <Button x:Name="PlayPreviousButton" Click="PlayPrevious_Click" ToolTip="Previous File" Padding="12,0" Height="{Binding ActualHeight, ElementName=PlayButton}" Margin="0,2,4,2">
+                                <Path Data="M0,0 H2.5 V12 H0 Z M2.5,6 L13,0 V12 Z" Width="13" Height="12" Stretch="Fill" SnapsToDevicePixels="True"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            </Button>
+                            <Button x:Name="PlayNextButton" Click="PlayNext_Click" ToolTip="Next File" Padding="12,0" Height="{Binding ActualHeight, ElementName=PlayButton}" Margin="0,2,0,2">
+                                <Path Data="M10.5,0 H13 V12 H10.5 Z M10.5,6 L0,0 V12 Z" Width="13" Height="12" Stretch="Fill" SnapsToDevicePixels="True"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            </Button>
 
                             <TextBlock Text="Play Mode" FontSize="12" Margin="12,0,6,0" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="PlayModeBox" Width="130" FontSize="12" Margin="0,2,0,2" SelectionChanged="PlaySetting_Changed"
-                                      ToolTip="Slide Show: the next file comes by itself (continues playing). Single Play: the file opens and stays. Repeat: the same music or video plays again and again. Demo Play: each music or video file plays for the time below, from 1 minute in. Intro Play: the same, from the start. Random Order: Play puts the files in a random order and plays them from the top.">
-                                <ComboBoxItem Content="Slide Show"/>
+                            <ComboBox x:Name="PlayModeBox" Width="146" FontSize="12" Margin="0,2,0,2" SelectionChanged="PlaySetting_Changed"
+                                      ToolTip="Continuous Play (Slide Show): the next file comes by itself.&#10;&#10;Single Play: the file opens and stays.&#10;&#10;Repeat: the same music or video plays again and again.&#10;&#10;Demo Play: each music or video file plays for the time below, from 1 minute in.&#10;&#10;Intro Play: the same, from the start.&#10;&#10;Random Order: Play puts the files in a random order and plays them from the top.">
+                                <ComboBoxItem Content="Continuous Play"/>
                                 <ComboBoxItem Content="Single Play"/>
                                 <ComboBoxItem Content="Repeat"/>
                                 <ComboBoxItem Content="Demo Play"/>
@@ -1457,6 +1470,7 @@
                                      PreviewTextInput="PlayNumber_PreviewTextInput" LostFocus="PlayNumber_LostFocus"
                                      ToolTip="Seconds before the question at the end of the list takes the action above by itself (0 = wait for the answer)"/>
                         </WrapPanel>
+                        </DockPanel>
                     </Border>
 
                     <!-- The line under the Play bar (the continuous playing row): drag it to change the height of the panel, as the other lines. -->
