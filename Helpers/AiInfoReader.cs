@@ -35,7 +35,9 @@ public static class AiInfoReader
                         var chunks = new Dictionary<string, string>();
                         ComfyPromptReader.ReadPngTextChunks(stream, chunks);
                         return ComfyPromptReader.FromChunks(chunks)
-                            ?? (chunks.TryGetValue("parameters", out var parameters) ? Automatic1111Reader.Parse(parameters) : null);
+                            ?? (chunks.TryGetValue("parameters", out var parameters)
+                                ? (FooocusReader.Parse(parameters) ?? Automatic1111Reader.Parse(parameters))
+                                : null);
                     }
                 case ".mp4" or ".m4v" or ".mov":
                     return Wan2GpReader.Read(path);
@@ -46,6 +48,48 @@ public static class AiInfoReader
         catch
         {
             return null;   // not readable, damaged, locked or gone: nothing is shown
+        }
+    }
+}
+
+/// <summary>
+/// The "parameters" text chunk of a PNG from Fooocus with "Save Metadata to Images" on and the scheme "fooocus": one JSON object
+/// (a second chunk, "fooocus_scheme", says "fooocus"). Keys used: prompt, negative_prompt, seed (a number or a text); the rest
+/// (models, sampler, styles, the expanded prompts ...) is not shown. Text that is not a JSON object gives null, so the
+/// Automatic1111 reader gets its turn (Fooocus' "a1111" scheme).
+/// History:
+///   2026-11-09  First version (SweWolf File Explorer only).
+/// </summary>
+public static class FooocusReader
+{
+    public static AiInfo? Parse(string text)
+    {
+        var trimmed = text?.Trim();
+        if (string.IsNullOrEmpty(trimmed) || trimmed[0] != '{') return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return null;
+
+            string? Text(string name)
+            {
+                if (!root.TryGetProperty(name, out var v)) return null;
+                var s = v.ValueKind switch
+                {
+                    JsonValueKind.String => v.GetString(),
+                    JsonValueKind.Number => v.GetRawText(),
+                    _ => null,
+                };
+                return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+            }
+
+            var info = new AiInfo("Prompt", Text("prompt"), Text("negative_prompt"), Text("seed"));
+            return info.IsEmpty ? null : info;
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 }
