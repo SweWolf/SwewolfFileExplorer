@@ -353,7 +353,7 @@ The menu of the list depends on where you click:
   terminals and the New items are not shown (Ctrl+V still works).
 - **On a folder in the list:** the same as the tree's menu for that folder. **Paste** and the **New** items put
   things inside that folder.
-- **On the empty part of the list, or anywhere on the info line and the panel under the list:** the menu of the
+- **On the empty part of the list, or on the info line (the strip with "File 6/7") under the list:** the menu of the
   folder shown (terminals, New items, Paste, Properties and so on). Use the info line when the list is so full
   that there is no empty part left.
 

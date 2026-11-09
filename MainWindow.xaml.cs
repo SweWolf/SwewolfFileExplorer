@@ -3387,6 +3387,10 @@ public partial class MainWindow : Window
     {
         if (!VM.HasFolder) return;
 
+        // Only the info line (the strip with "File 6/7") counts; the details, picture, plot and boxes under it are as before.
+        double lineBottom = InfoPanel.BorderThickness.Top + InfoPanel.Padding.Top + 24;
+        if (Mouse.GetPosition(InfoPanel).Y > lineBottom) return;
+
         e.Handled = true;
         _contextOverEmpty = true;
         FileContextMenu.PlacementTarget = FileListView;
