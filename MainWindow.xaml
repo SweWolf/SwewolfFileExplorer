@@ -68,6 +68,8 @@
                 <MenuItem x:Name="WorkspaceShortcutItem" Header="Create Shortcut to Workspace..." Click="WorkspaceShortcut_Click" Visibility="Collapsed"
                           ToolTip="Make a shortcut that starts this program and opens this workspace"/>
                 <Separator/>
+                <MenuItem Header="Workspace _Manager" Click="WorkspaceManager_Click"
+                          ToolTip="Open, rename, delete or make a shortcut to a saved workspace"/>
                 <MenuItem Header="Show Workspaces F_older" Click="WorkspaceShowFolder_Click"
                           ToolTip="Show the folder with the workspace files"/>
             </MenuItem>
@@ -92,6 +94,8 @@
                 <MenuItem x:Name="SessionShortcutItem" Header="Create Shortcut to Session..." Click="SessionShortcut_Click" Visibility="Collapsed"
                           ToolTip="Make a shortcut that starts this program and goes on with this session"/>
                 <Separator/>
+                <MenuItem Header="Session _Manager" Click="SessionManager_Click"
+                          ToolTip="Open, rename, delete or make a shortcut to a saved session"/>
                 <MenuItem Header="Show Sessions F_older" Click="SessionShowFolder_Click"
                           ToolTip="Show the folder with the session files"/>
             </MenuItem>

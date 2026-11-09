@@ -1,0 +1,192 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using SwewolfFileExplorer.Helpers;
+
+namespace SwewolfFileExplorer.Views;
+
+/// <summary>What the user chose in the manager that the main window has to do after the manager has closed.</summary>
+public enum ManagerAction { None, Open, Shortcut, ShowFolder }
+
+/// <summary>
+/// Workspace Manager / Session Manager (built in code): every saved workspace or session in one list (name, number of tabs, last
+/// changed, which one is in use), with Open, Rename, Delete, Create Shortcut and Show Folder for the selected row. Rename and Delete
+/// are done inside the window (through the callbacks, which hold the rules); Open, Create Shortcut and Show Folder close it and the
+/// main window does them (<see cref="Action"/>, <see cref="SelectedName"/>), so their own dialogs are not hidden behind this one.
+/// </summary>
+public sealed class TabSetManagerWindow : Window
+{
+    private sealed record Row(string Name, string Tabs, string Modified, string State);
+
+    private const double ButtonWidth = 180;   // every button of the window, Close too
+
+    private readonly StoreKind _kind;
+    private readonly Func<string?> _inUse;
+    private readonly Func<Window, string, string?> _rename;
+    private readonly Func<Window, string, bool> _delete;
+
+    private readonly ListView _list = new() { SelectionMode = SelectionMode.Single };
+    private readonly TextBlock _empty = new() { Opacity = 0.7, Margin = new Thickness(12), TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+    private readonly Button _open = Make("Open");
+    private readonly Button _renameButton = Make("Rename...");
+    private readonly Button _deleteButton = Make("Delete");
+    private readonly Button _shortcut = Make("Create Shortcut...");
+    private readonly Button _folder = Make("Show Folder");
+
+    /// <summary>What to do after the window closed.</summary>
+    public ManagerAction Action { get; private set; } = ManagerAction.None;
+
+    /// <summary>The name the action is about (null for none).</summary>
+    public string? SelectedName { get; private set; }
+
+    public TabSetManagerWindow(StoreKind kind, Func<string?> inUse, Func<Window, string, string?> rename, Func<Window, string, bool> delete)
+    {
+        _kind = kind;
+        _inUse = inUse;
+        _rename = rename;
+        _delete = delete;
+
+        string word = kind == StoreKind.Workspace ? "Workspace" : "Session";
+        Title = $"{word} Manager";
+        FontSize = 14;
+        Width = 900;
+        Height = 460;
+        MinWidth = 760;
+        MinHeight = 320;
+        ShowInTaskbar = false;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        UseLayoutRounding = true;
+
+        var grid = new Grid { Margin = new Thickness(16) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var intro = new TextBlock
+        {
+            Text = kind == StoreKind.Workspace
+                ? "Workspaces are sets of folders you saved by hand. Select one and choose what to do."
+                : "Sessions are the open tabs, remembered all the time. Select one and choose what to do.",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 10),
+        };
+        Grid.SetColumnSpan(intro, 2);
+        grid.Children.Add(intro);
+
+        var view = new GridView();
+        view.Columns.Add(new GridViewColumn { Header = "Name", Width = 290, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Name)) });
+        view.Columns.Add(new GridViewColumn { Header = "Tabs", Width = 70, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Tabs)) });
+        view.Columns.Add(new GridViewColumn { Header = "Last Changed", Width = 160, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Modified)) });
+        if (kind == StoreKind.Session)
+            view.Columns.Add(new GridViewColumn { Header = "State", Width = 100, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.State)) });
+        _list.View = view;
+
+        var listHost = new Grid();
+        listHost.Children.Add(_list);
+        listHost.Children.Add(_empty);
+        Grid.SetRow(listHost, 1);
+        grid.Children.Add(listHost);
+
+        var side = new StackPanel { Margin = new Thickness(12, 0, 0, 0), Width = ButtonWidth };
+        foreach (var b in new[] { _open, _renameButton, _deleteButton, _shortcut, _folder })
+        {
+            b.Margin = new Thickness(0, 0, 0, 8);
+            side.Children.Add(b);
+        }
+        Grid.SetRow(side, 1);
+        Grid.SetColumn(side, 1);
+        grid.Children.Add(side);
+
+        var close = new Button { Content = "Close", Width = ButtonWidth, Padding = new Thickness(12, 6, 12, 6), IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
+        Grid.SetRow(close, 2);
+        Grid.SetColumnSpan(close, 2);
+        grid.Children.Add(close);
+        Content = grid;
+
+        _empty.Text = kind == StoreKind.Workspace
+            ? "No workspaces saved yet. Use Workspace > Save Current Tabs as Workspace."
+            : "No sessions yet. Use Session > Start New Session.";
+
+        _list.SelectionChanged += (_, _) => UpdateButtons();
+        _list.MouseDoubleClick += (_, e) => { if (e.OriginalSource is FrameworkElement { DataContext: Row }) Finish(ManagerAction.Open); };
+        _open.Click += (_, _) => Finish(ManagerAction.Open);
+        _shortcut.Click += (_, _) => Finish(ManagerAction.Shortcut);
+        _folder.Click += (_, _) => { SelectedName ??= ""; Action = ManagerAction.ShowFolder; DialogResult = true; };
+        _renameButton.Click += (_, _) => DoRename();
+        _deleteButton.Click += (_, _) => DoDelete();
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.F2 && Selected != null) { DoRename(); e.Handled = true; }
+            else if (e.Key == Key.Delete && Selected != null) { DoDelete(); e.Handled = true; }
+            else if (e.Key == Key.Enter && Selected != null && !(Keyboard.FocusedElement is Button)) { Finish(ManagerAction.Open); e.Handled = true; }
+        };
+        Loaded += (_, _) => { Reload(null); _list.Focus(); };
+    }
+
+    // The Fluent button does not stretch in a StackPanel by itself, so the width is set: every button is the same width.
+    private static Button Make(string text) => new() { Content = text, Width = ButtonWidth, Padding = new Thickness(12, 6, 12, 6), HorizontalContentAlignment = HorizontalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
+
+    private string? Selected => (_list.SelectedItem as Row)?.Name;
+
+    private void UpdateButtons()
+    {
+        bool has = Selected != null;
+        _open.IsEnabled = _renameButton.IsEnabled = _deleteButton.IsEnabled = _shortcut.IsEnabled = has;
+        _folder.IsEnabled = true;
+    }
+
+    private void Finish(ManagerAction action)
+    {
+        if (Selected == null) return;
+        SelectedName = Selected;
+        Action = action;
+        DialogResult = true;
+    }
+
+    private void DoRename()
+    {
+        var name = Selected;
+        if (name == null) return;
+        var newName = _rename(this, name);
+        if (newName != null) Reload(newName);
+    }
+
+    private void DoDelete()
+    {
+        var name = Selected;
+        if (name == null) return;
+        int index = _list.SelectedIndex;
+        if (!_delete(this, name)) return;
+        Reload(null);
+        if (_list.Items.Count > 0) _list.SelectedIndex = Math.Min(index, _list.Items.Count - 1);
+    }
+
+    /// <summary>Reads the folder again; <paramref name="select"/> is the name to select afterwards (the first row if null).</summary>
+    private void Reload(string? select)
+    {
+        var inUse = _inUse();
+        var rows = new List<Row>();
+        foreach (var name in WorkspaceStore.Names(_kind))
+        {
+            var file = WorkspaceStore.PathFor(_kind, name);
+            string tabs = "", modified = "";
+            try { modified = File.GetLastWriteTime(file).ToString("g", System.Globalization.CultureInfo.CurrentCulture); } catch { }
+            var data = WorkspaceStore.Read(file, out _, out _);
+            if (data != null) tabs = data.Tabs.Count.ToString();
+            bool current = string.Equals(name, inUse, StringComparison.OrdinalIgnoreCase);
+            rows.Add(new Row(name, tabs, modified, current ? "In use" : ""));
+        }
+
+        _list.ItemsSource = rows;
+        _empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        var pick = rows.FirstOrDefault(r => select != null && string.Equals(r.Name, select, StringComparison.OrdinalIgnoreCase))
+                   ?? rows.FirstOrDefault(r => r.State == "In use")
+                   ?? rows.FirstOrDefault();
+        if (pick != null) _list.SelectedItem = pick;
+        UpdateButtons();
+    }
+}

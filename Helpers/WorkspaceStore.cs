@@ -160,6 +160,21 @@ public static class WorkspaceStore
         }
     }
 
+    /// <summary>Renames a saved one (never replaces another). Returns false if that did not work.</summary>
+    public static bool Rename(StoreKind kind, string name, string newName)
+    {
+        try
+        {
+            var from = PathFor(kind, name);
+            var to   = PathFor(kind, newName);
+            // A change of case only is the same file to Windows: allowed. Anything else that exists already is refused.
+            if (File.Exists(to) && !string.Equals(from, to, StringComparison.OrdinalIgnoreCase)) return false;
+            File.Move(from, to);
+            return true;
+        }
+        catch { return false; }
+    }
+
     /// <summary>Deletes a saved one. Returns false if that did not work.</summary>
     public static bool Delete(StoreKind kind, string name)
     {

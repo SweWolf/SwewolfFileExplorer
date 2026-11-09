@@ -1522,16 +1522,86 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    private void DeleteSaved(StoreKind kind, string name)
+    private bool DeleteSaved(StoreKind kind, string name, Window? owner = null)
     {
+        owner ??= this;
         string what = kind == StoreKind.Workspace ? "workspace" : "session";
-        if (!Confirm($"Do you want to delete the {what} \"{name}\"?")) return;
+        if (MessageBox.Show(owner, $"Do you want to delete the {what} \"{name}\"?", AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return false;
 
         if (kind == StoreKind.Session && string.Equals(VM.Session.Name, name, StringComparison.OrdinalIgnoreCase))
             VM.Session.Stop();
 
         if (!WorkspaceStore.Delete(kind, name))
-            MessageBox.Show(this, $"The {what} could not be deleted.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        {
+            MessageBox.Show(owner, $"The {what} could not be deleted.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+        return true;
+    }
+
+    // ── Workspace Manager / Session Manager ───────────────────────────────────
+
+    private void WorkspaceManager_Click(object sender, RoutedEventArgs e) => ShowTabSetManager(StoreKind.Workspace);
+    private void SessionManager_Click(object sender, RoutedEventArgs e)   => ShowTabSetManager(StoreKind.Session);
+
+    private void ShowTabSetManager(StoreKind kind)
+    {
+        var manager = new TabSetManagerWindow(kind,
+            inUse:  () => kind == StoreKind.Session && VM.Session.IsActive ? VM.Session.Name : null,
+            rename: (owner, name) => RenameSaved(owner, kind, name),
+            delete: (owner, name) => DeleteSaved(kind, name, owner)) { Owner = this };
+        manager.ShowDialog();
+
+        if (manager.Action == ManagerAction.None) return;
+        if (manager.Action == ManagerAction.ShowFolder) { ShowFolder(kind); return; }
+
+        var name = manager.SelectedName;
+        if (string.IsNullOrEmpty(name)) return;
+        var file = WorkspaceStore.PathFor(kind, name);
+        if (manager.Action == ManagerAction.Open) OpenTabSet(file);
+        else ShortcutToTabSet(file, kind == StoreKind.Workspace ? "Workspace" : "Session");
+    }
+
+    /// <summary>Asks for a new name and renames the saved workspace or session. Returns the new name, or null if nothing was renamed.</summary>
+    private string? RenameSaved(Window owner, StoreKind kind, string name)
+    {
+        string what = kind == StoreKind.Workspace ? "workspace" : "session";
+        var dialog = new InputDialog($"Rename {(kind == StoreKind.Workspace ? "Workspace" : "Session")}", $"New name of the {what}:", name,
+            typed =>
+            {
+                var problem = WorkspaceStore.CheckName(typed);
+                if (problem != null) return problem;
+                var t = typed.Trim();
+                return !string.Equals(t, name, StringComparison.OrdinalIgnoreCase) && System.IO.File.Exists(WorkspaceStore.PathFor(kind, t))
+                    ? $"A {what} named \"{t}\" exists already."
+                    : null;
+            }) { Owner = owner };
+        if (dialog.ShowDialog() != true) return null;
+
+        var newName = dialog.InputText.Trim();
+        if (newName == name) return null;
+
+        // The session in use keeps recording: it is stopped for the rename and goes on in the renamed file.
+        bool inUse = kind == StoreKind.Session && VM.Session.IsActive && string.Equals(VM.Session.Name, name, StringComparison.OrdinalIgnoreCase);
+        if (inUse) { VM.Session.Flush(); VM.Session.Stop(); }
+
+        var oldFile = WorkspaceStore.PathFor(kind, name);
+        bool ok = WorkspaceStore.Rename(kind, name, newName);
+        if (inUse) VM.Session.Start(WorkspaceStore.PathFor(kind, ok ? newName : name));
+
+        if (!ok)
+        {
+            MessageBox.Show(owner, $"The {what} could not be renamed.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
+        }
+
+        if (kind == StoreKind.Workspace && string.Equals(_lastWorkspaceFile, oldFile, StringComparison.OrdinalIgnoreCase))
+        {
+            _lastWorkspaceName = newName;
+            _lastWorkspaceFile = WorkspaceStore.PathFor(kind, newName);
+        }
+        return newName;
     }
 
     /// <summary>
