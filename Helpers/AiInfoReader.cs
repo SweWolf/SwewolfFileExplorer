@@ -102,6 +102,7 @@ public static class FooocusReader
 /// The settings line is the last line that starts with "Steps: "; the seed is read from it.
 /// History:
 ///   2026-10-24  First version (SweWolf File Explorer only).
+///   2026-11-09  Fooocus: "Raw prompt" / "Raw negative prompt" of the settings line replace the expanded prompts.
 /// </summary>
 public static class Automatic1111Reader
 {
@@ -135,8 +136,25 @@ public static class Automatic1111Reader
         string? seed = null;
         if (settings >= 0 && SeedPattern.Match(lines[settings]) is { Success: true } m) seed = m.Groups[1].Value;
 
+        // Fooocus' "a1111" scheme writes the prompt after its expansion (styles and extra words added) and keeps what the
+        // user typed in the settings line as: Raw prompt: "...", Raw negative prompt: "..." (JSON-quoted text).
+        if (settings >= 0)
+        {
+            prompt = RawValue(lines[settings], "Raw prompt") ?? prompt;
+            negative = RawValue(lines[settings], "Raw negative prompt") ?? negative;
+        }
+
         var info = new AiInfo("Prompt", prompt, negative, seed);
         return info.IsEmpty ? null : info;
+    }
+
+    /// <summary>The quoted value of <paramref name="key"/> in an A1111 settings line (a JSON string, so \" and \\ are understood), or null.</summary>
+    private static string? RawValue(string settingsLine, string key)
+    {
+        var m = Regex.Match(settingsLine, "(?:^|,\\s*)" + Regex.Escape(key) + ":\\s*(\"(?:[^\"\\\\]|\\\\.)*\")");
+        if (!m.Success) return null;
+        try { return JsonSerializer.Deserialize<string>(m.Groups[1].Value)?.Trim() is { Length: > 0 } s ? s : null; }
+        catch (JsonException) { return null; }
     }
 }
 
