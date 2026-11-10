@@ -54,50 +54,36 @@
             <MenuItem x:Name="WorkspaceRootMenu" Header="_Workspace" SubmenuOpened="WorkspaceRoot_SubmenuOpened">
                 <MenuItem Header="_Save Current Tabs as Workspace..." Click="WorkspaceSave_Click"
                           ToolTip="Save the folders of the open tabs under a name"/>
-                <MenuItem x:Name="WorkspaceOpenMenu" Header="_Open Workspace" SubmenuOpened="WorkspaceMenu_SubmenuOpened">
-                    <MenuItem Header="(None)" IsEnabled="False"/>
-                </MenuItem>
                 <!-- Hidden for now (less clutter); the code is kept and may come back as a feature. A workspace file can
                      also be opened with the file as the program's command-line argument. -->
                 <MenuItem Header="Open Workspace from _File..." Click="WorkspaceOpenFile_Click" Visibility="Collapsed"
                           ToolTip="Open a workspace file that is somewhere else, for example one you got from another computer"/>
-                <MenuItem x:Name="WorkspaceDeleteMenu" Header="_Delete Workspace" SubmenuOpened="WorkspaceMenu_SubmenuOpened">
-                    <MenuItem Header="(None)" IsEnabled="False"/>
-                </MenuItem>
                 <!-- Only there when a workspace was opened or saved in this run; its name is in the text (set in code). -->
                 <MenuItem x:Name="WorkspaceShortcutItem" Header="Create Shortcut to Workspace..." Click="WorkspaceShortcut_Click" Visibility="Collapsed"
                           ToolTip="Make a shortcut that starts this program and opens this workspace"/>
-                <Separator/>
                 <MenuItem Header="Workspace _Manager" Click="WorkspaceManager_Click"
                           ToolTip="Open, rename, delete or make a shortcut to a saved workspace"/>
-                <MenuItem Header="Show Workspaces F_older" Click="WorkspaceShowFolder_Click"
-                          ToolTip="Show the folder with the workspace files"/>
+                <!-- The saved workspaces are listed below this line, directly (one click opens one); made in code when the menu opens. -->
+                <Separator/>
             </MenuItem>
 
             <!-- Session: the open tabs, remembered all the time. -->
             <MenuItem x:Name="SessionRootMenu" Header="_Session" SubmenuOpened="SessionRoot_SubmenuOpened">
                 <MenuItem Header="_Start New Session..." Click="SessionStart_Click"
                           ToolTip="Start remembering the open tabs, the folders and the selected files, under a name"/>
-                <MenuItem x:Name="SessionOpenMenu" Header="_Open Session" SubmenuOpened="SessionMenu_SubmenuOpened">
-                    <MenuItem Header="(None)" IsEnabled="False"/>
-                </MenuItem>
                 <!-- Hidden for now (less clutter); the code is kept and may come back as a feature. A session file can
                      also be opened with the file as the program's command-line argument. -->
                 <MenuItem Header="Open Session from _File..." Click="SessionOpenFile_Click" Visibility="Collapsed"
                           ToolTip="Open a session file that is somewhere else, for example one you got from another computer"/>
                 <MenuItem x:Name="SessionStopMenuItem" Header="S_top Session" Click="SessionStop_Click"
                           ToolTip="Stop remembering the open tabs. The session file stays."/>
-                <MenuItem x:Name="SessionDeleteMenu" Header="_Delete Session" SubmenuOpened="SessionMenu_SubmenuOpened">
-                    <MenuItem Header="(None)" IsEnabled="False"/>
-                </MenuItem>
                 <!-- Only there while a session is on; its name is in the text (set in code). -->
                 <MenuItem x:Name="SessionShortcutItem" Header="Create Shortcut to Session..." Click="SessionShortcut_Click" Visibility="Collapsed"
                           ToolTip="Make a shortcut that starts this program and goes on with this session"/>
-                <Separator/>
                 <MenuItem Header="Session _Manager" Click="SessionManager_Click"
                           ToolTip="Open, rename, delete or make a shortcut to a saved session"/>
-                <MenuItem Header="Show Sessions F_older" Click="SessionShowFolder_Click"
-                          ToolTip="Show the folder with the session files"/>
+                <!-- The saved sessions are listed below this line, directly (one click opens one); made in code when the menu opens. -->
+                <Separator/>
             </MenuItem>
 
             <MenuItem Header="_Help">

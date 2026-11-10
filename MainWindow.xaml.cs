@@ -1390,31 +1390,20 @@ public partial class MainWindow : Window
 
     // ── Workspaces and sessions ───────────────────────────────────────────────
 
-    private void WorkspaceMenu_SubmenuOpened(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Lists the saved workspaces or sessions at the bottom of the Workspace / Session menu, below its last separator (one click opens
+    /// one; the session in use has a check mark). Made each time the menu opens: the ones from the last time are taken away first.
+    /// Deleting, renaming and the folder are in the Workspace Manager / Session Manager.
+    /// </summary>
+    private void FillSavedList(MenuItem menu, StoreKind kind, string? checkedName)
     {
-        if (e.OriginalSource != sender) return;
-        bool open = sender == WorkspaceOpenMenu;
-        FillNames((MenuItem)sender, StoreKind.Workspace, null,
-            name => { if (open) OpenTabSet(WorkspaceStore.PathFor(StoreKind.Workspace, name)); else DeleteSaved(StoreKind.Workspace, name); });
-    }
-
-    private void SessionMenu_SubmenuOpened(object sender, RoutedEventArgs e)
-    {
-        if (e.OriginalSource != sender) return;
-        bool open = sender == SessionOpenMenu;
-        FillNames((MenuItem)sender, StoreKind.Session, open ? VM.Session.Name : null,
-            name => { if (open) OpenTabSet(WorkspaceStore.PathFor(StoreKind.Session, name)); else DeleteSaved(StoreKind.Session, name); });
-    }
-
-    /// <summary>Fills a submenu with the names of the saved workspaces or sessions (the one in use gets a check mark).</summary>
-    private static void FillNames(MenuItem menu, StoreKind kind, string? checkedName, Action<string> click)
-    {
-        menu.Items.Clear();
+        for (int i = menu.Items.Count - 1; i >= 0; i--)
+            if (menu.Items[i] is FrameworkElement { Tag: "saved" }) menu.Items.RemoveAt(i);
 
         var names = WorkspaceStore.Names(kind);
         if (names.Count == 0)
         {
-            menu.Items.Add(new MenuItem { Header = "(None)", IsEnabled = false });
+            menu.Items.Add(new MenuItem { Header = kind == StoreKind.Workspace ? "(No workspaces saved)" : "(No sessions saved)", IsEnabled = false, Tag = "saved" });
             return;
         }
 
@@ -1424,8 +1413,9 @@ public partial class MainWindow : Window
             {
                 Header    = name.Replace("_", "__"),   // a single underscore would be an access key
                 IsChecked = string.Equals(name, checkedName, StringComparison.OrdinalIgnoreCase),
+                Tag       = "saved",
             };
-            item.Click += (_, _) => click(name);
+            item.Click += (_, _) => OpenTabSet(WorkspaceStore.PathFor(kind, name));
             menu.Items.Add(item);
         }
     }
@@ -1506,9 +1496,6 @@ public partial class MainWindow : Window
         };
         if (dialog.ShowDialog(this) == true) OpenTabSet(dialog.FileName);
     }
-
-    private void WorkspaceShowFolder_Click(object sender, RoutedEventArgs e) => ShowFolder(StoreKind.Workspace);
-    private void SessionShowFolder_Click(object sender, RoutedEventArgs e)   => ShowFolder(StoreKind.Session);
 
     // The folder of the saved workspaces / sessions is shown in a new tab of this program (not in Windows Explorer).
     private void ShowFolder(StoreKind kind)
@@ -4873,6 +4860,7 @@ public partial class MainWindow : Window
         bool has = file != null && System.IO.File.Exists(file);
         WorkspaceShortcutItem.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
         if (has) WorkspaceShortcutItem.Header = $"Create Shortcut to Workspace \"{System.IO.Path.GetFileNameWithoutExtension(file).Replace("_", "__")}\"...";
+        FillSavedList(WorkspaceRootMenu, StoreKind.Workspace, null);
     }
 
     /// <summary>The item shows only while a session is on.</summary>
@@ -4883,6 +4871,7 @@ public partial class MainWindow : Window
         bool has = VM.Session.IsActive && file != null && System.IO.File.Exists(file);
         SessionShortcutItem.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
         if (has) SessionShortcutItem.Header = $"Create Shortcut to Session \"{(VM.Session.Name ?? "").Replace("_", "__")}\"...";
+        FillSavedList(SessionRootMenu, StoreKind.Session, VM.Session.IsActive ? VM.Session.Name : null);
     }
 
     private void WorkspaceShortcut_Click(object sender, RoutedEventArgs e) => ShortcutToTabSet(_lastWorkspaceFile, "Workspace");
