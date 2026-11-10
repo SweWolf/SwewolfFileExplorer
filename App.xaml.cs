@@ -22,6 +22,9 @@ public partial class App : Application
         // The data folders of the first versions had spaces in their name: moved to the new name before anything is read.
         SwewolfFileExplorer.Helpers.AppInfo.MigrateFolders();
 
+        // The web bookmarks' icons moved from %LocalAppData% to %AppData% (2026-11-10): once, and the shortcuts that name them follow.
+        SwewolfFileExplorer.Helpers.BookmarkStore.MigrateFavicons();
+
         // What the command line names, in this order: a workspace / session file, a folder, a picture (shown first, alone), any other
         // file (its folder opens with the file selected). The sibling programs send a path, usually in quotes; quotes are not required:
         // a path with spaces that was not quoted arrives as several arguments, so all of them together are tried as one path last.

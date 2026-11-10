@@ -249,14 +249,101 @@ public static class BookmarkStore
     // ── Web addresses: Internet shortcuts (.url) ─────────────────────────────
     // A .lnk cannot point to a web address, so a bookmark of one is an Internet shortcut: a small text file Windows opens in the
     // default browser. They are not in the tree (it only shows folders); the list shows them, opens them and renames them like any file.
-    // Their icon (the page's favicon) is kept outside the Bookmarks folder, in %LocalAppData%\...\Favicons, one .ico per site.
+    // Their icon (the page's favicon) is kept outside the Bookmarks folder, in %AppData%\...\Favicons, one .ico per site. It belongs with the
+    // bookmarks (a .url names it with a full path), so it is in Roaming like them; until 2026-11-10 it was in %LocalAppData%
+    // (see MigrateFavicons).
 
     /// <summary>Another folder for the favicons instead of the real one: for tests only.</summary>
     public static string? FaviconFolderOverride { get; set; }
 
     /// <summary>Where the favicons are kept.</summary>
     public static string FaviconFolder => FaviconFolderOverride ?? System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SweWolfSoftware", AppInfo.FolderName, "Favicons");
+
+    /// <summary>Where the favicons were kept before 2026-11-10.</summary>
+    private static string OldFaviconFolder => System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SweWolfSoftware", AppInfo.FolderName, "Favicons");
+
+    /// <summary>
+    /// Moves the favicons from %LocalAppData% to %AppData% (once, at the start of the program; nothing happens when there is nothing to move)
+    /// and changes the <c>IconFile=</c> line of the Internet shortcuts that named the old place, so their icons stay. Nothing is lost:
+    /// a file is only moved when the new place has no file of that name (an identical one is removed from the old place), a shortcut is
+    /// only changed when the icon it will name is there, and a failure on one file goes on with the next. The old folder is removed
+    /// when it is empty. <paramref name="oldFolder"/> is for tests.
+    /// </summary>
+    public static void MigrateFavicons(string? oldFolder = null)
+    {
+        try
+        {
+            oldFolder ??= OldFaviconFolder;
+            var newFolder = FaviconFolder;
+            if (!Directory.Exists(oldFolder) || SameFolder(oldFolder, newFolder)) return;
+
+            Directory.CreateDirectory(newFolder);
+            foreach (var file in Directory.EnumerateFiles(oldFolder))
+            {
+                try
+                {
+                    var target = System.IO.Path.Combine(newFolder, System.IO.Path.GetFileName(file));
+                    if (!File.Exists(target)) File.Move(file, target);
+                    else if (File.ReadAllBytes(file).AsSpan().SequenceEqual(File.ReadAllBytes(target))) File.Delete(file);
+                    // a different file of that name already in the new place: both stay
+                }
+                catch { /* the next one */ }
+            }
+
+            RewriteIconPaths(oldFolder, newFolder);
+            try { Directory.Delete(oldFolder); } catch { /* not empty: what could not be moved stays */ }
+        }
+        catch
+        {
+            // Not being able to move the icons is not worth stopping the program: the shortcuts still name the old place and work.
+        }
+    }
+
+    /// <summary>In every Internet shortcut of the Bookmarks folder (and its groups): <c>IconFile=</c> in the old folder becomes the new folder, if the icon is there.</summary>
+    private static void RewriteIconPaths(string oldFolder, string newFolder)
+    {
+        if (!Directory.Exists(Folder)) return;
+
+        // A .url is written in the ANSI code page (see AddUrl): read and written back the same way, so nothing else in it changes.
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var ansi = Encoding.GetEncoding(System.Globalization.CultureInfo.CurrentCulture.TextInfo.ANSICodePage);
+        var oldPrefix = oldFolder.TrimEnd('\\') + "\\";
+        var line = new System.Text.RegularExpressions.Regex(@"^IconFile=([^\r\n]*)", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        foreach (var file in Directory.EnumerateFiles(Folder, "*.url", System.IO.SearchOption.AllDirectories))
+        {
+            try
+            {
+                var text = ansi.GetString(File.ReadAllBytes(file));
+                bool changed = false;
+                var result = line.Replace(text, m =>
+                {
+                    var value = m.Groups[1].Value.Trim();
+                    if (!value.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase)) return m.Value;
+                    var candidate = System.IO.Path.Combine(newFolder, value[oldPrefix.Length..]);
+                    if (!File.Exists(candidate)) return m.Value;   // the icon did not move: leave the shortcut as it is
+                    changed = true;
+                    return "IconFile=" + candidate;
+                });
+                if (!changed) continue;
+
+                var temp = file + ".part" + Environment.ProcessId;
+                try
+                {
+                    File.WriteAllBytes(temp, ansi.GetBytes(result));
+                    File.Move(temp, file, overwrite: true);
+                }
+                catch
+                {
+                    try { File.Delete(temp); } catch { }
+                    throw;
+                }
+            }
+            catch { /* the next shortcut */ }
+        }
+    }
 
     /// <summary>
     /// The web address as an address, or null if the text is not one: <c>http</c> / <c>https</c> only; "www.example.com" gets https.
