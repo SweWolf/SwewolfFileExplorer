@@ -17,6 +17,10 @@ namespace SwewolfFileExplorer.Helpers;
 ///               (File Info Viewer skips the compression flag), and the PNG chunk reader is part of this file.
 ///   2026-10-24  The result type is AiInfo (AiInfoReader.cs), shared with the Automatic1111 and Wan2GP readers; FromChunks and the
 ///               public PNG chunk reader let AiInfoReader read a file once.
+///   2026-11-09  A switch node (ComfySwitchNode) whose chosen branch holds the text or number itself, not a link, gives that value
+///               (Qwen Image 2.1 workflow: Text Encode > Preview as Text > If/Else Switch with the prompt typed in on_false).
+///               A Preview Any node ("source") is passed through when the caller looks for another input name (the Qwen node
+///               that holds both texts looks for "prompt" only).
 /// </summary>
 public static class ComfyPromptReader
 {
@@ -243,10 +247,17 @@ public static class ComfyPromptReader
     {
         if (!TryInputs(node, out var inputs)) return null;
 
+        // A Preview Any node only passes its input on ("source"), whatever input name the caller looks for
+        if (inputs.TryGetProperty("source", out _) && !keys.Contains("source")) keys = [.. keys, "source"];
+
         if (inputs.TryGetProperty("switch", out var on) && on.ValueKind is JsonValueKind.True or JsonValueKind.False)
         {
             var branch = on.GetBoolean() ? "on_true" : "on_false";
-            return inputs.TryGetProperty(branch, out var link) && depth < MaxDepth && TryFollow(root, link, out var next)
+            if (!inputs.TryGetProperty(branch, out var link)) return null;
+            // The chosen branch may hold the value itself (typed in the switch) instead of a link to another node
+            if (link.ValueKind == JsonValueKind.String) return link.GetString();
+            if (link.ValueKind == JsonValueKind.Number) return link.GetRawText();
+            return depth < MaxDepth && TryFollow(root, link, out var next)
                 ? ResolveNode(root, next, keys, depth + 1, trace)
                 : null;
         }
