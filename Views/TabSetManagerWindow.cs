@@ -25,6 +25,7 @@ public sealed class TabSetManagerWindow : Window
     private readonly Func<string?> _inUse;
     private readonly Func<Window, string, string?> _rename;
     private readonly Func<Window, string, bool> _delete;
+    private readonly Func<Window, string, bool> _move;
 
     private readonly ListView _list = new() { SelectionMode = SelectionMode.Single };
     private readonly TextBlock _empty = new() { Opacity = 0.7, Margin = new Thickness(12), TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
@@ -32,6 +33,7 @@ public sealed class TabSetManagerWindow : Window
     private readonly Button _renameButton = Make("Rename...");
     private readonly Button _deleteButton = Make("Delete");
     private readonly Button _shortcut = Make("Create Shortcut...");
+    private readonly Button _moveButton = Make("Move to Volume...");
     private readonly Button _folder = Make("Show Folder");
 
     /// <summary>What to do after the window closed.</summary>
@@ -40,12 +42,14 @@ public sealed class TabSetManagerWindow : Window
     /// <summary>The name the action is about (null for none).</summary>
     public string? SelectedName { get; private set; }
 
-    public TabSetManagerWindow(StoreKind kind, Func<string?> inUse, Func<Window, string, string?> rename, Func<Window, string, bool> delete)
+    public TabSetManagerWindow(StoreKind kind, Func<string?> inUse, Func<Window, string, string?> rename, Func<Window, string, bool> delete,
+                                Func<Window, string, bool> move)
     {
         _kind = kind;
         _inUse = inUse;
         _rename = rename;
         _delete = delete;
+        _move = move;
 
         string word = kind == StoreKind.Workspace ? "Workspace" : "Session";
         Title = $"{word} Manager";
@@ -91,7 +95,7 @@ public sealed class TabSetManagerWindow : Window
         grid.Children.Add(listHost);
 
         var side = new StackPanel { Margin = new Thickness(12, 0, 0, 0), Width = ButtonWidth };
-        foreach (var b in new[] { _open, _renameButton, _deleteButton, _shortcut, _folder })
+        foreach (var b in new[] { _open, _renameButton, _deleteButton, _shortcut, _moveButton, _folder })
         {
             b.Margin = new Thickness(0, 0, 0, 8);
             side.Children.Add(b);
@@ -117,6 +121,8 @@ public sealed class TabSetManagerWindow : Window
         _folder.Click += (_, _) => { SelectedName ??= ""; Action = ManagerAction.ShowFolder; DialogResult = true; };
         _renameButton.Click += (_, _) => DoRename();
         _deleteButton.Click += (_, _) => DoDelete();
+        _moveButton.ToolTip = "Move the file to a folder on any drive. Paths on that drive are then kept without the drive letter, so the drive can have another letter on another computer.";
+        _moveButton.Click += (_, _) => DoMove();
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key == Key.F2 && Selected != null) { DoRename(); e.Handled = true; }
@@ -134,7 +140,7 @@ public sealed class TabSetManagerWindow : Window
     private void UpdateButtons()
     {
         bool has = Selected != null;
-        _open.IsEnabled = _renameButton.IsEnabled = _deleteButton.IsEnabled = _shortcut.IsEnabled = has;
+        _open.IsEnabled = _renameButton.IsEnabled = _deleteButton.IsEnabled = _shortcut.IsEnabled = _moveButton.IsEnabled = has;
         _folder.IsEnabled = true;
     }
 
@@ -152,6 +158,16 @@ public sealed class TabSetManagerWindow : Window
         if (name == null) return;
         var newName = _rename(this, name);
         if (newName != null) Reload(newName);
+    }
+
+    private void DoMove()
+    {
+        var name = Selected;
+        if (name == null) return;
+        int index = _list.SelectedIndex;
+        if (!_move(this, name)) return;   // the file is no longer in the program's own folder: it leaves the list
+        Reload(null);
+        if (_list.Items.Count > 0) _list.SelectedIndex = Math.Min(index, _list.Items.Count - 1);
     }
 
     private void DoDelete()

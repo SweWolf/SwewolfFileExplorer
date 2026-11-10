@@ -1550,7 +1550,8 @@ public partial class MainWindow : Window
         var manager = new TabSetManagerWindow(kind,
             inUse:  () => kind == StoreKind.Session && VM.Session.IsActive ? VM.Session.Name : null,
             rename: (owner, name) => RenameSaved(owner, kind, name),
-            delete: (owner, name) => DeleteSaved(kind, name, owner)) { Owner = this };
+            delete: (owner, name) => DeleteSaved(kind, name, owner),
+            move:   (owner, name) => MoveSavedToVolume(owner, kind, name)) { Owner = this };
         manager.ShowDialog();
 
         if (manager.Action == ManagerAction.None) return;
@@ -1561,6 +1562,88 @@ public partial class MainWindow : Window
         var file = WorkspaceStore.PathFor(kind, name);
         if (manager.Action == ManagerAction.Open) OpenTabSet(file);
         else ShortcutToTabSet(file, kind == StoreKind.Workspace ? "Workspace" : "Session");
+    }
+
+    /// <summary>
+    /// "Move to Volume...": moves the file of a saved workspace or session to a folder the user chooses on any drive (the drive of
+    /// most of its tabs is where the folder box starts). Paths on the drive the file ends up on lose their drive letter (see
+    /// <see cref="WorkspaceStore.Write"/>), so the drive may have another letter on another computer. Questions: a session in use must
+    /// be stopped first; tabs on other drives keep their full paths (warning); a file with that name in the folder (replace?).
+    /// The program does not remember where the file went: it is opened by starting the program with the file. True if it was moved.
+    /// </summary>
+    private bool MoveSavedToVolume(Window owner, StoreKind kind, string name)
+    {
+        string what = kind == StoreKind.Workspace ? "workspace" : "session";
+        string caption = $"Move {(kind == StoreKind.Workspace ? "Workspace" : "Session")} to Volume";
+        var file = WorkspaceStore.PathFor(kind, name);
+
+        var data = WorkspaceStore.Read(file, out _, out var error);
+        if (data == null)
+        {
+            MessageBox.Show(owner, $"The {what} \"{name}\" cannot be read:\n{error}", caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+
+        // A session that is in use is recorded all the time: it has to be stopped before its file can leave.
+        bool inUse = kind == StoreKind.Session && VM.Session.IsActive && string.Equals(VM.Session.Name, name, StringComparison.OrdinalIgnoreCase);
+        if (inUse && MessageBox.Show(owner,
+                $"The session \"{name}\" is in use now.\n\nDo you want to stop using this session now, so that its file can be moved?",
+                caption, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+            return false;
+
+        // The folder box starts at the root of the drive where most of the tabs are.
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = $"Choose the folder for the {what} \"{name}\"" };
+        var start = WorkspaceStore.MostUsedDrive(data);
+        if (start != null && System.IO.Directory.Exists(start)) dialog.InitialDirectory = start;
+        if (dialog.ShowDialog(owner) != true) return false;
+
+        var folder = dialog.FolderName;
+        var destFile = System.IO.Path.Combine(folder, name + ".json");
+        if (string.Equals(System.IO.Path.GetFullPath(destFile), System.IO.Path.GetFullPath(file), StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show(owner, $"The {what} is in that folder already.", caption, MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+        }
+
+        // Tabs on other drives (and on the network) keep their full paths: they may not be found on another computer.
+        var volume = WorkspaceStore.DriveRootOf(System.IO.Path.GetFullPath(folder));
+        if (volume != null)
+        {
+            var (on, elsewhere) = WorkspaceStore.CountTabs(data, volume);
+            if (elsewhere > 0 && MessageBox.Show(owner,
+                    $"{elsewhere} of the {on + elsewhere} tabs are not on the drive {volume.TrimEnd('\\')}. They keep their full paths, and may not be found on another computer.\n\nDo you want to move the {what} anyway?",
+                    caption, MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return false;
+        }
+
+        if (System.IO.File.Exists(destFile) && MessageBox.Show(owner,
+                $"A file with this name already exists in that folder:\n\n{destFile}\n\nDo you want to overwrite it with this {what}?",
+                caption, MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) != MessageBoxResult.OK)
+            return false;
+
+        if (inUse) { VM.Session.Flush(); VM.Session.Stop(); }
+
+        // Written at the new place first; the old file is removed only when that worked.
+        if (!WorkspaceStore.Write(destFile, kind, data))
+        {
+            if (inUse) VM.Session.Start(file);
+            MessageBox.Show(owner, $"The {what} could not be saved to:\n{destFile}\n\nNothing was moved.", caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+
+        try { System.IO.File.Delete(file); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(owner, $"The {what} was saved to:\n{destFile}\n\nbut the old file could not be removed:\n{ex.Message}", caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        if (kind == StoreKind.Workspace && string.Equals(_lastWorkspaceFile, file, StringComparison.OrdinalIgnoreCase))
+            _lastWorkspaceFile = destFile;
+
+        MessageBox.Show(owner,
+            $"The {what} \"{name}\" was moved to:\n\n{destFile}\n\nIt is no longer in the list. To open it, start {AppInfo.Name} with this file, for example from a shortcut.",
+            caption, MessageBoxButton.OK, MessageBoxImage.Information);
+        return true;
     }
 
     /// <summary>Asks for a new name and renames the saved workspace or session. Returns the new name, or null if nothing was renamed.</summary>

@@ -103,9 +103,78 @@ public static class WorkspaceStore
         return null;
     }
 
+    // ── Paths relative to the volume ──────────────────────────────────────────
+    // A file that lies outside the program's own two folders (moved to a USB drive with "Move to Volume...", or opened from
+    // somewhere else) keeps the paths on its own drive without the drive letter: \Music\Suno. Read puts the letter of the drive the
+    // file is on right now in front again, so the drive may be O: on one computer and R: on another. Paths on other drives, and
+    // network paths, are kept as they are.
+
+    /// <summary>The drive root ("M:\") of a path, or null for a network path or anything with no drive letter.</summary>
+    public static string? DriveRootOf(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || path.Length < 3) return null;
+        return char.IsAsciiLetter(path[0]) && path[1] == ':' && (path[2] == '\\' || path[2] == '/')
+            ? char.ToUpperInvariant(path[0]) + @":\"
+            : null;
+    }
+
+    /// <summary>True when the file is in the program's own Workspaces or Sessions folder (those keep full paths).</summary>
+    public static bool IsInAppFolders(string file)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(file))?.TrimEnd('\\');
+            return string.Equals(dir, Folder(StoreKind.Workspace).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(dir, Folder(StoreKind.Session).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>M:\Music\Suno gives \Music\Suno when <paramref name="volumeRoot"/> is M:\; any other path is returned as it is.</summary>
+    public static string? ToVolumeRelative(string? path, string volumeRoot)
+    {
+        if (string.IsNullOrEmpty(path) || DriveRootOf(path) is not { } root
+            || !string.Equals(root, volumeRoot, StringComparison.OrdinalIgnoreCase)) return path;
+        return @"\" + path.Substring(3).Replace('/', '\\');
+    }
+
+    /// <summary>\Music\Suno gives M:\Music\Suno for the root M:\; a path with a drive letter or a network path is returned as it is.</summary>
+    public static string? FromVolumeRelative(string? path, string volumeRoot)
+    {
+        if (string.IsNullOrEmpty(path) || path[0] != '\\' || path.StartsWith(@"\\")) return path;
+        return volumeRoot.TrimEnd('\\') + path;
+    }
+
+    /// <summary>How many tabs are on the drive of <paramref name="volumeRoot"/>, and how many are on other drives or on the network (a tab with no folder, This PC, counts for neither).</summary>
+    public static (int OnVolume, int Elsewhere) CountTabs(TabSetFile data, string volumeRoot)
+    {
+        int on = 0, elsewhere = 0;
+        foreach (var tab in data.Tabs)
+        {
+            if (string.IsNullOrWhiteSpace(tab.Path)) continue;
+            var root = DriveRootOf(tab.Path);
+            if (root != null && string.Equals(root, volumeRoot, StringComparison.OrdinalIgnoreCase)) on++;
+            else elsewhere++;
+        }
+        return (on, elsewhere);
+    }
+
+    /// <summary>The drive root where most of the tabs are (the first one when it is a tie), or null if none is on a drive with a letter.</summary>
+    public static string? MostUsedDrive(TabSetFile data)
+    {
+        return data.Tabs
+            .Select(t => DriveRootOf(t.Path))
+            .Where(r => r != null)
+            .GroupBy(r => r!, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.Key)
+            .FirstOrDefault();
+    }
+
     /// <summary>
     /// Writes the file the safe way: to a temporary file next to it first, then swapped in, so a power failure in the middle
     /// leaves the old file whole. Returns false if it could not be written (full disk, drive gone ...).
+    /// A file outside the program's own folders gets the paths on its own drive without the drive letter (see above).
     /// </summary>
     public static bool Write(string file, StoreKind kind, TabSetFile data)
     {
@@ -115,10 +184,28 @@ public static class WorkspaceStore
             if (kind == StoreKind.Workspace)
                 foreach (var tab in data.Tabs) tab.SelectedFile = null;   // a workspace is folders only
 
+            var toWrite = data;
+            var volume = IsInAppFolders(file) ? null : DriveRootOf(Path.GetFullPath(file));
+            if (volume != null)
+            {
+                // A copy, so what the caller holds keeps its full paths.
+                toWrite = new TabSetFile
+                {
+                    Format = data.Format, Version = data.Version, ActiveTab = data.ActiveTab,
+                    Tabs = data.Tabs.Select(t => new TabState
+                    {
+                        Path = ToVolumeRelative(t.Path, volume) ?? "",
+                        Root = ToVolumeRelative(t.Root, volume),
+                        Name = t.Name,
+                        SelectedFile = ToVolumeRelative(t.SelectedFile, volume),
+                    }).ToList(),
+                };
+            }
+
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
 
             string temp = file + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(data, Options));
+            File.WriteAllText(temp, JsonSerializer.Serialize(toWrite, Options));
             File.Move(temp, file, overwrite: true);
             return true;
         }
@@ -151,6 +238,15 @@ public static class WorkspaceStore
             if (data.Tabs.Count == 0) { error = "The file has no tabs in it."; return null; }
 
             data.ActiveTab = Math.Clamp(data.ActiveTab, 0, data.Tabs.Count - 1);
+
+            // Paths with no drive letter (\Music\Suno) belong to the drive the file is on right now.
+            if (DriveRootOf(Path.GetFullPath(file)) is { } volume)
+                foreach (var tab in data.Tabs)
+                {
+                    tab.Path         = FromVolumeRelative(tab.Path, volume) ?? "";
+                    tab.Root         = FromVolumeRelative(tab.Root, volume);
+                    tab.SelectedFile = FromVolumeRelative(tab.SelectedFile, volume);
+                }
             return data;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
