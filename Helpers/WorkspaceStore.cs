@@ -234,7 +234,9 @@ public static class WorkspaceStore
             else { error = "The file is not a workspace or a session of this program."; return null; }
 
             data.Tabs ??= new List<TabState>();
-            data.Tabs.RemoveAll(t => t == null || string.IsNullOrWhiteSpace(t.Path));
+            // A tab with no folder is a tab that showed This PC: it stays (Restore opens it as This PC). Only an empty entry is removed.
+            data.Tabs.RemoveAll(t => t == null);
+            foreach (var tab in data.Tabs) tab.Path ??= "";
             if (data.Tabs.Count == 0) { error = "The file has no tabs in it."; return null; }
 
             data.ActiveTab = Math.Clamp(data.ActiveTab, 0, data.Tabs.Count - 1);
