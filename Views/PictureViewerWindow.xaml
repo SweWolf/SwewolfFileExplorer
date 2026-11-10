@@ -67,5 +67,23 @@
                 Background="#CC000000" CornerRadius="4" Padding="20,8">
             <TextBlock x:Name="OverlayText" TextAlignment="Center" Foreground="White" FontSize="22" FontWeight="Bold"/>
         </Border>
+
+        <!-- After turning a JPEG or PNG: "Do you want to save the turned picture?" in the lower right corner. Our own panel and not a message box,
+             so the user can go on turning. Clicks on it do not reach the picture (see RotatePanel_MouseButton). -->
+        <Border x:Name="RotateSavePanel" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="24"
+                Background="#E6202020" BorderBrush="#66FFFFFF" BorderThickness="1" CornerRadius="6" Padding="16,12"
+                MouseLeftButtonDown="RotatePanel_MouseButton" MouseLeftButtonUp="RotatePanel_MouseButton">
+            <StackPanel>
+                <TextBlock Text="Do you want to save the turned picture?" Foreground="White" FontSize="16"/>
+                <TextBlock Text="Cancel puts the picture back as it was. Enter means No." Foreground="#FFAAAAAA" FontSize="12" Margin="0,2,0,0"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                    <Button x:Name="RotateYes" Content="Yes (Y)" MinWidth="80" Click="RotateYes_Click"/>
+                    <!-- No is the default button (Enter): the accent outline is set on the button itself, as for the other dialogs. -->
+                    <Button x:Name="RotateNo" Content="No (N)" MinWidth="80" Margin="8,0,0,0" Click="RotateNo_Click"
+                            BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"/>
+                    <Button x:Name="RotateCancel" Content="Cancel (Esc)" MinWidth="80" Margin="8,0,0,0" Click="RotateCancel_Click"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

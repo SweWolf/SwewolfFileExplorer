@@ -39,7 +39,7 @@ public partial class PictureViewerWindow : Window
     private int _loadVersion;                // a picture loads in the background: only the last one asked for is shown
     private double _zoom = 1;                // on top of the size that fits the window
     private bool _normalSize;                // "Normal Size": fit the window, but never enlarge past 100 %
-    private int _quarterTurns;               // rotation clockwise, for viewing only
+    private int _quarterTurns;               // rotation clockwise; a JPEG or PNG on the disk can be saved (SaveRotation)
     private double _offsetX, _offsetY;       // panning, in device-independent pixels
 
     private GifAnimator? _animator;
@@ -107,7 +107,7 @@ public partial class PictureViewerWindow : Window
     {
         SetThreadExecutionState(ES_CONTINUOUS);
         FinishRating();
-        _closed = true;
+        _closed = true;   // a turn that was not saved stays unsaved (the same as No)
         StopNewestWatch();
         StopNextFolderSearch();
         _slideTimer.Stop();
@@ -140,6 +140,7 @@ public partial class PictureViewerWindow : Window
     {
         int version = ++_loadVersion;
         _loading = true;
+        HideRotateSavePanel(restartSlideShow: false);   // going on to another picture counts as "No" (the slide show restarts below)
         string path = CurrentPath;
         PictureChanged?.Invoke(path);
         WatchFolderOfCurrent();
@@ -314,10 +315,11 @@ public partial class PictureViewerWindow : Window
     private void Rotate(int quarterTurns)
     {
         if (_picture == null) return;
-        _quarterTurns = (_quarterTurns + quarterTurns + 4) % 4;   // only what is on screen: the file is not touched
+        _quarterTurns = (_quarterTurns + quarterTurns + 4) % 4;   // the file is only touched if the user says Yes to the question
         _zoom = 1;
         _offsetX = _offsetY = 0;
         UpdateTransform();
+        UpdateRotateSavePanel();   // a JPEG or PNG on the disk: "Do you want to save the turned picture?"
     }
 
     private void Viewport_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTransform();
@@ -691,7 +693,7 @@ public partial class PictureViewerWindow : Window
 
     private void ShowCursor()
     {
-        Cursor = _fullscreen && !Viewport.ContextMenu.IsOpen ? Cursors.None : null;
+        Cursor = _fullscreen && !Viewport.ContextMenu.IsOpen && RotateSavePanel.Visibility != Visibility.Visible ? Cursors.None : null;
     }
 
     // ── Keyboard ─────────────────────────────────────────────────────────────
@@ -700,6 +702,13 @@ public partial class PictureViewerWindow : Window
     {
         bool plain = Keyboard.Modifiers == ModifierKeys.None;
         bool ctrl  = Keyboard.Modifiers == ModifierKeys.Control;
+
+        // A button of the save question has the keyboard focus: Enter and Space press it, the arrow keys move between the buttons.
+        if (RotateSavePanel.IsKeyboardFocusWithin && e.Key is Key.Return or Key.Space or Key.Left or Key.Right) return;
+
+        // While the save question is up: Y = Yes, N = No, Esc = Cancel (and the viewer stays open), Enter = No (the default). The other keys,
+        // Ctrl+K / Ctrl+L above all, work as usual, so the picture can be turned more.
+        if (plain && HandleRotateSaveKey(e)) return;
 
         if (HandleRatingKey(e)) return;
 
