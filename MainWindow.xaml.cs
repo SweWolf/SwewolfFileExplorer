@@ -1526,7 +1526,7 @@ public partial class MainWindow : Window
     {
         owner ??= this;
         string what = kind == StoreKind.Workspace ? "workspace" : "session";
-        if (MessageBox.Show(owner, $"Do you want to delete the {what} \"{name}\"?", AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (MessageBox.Show(owner, $"Do you want to delete the {what} \"{name}\"?", "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return false;
 
         if (kind == StoreKind.Session && string.Equals(VM.Session.Name, name, StringComparison.OrdinalIgnoreCase))

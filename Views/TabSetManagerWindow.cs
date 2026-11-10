@@ -17,7 +17,8 @@ public enum ManagerAction { None, Open, Shortcut, ShowFolder }
 /// </summary>
 public sealed class TabSetManagerWindow : Window
 {
-    private sealed record Row(string Name, string Tabs, string Modified, string State);
+    // Name is the real name (the file name); Display is what the list shows: the session in use has " (in use)" after its name.
+    private sealed record Row(string Name, string Display, string Tabs, string Modified, bool InUse);
 
     private const double ButtonWidth = 180;   // every button of the window, Close too
 
@@ -81,11 +82,9 @@ public sealed class TabSetManagerWindow : Window
         grid.Children.Add(intro);
 
         var view = new GridView();
-        view.Columns.Add(new GridViewColumn { Header = "Name", Width = 290, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Name)) });
+        view.Columns.Add(new GridViewColumn { Header = "Name", Width = 400, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Display)) });
         view.Columns.Add(new GridViewColumn { Header = "Tabs", Width = 70, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Tabs)) });
         view.Columns.Add(new GridViewColumn { Header = "Last Changed", Width = 160, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Modified)) });
-        if (kind == StoreKind.Session)
-            view.Columns.Add(new GridViewColumn { Header = "State", Width = 100, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.State)) });
         _list.View = view;
 
         var listHost = new Grid();
@@ -193,14 +192,14 @@ public sealed class TabSetManagerWindow : Window
             var data = WorkspaceStore.Read(file, out _, out _);
             if (data != null) tabs = data.Tabs.Count.ToString();
             bool current = string.Equals(name, inUse, StringComparison.OrdinalIgnoreCase);
-            rows.Add(new Row(name, tabs, modified, current ? "In use" : ""));
+            rows.Add(new Row(name, current ? $"{name} (in use)" : name, tabs, modified, current));
         }
 
         _list.ItemsSource = rows;
         _empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         var pick = rows.FirstOrDefault(r => select != null && string.Equals(r.Name, select, StringComparison.OrdinalIgnoreCase))
-                   ?? rows.FirstOrDefault(r => r.State == "In use")
+                   ?? rows.FirstOrDefault(r => r.InUse)
                    ?? rows.FirstOrDefault();
         if (pick != null) _list.SelectedItem = pick;
         UpdateButtons();
