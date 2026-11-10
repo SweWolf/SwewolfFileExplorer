@@ -145,6 +145,14 @@ public static class IconHelper
     /// <summary>The icon of a file or folder on the disk. <paramref name="size"/> is in device-independent pixels (16 = the usual small icon).</summary>
     public static ImageSource? GetIcon(string path, bool small = true, int size = 16)
     {
+        // The icon handler of an Internet shortcut (the default browser's icon for a .url that names none) is an apartment-threaded COM
+        // object: asked from a thread-pool (MTA) thread, where the list loads icons, the shell gives the plain page icon instead
+        // (found 2026-11-10 on another computer, reproduced here: same file, STA = browser icon, MTA = generic). So .url files go
+        // to one STA thread of their own.
+        if (path.EndsWith(".url", StringComparison.OrdinalIgnoreCase)
+            && Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
+            return UrlIconThread.Run(() => GetIcon(path, small, size));
+
         // An Internet shortcut with the favicon of its page: read from the .ico itself, at any size. The shell remembers the icon of a path
         // from the first time anybody asked for it (found by a test: a .url rewritten with an icon kept its plain one), which a bookmark made
         // a moment ago may have got stuck with, and its bigger icons can come out empty.
