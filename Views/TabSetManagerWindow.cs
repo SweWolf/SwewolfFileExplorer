@@ -10,10 +10,12 @@ namespace SwewolfFileExplorer.Views;
 public enum ManagerAction { None, Open, Shortcut, ShowFolder }
 
 /// <summary>
-/// Workspace Manager / Session Manager (built in code): every saved workspace or session in one list (name, number of tabs, last
-/// changed, which one is in use), with Open, Rename, Delete, Create Shortcut and Show Folder for the selected row. Rename and Delete
-/// are done inside the window (through the callbacks, which hold the rules); Open, Create Shortcut and Show Folder close it and the
-/// main window does them (<see cref="Action"/>, <see cref="SelectedName"/>), so their own dialogs are not hidden behind this one.
+/// Workspace Manager / Session Manager (built in code): every saved workspace or session in one list (the name, with "(in use)" after
+/// the one in use; with "Advanced" checked also the number of tabs and when it was last changed), with Open, Rename, Delete, Create
+/// Shortcut and Move to Volume for the selected row. "Advanced" (remembered separately for workspaces and sessions) also shows Open
+/// Folder, lower left. Rename, Delete and Move are done inside the window (through the callbacks, which hold the rules); Open, Create
+/// Shortcut and Open Folder close it and the main window does them (<see cref="Action"/>, <see cref="SelectedName"/>), so their own
+/// dialogs are not hidden behind this one.
 /// </summary>
 public sealed class TabSetManagerWindow : Window
 {
@@ -35,7 +37,11 @@ public sealed class TabSetManagerWindow : Window
     private readonly Button _deleteButton = Make("Delete");
     private readonly Button _shortcut = Make("Create Shortcut...");
     private readonly Button _moveButton = Make("Move to Volume...");
-    private readonly Button _folder = Make("Show Folder");
+    private readonly Button _folder = Make("Open Folder");
+    private readonly CheckBox _advanced = new() { Content = "Advanced", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
+    private readonly GridViewColumn _nameColumn = new() { Header = "Name", Width = 400 };
+    private readonly GridViewColumn _tabsColumn = new() { Header = "Tabs", Width = 70 };
+    private readonly GridViewColumn _changedColumn = new() { Header = "Last Changed", Width = 160 };
 
     /// <summary>What to do after the window closed.</summary>
     public ManagerAction Action { get; private set; } = ManagerAction.None;
@@ -81,10 +87,12 @@ public sealed class TabSetManagerWindow : Window
         Grid.SetColumnSpan(intro, 2);
         grid.Children.Add(intro);
 
+        // Name only, until "Advanced" is checked (then Tabs and Last Changed too); see ApplyAdvanced.
+        _nameColumn.DisplayMemberBinding    = new System.Windows.Data.Binding(nameof(Row.Display));
+        _tabsColumn.DisplayMemberBinding    = new System.Windows.Data.Binding(nameof(Row.Tabs));
+        _changedColumn.DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Modified));
         var view = new GridView();
-        view.Columns.Add(new GridViewColumn { Header = "Name", Width = 400, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Display)) });
-        view.Columns.Add(new GridViewColumn { Header = "Tabs", Width = 70, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Tabs)) });
-        view.Columns.Add(new GridViewColumn { Header = "Last Changed", Width = 160, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Modified)) });
+        view.Columns.Add(_nameColumn);
         _list.View = view;
 
         var listHost = new Grid();
@@ -94,7 +102,7 @@ public sealed class TabSetManagerWindow : Window
         grid.Children.Add(listHost);
 
         var side = new StackPanel { Margin = new Thickness(12, 0, 0, 0), Width = ButtonWidth };
-        foreach (var b in new[] { _open, _renameButton, _deleteButton, _shortcut, _moveButton, _folder })
+        foreach (var b in new[] { _open, _renameButton, _deleteButton, _shortcut, _moveButton })
         {
             b.Margin = new Thickness(0, 0, 0, 8);
             side.Children.Add(b);
@@ -103,11 +111,32 @@ public sealed class TabSetManagerWindow : Window
         Grid.SetColumn(side, 1);
         grid.Children.Add(side);
 
-        var close = new Button { Content = "Close", Width = ButtonWidth, Padding = new Thickness(12, 6, 12, 6), IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
+        // Lower left: the Advanced checkbox and, to the right of it (shown only when it is checked), Open Folder: it is about the
+        // folder of the files, not about the row that is selected, so it does not sit with the buttons on the right.
+        var bottomLeft = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 14, 0, 0) };
+        bottomLeft.Children.Add(_advanced);
+        bottomLeft.Children.Add(_folder);
+        Grid.SetRow(bottomLeft, 2);
+        grid.Children.Add(bottomLeft);
+
+        var close = new Button { Content = "Close", Width = ButtonWidth, Padding = new Thickness(12, 6, 12, 6), IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12, 14, 0, 0) };
         Grid.SetRow(close, 2);
-        Grid.SetColumnSpan(close, 2);
+        Grid.SetColumn(close, 1);
         grid.Children.Add(close);
         Content = grid;
+
+        _folder.ToolTip = "Open the folder that holds the saved files in a new tab";
+        _advanced.ToolTip = "Show more columns and the Open Folder button";
+        var settings = AppSettingsStore.Current;
+        _advanced.IsChecked = kind == StoreKind.Workspace ? settings.WorkspaceManagerAdvanced : settings.SessionManagerAdvanced;
+        ApplyAdvanced();
+        _advanced.Click += (_, _) =>
+        {
+            ApplyAdvanced();
+            if (_kind == StoreKind.Workspace) settings.WorkspaceManagerAdvanced = _advanced.IsChecked == true;
+            else settings.SessionManagerAdvanced = _advanced.IsChecked == true;
+            AppSettingsStore.Save(settings);   // remembered from one time to the next, separately for workspaces and sessions
+        };
 
         _empty.Text = kind == StoreKind.Workspace
             ? "No workspaces saved yet. Use Workspace > Save Current Tabs as Workspace."
@@ -126,13 +155,30 @@ public sealed class TabSetManagerWindow : Window
         {
             if (e.Key == Key.F2 && Selected != null) { DoRename(); e.Handled = true; }
             else if (e.Key == Key.Delete && Selected != null) { DoDelete(); e.Handled = true; }
-            else if (e.Key == Key.Enter && Selected != null && !(Keyboard.FocusedElement is Button)) { Finish(ManagerAction.Open); e.Handled = true; }
+            else if (e.Key == Key.Enter && Selected != null && !(Keyboard.FocusedElement is System.Windows.Controls.Primitives.ButtonBase)) { Finish(ManagerAction.Open); e.Handled = true; }
         };
         Loaded += (_, _) => { Reload(null); _list.Focus(); };
     }
 
     // The Fluent button does not stretch in a StackPanel by itself, so the width is set: every button is the same width.
     private static Button Make(string text) => new() { Content = text, Width = ButtonWidth, Padding = new Thickness(12, 6, 12, 6), HorizontalContentAlignment = HorizontalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
+
+    /// <summary>Advanced unchecked: only the Name column and no Open Folder button. Checked: Tabs and Last Changed too, and Open Folder.</summary>
+    private void ApplyAdvanced()
+    {
+        bool advanced = _advanced.IsChecked == true;
+        var columns = ((GridView)_list.View).Columns;
+
+        columns.Remove(_tabsColumn);
+        columns.Remove(_changedColumn);
+        if (advanced)
+        {
+            columns.Add(_tabsColumn);
+            columns.Add(_changedColumn);
+        }
+        _nameColumn.Width = advanced ? 400 : 560;
+        _folder.Visibility = advanced ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private string? Selected => (_list.SelectedItem as Row)?.Name;
 

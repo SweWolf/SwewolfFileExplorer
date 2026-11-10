@@ -145,6 +145,12 @@ public class AppSettings
     /// <summary>The checkbox "Open This Folder in a New Tab When Finished" of the "Move/Copy to Folder" window: kept from one time to the next (off at first).</summary>
     public bool MoveCopyOpenInNewTab { get; set; } = false;
 
+    /// <summary>The "Advanced" checkbox of the Workspace Manager window (more columns, Open Folder): kept from one time to the next (off at first).</summary>
+    public bool WorkspaceManagerAdvanced { get; set; } = false;
+
+    /// <summary>The "Advanced" checkbox of the Session Manager window: kept from one time to the next (off at first).</summary>
+    public bool SessionManagerAdvanced { get; set; } = false;
+
     /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
     public bool ShowOpenInTerminal { get; set; } = true;
 
