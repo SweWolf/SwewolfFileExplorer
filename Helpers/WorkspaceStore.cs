@@ -256,6 +256,22 @@ public static class WorkspaceStore
         }
     }
 
+    /// <summary>
+    /// True when <paramref name="file"/> is a workspace or session file of this program, wherever it lies (a .json file that is not
+    /// too big, whose Format says so and that has tabs in it). Used to give such a file its own questions in the list.
+    /// </summary>
+    public static bool TryGetKind(string file, out StoreKind kind)
+    {
+        kind = StoreKind.Workspace;
+        try
+        {
+            if (!file.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return false;
+            if (new FileInfo(file).Length > 2_000_000) return false;   // a real one is a few lines
+        }
+        catch { return false; }
+        return Read(file, out kind, out _) != null;
+    }
+
     /// <summary>Renames a saved one (never replaces another). Returns false if that did not work.</summary>
     public static bool Rename(StoreKind kind, string name, string newName)
     {

@@ -3017,6 +3017,9 @@ public partial class MainWindow : Window
             return;
         }
 
+        // A workspace or session file: asks whether to open it as one (or as the file it is).
+        if (TryOpenAsTabSet(item)) return;
+
         if (!item.IsDirectory && ThumbnailLoader.IsImage(item.FullPath))
             OpenInViewer(item);
         else if (!TryPlayFromItem(item))
@@ -4817,7 +4820,11 @@ public partial class MainWindow : Window
             ? VM.CurrentPath
             : Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
 
-        MakeShortcuts(targets.Select(t => new ShortcutSpec(t)).ToList(), what, suggested);
+        // A workspace or session file gets its own question: a shortcut that opens it in this program, or a plain one.
+        var specs = ChooseShortcutSpecs(targets, ref what);
+        if (specs == null) return;
+
+        MakeShortcuts(specs, what, suggested);
     }
 
     /// <summary>Asks in which folder, then makes the shortcuts with the questions about an existing one and about no permission (see <see cref="ShortcutMaker.CreateAll(IReadOnlyList{ShortcutSpec}, string, string, Func{string, bool}, Func{string, bool})"/>).</summary>
@@ -4896,8 +4903,7 @@ public partial class MainWindow : Window
         }
 
         var name = System.IO.Path.GetFileNameWithoutExtension(file);
-        var spec = new ShortcutSpec(exe, Arguments: $"\"{file}\"", Name: $"{name} ({kind})",
-                                    Description: $"Opens the {kind.ToLowerInvariant()} \"{name}\" in {AppInfo.Name}");
+        var spec = TabSetShortcutSpec(file, kind == "Workspace" ? StoreKind.Workspace : StoreKind.Session)!;
         MakeShortcuts(new[] { spec }, $"the {kind.ToLowerInvariant()} \"{name}\"", Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
     }
 
