@@ -61,7 +61,7 @@ public partial class PictureViewerWindow : Window
     private bool _paused;
     private bool _closed;    // the window is closing or closed: nothing may be started again (a timer that ticked after the end-of-list question closed it crashed)
 
-    private readonly DispatcherTimer _cursorTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly DispatcherTimer _cursorTimer = new() { Interval = IdlePointerTime };   // windowed: the pointer hides after this long without moving
     private readonly DispatcherTimer _overlayTimer = new() { Interval = TimeSpan.FromMilliseconds(1500) };
     private readonly DispatcherTimer _clickTimer = new();   // a click waits to see if it becomes a double click
     private int _pendingClickDirection;
@@ -684,16 +684,43 @@ public partial class PictureViewerWindow : Window
             WindowStyle = WindowStyle.SingleBorderWindow;
             ResizeMode  = ResizeMode.CanResize;
             WindowState = WindowState.Maximized;
-            ShowCursor();
+            RevealCursor();
         }
     }
 
-    // In full screen the mouse pointer is never visible, except while the right-click menu is open (moving the mouse does not show it).
-    private void HideCursor() => ShowCursor();
+    // The mouse pointer over the picture:
+    //  * Full screen: never visible, except while the right-click menu or the save question is open (moving the mouse does not show it).
+    //  * Windowed: visible, and hidden after IdlePointerTime without moving (2026-11-10, asked by the user: 3 seconds, as video players do); the next move
+    //    shows it again. Over the title bar and the frame it is always visible (those are Windows' own, not the picture's).
+    private static readonly TimeSpan IdlePointerTime = TimeSpan.FromSeconds(3);
+    private bool _pointerIdle;   // windowed: the pointer has been still for IdlePointerTime and is hidden
 
     private void ShowCursor()
     {
-        Cursor = _fullscreen && !Viewport.ContextMenu.IsOpen && RotateSavePanel.Visibility != Visibility.Visible ? Cursors.None : null;
+        bool needed = Viewport.ContextMenu.IsOpen || RotateSavePanel.Visibility == Visibility.Visible;   // the mouse is in use
+        if (needed || _fullscreen) _pointerIdle = false;
+        if (_fullscreen) _cursorTimer.Stop();
+        Cursor = _fullscreen ? (needed ? null : Cursors.None) : (_pointerIdle ? Cursors.None : null);
+    }
+
+    /// <summary>The mouse moved (or a menu closed): in a window the pointer shows again and the count to hide it starts over.</summary>
+    private void RevealCursor()
+    {
+        _pointerIdle = false;
+        ShowCursor();
+        if (_fullscreen || _closed) return;
+        _cursorTimer.Stop();
+        _cursorTimer.Start();
+    }
+
+    /// <summary>The pointer has been still for IdlePointerTime (windowed only; the timer is stopped in full screen).</summary>
+    private void HideCursor()
+    {
+        _cursorTimer.Stop();
+        if (_fullscreen || _closed || Viewport.ContextMenu.IsOpen || RotateSavePanel.Visibility == Visibility.Visible) return;
+        _pointerIdle = true;
+        ShowCursor();
+        try { Mouse.UpdateCursor(); } catch { }   // the mouse lies still: Windows would not ask the window for the pointer again by itself
     }
 
     // ── Keyboard ─────────────────────────────────────────────────────────────
@@ -787,7 +814,7 @@ public partial class PictureViewerWindow : Window
 
     private void Viewport_MouseMove(object sender, MouseEventArgs e)
     {
-        ShowCursor();
+        RevealCursor();   // windowed: shows the pointer again and starts the 3 second count over
 
         if (!Viewport.IsMouseCaptured || e.LeftButton != MouseButtonState.Pressed) return;
 
@@ -865,7 +892,7 @@ public partial class PictureViewerWindow : Window
         // Not at once: the click that closed the menu may still be waiting in the input queue, and it must see the menu as open
         // (the first version looked at IsOpen and a timestamp only, and the click still went on to the next picture).
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () => _menuOpen = false);
-        ShowCursor();
+        RevealCursor();
     }
 
     private bool _menuOpen;   // the right-click menu is open, or closed so a moment ago that its closing click has not been handled yet
