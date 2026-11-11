@@ -2061,7 +2061,7 @@ public partial class MainWindow : Window
     /// "Select All Files with This Prompt": the files of the list (the folder shown) with the same extension as the selected file whose
     /// simplified prompt equals this one's; negative prompt and seed are not compared.
     /// </summary>
-    private async void AiSelectSamePrompt_Click(object sender, RoutedEventArgs e)
+    private void AiSelectSamePrompt_Click(object sender, RoutedEventArgs e)
     {
         if (FileListView.SelectedItems.Count != 1 || FileListView.SelectedItems[0] is not FileItemViewModel current) return;
 
@@ -2078,29 +2078,62 @@ public partial class MainWindow : Window
                         && string.Equals(System.IO.Path.GetExtension(i.Name), extension, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        Mouse.OverrideCursor = Cursors.Wait;
-        List<FileItemViewModel> matches;
-        try
-        {
-            matches = await Task.Run(() =>
+        // Many files can take a while: a window of its own explains it and locks the main window; Cancel stops the search.
+        var matches = WaitWindow.RunWithProgress<List<FileItemViewModel>>(this, AppInfo.Name,
+            "Looking for files with the same prompt...", candidates.Count, "files checked",
+            (ct, progress, nextToOnly) => Task.Run(() =>
             {
-                var found = new List<FileItemViewModel>();
-                foreach (var item in candidates)
-                {
-                    if (ReferenceEquals(item, current)) { found.Add(item); continue; }
-                    try
-                    {
-                        if (SimplifiedPrompt(AiInfoReader.Read(item.FullPath)?.Prompt) == wanted) found.Add(item);
-                    }
-                    catch { /* an unreadable file simply does not match */ }
-                }
-                return found;
-            });
-        }
-        finally { Mouse.OverrideCursor = null; }
+                // The files are checked outward from the selected one, one above and one below in turn, so that "next to the
+                // selected file" (a box the user may check while this runs) can stop early: each direction ends at its first miss.
+                int n = candidates.Count, cur = candidates.IndexOf(current);
+                int up = cur - 1, down = cur + 1, done = 1;
+                bool upGap = false, downGap = false;
+                var upAll = new List<FileItemViewModel>();   var upRun = new List<FileItemViewModel>();     // matches; matches before the first miss
+                var downAll = new List<FileItemViewModel>(); var downRun = new List<FileItemViewModel>();
+                progress.Report(done);
 
-        // The selection may have changed while the files were read: then the answer is no longer wanted.
-        if (FileListView.SelectedItems.Count != 1 || !ReferenceEquals(FileListView.SelectedItems[0], current)) return;
+                bool Matches(FileItemViewModel item)
+                {
+                    try { return SimplifiedPrompt(AiInfoReader.Read(item.FullPath)?.Prompt) == wanted; }
+                    catch { return false; }   // an unreadable file simply does not match
+                }
+
+                while (up >= 0 || down < n)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (nextToOnly())
+                    {
+                        if (upGap) up = -1;
+                        if (downGap) down = n;
+                        if (up < 0 && down >= n) break;
+                    }
+
+                    if (up >= 0)
+                    {
+                        var item = candidates[up--];
+                        if (Matches(item)) { upAll.Add(item); if (!upGap) upRun.Add(item); } else upGap = true;
+                        progress.Report(++done);
+                    }
+                    if (down < n)
+                    {
+                        var item = candidates[down++];
+                        if (Matches(item)) { downAll.Add(item); if (!downGap) downRun.Add(item); } else downGap = true;
+                        progress.Report(++done);
+                    }
+                }
+                progress.Report(n);   // stopped early: the bar goes to the end
+
+                var chosen = new HashSet<FileItemViewModel>(nextToOnly() ? upRun.Concat(downRun) : upAll.Concat(downAll)) { current };
+                return candidates.Where(chosen.Contains).ToList();   // in the order of the list
+            }, ct), "Only Check Files Next to the Selected File");
+
+        // Canceled: nothing changes, the file the user started from is still the selected one (and gets the focus back).
+        if (matches == null)
+        {
+            if (!FileListView.SelectedItems.Contains(current)) { FileListView.SelectedItems.Clear(); FileListView.SelectedItems.Add(current); }
+            FileListView.Focus();
+            return;
+        }
 
         FileListView.SelectedItems.Clear();
         foreach (var item in matches) FileListView.SelectedItems.Add(item);
