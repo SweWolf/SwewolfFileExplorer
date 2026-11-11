@@ -73,9 +73,9 @@
         <Border x:Name="RotateSavePanel" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="24"
                 Background="#E6202020" BorderBrush="#66FFFFFF" BorderThickness="1" CornerRadius="6" Padding="16,12"
                 MouseLeftButtonDown="RotatePanel_MouseButton" MouseLeftButtonUp="RotatePanel_MouseButton">
-            <StackPanel>
-                <TextBlock Text="Do you want to save the turned picture?" Foreground="White" FontSize="16"/>
-                <TextBlock Text="Cancel puts the picture back as it was. Enter means No." Foreground="#FFAAAAAA" FontSize="12" Margin="0,2,0,0"/>
+            <StackPanel MaxWidth="460">
+                <TextBlock x:Name="RotateQuestion" Text="Do you want to save the turned picture?" Foreground="White" FontSize="16" TextWrapping="Wrap"/>
+                <TextBlock x:Name="RotateHint" Text="Cancel puts the picture back as it was. Enter means No." Foreground="#FFAAAAAA" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
                     <Button x:Name="RotateYes" Content="Yes (Y)" MinWidth="80" Click="RotateYes_Click"/>
                     <!-- No is the default button (Enter): the accent outline is set on the button itself, as for the other dialogs. -->

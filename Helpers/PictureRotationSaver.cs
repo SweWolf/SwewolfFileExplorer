@@ -5,14 +5,15 @@ using System.Windows.Media.Imaging;
 namespace SwewolfFileExplorer.Helpers;
 
 /// <summary>
-/// Saves a picture that was turned in the viewer. Two kinds of file, each the safest way for it (decided 2026-11-10):
+/// Saves a picture that was turned in the viewer, each kind of file the safest way for it (JPEG and PNG 2026-11-10; BMP, GIF, TIFF added the same day).
 /// <list type="bullet">
 /// <item><b>JPEG:</b> only the EXIF Orientation tag is changed (TagLibSharp): no pixel is touched, so nothing is lost and a big photo is saved at once.
 /// The viewer, Windows and every common program turn the picture by that tag.</item>
 /// <item><b>PNG:</b> a PNG has no orientation that programs honor, so the pixels are turned (exact for quarter turns) and written again, and
 /// every other chunk of the old file (the text chunks with an AI picture's prompt and seed, the color profile, the dates) is carried over to the new file.</item>
 /// </list>
-/// Other types (GIF, WebP, BMP, TIFF, RAW, PSD, SVG ...) are not saved: the turn stays a view only, as before.
+/// <b>BMP, still GIF:</b> the pixels are turned and written again (tested pixel for pixel, also a GIF with transparency). <b>TIFF:</b> only the Orientation value of the first directory is overwritten (TagLibSharp adds the entry when there is none). An animated GIF, an animated PNG, a TIFF with several pages and a BigTIFF are not saved: the question still shows and Yes explains why.
+/// Other types (WebP, RAW, PSD, SVG ...) are not offered: the turn stays a view only, as before.
 /// The new file is made beside the old one under a temporary name, read back and checked (size), and only then moved into place;
 /// on any failure the old file is untouched.
 /// </summary>
@@ -27,19 +28,116 @@ public static class PictureRotationSaver
         {
             if (!File.Exists(path)) return false;   // inside an archive
             if ((File.GetAttributes(path) & FileAttributes.ReadOnly) != 0) return false;
-            string ext = Path.GetExtension(path);
-            bool jpgName = ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase);
-            bool pngName = ext.Equals(".png", StringComparison.OrdinalIgnoreCase);
-            if (!jpgName && !pngName) return false;
+            var kind = KindOf(path);
+            if (kind == Kind.None) return false;
 
             var head = new byte[8];
             using var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             if (f.Read(head, 0, 8) < 8) return false;
-            if (jpgName) return head[0] == 0xFF && head[1] == 0xD8;
-            return head.AsSpan().SequenceEqual(PngSignature);
+            return kind switch
+            {
+                Kind.Jpeg => head[0] == 0xFF && head[1] == 0xD8,
+                Kind.Png  => head.AsSpan().SequenceEqual(PngSignature),
+                Kind.Bmp  => head[0] == 'B' && head[1] == 'M',
+                Kind.Gif  => head[0] == 'G' && head[1] == 'I' && head[2] == 'F' && head[3] == '8',
+                Kind.Tiff => (head[0] == 'I' && head[1] == 'I' && (head[2] == 42 || head[2] == 43) && head[3] == 0)
+                          || (head[0] == 'M' && head[1] == 'M' && head[2] == 0 && (head[3] == 42 || head[3] == 43)),
+                _ => false,
+            };
         }
         catch { return false; }
     }
+
+    /// <summary>Every "this kind of picture cannot be saved" text has this phrase: the viewer then offers a turned copy instead of an error box.</summary>
+    public const string LimitPhrase = "cannot be saved after turning";
+
+    /// <summary>True when a problem returned by <see cref="Save"/> is a limit of the file type (a copy can be offered), not a failure.</summary>
+    public static bool IsLimit(string problem) => problem.Contains(LimitPhrase, StringComparison.Ordinal);
+
+    /// <summary>Why a turn of this picture cannot be saved in the file itself (for the question that offers a copy).</summary>
+    public static string WhyNotSavable(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return "This picture is inside a compressed file, which cannot be changed.";
+            if ((File.GetAttributes(path) & FileAttributes.ReadOnly) != 0) return "This file is read-only.";
+            string ext = Path.GetExtension(path).TrimStart('.').ToUpperInvariant();
+            return ext.Length == 0 ? "This kind of picture " + LimitPhrase + " them." : $"{ext} pictures {LimitPhrase} them.";
+        }
+        catch { return "This picture " + LimitPhrase + "."; }
+    }
+
+    /// <summary>
+    /// Saves the picture on show, turned, as a NEW file (PNG, or JPEG when <paramref name="target"/> ends in .jpg / .jpeg). Never touches the
+    /// original. Returns null when done, else a text saying why not. Call from a background thread.
+    /// </summary>
+    public static string? SaveCopy(BitmapSource image, int quarterTurns, string target, bool overwriteConfirmed)
+    {
+        string temp = Path.Combine(Path.GetDirectoryName(target)!, "." + Path.GetFileName(target) + "." + Guid.NewGuid().ToString("N")[..8] + ".swewolf-part");
+        try
+        {
+            BitmapSource source = image;
+            if (quarterTurns % 4 != 0) source = new TransformedBitmap(image, new RotateTransform(((quarterTurns % 4) + 4) % 4 * 90));
+
+            BitmapEncoder encoder;
+            string ext = Path.GetExtension(target);
+            if (ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
+                encoder = new JpegBitmapEncoder { QualityLevel = 95 };
+            else
+                encoder = new PngBitmapEncoder();
+            if (encoder is JpegBitmapEncoder) source = OnWhite(source);
+
+            encoder.Frames.Add(BitmapFrame.Create(source));
+            using (var output = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                encoder.Save(output);
+
+            if (File.Exists(target) && !overwriteConfirmed) return "A file with that name already exists.";
+            File.Move(temp, target, overwrite: true);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex is UnauthorizedAccessException ? "You do not have permission to save in that folder." : ex.Message;
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+        }
+    }
+
+    /// <summary>A JPEG has no transparency: what is see-through is put on white.</summary>
+    private static BitmapSource OnWhite(BitmapSource source)
+    {
+        var bgra = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        int w = bgra.PixelWidth, h = bgra.PixelHeight;
+        var px = new byte[w * h * 4];
+        bgra.CopyPixels(px, w * 4, 0);
+        for (int i = 0; i < px.Length; i += 4)
+        {
+            int a = px[i + 3];
+            if (a == 255) continue;
+            // the pixels of a Bgra32 bitmap are not premultiplied
+            px[i]     = (byte)((px[i]     * a + 255 * (255 - a)) / 255);
+            px[i + 1] = (byte)((px[i + 1] * a + 255 * (255 - a)) / 255);
+            px[i + 2] = (byte)((px[i + 2] * a + 255 * (255 - a)) / 255);
+            px[i + 3] = 255;
+        }
+        var opaque = new FormatConvertedBitmap(BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, px, w * 4), PixelFormats.Bgr32, null, 0);
+        opaque.Freeze();
+        return opaque;
+    }
+
+    private enum Kind { None, Jpeg, Png, Bmp, Gif, Tiff }
+
+    private static Kind KindOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".jpg" or ".jpeg" => Kind.Jpeg,
+        ".png" => Kind.Png,
+        ".bmp" => Kind.Bmp,
+        ".gif" => Kind.Gif,
+        ".tif" or ".tiff" => Kind.Tiff,
+        _ => Kind.None,
+    };
 
     /// <summary>
     /// Saves the picture turned <paramref name="quarterTurns"/> quarter turns clockwise (relative to how the viewer showed it).
@@ -55,9 +153,14 @@ public static class PictureRotationSaver
         string temp = Path.Combine(Path.GetDirectoryName(path)!, "." + Path.GetFileName(path) + "." + Guid.NewGuid().ToString("N")[..8] + ".swewolf-part");
         try
         {
-            string? problem = Path.GetExtension(path).Equals(".png", StringComparison.OrdinalIgnoreCase)
-                ? WritePng(path, temp, quarterTurns)
-                : WriteJpeg(path, temp, quarterTurns);
+            string? problem = KindOf(path) switch
+            {
+                Kind.Png  => WritePng(path, temp, quarterTurns),
+                Kind.Bmp  => WriteWpf(path, temp, quarterTurns, new BmpBitmapEncoder()),
+                Kind.Gif  => WriteWpf(path, temp, quarterTurns, new GifBitmapEncoder()),
+                Kind.Tiff => WriteTiff(path, temp, quarterTurns),
+                _         => WriteJpeg(path, temp, quarterTurns),
+            };
             if (problem != null) return problem;
 
             // Read the new file back: it must give the picture the viewer shows now. (The temporary name has no picture extension,
@@ -180,6 +283,86 @@ public static class PictureRotationSaver
                 return false;   // EXIF without an Orientation entry
             }
             at = end;
+        }
+        return false;
+    }
+
+    // ── BMP and a still GIF: turn the pixels and write the file again ─────────
+
+    private static string? WriteWpf(string path, string temp, int quarterTurns, BitmapEncoder encoder)
+    {
+        BitmapSource frame;
+        using (var stream = new MemoryStream(File.ReadAllBytes(path)))
+        {
+            var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+            if (encoder is GifBitmapEncoder && decoder.Frames.Count > 1) return "An animated GIF cannot be saved after turning it.";
+            frame = decoder.Frames[0];
+        }
+        encoder.Frames.Add(BitmapFrame.Create(new TransformedBitmap(frame, new RotateTransform(quarterTurns * 90))));
+        using var output = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        encoder.Save(output);
+        return null;
+    }
+
+    // ── TIFF: the Orientation entry of the first directory ────────────────────
+
+    private static string? WriteTiff(string path, string temp, int quarterTurns)
+    {
+        File.Copy(path, temp, overwrite: true);
+        string? problem;
+        if (PatchTiffOrientation(temp, quarterTurns, out problem)) return null;
+        if (problem != null) return problem;
+
+        // A single-page TIFF with no Orientation entry yet: TagLibSharp adds one (the result is read back and checked like every other).
+        using var file = TagLib.File.Create(new TagLib.File.LocalFileAbstraction(temp), "taglib/tif", TagLib.ReadStyle.Average);
+        if (file is not TagLib.Image.File image) return "This file is not a picture that can carry an orientation.";
+        image.GetTag(TagLib.TagTypes.TiffIFD, true);
+        int current = (int?)image.ImageTag.Orientation ?? 1;
+        image.ImageTag.Orientation = (TagLib.Image.ImageOrientation)Compose(current, quarterTurns);
+        image.Save();
+        return null;
+    }
+
+    /// <summary>
+    /// Overwrites the 2-byte Orientation value in the first directory of a TIFF. False with <paramref name="problem"/> null: the file is a
+    /// normal single-page TIFF with no Orientation entry (nothing was changed). False with a text: this TIFF cannot be saved (several pages, BigTIFF).
+    /// </summary>
+    private static bool PatchTiffOrientation(string file, int quarterTurns, out string? problem)
+    {
+        problem = null;
+        using var f = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        var h = new byte[8];
+        if (f.Read(h, 0, 8) < 8) { problem = "The TIFF file is damaged."; return false; }
+        bool little = h[0] == 'I';
+        int U16(byte[] b, int p) => little ? b[p] | (b[p + 1] << 8) : (b[p] << 8) | b[p + 1];
+        long U32(byte[] b, int p) => little ? (uint)(b[p] | (b[p + 1] << 8) | (b[p + 2] << 16) | (b[p + 3] << 24))
+                                            : (uint)((b[p] << 24) | (b[p + 1] << 16) | (b[p + 2] << 8) | b[p + 3]);
+
+        if (U16(h, 2) == 43) { problem = "A BigTIFF file cannot be saved after turning it."; return false; }
+        long ifd = U32(h, 4);
+        if (ifd < 8 || ifd + 2 > f.Length) { problem = "The TIFF file is damaged."; return false; }
+
+        f.Seek(ifd, SeekOrigin.Begin);
+        var c = new byte[2];
+        if (f.Read(c, 0, 2) < 2) { problem = "The TIFF file is damaged."; return false; }
+        int count = U16(c, 0);
+        var entries = new byte[count * 12 + 4];
+        if (f.Read(entries, 0, entries.Length) < entries.Length) { problem = "The TIFF file is damaged."; return false; }
+
+        if (U32(entries, count * 12) != 0) { problem = "A TIFF file with several pages cannot be saved after turning it."; return false; }
+
+        for (int i = 0; i < count; i++)
+        {
+            int e = i * 12;
+            if (U16(entries, e) != 0x0112) continue;
+            if (U16(entries, e + 2) != 3 || U32(entries, e + 4) != 1) return false;   // not a single SHORT: TagLibSharp decides
+
+            int current = U16(entries, e + 8);
+            int value = Compose(current is >= 1 and <= 8 ? current : 1, quarterTurns);
+            var bytes = little ? new[] { (byte)value, (byte)0 } : new[] { (byte)0, (byte)value };
+            f.Seek(ifd + 2 + e + 8, SeekOrigin.Begin);
+            f.Write(bytes, 0, 2);
+            return true;
         }
         return false;
     }
