@@ -172,6 +172,7 @@ public class MainViewModel : INotifyPropertyChanged
             if (value == null || value == _activeTab) return;
 
             ActiveTabChanging?.Invoke();
+            _activeTab.RememberSelectionForLeaving();   // the list is shared: its selection is gone once the other tab's items are shown
             _activeTab.SetActive(false);   // the folder of the tab we leave is no longer watched
             _activeTab = value;
 
@@ -181,6 +182,7 @@ public class MainViewModel : INotifyPropertyChanged
             ActiveTabChanged?.Invoke();
 
             _activeTab.SetActive(true);           // watches its folder and brings its list up to date
+            _activeTab.RestoreSelectionWhenShown();   // what was selected here when the tab was left
             _activeTab.RaisePendingSelection();   // a tab restored from a workspace or session selects its file now
             Session.TouchStructure();             // which tab is active is saved too
         }
@@ -207,6 +209,7 @@ public class MainViewModel : INotifyPropertyChanged
         tab.SelectPathRequested += path => { if (tab == _activeTab) SelectPathRequested?.Invoke(path); };
         tab.ViewOrder = () => ViewOrder?.Invoke() ?? new List<FileItemViewModel>();
         tab.SelectPathsRequested += paths => { if (tab == _activeTab) SelectPathsRequested?.Invoke(paths); };
+        tab.SelectionRestoreRequested += paths => { if (tab == _activeTab) SelectionRestoreRequested?.Invoke(paths); };
         tab.ClipboardFileRequested += folder => { if (tab == _activeTab) ClipboardFileRequested?.Invoke(folder); };
         tab.BookmarksPasteRequested += folder => { if (tab == _activeTab) BookmarksPasteRequested?.Invoke(folder); };
         tab.AddressPasteRequested += text => { if (tab == _activeTab) AddressPasteRequested?.Invoke(text); };
@@ -645,6 +648,7 @@ public class MainViewModel : INotifyPropertyChanged
     /// <summary>Set by the window: the items of the list as shown (sorted, filtered). Used to pick the item to select after a delete.</summary>
     public Func<List<FileItemViewModel>>? ViewOrder;
     public event Action<List<string>>? SelectPathsRequested;
+    public event Action<List<string>>? SelectionRestoreRequested;
     public event Action<string>? ClipboardFileRequested;
     public event Action<string>? BookmarksPasteRequested;
     public event Action<string>? AddressPasteRequested;

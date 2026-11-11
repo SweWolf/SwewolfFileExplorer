@@ -191,7 +191,7 @@ public partial class PictureViewerWindow : Window
         RestartSlideTimer();   // also after a picture that could not be shown: the slide show goes on to the next one
 
         // The picture counts as shown when the window has drawn it (a big one takes a moment): keys pressed before that are dropped.
-        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, () =>
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, () =>
         {
             if (version != _loadVersion) return;   // another picture was asked for meanwhile; that one ends the wait
             _shownAtTick = Environment.TickCount;

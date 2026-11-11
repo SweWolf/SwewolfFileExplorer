@@ -42,6 +42,7 @@ public partial class MainWindow : Window
         VM.SelectPathRequested += OnSelectPathRequested;
         VM.ViewOrder = () => FileListView.Items.OfType<FileItemViewModel>().ToList();
         VM.SelectPathsRequested += OnSelectPathsRequested;
+        VM.SelectionRestoreRequested += OnSelectionRestoreRequested;
         VM.ClipboardFileRequested += NewFileFromClipboard;   // Ctrl+V with a picture or text on the clipboard, and the user said yes
         VM.AddressPasteRequested += text =>   // Ctrl+V on This PC with text on the clipboard: into the address bar, no Enter
         {
@@ -204,6 +205,18 @@ public partial class MainWindow : Window
 
         FileListView.SelectedItem = item;
         FileListView.ScrollIntoView(item);
+    }
+
+    /// <summary>A tab is shown again: what was selected in it when it was left is selected again (no focus change: Ctrl+Tab goes on working).</summary>
+    private void OnSelectionRestoreRequested(List<string> paths)
+    {
+        var set = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
+        var items = VM.CurrentItems.Where(i => set.Contains(i.FullPath)).ToList();
+        if (items.Count == 0) return;   // gone, or not listed yet
+
+        FileListView.SelectedItems.Clear();
+        foreach (var i in items) FileListView.SelectedItems.Add(i);
+        FileListView.ScrollIntoView(items[0]);
     }
 
     /// <summary>The files just pasted: all selected, the last one scrolled into view, the list has the focus (so they stand out).</summary>
@@ -2876,7 +2889,7 @@ public partial class MainWindow : Window
         for (int i = 0; i < grid.Columns.Count && i < cells.Length; i++)
         {
             bool right = i is 3 or 4;   // the two sizes: right-aligned, with the template's 11 px margin on the right
-            double width = TextWidth(grid.Columns[i].Header as string + " ▲") + 16 + (right ? 14 : 0);
+            double width = TextWidth((grid.Columns[i].Header as string) + " ▲") + 16 + (right ? 14 : 0);
             foreach (var row in VM.DriveRows)
                 width = Math.Max(width, TextWidth(cells[i](row)) + 16 + (i == 0 ? 16 + 5 : 0) + (right ? 11 : 0));   // the Name cell holds the 16 px icon and its 5 px margin
             grid.Columns[i].Width = Math.Ceiling(width);
@@ -4859,7 +4872,7 @@ public partial class MainWindow : Window
         var file = _lastWorkspaceFile;
         bool has = file != null && System.IO.File.Exists(file);
         WorkspaceShortcutItem.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
-        if (has) WorkspaceShortcutItem.Header = $"Create Shortcut to Workspace \"{System.IO.Path.GetFileNameWithoutExtension(file).Replace("_", "__")}\"...";
+        if (has) WorkspaceShortcutItem.Header = $"Create Shortcut to Workspace \"{System.IO.Path.GetFileNameWithoutExtension(file!).Replace("_", "__")}\"...";
         FillSavedList(WorkspaceRootMenu, StoreKind.Workspace, null);
     }
 

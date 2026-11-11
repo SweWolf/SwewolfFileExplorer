@@ -1186,6 +1186,24 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (path != null) SelectPathRequested?.Invoke(path);
     }
 
+    // The list is one control shared by all tabs: when another tab is shown it is filled with that tab's items and its selection is
+    // gone. So a tab keeps the paths of what was selected when it was left, and gets them selected again when it is shown.
+    private List<string> _selectionWhenLeft = new();
+
+    /// <summary>Called just before another tab is shown: remembers what is selected in this one.</summary>
+    public void RememberSelectionForLeaving() =>
+        _selectionWhenLeft = _selectedItems.Select(i => i.FullPath).ToList();
+
+    /// <summary>Called when this tab is shown again: what was selected when it was left is selected again (a restored session's own file wins).</summary>
+    public void RestoreSelectionWhenShown()
+    {
+        var paths = _selectionWhenLeft;
+        if (paths.Count > 0 && _pendingSelect == null) SelectionRestoreRequested?.Invoke(paths);
+    }
+
+    /// <summary>Select these items again without moving the focus (the user is switching tabs, maybe with Ctrl+Tab).</summary>
+    public event Action<List<string>>? SelectionRestoreRequested;
+
     // ── Root of the tree ─────────────────────────────────────────────────────
 
     /// <summary>
