@@ -1861,7 +1861,11 @@ public partial class MainWindow : Window
     {
         var tab = VM.ActiveTab;
         int shown = FileListView.Items.Count;
-        bool warn = AppSettingsStore.Current.WarnHiddenNotSelected
+        // With a filter on, "everything shown is selected" says nothing about the folder (the filter leaves most items out of the list
+        // anyway), so the warning is not given then.
+        bool filtering = FilterBar.Visibility == Visibility.Visible
+                         && (FilterBox.Text.Length > 0 || _ratingMode != RatingAny || _dateMode != DateAny);
+        bool warn = AppSettingsStore.Current.WarnHiddenNotSelected && !filtering
                     && tab.HiddenItemCount > 0 && !tab.HiddenItemsShown
                     && shown > 0 && FileListView.SelectedItems.Count == shown;
 
