@@ -20,8 +20,11 @@ public sealed class TransferProgress
 
 /// <summary>What was done: the items that were copied or moved (from, to), the ones that failed (name, reason), whether the user canceled, and how many files were skipped at the user's choice.</summary>
 public sealed record TransferResult(List<(string From, string To)> Done, List<(string Name, string Reason)> Failed, bool Canceled, int Total, int Skipped = 0,
-                                    List<(string From, string To)>? Renamed = null, List<string>? Identical = null)
+                                    List<(string From, string To)>? Renamed = null, List<string>? Identical = null,
+                                    List<(string Path, bool IsDirectory)>? CreatedItems = null)
 {
+    // CreatedItems: every new file and folder the finished items made (for the Undo of a copy; never a replaced file).
+
     /// <summary>Source files that were not copied because the file already in the destination has exactly the same contents (a copy only, never a move).</summary>
     public List<string> IdenticalSkipped => Identical ?? new();
 
@@ -68,6 +71,7 @@ public static class FileTransfer
         public int Skipped;
         public readonly List<string> Identical = new();   // copied-over files that were byte for byte the same: nothing was done
         public readonly List<(string From, string To)> Renamed = new();   // old files renamed to "(old N)", kept even if the item later fails
+        public readonly List<(string Path, bool IsDirectory)> AllCreated = new();   // what the finished items made (see TransferResult.CreatedItems)
         public ItemState Item = new();
     }
 
@@ -100,7 +104,7 @@ public static class FileTransfer
         var ctx = new Ctx(move, progress, cancel, policy);
         foreach (var src in sources)
         {
-            if (cancel.IsCancellationRequested) return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical);
+            if (cancel.IsCancellationRequested) return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical, ctx.AllCreated);
 
             var name = Path.GetFileName(src.TrimEnd('\\', '/'));
             var dest = Path.Combine(destinationFolder, name);
@@ -129,6 +133,7 @@ public static class FileTransfer
                     // A folder that arrived whole is one entry for the library; a merged or partly skipped one is its files.
                     if (!merged && ctx.Item.Skipped == 0) done.Add((src, final));
                     else done.AddRange(ctx.Item.Files);
+                    ctx.AllCreated.AddRange(ctx.Item.Created);
                 }
                 else
                 {
@@ -145,12 +150,13 @@ public static class FileTransfer
                         }
                     }
                     done.Add((src, final));
+                    ctx.AllCreated.AddRange(ctx.Item.Created);
                 }
             }
             catch (OperationCanceledException)
             {
                 Undo(ctx.Item);
-                return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical);
+                return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical, ctx.AllCreated);
             }
             catch (Exception ex)
             {
@@ -159,7 +165,7 @@ public static class FileTransfer
             }
         }
 
-        return new TransferResult(done, failed, false, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical);
+        return new TransferResult(done, failed, false, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical, ctx.AllCreated);
     }
 
     // ── Counting ──────────────────────────────────────────────────────────────

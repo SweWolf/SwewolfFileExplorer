@@ -47,6 +47,16 @@ public class MainViewModel : INotifyPropertyChanged
         HideFolderPictureCommand = new RelayCommand(_ => ShowFolderPicture = false);
         ShowFolderPictureCommand = new RelayCommand(_ => ShowFolderPicture = true);
 
+        // Undo of the last file operation: one slot for the whole program (Helpers/FileUndo.cs). Ctrl+Z and the button next to "File 3/4".
+        UndoCommand = new RelayCommand(_ => _ = ActiveTab.RunUndoAsync(), _ => FileUndo.Current != null && !FileUndo.Busy);
+        FileUndo.Changed += () =>
+        {
+            OnPropertyChanged(nameof(HasUndo));
+            OnPropertyChanged(nameof(UndoText));
+            OnPropertyChanged(nameof(UndoTip));
+            UndoCommand.RaiseCanExecuteChanged();
+        };
+
         FolderTabViewModel.DrivesRefreshRequested += SyncDrivesNow;
         StartDriveWatch();
     }
@@ -421,8 +431,11 @@ public class MainViewModel : INotifyPropertyChanged
 
     public bool   HasHiddenItems => _activeTab.HasHiddenItems;
     public string HiddenText     => _activeTab.HiddenText;
-    public bool   HasRenameUndo  => _activeTab.HasRenameUndo;
-    public string RenameUndoTip  => _activeTab.RenameUndoTip;
+    // Undo of the last file operation: one slot for the whole program (Helpers/FileUndo.cs), not one per tab.
+    public bool   HasUndo  => FileUndo.Current != null;
+    public string UndoText => FileUndo.Current?.Text ?? "";
+    public string UndoTip  => FileUndo.Current?.Tip ?? "";
+    public RelayCommand UndoCommand { get; }
 
     public System.Windows.Media.ImageSource? FolderPicture => _activeTab.FolderPicture;
     public bool   HasFolderPicture => _activeTab.HasFolderPicture;

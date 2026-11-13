@@ -5408,11 +5408,8 @@ public partial class MainWindow : Window
         if (renamed.Count > 0) ReselectInList(renamed);   // the renamed files stay selected
     }
 
-    private async void UndoRename_Click(object sender, RoutedEventArgs e)
-    {
-        var restored = await VM.ActiveTab.UndoSmartRenameAsync();
-        if (restored.Count > 0) ReselectInList(restored);
-    }
+    /// <summary>The Undo button next to "File 3/4" (and Ctrl+Z): takes back the last file operation, see Helpers/FileUndo.cs.</summary>
+    private async void UndoLast_Click(object sender, RoutedEventArgs e) => await VM.ActiveTab.RunUndoAsync();
 
     // ── Ctrl+V in the Bookmarks folder ────────────────────────────────────────
 
@@ -5572,6 +5569,7 @@ public partial class MainWindow : Window
                 MessageBox.Show(this, $"Cannot rename the file: {ex.Message}\n\nIt keeps the name {name}.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
+            FileUndo.Set(CreatedUndo.ForNewFile(path));   // Undo removes it again while it is unchanged
             VM.RefreshFolder(folder);
             OnSelectPathRequested(path);   // the new file is selected (when its folder is the one shown)
         }
@@ -5628,6 +5626,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        FileUndo.Set(CreatedUndo.ForNewFile(path));   // Undo removes it again while it is still empty
         VM.RefreshFolder(folder);
         OnSelectPathRequested(path);   // the new file is selected (when its folder is the one shown)
     }

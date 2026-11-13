@@ -394,6 +394,24 @@ files between this program and Windows Explorer.
 
 Cut, paste, delete and rename keep your read marks and ratings with the files.
 
+### Undo
+
+Right after you delete, rename, move or copy something, or make a new folder or file, a button in the info line
+(next to "File 3/14") says what can be undone, for example **Undo Delete (3 items)**. Click it, or press **Ctrl+Z**.
+Point at the button to see the names.
+
+- **Only the last step can be undone**, for the whole program (not one per tab). The next thing you do replaces it, and
+  a step that cannot be undone empties the button. It is not kept when you close the program. You can change folder or
+  tab and it is still there.
+- **Delete:** the items are put back from the Recycle Bin, if they are still there. Items deleted for good (Shift+Delete,
+  a drive without a Recycle Bin) cannot come back. Ratings and read marks are not brought back.
+- **Rename and move:** the items get their old names and places back (a move only within one drive).
+- **Copy:** what the copy made is moved to the Recycle Bin, but only while it is unchanged. A file you edited since is kept.
+- **New Folder, New Text Document:** removed again, but only while still empty or unchanged.
+- Nothing is overwritten and nothing is guessed. If something cannot be undone (it is gone, its old name is taken
+  again, the Recycle Bin has been emptied) it is left as it is and listed afterwards.
+- A paste where a name was taken (Replace, Keep Both) or that included a folder merge cannot be undone.
+
 ## Renaming
 
 **F2** or **Rename...** renames the selected item. For a file, the name and the extension have
@@ -408,8 +426,8 @@ For a music or video file, **Use Smart Name** suggests a better name:
 - Video: `Title (Year)`, and `Title - s01e02` for episodes of a series.
 
 Untick the box to get your own name back. **Rename All Selected Music Files and Video Files Using
-Smart Rename** does this for all selected files at once, and the button **Undo Rename** in the info
-line takes it back.
+Smart Rename** does this for all selected files at once. The **Undo** button in the info line takes
+a rename back (see [Undo](#undo)).
 
 ### Files That Belong Together
 
@@ -658,6 +676,7 @@ The settings are saved in `%AppData%\SweWolfSoftware\SwewolfFileExplorer\setting
 | Delete / Shift+Delete | Delete to the Recycle Bin / for good |
 | Ctrl+A | Select all in the list |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste |
+| Ctrl+Z | Undo the last delete, rename, move, copy or new folder / file |
 | Ctrl+Shift+C | Copy the path of the selected items |
 | Ctrl+Shift+N | New folder |
 | Ctrl+T or Ctrl+N | New tab |

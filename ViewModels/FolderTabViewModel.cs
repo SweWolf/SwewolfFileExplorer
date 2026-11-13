@@ -848,7 +848,6 @@ public class FolderTabViewModel : INotifyPropertyChanged
             _forwardHistory.Clear();
         }
 
-        ForgetRenameUndoUnlessHere(path);   // the Undo button of a smart rename lasts until another folder is shown
         _showHidden = false;   // hidden items are shown for one folder at a time
         _unavailable = false;
         _noFolderShown = false;
@@ -876,7 +875,6 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void ShowNoFolder(string? place = null)
     {
         if (_playlistDirty && !ConfirmLeavePlaylist()) return;
-        ForgetRenameUndoUnlessHere(null);
         _noFolderShown = true;
         _thisPcShown = place == "pc";
         OnPropertyChanged(nameof(IsThisPcShown));
@@ -2772,6 +2770,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         var entries = items.Select(i => new FileDelete.Item(i.Path, i.Name, i.IsDirectory)).ToList();
 
+        // For Undo: which of them can reach the Recycle Bin at all (worked out now, while the files still exist).
+        var recoverable = permanent
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(items.Where(i => FileReplace.WhyNotRecycled(i.Path, i.IsDirectory ? 0 : SafeLength(i.Path)) == null).Select(i => i.Path),
+                                  StringComparer.OrdinalIgnoreCase);
+        var startedUtc = DateTime.UtcNow;   // the bin stamps each item with its delete time: an item older than this is not ours
+
         TransferResult outcome;
         _deleting = true;
         BeginFileWork();
@@ -2785,6 +2790,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
         finally { _deleting = false; EndFileWork(); }
 
         var deleted = outcome.Done.Select(d => d.From).ToList();
+
+        // Undo takes back this delete: what is in the Recycle Bin now can be put back (a permanent delete, or an item the bin could not
+        // take, cannot: then there is nothing, or only the part that went to the bin, to undo).
+        var inBin = deleted.Where(recoverable.Contains).ToList();
+        if (deleted.Count > 0) FileUndo.Set(inBin.Count > 0 ? new DeleteUndo(inBin, startedUtc) : null);
 
         if (outcome.Failed.Count > 0)
         {
@@ -3065,33 +3075,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     // ── Smart rename of all the selected music and video files, and undoing it ───────────────────
 
-    /// <summary>The (old path, new path) pairs of the last "rename all with smart rename" in this folder, kept until another folder is shown.</summary>
-    private List<(string From, string To)>? _renameUndo;
-    private string? _renameUndoFolder;
     private bool _renamingBatch;
 
-    /// <summary>True while the last smart rename of several files can be undone (the button next to "File 3/4").</summary>
-    public bool HasRenameUndo => _renameUndo is { Count: > 0 };
-
-    public string RenameUndoTip => _renameUndo is { } u
-        ? $"Give the {u.Count} renamed {(u.Count == 1 ? "file" : "files")} their old names back. Possible until another folder is shown."
-        : "";
-
-    private void SetRenameUndo(List<(string From, string To)>? pairs)
-    {
-        _renameUndo       = pairs is { Count: > 0 } ? pairs : null;
-        _renameUndoFolder = _renameUndo == null ? null : _currentPath;
-        OnPropertyChanged(nameof(HasRenameUndo));
-        OnPropertyChanged(nameof(RenameUndoTip));
-    }
-
-    /// <summary>Another folder is shown (or no folder): the last smart rename can no longer be undone.</summary>
-    private void ForgetRenameUndoUnlessHere(string? path)
-    {
-        if (_renameUndo == null) return;
-        if (path != null && IsSamePath(path, _renameUndoFolder)) return;
-        SetRenameUndo(null);
-    }
+    // The Undo of a rename (and of every other file operation) is the one global slot in Helpers/FileUndo.cs; RunUndoAsync below runs it.
 
     /// <summary>What a smart rename of the selected files would do: the files that get a new name, and the ones that cannot.</summary>
     private sealed record SmartPlan(List<(FileItemViewModel Item, string NewName)> Renames, List<NotDone> Left, int Candidates);
@@ -3206,7 +3192,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             var doneFrom    = new HashSet<string>(done.Select(d => d.From), StringComparer.OrdinalIgnoreCase);
             var relatedDone = MoveRelated(related.Where(r => doneFrom.Contains(r.Owner)).ToList(), notDone, rename: true, title: "Multiple Rename");   // tells about everything that was not done
 
-            SetRenameUndo(done.Concat(relatedDone).ToList());
+            FileUndo.Set(new PairsUndo("Rename", done.Concat(relatedDone).ToList()));
             Refresh();
             StatusText = $"{done.Count} {(done.Count == 1 ? "file" : "files")} renamed";
             return done.Select(d => d.To).ToList();
@@ -3218,79 +3204,60 @@ public class FolderTabViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Gives the files of the last smart rename their old names back (the Undo button). Every file is checked first: one that is gone
-    /// or whose old name is taken again is not touched and is told about; the rest are restored, and what is remembered about them
-    /// follows. What could not be restored stays in the undo list. Returns the restored paths.
+    /// The Undo button / Ctrl+Z: takes back the last file operation (<see cref="FileUndo"/>). The entry checks everything first and
+    /// leaves alone what it cannot be sure about; what could not be undone is told about once, at the end, and in the log file.
+    /// The restored items are selected when their folder is the one shown.
     /// </summary>
-    public async Task<List<string>> UndoSmartRenameAsync()
+    public async Task RunUndoAsync()
     {
-        var restored = new List<string>();
-        if (_renamingBatch || _renameUndo is not { Count: > 0 } pairs) return restored;
-        _renamingBatch = true;
+        var entry = FileUndo.Current;
+        if (entry == null || FileUndo.Busy || _renamingBatch || _pasting || _deleting) return;
 
-        try
+        FileUndo.Busy = true;
+        BeginFileWork();
+        if (!entry.ShowsOwnProgress) Mouse.OverrideCursor = Cursors.Wait;
+
+        UndoReport report;
+        var title = entry.Text.Split(':', '(')[0].Trim();   // "Undo Delete"
+        try { report = await entry.UndoAsync(); }
+        catch (Exception ex)
         {
-            var problems = new List<NotDone>();
-            var todo     = new List<(string Now, string Original)>();
-
-            // Last renamed, first restored.
-            foreach (var (original, now) in Enumerable.Reverse(pairs))
-            {
-                bool caseOnly = string.Equals(original, now, StringComparison.OrdinalIgnoreCase);
-                if (!File.Exists(now))
-                    problems.Add(new NotDone(now, original, "the file is gone"));
-                else if (!caseOnly && (File.Exists(original) || Directory.Exists(original)))
-                    problems.Add(new NotDone(now, original, "a file with the old name exists now"));
-                else
-                    todo.Add((now, original));
-            }
-
-            var done = new List<(string Now, string Original)>();
-            Mouse.OverrideCursor = Cursors.Wait;
-            try
-            {
-                await Task.Run(() =>
-                {
-                    foreach (var (now, original) in todo)
-                    {
-                        try
-                        {
-                            File.Move(now, original);
-                            done.Add((now, original));
-                        }
-                        catch (Exception ex)
-                        {
-                            problems.Add(new NotDone(now, original, ReasonOf(ex)));
-                        }
-                    }
-                });
-            }
-            finally { Mouse.OverrideCursor = null; }
-
-            LibraryService.Move(done);   // what is remembered goes back to the old names too
-
-            // What was not restored stays in the list, so it can be tried again.
-            var restoredNow = new HashSet<string>(done.Select(d => d.Now), StringComparer.OrdinalIgnoreCase);
-            SetRenameUndo(pairs.Where(p => !restoredNow.Contains(p.To)).ToList());
-
-            Refresh();
-            StatusText = $"{done.Count} {(done.Count == 1 ? "file" : "files")} got the old name back";
-
-            if (problems.Count > 0)
-            {
-                LogNotDone(problems.Select(p => new NotDone(p.From, p.To, p.Reason)), rename: true);
-                var lines = problems.Take(15).Select(p => $"    {Path.GetFileName(p.From)}  ({p.Reason})").ToList();
-                if (problems.Count > 15) lines.Add($"    ... and {problems.Count - 15} more");
-                var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
-                Ask(owner, "Undo Rename", $"These files could not get their old names back:\n\n{string.Join("\n", lines)}\n\nThe other files were restored. Details are in the log file (Help > Open Log File).",
-                    new[] { "OK" }, 0, -1);
-            }
-
-            return done.Select(d => d.Original).ToList();
+            LogFiles.AppendError($"{title} failed: {ex.GetType().Name}: {ex.Message}");
+            MessageBox.Show($"{title} did not work: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
         }
         finally
         {
-            _renamingBatch = false;
+            Mouse.OverrideCursor = null;
+            FileUndo.Busy = false;
+            EndFileWork();
+        }
+
+        FileUndo.Set(report.Remaining);   // null when all is done: the button goes
+
+        foreach (var folder in report.TouchedFolders) RefreshTreeFolder(folder);
+        if (!Directory.Exists(_currentPath) && !ArchiveSupport.IsInside(_currentPath))
+        {
+            // The folder shown went with the undo (a created folder, a renamed one): the nearest folder that is left.
+            var left = _currentPath;
+            while (!string.IsNullOrEmpty(left) && !Directory.Exists(left)) left = Path.GetDirectoryName(left) ?? "";
+            if (left != "") Navigate(left, addToHistory: false);
+        }
+        else Refresh();
+
+        var here = report.Restored.Where(p => IsSamePath(ParentFolder(p), _currentPath)).ToList();
+        if (here.Count > 0) SelectPathsRequested?.Invoke(here);
+
+        StatusText = report.Problems.Count == 0 ? $"{title} done" : $"{title}: {report.Problems.Count} could not be undone";
+
+        if (report.Problems.Count > 0)
+        {
+            foreach (var p in report.Problems) LogFiles.AppendError($"{title}: {p.Name}: {p.Reason}");
+            var lines = report.Problems.Take(15).Select(p => $"    {p.Name}  ({p.Reason})").ToList();
+            if (report.Problems.Count > 15) lines.Add($"    ... and {report.Problems.Count - 15} more");
+            var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
+            Ask(owner, title, "These could not be undone, so they were left as they are:\n\n" + string.Join("\n", lines) +
+                "\n\nDetails are in the log file (Help > Open Log File).", new[] { "OK" }, 0, -1);
         }
     }
 
@@ -3341,11 +3308,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
             // What is remembered about it (read marks, ratings, a folder's state and what is below it) follows the new name.
             LibraryService.Move(new[] { (item.FullPath, newPath) });
 
-            // The Undo button of a smart rename is for right after it: another rename (by hand) ends it.
-            SetRenameUndo(null);
-
             // The files that belong to it, if the user said yes.
-            MoveRelated(relatedMoves, notDone, rename: true);
+            var relatedDone = MoveRelated(relatedMoves, notDone, rename: true);
+
+            // This rename is the step Undo takes back now.
+            FileUndo.Set(new PairsUndo("Rename", new List<(string From, string To)> { (item.FullPath, newPath) }.Concat(relatedDone).ToList()));
 
             // The tree first: it must know the new name before it is asked for the node of the folder.
             RefreshTreeFolder(dir);
@@ -3409,6 +3376,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 FolderCreationCanceled = false;
                 RemoveNewFolderIfEmpty(path, parent);
+            }
+            else
+            {
+                // The folder may have got its own name in the box (the tab then follows it): Undo removes it again while it is empty.
+                var final = Directory.Exists(path) ? path
+                          : IsSamePath(ParentFolder(_currentPath), parent) && Directory.Exists(_currentPath) ? _currentPath : null;
+                if (final != null) FileUndo.Set(CreatedUndo.ForNewFolder(final));
             }
         }
         catch (Exception ex)
@@ -3665,6 +3639,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
             if (Directory.Exists(src) || File.Exists(src)) toDo.Add(src);
         }
 
+        // Undo of a paste is only offered when no name was taken (a Replace, a Keep Both or a merged folder are not simple to take back).
+        bool anyTaken = toDo.Any(s =>
+        {
+            var target = Path.Combine(destination, Path.GetFileName(s.TrimEnd('\\', '/')));
+            return File.Exists(target) || Directory.Exists(target);
+        });
+
         var result = new TransferResult(new(), new(), false, 0);
         if (toDo.Count > 0)
         {
@@ -3701,15 +3682,31 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // Only for a video or music file whose own move worked; the others' related files stay where they are.
         var movedFrom = new HashSet<string>(moved.Select(m => m.From), StringComparer.OrdinalIgnoreCase);
         var followers = relatedMoves.Where(r => movedFrom.Contains(r.Owner)).ToList();
+        var followersDone = new List<(string From, string To)>();
         if (isCut)
         {
-            if (followers.Count > 0 || notDone.Count > 0) MoveRelated(followers, notDone, rename: false);
+            if (followers.Count > 0 || notDone.Count > 0) followersDone = MoveRelated(followers, notDone, rename: false);
         }
         else if (relatedMoves.Count > 0)
         {
             // A copy: the related files of every video or music file that really was copied go along (named after the copy that was made).
             var copiedTo = result.Done.GroupBy(d => d.From, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().To, StringComparer.OrdinalIgnoreCase);
             CopyRelated(relatedMoves.Where(r => copiedTo.ContainsKey(r.Owner)).ToList(), copiedTo);
+        }
+
+        // The step Undo takes back now. Never when a name was taken or files were skipped; a copy that brought related files along is
+        // not taken back either (those files would stay behind); a move only within one drive (a rename: nothing is lost on the way back).
+        if (result.Done.Count > 0)
+        {
+            if (anyTaken || result.Skipped > 0 || result.RenamedOld.Count > 0 || (!isCut && relatedMoves.Count > 0))
+                FileUndo.Clear();
+            else if (isCut)
+            {
+                var pairs = moved.Concat(followersDone).ToList();
+                FileUndo.Set(pairs.Count > 0 && pairs.All(p => FileTransfer.SameDrive(p.From, p.To)) ? new PairsUndo("Move", pairs) : null);
+            }
+            else
+                FileUndo.Set(await BuildCopyUndoAsync(result));
         }
 
         if (isCut && !result.Canceled && dropped == null)
@@ -3751,6 +3748,30 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         return result;
     }
+
+    /// <summary>The Undo of a copy: what the copy made, with each file's size and date as it was left (a file edited since is kept by the undo).</summary>
+    private static Task<UndoEntry?> BuildCopyUndoAsync(TransferResult result) => Task.Run<UndoEntry?>(() =>
+    {
+        var created = result.CreatedItems;
+        if (created == null || created.Count == 0) return null;
+
+        var files   = new List<(string Path, long Length, DateTime WriteUtc)>();
+        var folders = new List<string>();
+        foreach (var (path, isDir) in created)
+        {
+            if (isDir) { folders.Add(path); continue; }
+            try
+            {
+                var info = new FileInfo(path);
+                if (info.Exists) files.Add((path, info.Length, info.LastWriteTimeUtc));
+            }
+            catch { /* not there any more: nothing to remove */ }
+        }
+
+        int top = result.Done.Count;
+        var first = top == 1 ? Path.GetFileName(result.Done[0].To.TrimEnd('\\', '/')) : null;
+        return new CopyUndo(files, folders, top, first);
+    });
 
     /// <summary>The item directly inside <paramref name="folder"/> that <paramref name="path"/> is (or lies below), else null.</summary>
     private static string? TopLevelUnder(string path, string folder)
@@ -3817,7 +3838,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
         LibraryService.Move(result.Done);
         var movedFrom = new HashSet<string>(result.Done.Select(m => m.From), StringComparer.OrdinalIgnoreCase);
         var followers = relatedMoves.Where(r => movedFrom.Contains(r.Owner)).ToList();
-        if (followers.Count > 0 || notDone.Count > 0) MoveRelated(followers, notDone, rename: false);
+        var followersDone = followers.Count > 0 || notDone.Count > 0 ? MoveRelated(followers, notDone, rename: false) : new List<(string From, string To)>();
+
+        if (result.Done.Count > 0)
+        {
+            var pairs = result.Done.Concat(followersDone).ToList();
+            FileUndo.Set(result.RenamedOld.Count == 0 && pairs.All(p => FileTransfer.SameDrive(p.From, p.To)) ? new PairsUndo("Move", pairs) : null);
+        }
 
         Refresh();
         RefreshTreeFolder(chosen);
@@ -3845,7 +3872,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             return (dlg.Choice, dlg.ForAll);
         }));
 
-    private static async Task<TransferResult> RunWithProgressAsync(Func<TransferProgress, CancellationToken, Task<TransferResult>> work,
+    internal static async Task<TransferResult> RunWithProgressAsync(Func<TransferProgress, CancellationToken, Task<TransferResult>> work,
                                                                    string what, string thing, string destination, ConflictPolicy? policy = null,
                                                                    string? heading = null, System.Windows.Media.ImageSource? icon = null)
     {
@@ -3896,6 +3923,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         LibraryService.Move(result.RenamedOld);
+        if (result.Done.Count > 0) FileUndo.Clear();   // a paste from a Remote Desktop clipboard cannot be undone: the button must not point at an older step
         Refresh();
         RefreshTreeFolder(destination);
 

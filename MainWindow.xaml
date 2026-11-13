@@ -39,6 +39,8 @@
         <!-- Ctrl+V works wherever the focus is (the tab strip, the toolbar ...), as in the file list; a text box keeps its own paste
              (it handles the key itself, so this binding is never reached from there) -->
         <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding PasteKeyCommand}"/>
+        <!-- Ctrl+Z: Undo of the last file operation (a text box keeps its own undo: it handles the key itself) -->
+        <KeyBinding Key="Z" Modifiers="Ctrl" Command="{Binding UndoCommand}"/>
     </Window.InputBindings>
 
     <DockPanel>
@@ -1359,11 +1361,11 @@
                                        ToolTip="Show the Bookmarks in the tree and select this bookmark"><Run Text="Go to Bookmarks now?"/></Hyperlink>
                         </TextBlock>
 
-                        <!-- Undo of the last "Rename All Selected ... Using Smart Rename": until another folder is shown -->
-                        <Button x:Name="UndoRenameButton" Content="Undo Rename" Height="20" MinHeight="0" Padding="9,0" FontSize="12" Margin="0,0,6,0"
-                                VerticalAlignment="Top" Click="UndoRename_Click"
-                                Visibility="{Binding HasRenameUndo, Converter={StaticResource BoolToVisibility}}"
-                                ToolTip="{Binding RenameUndoTip}"/>
+                        <!-- Undo of the last file operation (delete, rename, move, copy, new folder / file): one step for the whole program, see Helpers/FileUndo.cs -->
+                        <Button x:Name="UndoButton" Content="{Binding UndoText}" Height="20" MinHeight="0" Padding="9,0" FontSize="12" Margin="0,0,6,0"
+                                VerticalAlignment="Top" Click="UndoLast_Click"
+                                Visibility="{Binding HasUndo, Converter={StaticResource BoolToVisibility}}"
+                                ToolTip="{Binding UndoTip}"/>
 
                         <!-- The playlist buttons: only while a playlist is shown (MainWindow.Playlist.cs) -->
                         <StackPanel x:Name="PlaylistBar" Orientation="Horizontal" Margin="130,0,0,0" VerticalAlignment="Top" Visibility="Collapsed">

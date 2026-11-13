@@ -577,6 +577,34 @@ by name (subtitles, poster) go along (see <a href="#files-that-belong-together">
 </ul>
 <p>Cut, paste, delete and rename keep your read marks and ratings with
 the files.</p>
+<h3 id="undo">Undo</h3>
+<p>Right after you delete, rename, move or copy something, or make a new
+folder or file, a button in the info line (next to “File 3/14”) says
+what can be undone, for example <strong>Undo Delete (3 items)</strong>.
+Click it, or press <strong>Ctrl+Z</strong>. Point at the button to see
+the names.</p>
+<ul>
+<li><strong>Only the last step can be undone</strong>, for the whole
+program (not one per tab). The next thing you do replaces it, and a step
+that cannot be undone empties the button. It is not kept when you close
+the program. You can change folder or tab and it is still there.</li>
+<li><strong>Delete:</strong> the items are put back from the Recycle
+Bin, if they are still there. Items deleted for good (Shift+Delete, a
+drive without a Recycle Bin) cannot come back. Ratings and read marks
+are not brought back.</li>
+<li><strong>Rename and move:</strong> the items get their old names and
+places back (a move only within one drive).</li>
+<li><strong>Copy:</strong> what the copy made is moved to the Recycle
+Bin, but only while it is unchanged. A file you edited since is
+kept.</li>
+<li><strong>New Folder, New Text Document:</strong> removed again, but
+only while still empty or unchanged.</li>
+<li>Nothing is overwritten and nothing is guessed. If something cannot
+be undone (it is gone, its old name is taken again, the Recycle Bin has
+been emptied) it is left as it is and listed afterwards.</li>
+<li>A paste where a name was taken (Replace, Keep Both) or that included
+a folder merge cannot be undone.</li>
+</ul>
 <h2 id="renaming">Renaming</h2>
 <p><strong>F2</strong> or <strong>Rename…</strong> renames the selected
 item. For a file, the name and the extension have separate boxes, so you
@@ -593,8 +621,8 @@ for episodes of a series.</li>
 </ul>
 <p>Untick the box to get your own name back. <strong>Rename All Selected
 Music Files and Video Files Using Smart Rename</strong> does this for
-all selected files at once, and the button <strong>Undo Rename</strong>
-in the info line takes it back.</p>
+all selected files at once. The <strong>Undo</strong> button in the info
+line takes a rename back (see <a href="#undo">Undo</a>).</p>
 <h3 id="files-that-belong-together">Files That Belong Together</h3>
 <p>When you rename or move a video or music file, the files that belong
 to it by name (<code>Movie.srt</code>, <code>Movie.nfo</code>,
@@ -1004,6 +1032,10 @@ it is opened.</li>
 </ul>
 <h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
 <table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
 <thead>
 <tr>
 <th>Key</th>
@@ -1058,6 +1090,10 @@ it is opened.</li>
 <tr>
 <td>Ctrl+C / Ctrl+X / Ctrl+V</td>
 <td>Copy / cut / paste</td>
+</tr>
+<tr>
+<td>Ctrl+Z</td>
+<td>Undo the last delete, rename, move, copy or new folder / file</td>
 </tr>
 <tr>
 <td>Ctrl+Shift+C</td>
