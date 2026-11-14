@@ -8,19 +8,27 @@
 //   %LocalAppData%\SweWolfSoftware\CdInfo\<disc id>.jpg    the front cover
 // A disc that is not complete (not in MusicBrainz, or no cover) is asked for again when the user uses it again: after every start of the program, or
 // after a day if the program keeps running (10 minutes after a failed attempt). Nothing is kept about unknown discs, there is no list that is checked.
-// The folder is shared by the apps of the family: whichever sees a disc first fills it for the others. The Media Player's older folder
-// (SwewolfMediaPlayer\CdInfo, titles from LibVLC's CDDB lookup) is still read, only when the shared folder has nothing for the disc.
+// The folder is shared by the apps of the family (SweWolf File Explorer and SweWolf Media Player use this very file): whichever sees a disc
+// first fills it for the other, and a disc looked up in one is not looked up again in the other until the information is a day old.
+// MusicBrainz is the only source (the user's decision, 2026-11-14; CDDB may come later as a setting).
 //
 // The lookup runs in the background, once per disc per run (a failure is tried again after 10 minutes), and quietly: offline is no error.
-// When it has found something, <see cref="Updated"/> is raised (on a background thread) with the disc id, so the lists can read their tags again.
+// When it has found something that differs from what was kept, <see cref="Updated"/> is raised (on a background thread) with the disc id, so
+// the screens can show it. A complete disc that is more than a day old is looked at again, silently, when the user uses it (RequestLookup).
 // A future setting "Look Up Audio CD Information" (on by default) connects to <see cref="Enabled"/>.
 // Plan and decisions: D:\Dev\dev-notes\AudioCD-titles-and-covers-shared-plan.md.
+//
+// SHARED FILE, copied between SwewolfFileExplorer (Helpers\CdDiscInfo.cs) and SwewolfMediaPlayer (CdDiscInfo.cs). The two copies are
+// identical except for the namespace line. What belongs to one app only (the explorer's AudioTags for the list columns) is in that app's own
+// partial class file. Add a History line with every change, and copy the file to the other app (compare the History lists).
+// The app writes its errors somewhere through <see cref="Log"/>; the User-Agent name comes from the program's own assembly name.
 //
 // History:
 //   2026-11-14  First version for the File Explorer (MusicBrainz titles and artists with inc=recordings+artist-credits, cover, shared folder).
 //   2026-11-14  No .nodisc / .nocover files and no 30-day wait: an incomplete disc is tried again after every start and after a day (NextTry, in memory only).
-//
-// To copy to another app: change the namespace, the User-Agent text and, if wanted, nothing else (self-contained; the App name below is only used for the User-Agent).
+//   2026-11-14  Silent refresh of a complete disc older than 24 hours (SameContent, cover by ETag), LookUpAgainAsync for the manual command.
+//   2026-11-14  Shared with the Media Player: partial class, no explorer types (ReadTags moved to the explorer's partial), Log hook, the Media
+//               Player's old CdInfo folder is no longer read, InfoOf(path) for one track.
 
 using System.Collections.Concurrent;
 using System.IO;
@@ -43,13 +51,14 @@ public sealed class CdTrackInfo
 public sealed class CdDisc
 {
     public Dictionary<string, CdTrackInfo> Tracks { get; set; } = new();
+    public string? CoverETag { get; set; }
     public string? AlbumArtist { get; set; }
     public string? ReleaseId { get; set; }
     public string? MusicBrainzDiscId { get; set; }
     public string? Source { get; set; }
 }
 
-public static class CdDiscInfo
+public static partial class CdDiscInfo
 {
     /// <summary>Switches the online lookup off (a future Settings box, "Look Up Audio CD Information", on by default). What is in the cache is still shown.</summary>
     public static bool Enabled { get; set; } = true;
@@ -57,8 +66,11 @@ public static class CdDiscInfo
     /// <summary>Raised on a background thread when a lookup has stored something new for a disc (its disc id).</summary>
     public static event Action<string>? Updated;
 
-    private const string AppName = "SweWolfFileExplorer";   // only for the User-Agent that MusicBrainz asks for
-    private const int BitrateKbps = 1411;                    // CD audio: 44.1 kHz, 16 bit, stereo
+    /// <summary>Where an unexpected problem is written (the app's error log); null = nowhere. Offline is not a problem and is never written.</summary>
+    public static Action<string>? Log { get; set; }
+
+    // The program's own name for the User-Agent that MusicBrainz asks for ("SwewolfFileExplorer", "SwewolfMediaPlayer"): a name, no personal details.
+    private static readonly string AppName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "SweWolfApp";
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
@@ -149,71 +161,45 @@ public static class CdDiscInfo
 
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SweWolfSoftware", "CdInfo");
 
-    private static string OldPlayerFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "SweWolfSoftware", "SwewolfMediaPlayer", "CdInfo");
-
     private static readonly ConcurrentDictionary<string, CdDisc?> Loaded = new();
 
-    /// <summary>The kept titles of a disc: the shared folder, else the Media Player's older folder; null if neither has them.</summary>
+    /// <summary>The kept titles of a disc; null if none are kept.</summary>
     public static CdDisc? Load(string discId)
     {
         if (Loaded.TryGetValue(discId, out var cached)) return cached;
-        CdDisc? disc = null;
-        foreach (var folder in new[] { Folder, OldPlayerFolder })
-        {
-            try
-            {
-                var file = Path.Combine(folder, discId + ".json");
-                if (!File.Exists(file)) continue;
-                disc = JsonSerializer.Deserialize<CdDisc>(File.ReadAllText(file));
-                if (disc != null) break;
-            }
-            catch { /* damaged: the next place, or a new lookup */ }
-        }
+        var disc = LoadShared(discId);
         if (disc == null) return null;   // not kept: a later lookup may fill it in, so "nothing" is not remembered here
         Loaded[discId] = disc;
         return disc;
     }
 
-    /// <summary>The front cover kept for a disc (the shared folder, else the Media Player's older folder); null if there is none.</summary>
+    /// <summary>The front cover kept for a disc; null if there is none.</summary>
     public static string? CoverFile(string discId)
     {
-        foreach (var folder in new[] { Folder, OldPlayerFolder })
-        {
-            var file = Path.Combine(folder, discId + ".jpg");
-            if (File.Exists(file)) return file;
-        }
-        return null;
+        var file = Path.Combine(Folder, discId + ".jpg");
+        return File.Exists(file) ? file : null;
     }
 
-    // ── What the lists use ───────────────────────────────────────────────
+    // ── What the apps use ────────────────────────────────────────────────
+
+    /// <summary>The length of a track from its stub (75 sectors a second); zero if the stub cannot be read.</summary>
+    public static TimeSpan TrackLength(string path) =>
+        ReadStub(path) is { Length: > 0 } stub ? TimeSpan.FromSeconds(stub.Length / 75.0) : default;
 
     /// <summary>
-    /// Artist, title, track number, length and bitrate of a CD track for the list's columns and the details. The title and artist are empty
-    /// until the disc is known (the lookup is started in the background and <see cref="Updated"/> says when it is done).
+    /// The artist, title and album of a CD track, from what is kept for its disc; null when the disc is not known or the track has no real
+    /// title (not only "Track 5"). The lookup is started in the background when the disc is new or its information is old: <see cref="Updated"/>
+    /// says when there is something new to show.
     /// </summary>
-    public static AudioTags? ReadTags(string path)
+    public static CdTrackInfo? InfoOf(string path)
     {
         if (!IsCdTrack(path)) return null;
-
-        var stub   = ReadStub(path);
-        int number = stub is { Number: >= 1 and <= 99 } s ? s.Number : TrackNumber(path);
-        var length = stub is { } st && st.Length > 0 ? TimeSpan.FromSeconds(st.Length / 75.0) : default;   // 75 sectors a second
-
-        string artist = "", title = "";
         var discId = DiscId(path);
-        if (discId != null)
-        {
-            if (Load(discId)?.Tracks.TryGetValue(number.ToString(), out var info) == true)
-            {
-                artist = info.Artist?.Trim() ?? "";
-                title  = info.Title?.Trim() ?? "";
-                // CDDB (the Media Player's older lookup) names a track "Track 5" when it knows no title: that is not a title.
-                if (IsGenericTitle(title)) title = "";
-            }
-            RequestLookup(path);   // only does something while the shared folder has nothing for the disc
-        }
-        return new AudioTags(artist, title, (uint)number, length, BitrateKbps);
+        if (discId == null) return null;
+        RequestLookup(path);
+
+        var info = Load(discId)?.Tracks.GetValueOrDefault(TrackNumber(path).ToString());
+        return info != null && !string.IsNullOrWhiteSpace(info.Title) && !IsGenericTitle(info.Title) ? info : null;
     }
 
     /// <summary>
@@ -229,7 +215,7 @@ public static class CdDiscInfo
 
             var discId = DiscId(root);
             if (discId == null) return null;
-            RequestLookup(root);   // does nothing when the shared folder has the disc already
+            RequestLookup(root, refreshStale: false);   // only a disc that is missing or incomplete: listing the drives is not "using" the disc
 
             var disc = Load(discId);
             var album = disc?.Tracks.Values.Select(t => t.Album?.Trim()).FirstOrDefault(a => !string.IsNullOrEmpty(a));
@@ -278,12 +264,19 @@ public static class CdDiscInfo
     /// being offline, after 10 minutes). Nothing is remembered between runs and there is no list of unknown discs. One lookup at a time
     /// (MusicBrainz allows about one request a second).
     /// </summary>
-    public static void RequestLookup(string path)
+    public static void RequestLookup(string path, bool refreshStale = true)
     {
         if (!Enabled) return;
         var discId = DiscId(path);
         if (discId == null) return;
-        if (File.Exists(Path.Combine(Folder, discId + ".json")) && File.Exists(Path.Combine(Folder, discId + ".jpg"))) return;   // complete
+
+        // A complete disc (titles and cover) is left alone, unless its information is older than a day: then it is looked at again, silently,
+        // while the old information is used (what is new replaces it; nothing changes if MusicBrainz says the same). Only where the user uses
+        // the disc (its folder, a track) asks for that (refreshStale); listing the drives does not.
+        var json = Path.Combine(Folder, discId + ".json");
+        bool complete = File.Exists(json) && File.Exists(Path.Combine(Folder, discId + ".jpg"));
+        bool stale = refreshStale && File.Exists(json) && DateTime.UtcNow - File.GetLastWriteTimeUtc(json) > RefreshAfter;
+        if (complete && !stale) return;
 
         var now = DateTime.UtcNow;
         if (NextTry.TryGetValue(discId, out var next) && now < next) return;
@@ -293,24 +286,59 @@ public static class CdDiscInfo
         _ = Task.Run(() => LookupAsync(root, discId));
     }
 
-    private static async Task LookupAsync(string root, string discId)
+    /// <summary>How old the kept information of a complete disc may get before it is looked at again when the user uses the disc.</summary>
+    public static readonly TimeSpan RefreshAfter = TimeSpan.FromHours(24);
+
+    public enum LookupResult { Changed, Unchanged, NotFound, Failed }
+
+    /// <summary>
+    /// Looks the disc up again now, because the user asked ("Look Up This Disc Again"): no waiting times apply. Says what came of it; when
+    /// something changed, <see cref="Updated"/> has been raised and the lists follow by themselves.
+    /// </summary>
+    public static Task<LookupResult> LookUpAgainAsync(string root)
+    {
+        var discId = DiscId(root);
+        if (discId == null) return Task.FromResult(LookupResult.Failed);
+        NextTry.TryRemove(discId, out _);
+        return Task.Run(() => LookupAsync(root, discId));
+    }
+
+    private static CdDisc? LoadShared(string discId)
+    {
+        try
+        {
+            var file = Path.Combine(Folder, discId + ".json");
+            return File.Exists(file) ? JsonSerializer.Deserialize<CdDisc>(File.ReadAllText(file)) : null;
+        }
+        catch { return null; }
+    }
+
+    private static bool SameContent(CdDisc a, CdDisc b)
+    {
+        if (a.AlbumArtist != b.AlbumArtist || a.ReleaseId != b.ReleaseId || a.Tracks.Count != b.Tracks.Count) return false;
+        foreach (var (key, x) in a.Tracks)
+            if (!b.Tracks.TryGetValue(key, out var y) || x.Artist != y.Artist || x.Title != y.Title || x.Album != y.Album) return false;
+        return true;
+    }
+
+    private static async Task<LookupResult> LookupAsync(string root, string discId)
     {
         await OneAtATime.WaitAsync();
         try
         {
             var mbId = MusicBrainzDiscId(root);
-            if (mbId == null) return;
+            if (mbId == null) return LookupResult.Failed;
 
             using var response = await Http.GetAsync($"https://musicbrainz.org/ws/2/discid/{mbId}?fmt=json&inc=recordings+artist-credits");
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 NextTry[discId] = DateTime.UtcNow.AddDays(1);   // MusicBrainz does not know this disc: asked again after a restart, or after a day
-                return;
+                return LookupResult.NotFound;
             }
-            if (!response.IsSuccessStatusCode) return;   // 503 (too many requests) and the like: tried again after 10 minutes
+            if (!response.IsSuccessStatusCode) return LookupResult.Failed;   // 503 (too many requests) and the like: tried again after 10 minutes
 
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            if (!doc.RootElement.TryGetProperty("releases", out var releases) || releases.ValueKind != JsonValueKind.Array) return;
+            if (!doc.RootElement.TryGetProperty("releases", out var releases) || releases.ValueKind != JsonValueKind.Array) return LookupResult.Failed;
 
             // The first release (of at most five) that has the disc among its media and a front cover, else the first that has the disc.
             JsonElement? chosen = null, chosenMedium = null;
@@ -323,7 +351,7 @@ public static class CdDiscInfo
                 if (chosen == null || (cover && !chosenHasCover)) { chosen = release; chosenMedium = medium; chosenHasCover = cover; }
                 if (cover) break;
             }
-            if (chosen is not { } rel || chosenMedium is not { } medium2) return;
+            if (chosen is not { } rel || chosenMedium is not { } medium2) return LookupResult.NotFound;
 
             var disc = new CdDisc { AlbumArtist = ArtistOf(rel), MusicBrainzDiscId = mbId, ReleaseId = rel.TryGetProperty("id", out var rid) ? rid.GetString() : null, Source = "MusicBrainz" };
             var album = rel.TryGetProperty("title", out var at) ? at.GetString() : null;
@@ -344,34 +372,59 @@ public static class CdDiscInfo
 
             Directory.CreateDirectory(Folder);
 
-            // The cover first, so a list that is told about the titles can show the picture at once.
+            // What was kept before (this program's own folder only): what is new is compared with it, so a silent refresh changes the screen
+            // only when MusicBrainz really says something different.
+            var before = LoadShared(discId);
+            bool changed = before == null || !SameContent(before, disc);
+
+            // The cover first, so a list that is told about the titles can show the picture at once. When the release and the picture are as
+            // before, the server is asked "has it changed?" (the ETag) and answers without sending the picture again.
+            var coverFile = Path.Combine(Folder, discId + ".jpg");
+            disc.CoverETag = before?.CoverETag;
             if (chosenHasCover && disc.ReleaseId != null)
             {
                 try
                 {
-                    var picture = await Http.GetByteArrayAsync($"https://coverartarchive.org/release/{disc.ReleaseId}/front-500");
-                    File.WriteAllBytes(Path.Combine(Folder, discId + ".jpg"), picture);
+                    using var request = new HttpRequestMessage(HttpMethod.Get, $"https://coverartarchive.org/release/{disc.ReleaseId}/front-500");
+                    bool sameRelease = before?.ReleaseId == disc.ReleaseId;
+                    if (sameRelease && before?.CoverETag is { Length: > 0 } etag && File.Exists(coverFile)) request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+
+                    using var answer = await Http.SendAsync(request);
+                    if (answer.StatusCode != System.Net.HttpStatusCode.NotModified && answer.IsSuccessStatusCode)
+                    {
+                        var picture = await answer.Content.ReadAsByteArrayAsync();
+                        if (!File.Exists(coverFile) || !File.ReadAllBytes(coverFile).AsSpan().SequenceEqual(picture))
+                        {
+                            File.WriteAllBytes(coverFile, picture);
+                            changed = true;
+                        }
+                        disc.CoverETag = answer.Headers.ETag?.Tag;
+                    }
                 }
-                catch { /* no picture this time */ }
+                catch { /* no picture this time: the old one (if any) stays */ }
             }
             else
                 NextTry[discId] = DateTime.UtcNow.AddDays(1);   // the disc is known but has no cover (yet): asked again after a restart, or after a day
 
+            // Always written (its date is what says "looked at today"), the screen is told only when something changed.
             var target = Path.Combine(Folder, discId + ".json");
             var temp = target + ".part";
             File.WriteAllText(temp, JsonSerializer.Serialize(disc, Json));
             File.Move(temp, target, overwrite: true);
             Loaded.TryRemove(discId, out _);
-            Updated?.Invoke(discId);
+            if (changed) Updated?.Invoke(discId);
+            return changed ? LookupResult.Changed : LookupResult.Unchanged;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
             // Offline, too slow, a server problem or a disk problem: nothing is shown, no message, and it is tried again later.
+            return LookupResult.Failed;
         }
         catch (Exception ex)
         {
             // A surprise (the answer looked different from what was expected): once in the log, so it can be looked at (Help > Open Log File).
-            try { LogFiles.AppendError($"Audio CD lookup failed: {ex.Message}"); } catch { }
+            try { Log?.Invoke($"Audio CD lookup failed: {ex.Message}"); } catch { }
+            return LookupResult.Failed;
         }
         finally { OneAtATime.Release(); }
     }

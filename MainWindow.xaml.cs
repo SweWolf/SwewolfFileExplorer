@@ -2720,6 +2720,10 @@ public partial class MainWindow : Window
         FolderPicNoneItem.IsEnabled   = real;
         FolderPicNoneItem.Visibility  = chosen == "" ? Visibility.Collapsed : Visibility.Visible;   // already none
         FolderPicAutoItem.Visibility  = chosen != null ? Visibility.Visible : Visibility.Collapsed;   // only when there is a choice to forget
+
+        // An audio CD: look the disc up again (the picture is the album's cover, so this is where the user looks).
+        bool audioCd = real && CdDiscInfo.IsAudioCdFolder(VM.CurrentPath);
+        FolderPicLookUpItem.Visibility = FolderPicLookUpSeparator.Visibility = audioCd ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void FolderPictureChoose_Click(object sender, RoutedEventArgs e)
@@ -3084,6 +3088,8 @@ public partial class MainWindow : Window
         var dataItem = Add(DriveDataHeader, () => ToggleDriveData(drive.Root));
         PrepareDriveDataItem(dataItem, drive.Root);
         PrepareCleanUpItem(Add(CleanUpHeader, () => CleanUpDriveData(drive.Root)), drive.Root);
+        if (CdDiscInfo.IsAudioCdFolder(drive.Root))
+            Add("Look Up This Disc Again", () => LookUpDiscAgain(drive.Root)).ToolTip = "Ask MusicBrainz again for the titles and the cover of this audio CD. What is new replaces what is kept on this computer.";
         menu.Items.Add(new Separator());
         Add("Properties", () => PropertiesHelper.Show(new[] { drive.Root }));
         Add("More Options", () => Dispatcher.BeginInvoke(() => ShowWindowsMenuForFolder(drive.Root), DispatcherPriority.Background));
@@ -4709,6 +4715,34 @@ public partial class MainWindow : Window
         TreeCleanUpItem.Visibility = driveRoot != null && realFolder ? Visibility.Visible : Visibility.Collapsed;
         TreeCleanUpSeparator.Visibility = TreeCleanUpItem.Visibility;
         if (driveRoot != null && realFolder) PrepareCleanUpItem(TreeCleanUpItem, driveRoot);
+        TreeLookUpDiscItem.Visibility = driveRoot != null && CdDiscInfo.IsAudioCdFolder(driveRoot) ? Visibility.Visible : Visibility.Collapsed;   // an audio CD
+    }
+
+    private void TreeCtxLookUpDisc_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null && DriveRootOf(_treeMenuNode.FullPath) is { } root) LookUpDiscAgain(root);
+    }
+
+    private void FolderPictureLookUp_Click(object sender, RoutedEventArgs e)
+    {
+        if (System.IO.Path.GetPathRoot(VM.CurrentPath) is { Length: > 0 } root) LookUpDiscAgain(root);
+    }
+
+    /// <summary>
+    /// "Look Up This Disc Again": asks MusicBrainz for the titles and the cover of the audio CD now. What is new replaces what is kept (the
+    /// lists, the cover and the drive's name follow by themselves); the title bar says how it went.
+    /// </summary>
+    private async void LookUpDiscAgain(string root)
+    {
+        FlashTitle($"{BaseTitle} - Looking up the disc...");
+        var result = await CdDiscInfo.LookUpAgainAsync(root);
+        FlashTitle($"{BaseTitle} - " + result switch
+        {
+            CdDiscInfo.LookupResult.Changed   => "The disc information was updated",
+            CdDiscInfo.LookupResult.Unchanged => "The disc information is up to date",
+            CdDiscInfo.LookupResult.NotFound  => "MusicBrainz does not know this disc",
+            _                                 => "Could not reach MusicBrainz",
+        });
     }
 
     // ── Jump to Last Opened File (as in TeraTool's folder menu) ──────────────

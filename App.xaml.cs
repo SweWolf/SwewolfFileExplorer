@@ -120,6 +120,7 @@ public partial class App : Application
 
         // For testing: SWEWOLF_CD_LOOKUP=0 switches the online lookup of audio CDs off (a disc then stays "not known").
         if (Environment.GetEnvironmentVariable("SWEWOLF_CD_LOOKUP") == "0") CdDiscInfo.Enabled = false;
+        CdDiscInfo.Log = LogFiles.AppendError;   // an unexpected answer from the lookup goes to errors.log
 
         // The web bookmarks' icons moved from %LocalAppData% to %AppData% (2026-11-10): once, and the shortcuts that name them follow.
         SwewolfFileExplorer.Helpers.BookmarkStore.MigrateFavicons();

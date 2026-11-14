@@ -445,6 +445,9 @@
                                           ToolTip="Show no picture for this folder"/>
                                 <MenuItem x:Name="FolderPicAutoItem" Header="Use Automatic Folder Picture" Click="FolderPictureAuto_Click"
                                           ToolTip="Forget the choice: the program looks for a picture itself again"/>
+                                <Separator x:Name="FolderPicLookUpSeparator" Visibility="Collapsed"/>
+                                <MenuItem x:Name="FolderPicLookUpItem" Header="Look Up This Disc Again" Click="FolderPictureLookUp_Click" Visibility="Collapsed"
+                                          ToolTip="Ask MusicBrainz again for the titles and the cover of this audio CD. What is new replaces what is kept on this computer."/>
                             </ContextMenu>
                         </Grid.ContextMenu>
                         <Image Source="{Binding FolderPicture}" Stretch="Uniform" MaxHeight="260"
@@ -646,6 +649,8 @@
                                       ToolTip="Show everything about this file in File Info Viewer"/>
                             <MenuItem x:Name="TreeDriveDataItem" Click="TreeCtxDriveData_Click" Visibility="Collapsed"/>
                             <MenuItem x:Name="TreeCleanUpItem" Click="TreeCtxCleanUp_Click" Visibility="Collapsed"/>
+                            <MenuItem x:Name="TreeLookUpDiscItem" Header="Look Up This Disc Again" Click="TreeCtxLookUpDisc_Click" Visibility="Collapsed"
+                                      ToolTip="Ask MusicBrainz again for the titles and the cover of this audio CD. What is new replaces what is kept on this computer."/>
                             <Separator x:Name="TreeCleanUpSeparator" Visibility="Collapsed"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click" InputGestureText="Alt+Enter"/>
                             <Separator/>
