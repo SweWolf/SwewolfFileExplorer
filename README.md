@@ -2,6 +2,8 @@
 
 A Windows file manager with tabs, a folder tree, bookmarks and an information panel. It copies, moves and deletes in the background with a progress window and **Cancel**, takes back your last file operation with **Ctrl+Z**, looks inside zip, RAR and 7z files like folders, and remembers what you have read, rated and tagged.
 
+![SweWolf File Explorer showing a folder of videos with tabs, the folder tree and the information panel](Assets/Screenshot.png)
+
 ---
 
 ## Features
