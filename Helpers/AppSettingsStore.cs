@@ -108,6 +108,10 @@ public class AppSettings
     /// player is found). Once per run the player is started with --warm-up so its first real start is fast.</summary>
     public bool PreloadMediaPlayer { get; set; } = true;
 
+    /// <summary>Settings > General > Updates > "Check for a New Version at Startup" (on by default). A few seconds after the window is shown
+    /// GitHub Releases is asked once; a newer version shows a link at the right end of the menu bar (MainWindow.CheckForUpdateAsync).</summary>
+    public bool CheckForUpdatesOnStartup { get; set; } = true;
+
     /// <summary>The user's own VirusTotal API key, encrypted with Windows DPAPI for this Windows user and written as base64
     /// (Settings > VirusTotal; <c>VirusTotal.GetApiKey / SetApiKey</c>). Empty = no key: "Send to VirusTotal" only opens the page.</summary>
     public string VirusTotalApiKeyProtected { get; set; } = "";

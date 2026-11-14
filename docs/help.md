@@ -691,6 +691,7 @@ Open **Tools > Settings**. The window has four tabs: **General**, **Files**, **M
 - **Folder Tree** (Menus tab): whether a right-click selects the folder.
 - **Security:** ask before a program is started (and, separately, one inside a compressed file), which file types count as programs, and forgetting the "Don't Ask Again" choices (see Starting Programs).
 - **Terminal Menu:** which of the three terminals are in the menus.
+- **Updates:** **Check for a New Version at Startup** (on by default). A moment after the program starts it asks GitHub whether a newer version has been released. If there is one, **Version x.y.z Available** appears at the right end of the menu bar; click it to open the release page in your web browser. Nothing is downloaded or installed, and nothing happens when you are offline. **Help > About** also tells you whether you have the latest version.
 - **Media Player:** preload SweWolf Media Player in the background at startup (on by default; only shown when the player is found). The first start of the player can be slow while your antivirus program scans its files; the preload does that once, with no window, so videos open fast later.
 
 The settings are saved in `%AppData%\SweWolfSoftware\SwewolfFileExplorer\settings.json`.

@@ -165,6 +165,8 @@ public partial class MainWindow : Window
             var warmUp = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
             warmUp.Tick += (_, _) => { warmUp.Stop(); MediaPlayerLauncher.WarmUpPlayer(); };
             warmUp.Start();
+
+            if (AppSettingsStore.Current.CheckForUpdatesOnStartup) _ = CheckForUpdateAsync();
         };
 
         // A workspace or session file given on the command line is opened (replacing the tab the program starts with).
@@ -1378,6 +1380,28 @@ public partial class MainWindow : Window
 
     private void MenuAbout_Click(object sender, RoutedEventArgs e) =>
         new AboutWindow { Owner = this }.ShowDialog();
+
+    // The release page of a newer version found by the startup check; the menu item opens it.
+    private string? _updateReleasePageUrl;
+
+    /// <summary>Asks GitHub Releases once, in the background (fails silently when offline); a newer version shows the item at the
+    /// right end of the menu bar. Nothing is downloaded or installed. The version is read like the About window does.</summary>
+    private async Task CheckForUpdateAsync()
+    {
+        var current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0);
+        var result = await GitHubUpdateChecker.CheckAsync("SweWolf", "SwewolfFileExplorer", current);
+        if (result is not { IsUpdateAvailable: true } || !IsLoaded) return;
+        _updateReleasePageUrl = result.ReleasePageUrl;
+        NewVersionMenuItem.Header = $"Version {result.LatestVersion} Available";
+        NewVersionMenuItem.Visibility = Visibility.Visible;
+    }
+
+    private void NewVersion_Click(object sender, RoutedEventArgs e)
+    {
+        if (_updateReleasePageUrl is { Length: > 0 } url && Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
+            Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+    }
 
     // Errors only are logged (LogFiles): what the program could not do, so the user can look into it afterwards.
     private void MenuOpenLogFile_Click(object sender, RoutedEventArgs e)

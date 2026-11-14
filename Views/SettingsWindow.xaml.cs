@@ -66,6 +66,7 @@ public partial class SettingsWindow : Window
         RightClickSelectsNodeBox.IsChecked = current.RightClickSelectsTreeNode;
         DisableDragDropBox.IsChecked       = current.DisableInternalDragDrop;
         PreloadPlayerBox.IsChecked         = current.PreloadMediaPlayer;
+        CheckUpdatesBox.IsChecked          = current.CheckForUpdatesOnStartup;
         (current.RoundedProgressBars ? RoundedBarsBox : SquareBarsBox).IsChecked = true;
         VirusTotalKeyBox.Password          = VirusTotal.GetApiKey() ?? "";
         MediaPlayerGroup.Visibility        = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, nothing to preload
@@ -192,6 +193,7 @@ public partial class SettingsWindow : Window
         settings.RightClickSelectsTreeNode = RightClickSelectsNodeBox.IsChecked == true;
         settings.DisableInternalDragDrop = DisableDragDropBox.IsChecked == true;
         settings.PreloadMediaPlayer      = PreloadPlayerBox.IsChecked == true;
+        settings.CheckForUpdatesOnStartup = CheckUpdatesBox.IsChecked == true;
         settings.RoundedProgressBars     = RoundedBarsBox.IsChecked == true;
         settings.WarnHiddenNotSelected   = WarnHiddenNotSelectedBox.IsChecked == true;
         settings.AskBeforeStartingPrograms = AskBeforeProgramsBox.IsChecked == true;

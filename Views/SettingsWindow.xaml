@@ -114,6 +114,10 @@
             <CheckBox x:Name="PreloadPlayerBox" Content="Preload SweWolf Media Player in the Background at Startup"
                       ToolTip="The first start of the player can take a long time while the antivirus program scans its files. On: when this program starts, the player is loaded once in the background, with no window, so it opens fast later."/>
         </GroupBox>
+        <GroupBox Header="Updates" Padding="8" Margin="0,8,0,0">
+            <CheckBox x:Name="CheckUpdatesBox" Content="Check for a New Version at Startup"
+                      ToolTip="On: a few seconds after the program starts it asks GitHub whether a newer version has been released. If there is one, a link appears at the right end of the menu bar. Nothing is downloaded or installed, and nothing is sent except the request itself."/>
+        </GroupBox>
                 </StackPanel>
             </TabItem>
             <TabItem Header="Files">

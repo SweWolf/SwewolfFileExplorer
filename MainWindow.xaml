@@ -96,6 +96,11 @@
                 <Separator/>
                 <MenuItem Header="_About" Click="MenuAbout_Click"/>
             </MenuItem>
+
+            <!-- Only shown when the startup check (Settings > Updates) found a newer version; the text is set in code. -->
+            <MenuItem x:Name="NewVersionMenuItem" Header="New Version Available" Click="NewVersion_Click" Visibility="Collapsed"
+                      FontWeight="SemiBold" ToolTip="A newer version has been released. Click to open its page on GitHub."/>
+
         </Menu>
 
         <!-- ── Tab strip ───────────────────────────────────────────── -->
