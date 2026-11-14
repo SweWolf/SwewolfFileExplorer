@@ -5,7 +5,9 @@
 // length), from which the MusicBrainz disc id is worked out; MusicBrainz names the release (titles, artists) and the Cover Art Archive has
 // the front picture. Only the disc id goes out, nothing about the user. What was found is kept on this computer, so a disc is looked up once:
 //   %LocalAppData%\SweWolfSoftware\CdInfo\<disc id>.json   the tracks   (a cache the program can recreate, hence Local, not Roaming)
-//   %LocalAppData%\SweWolfSoftware\CdInfo\<disc id>.jpg    the front cover (<disc id>.nocover / <disc id>.nodisc: nothing found, asked again after 30 days)
+//   %LocalAppData%\SweWolfSoftware\CdInfo\<disc id>.jpg    the front cover
+// A disc that is not complete (not in MusicBrainz, or no cover) is asked for again when the user uses it again: after every start of the program, or
+// after a day if the program keeps running (10 minutes after a failed attempt). Nothing is kept about unknown discs, there is no list that is checked.
 // The folder is shared by the apps of the family: whichever sees a disc first fills it for the others. The Media Player's older folder
 // (SwewolfMediaPlayer\CdInfo, titles from LibVLC's CDDB lookup) is still read, only when the shared folder has nothing for the disc.
 //
@@ -16,6 +18,7 @@
 //
 // History:
 //   2026-11-14  First version for the File Explorer (MusicBrainz titles and artists with inc=recordings+artist-credits, cover, shared folder).
+//   2026-11-14  No .nodisc / .nocover files and no 30-day wait: an incomplete disc is tried again after every start and after a day (NextTry, in memory only).
 //
 // To copy to another app: change the namespace, the User-Agent text and, if wanted, nothing else (self-contained; the App name below is only used for the User-Agent).
 
@@ -256,7 +259,8 @@ public static class CdDiscInfo
 
     // ── The online lookup ────────────────────────────────────────────────
 
-    private static readonly ConcurrentDictionary<string, DateTime> Attempts = new();
+    /// <summary>When a disc may be looked up again (this run only: after a restart every disc that is not complete is tried again).</summary>
+    private static readonly ConcurrentDictionary<string, DateTime> NextTry = new();
     private static readonly SemaphoreSlim OneAtATime = new(1, 1);
     private static readonly HttpClient Http = CreateClient();
 
@@ -267,30 +271,23 @@ public static class CdDiscInfo
         return client;
     }
 
-    private static bool FreshMarker(string discId, string extension)
-    {
-        try
-        {
-            var file = Path.Combine(Folder, discId + extension);
-            return File.Exists(file) && (DateTime.Now - File.GetLastWriteTime(file)).TotalDays < 30;
-        }
-        catch { return false; }
-    }
-
     /// <summary>
-    /// Starts the lookup of the disc a CD track is on, in the background, unless the shared folder already has it, the setting is off, it was
-    /// tried lately or MusicBrainz is known not to have the disc. One lookup at a time (MusicBrainz allows about one request a second).
+    /// Starts the lookup of the disc a CD track is on, in the background, unless the setting is off or the shared folder already has the
+    /// titles and the cover. A disc that is not complete (MusicBrainz does not know it, or has no cover) is looked up again whenever the user
+    /// uses it again: once after every start of the program, and again after a day if the program keeps running (a failed attempt, such as
+    /// being offline, after 10 minutes). Nothing is remembered between runs and there is no list of unknown discs. One lookup at a time
+    /// (MusicBrainz allows about one request a second).
     /// </summary>
     public static void RequestLookup(string path)
     {
         if (!Enabled) return;
         var discId = DiscId(path);
         if (discId == null) return;
-        if (File.Exists(Path.Combine(Folder, discId + ".json")) || FreshMarker(discId, ".nodisc")) return;
+        if (File.Exists(Path.Combine(Folder, discId + ".json")) && File.Exists(Path.Combine(Folder, discId + ".jpg"))) return;   // complete
 
         var now = DateTime.UtcNow;
-        if (Attempts.TryGetValue(discId, out var last) && now - last < TimeSpan.FromMinutes(10)) return;
-        Attempts[discId] = now;
+        if (NextTry.TryGetValue(discId, out var next) && now < next) return;
+        NextTry[discId] = now.AddMinutes(10);   // a failure (offline, 503 ...): tried again after 10 minutes; a clear answer sets a day below
 
         var root = Path.GetPathRoot(Path.GetFullPath(path))!;
         _ = Task.Run(() => LookupAsync(root, discId));
@@ -307,8 +304,7 @@ public static class CdDiscInfo
             using var response = await Http.GetAsync($"https://musicbrainz.org/ws/2/discid/{mbId}?fmt=json&inc=recordings+artist-credits");
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                Directory.CreateDirectory(Folder);
-                File.WriteAllText(Path.Combine(Folder, discId + ".nodisc"), "");   // MusicBrainz does not know this disc
+                NextTry[discId] = DateTime.UtcNow.AddDays(1);   // MusicBrainz does not know this disc: asked again after a restart, or after a day
                 return;
             }
             if (!response.IsSuccessStatusCode) return;   // 503 (too many requests) and the like: tried again after 10 minutes
@@ -359,7 +355,7 @@ public static class CdDiscInfo
                 catch { /* no picture this time */ }
             }
             else
-                File.WriteAllText(Path.Combine(Folder, discId + ".nocover"), "");
+                NextTry[discId] = DateTime.UtcNow.AddDays(1);   // the disc is known but has no cover (yet): asked again after a restart, or after a day
 
             var target = Path.Combine(Folder, discId + ".json");
             var temp = target + ".part";
