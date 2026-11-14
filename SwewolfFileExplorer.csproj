@@ -17,6 +17,13 @@
     <Version>1.0.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationIcon>Resourses\fluent_file_explorer.ico</ApplicationIcon>
+    <!-- What Explorer shows in the EXE's Properties > Details: File description, Product name, Comments, Copyright. -->
+    <AssemblyTitle>SweWolf File Explorer</AssemblyTitle>
+    <Product>SweWolf File Explorer</Product>
+    <Description>A file manager with tabs, a folder tree, bookmarks, an information panel and archives as folders.</Description>
+    <Company>SweWolf Software</Company>
+    <Copyright>SweWolf Software</Copyright>
+    <Authors>SweWolf</Authors>
     <!-- WPF0001: Application.ThemeMode (the Fluent light/dark theme) is still marked experimental. -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
   </PropertyGroup>
@@ -62,6 +69,14 @@
   <!-- The debug symbols of SkiaSharp's native libraries (106 MB) come along with them; nobody needs them. -->
   <Target Name="DropNativePdbs" AfterTargets="Build">
     <Delete Files="$(OutDir)libSkiaSharp.pdb;$(OutDir)libHarfBuzzSharp.pdb" ContinueOnError="true" />
+  </Target>
+
+  <!-- The same for a publish (both release kinds): the symbols of the native libraries are not published. -->
+  <Target Name="DropNativePdbsFromPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'libSkiaSharp.pdb'" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'libHarfBuzzSharp.pdb'" />
+    </ItemGroup>
   </Target>
 
 </Project>

@@ -1,4 +1,6 @@
 bin/
 obj/
+publish-standalone/
+publish-multifile/
 .vs/
 *.user
