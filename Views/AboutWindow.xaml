@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About SweWolf File Explorer"
         SizeToContent="Height"
-        Width="440"
+        Width="500"
         WindowStartupLocation="CenterOwner"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="ClearType"
@@ -49,8 +49,15 @@
             </TextBlock>
 
             <TextBlock Text="Built with:" FontWeight="Bold" Margin="0,16,0,4"/>
-            <TextBlock Opacity="0.85">• .NET 10 / WPF</TextBlock>
-            <TextBlock Opacity="0.85">• 7-Zip (optional, to browse 7z, RAR, CAB, GZ and TAR archives)</TextBlock>
+            <TextBlock Opacity="0.85" TextWrapping="Wrap">• .NET 10 / WPF</TextBlock>
+            <TextBlock Opacity="0.85" TextWrapping="Wrap">• TagLibSharp (information in music, video and picture files)</TextBlock>
+            <TextBlock Opacity="0.85" TextWrapping="Wrap">• Svg.Skia / SkiaSharp (SVG pictures)</TextBlock>
+            <TextBlock Opacity="0.85" TextWrapping="Wrap">• SQLite (the library of read marks and ratings)</TextBlock>
+
+            <TextBlock Text="Optional, if installed:" FontWeight="Bold" Margin="0,12,0,4"/>
+            <TextBlock Opacity="0.85" TextWrapping="Wrap">• 7-Zip (to browse 7z, RAR, CAB, GZ and TAR archives)</TextBlock>
+            <TextBlock Opacity="0.85" TextWrapping="Wrap">• ImageMagick (JPEG XL pictures)</TextBlock>
+            <TextBlock Opacity="0.85" TextWrapping="Wrap">• FFmpeg (preview pictures of videos)</TextBlock>
 
             <Button Content="Close" Width="80" HorizontalAlignment="Right" Margin="0,16,0,0"
                     IsDefault="True" IsCancel="True"/>
