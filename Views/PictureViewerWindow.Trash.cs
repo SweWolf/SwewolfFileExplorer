@@ -74,6 +74,7 @@ public partial class PictureViewerWindow
 
         AnyDeleted = true;   // the Explorer reads its folder again when the viewer closes
         LibraryService.Move(moved);
+        FileUndo.Set(new PairsUndo("Move", moved));   // the Explorer's Undo can take it back too (same folder, so the same drive); the viewer's own Ctrl+Z does the same
 
         // Every moved picture leaves the list (the other half of a RAW + JPEG pair is a picture too).
         var gone = new HashSet<string>(moved.Select(m => m.From), StringComparer.OrdinalIgnoreCase);
@@ -212,6 +213,7 @@ public partial class PictureViewerWindow
         _trashed.Pop();
         AnyDeleted = true;
         LibraryService.Move(back.Select(b => (From: b.To, To: b.From)));   // (the library follows them home)
+        FileUndo.Clear();   // taken back here: the Explorer's Undo must not offer the same step again
         if (_closed) return;
 
         // The pictures come back to the places they had in the list.

@@ -639,6 +639,12 @@ public partial class PictureViewerWindow : Window
         finally { _deleteAsking = false; }
         if (!go || _closed || _files.Count == 0 || CurrentPath != path) return;
 
+        // For the Undo button of the Explorer (Helpers/FileUndo.cs): found out before the file goes, started-at for the Recycle Bin lookup.
+        long size = 0;
+        try { size = new FileInfo(path).Length; } catch { }
+        bool canBeRestored = FileReplace.WhyNotRecycled(path, size) == null;
+        var deleteStartedUtc = DateTime.UtcNow;
+
         try
         {
             FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
@@ -649,6 +655,9 @@ public partial class PictureViewerWindow : Window
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
+
+        // This delete is the step the Explorer's Undo takes back when the viewer is closed (never an older step).
+        if (!File.Exists(path)) FileUndo.Set(canBeRestored ? new DeleteUndo(new List<string> { path }, deleteStartedUtc) : null);
 
         AnyDeleted = true;
         LibraryService.Forget(new[] { path });   // its read mark and rating go with it
