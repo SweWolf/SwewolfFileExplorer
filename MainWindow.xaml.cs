@@ -638,7 +638,7 @@ public partial class MainWindow : Window
                 var info = _layout.FirstOrDefault(c => c.Key.ToString() == state.Key);
                 if (info == null || ordered.Contains(info)) continue;
 
-                info.Visible = state.Visible || info.Key == SortColumn.Name;
+                info.Visible = state.Visible;
                 if (state.Width >= 20) info.Width = state.Width;
                 ordered.Add(info);
             }
@@ -647,6 +647,7 @@ public partial class MainWindow : Window
             _layout.Clear();
             _layout.AddRange(ordered);
         }
+        EnsureSomeColumnShown();   // a file with no column shown at all counts as "the default columns"
 
         // What columns.json says is the default: the layout of every folder that has none of its own (see ApplyFolderColumns).
         _defaultColumns = _layout.Select(c => (c.Key, c.Visible)).ToList();
@@ -663,6 +664,29 @@ public partial class MainWindow : Window
     /// <summary>The layout of columns.json (order and visibility); the layout of a folder without a layout of its own. Widths are fitted anyway.</summary>
     private List<(SortColumn Key, bool Visible)>? _defaultColumns;
 
+    /// <summary>The columns shown when nothing else says (the first ones of the list in <c>_layout</c>'s constructor, as before there was a choice).</summary>
+    private static readonly SortColumn[] BuiltInColumns =
+        { SortColumn.Name, SortColumn.DateModified, SortColumn.DateCreated, SortColumn.Type, SortColumn.Size };
+
+    /// <summary>The columns of the default layout (columns.json); the built-in ones if that has none.</summary>
+    private List<SortColumn> DefaultShownColumns()
+    {
+        var keys = _defaultColumns?.Where(c => c.Visible).Select(c => c.Key).ToList();
+        return keys is { Count: > 0 } ? keys : BuiltInColumns.ToList();
+    }
+
+    /// <summary>
+    /// Every column can be hidden, the Name column too (the user's wish 2026-11-14); only "no column at all" is not possible: it counts as
+    /// the default columns being shown. Returns true if the default columns were put back.
+    /// </summary>
+    private bool EnsureSomeColumnShown()
+    {
+        if (_layout.Any(c => c.Visible)) return false;
+        var shown = DefaultShownColumns();
+        foreach (var info in _layout) info.Visible = shown.Contains(info.Key);
+        return true;
+    }
+
     private bool _applyingColumns;
 
     /// <summary>
@@ -677,7 +701,8 @@ public partial class MainWindow : Window
         var wantedShown = VM.Shared.TryGetFolderColumnsOrInherited(VM.CurrentPath, out var saved)   // its own, else the nearest parent's
             ? saved.ToList()
             : _defaultColumns.Where(c => c.Visible).Select(c => c.Key).ToList();
-        if (!wantedShown.Contains(SortColumn.Name)) wantedShown.Insert(0, SortColumn.Name);   // Name is always shown
+        wantedShown = wantedShown.Where(k => _layout.Any(c => c.Key == k)).ToList();
+        if (wantedShown.Count == 0) wantedShown = DefaultShownColumns();   // no column at all counts as the default columns
 
         var current = _layout.Where(c => c.Visible).Select(c => c.Key).ToList();
         if (current.SequenceEqual(wantedShown.Where(k => _layout.Any(c => c.Key == k)))) return;
@@ -847,12 +872,12 @@ public partial class MainWindow : Window
             {
                 Header      = info.MenuTitle,
                 IsCheckable = true,
-                IsChecked   = info.Visible,
-                IsEnabled   = info.Key != SortColumn.Name   // Name is always shown
+                IsChecked   = info.Visible
             };
             item.Click += (_, _) =>
             {
                 info.Visible = item.IsChecked;
+                EnsureSomeColumnShown();   // the last column hidden: the default columns are shown instead
                 ApplyColumns();
                 SaveColumnLayout();
                 SaveFolderColumns();
@@ -911,8 +936,7 @@ public partial class MainWindow : Window
             Key       = c.Key.ToString(),
             Title     = c.MenuTitle,
             IsVisible = c.Visible,
-            Width     = Math.Round(c.Width),
-            CanHide   = c.Key != SortColumn.Name
+            Width     = Math.Round(c.Width)
         })) { Owner = this };
 
         if (dlg.ShowDialog() != true) return;
@@ -921,13 +945,14 @@ public partial class MainWindow : Window
         foreach (var choice in dlg.Result)
         {
             var info = _layout.First(c => c.Key.ToString() == choice.Key);
-            info.Visible = choice.IsVisible || !choice.CanHide;
+            info.Visible = choice.IsVisible;
             info.Width   = choice.Width;
             ordered.Add(info);
         }
 
         _layout.Clear();
         _layout.AddRange(ordered);
+        EnsureSomeColumnShown();   // none chosen: the default columns
         ApplyColumns();
         SaveColumnLayout();
         SaveFolderColumns();
