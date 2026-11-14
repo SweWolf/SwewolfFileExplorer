@@ -67,7 +67,7 @@ SwewolfFileExplorer/
 │   ├── FolderCoverFinder.cs    The picture that stands for a folder (Folder.jpg, embedded album art, comic page 1)
 │   ├── LibraryStore.cs         Core of the library (SQLite): which file holds a path, keys, schema, read marks, resume positions. Copied to SweWolf Media Player as it is (History list in its header)
 │   ├── LibraryService.cs       The explorer's side: state of a folder (Unread / Partly Read / Read), Mark as Read on a tree
-│   ├── MediaPlayerLauncher.cs  Video and music files (IsMedia) open in SweWolf Media Player; finds its EXE (same folder, ..\SwewolfMediaPlayer\; if missing the file opens in the program Windows has for it, no question, since 2026-10-21; the old saved path `MediaPlayerPath` is gone)
+│   ├── MediaPlayerLauncher.cs  Video and music files (IsMedia; music includes `.cda`, the tracks of an audio CD, since 2026-11-13: the player turns the 44-byte stub into cdda:// and the track number; checked headless that tags, cover and preview code leave a .cda alone, not played for real) open in SweWolf Media Player; finds its EXE (same folder, ..\SwewolfMediaPlayer\; if missing the file opens in the program Windows has for it, no question, since 2026-10-21; the old saved path `MediaPlayerPath` is gone)
 │   ├── NextFolderFinder.cs     Next folder with pictures in tree order, same drive, archives included (background)
 │   ├── WorkspaceStore.cs       Workspace / session JSON files (one per name, two folders), safe write, read, name check, rename, `TryGetKind` (is this .json one?), and the volume-relative paths of a file moved to another drive
 │   ├── SmartName.cs            Better name for a music / video file (Artist - Title, Title (Year), Title - s01e02) and the case helpers of the Rename box

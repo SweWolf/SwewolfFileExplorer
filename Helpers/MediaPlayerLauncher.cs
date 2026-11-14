@@ -27,10 +27,11 @@ public static class MediaPlayerLauncher
         ".3gp", ".vob", ".ogv", ".divx", ".asf", ".rm", ".rmvb",
     };
 
-    // music (the ones the player lists, plus SID tunes)
+    // music (the ones the player lists, plus SID tunes and the .cda tracks of an audio CD: a 44-byte stub that the player turns into
+    // cdda:// and the track number, see MediaPlayerForm.cs there)
     private static readonly HashSet<string> MusicExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wma", ".wav", ".aif", ".aiff", ".sid",
+        ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wma", ".wav", ".aif", ".aiff", ".sid", ".cda",
     };
 
     /// <summary>A video or music file: it is played in SweWolf Media Player.</summary>

@@ -148,7 +148,7 @@ public partial class MainWindow
             Title = "Add Files to the Playlist",
             Multiselect = true,
             CheckFileExists = true,
-            Filter = "Music and Video Files|*.mp3;*.flac;*.m4a;*.aac;*.ogg;*.oga;*.opus;*.wma;*.wav;*.aif;*.aiff;*.sid;"
+            Filter = "Music and Video Files|*.mp3;*.flac;*.m4a;*.aac;*.ogg;*.oga;*.opus;*.wma;*.wav;*.aif;*.aiff;*.sid;*.cda;"
                    + "*.mp4;*.m4v;*.mkv;*.avi;*.mov;*.wmv;*.flv;*.webm;*.mpg;*.mpeg;*.ts;*.m2ts;*.mts;*.3gp;*.ogv|All Files|*.*",
         };
         var folder = VM.ActiveTab.CurrentPath;
