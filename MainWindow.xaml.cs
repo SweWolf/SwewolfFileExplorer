@@ -1779,11 +1779,42 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>The name of the session that is on in this window, or null. A start that is handed over asks the user before it goes into a session.</summary>
+    public string? ActiveSessionName => VM.Session.IsActive ? VM.Session.Name : null;
+
+    /// <summary>
+    /// Another start of the program handed its work to this window (SingleInstance; only called while the window can take it).
+    /// The window comes to the front, then: a folder opens in a new tab, another file in a new tab with the file selected, a picture in the
+    /// viewer (as Enter does), a workspace or session file as usual (with its question); with nothing named only the window comes forward.
+    /// </summary>
+    public void HandleExternalStart(StartupTarget target)
+    {
+        SingleInstance.BringToFront(this);
+
+        if (target.TabSetFile != null) OpenTabSet(target.TabSetFile);
+        else if (target.Folder != null) VM.OpenNewTab(target.Folder, activate: true);
+        else if (target.Image != null)
+        {
+            var folder = System.IO.Path.GetDirectoryName(target.Image) ?? "";
+            var viewer = CreateViewer(QuickPictureList(folder, target.Image), target.Image, owner: this);
+            viewer.ShowDialog();
+            AfterViewer(viewer);
+        }
+        else if (target.SelectFile != null)
+        {
+            VM.OpenNewTab(System.IO.Path.GetDirectoryName(target.SelectFile) ?? "", activate: true);
+            GoToFile(target.SelectFile);
+        }
+    }
+
     /// <summary>The window title and the Stop Session item follow whether a session is on.</summary>
     private void UpdateSessionUi()
     {
         SessionStopMenuItem.IsEnabled = VM.Session.IsActive;
         Title = BaseTitle;
+
+        // A start that names this session's file finds this window (one pipe per session that is on; see SingleInstance.SetSession).
+        SingleInstance.SetSession(this, VM.Session.FilePath, () => ActiveSessionName, HandleExternalStart);
     }
 
     // ── Navigation tree ───────────────────────────────────────────────────────

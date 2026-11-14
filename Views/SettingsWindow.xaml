@@ -40,11 +40,17 @@
         </Style>
     </Window.Resources>
 
-    <StackPanel Margin="12" MinWidth="420">
+    <!-- A Grid, not a StackPanel: a StackPanel gives its children unlimited height, so the tabs could never scroll. The window's MaxHeight
+         (set in code: the screen's working area) is what limits it; the tab pages scroll when they do not fit. -->
+    <Grid Margin="12" MinWidth="420">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-        <TabControl>
+        <TabControl Grid.Row="0">
             <TabItem Header="General">
-                <StackPanel Margin="8">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel Margin="8">
         <GroupBox Header="Appearance" Padding="8">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Style:" VerticalAlignment="Center" Margin="0,0,10,0"/>
@@ -85,7 +91,7 @@
         </GroupBox>
         <GroupBox Header="VirusTotal" Padding="8" Margin="0,8,0,0">
             <StackPanel>
-                <TextBlock TextWrapping="Wrap" Text="Your own free API key lets Send to VirusTotal show the result here and upload a file VirusTotal does not know yet. Without a key it only opens VirusTotal's page for the file."/>
+                <TextBlock TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left" Text="Your own free API key lets Send to VirusTotal show the result here and upload a file VirusTotal does not know yet. Without a key it only opens VirusTotal's page for the file."/>
                 <!-- Three columns in the order of the tab key: the label, the key (a PasswordBox, or a TextBox while the eye is pressed), the eye -->
                 <Grid Margin="0,6,0,0">
                     <Grid.ColumnDefinitions>
@@ -114,14 +120,26 @@
             <CheckBox x:Name="PreloadPlayerBox" Content="Preload SweWolf Media Player in the Background at Startup"
                       ToolTip="The first start of the player can take a long time while the antivirus program scans its files. On: when this program starts, the player is loaded once in the background, with no window, so it opens fast later."/>
         </GroupBox>
+        <GroupBox Header="When the Program Is Started Again" Padding="8" Margin="0,8,0,0">
+            <StackPanel>
+                <ComboBox x:Name="StartAgainBox" HorizontalAlignment="Left" Width="300"
+                          ToolTip="What happens when the program is started while it is already running (a shortcut, or another program that opens a folder or file here). If the running window cannot take it at that moment (a dialog is open, or it does not answer), a new window is opened anyway.">
+                    <ComboBoxItem Content="Use the Running Window"/>
+                    <ComboBoxItem Content="Start a New Window"/>
+                    <ComboBoxItem Content="Ask"/>
+                </ComboBox>
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left" Opacity="0.7"
+                           Text="In the running window, a folder opens in a new tab. If a session is on in that window, you are always asked first."/>
+            </StackPanel>
+        </GroupBox>
         <GroupBox Header="Updates" Padding="8" Margin="0,8,0,0">
             <CheckBox x:Name="CheckUpdatesBox" Content="Check for a New Version at Startup"
                       ToolTip="On: a few seconds after the program starts it asks GitHub whether a newer version has been released. If there is one, a link appears at the right end of the menu bar. Nothing is downloaded or installed, and nothing is sent except the request itself."/>
         </GroupBox>
-                </StackPanel>
+                </StackPanel></ScrollViewer>
             </TabItem>
             <TabItem Header="Files">
-                <StackPanel Margin="8">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel Margin="8">
         <GroupBox Header="Hidden Files" Padding="8" Margin="0,8,0,0">
             <StackPanel>
                 <TextBlock Text="Hide Files with These Extensions:" Margin="0,0,0,4"/>
@@ -152,10 +170,10 @@
                           ToolTip="After a video file is renamed with Use Smart Name, offers to move it to Movies (a movie) or TV Shows\Show Name (an episode) in your Videos folder, unless it is already in the Videos folder. You can change the folder before the file is moved."/>
             </StackPanel>
         </GroupBox>
-                </StackPanel>
+                </StackPanel></ScrollViewer>
             </TabItem>
             <TabItem Header="Menus">
-                <StackPanel Margin="8">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel Margin="8">
         <GroupBox Header="Folder Tree" Padding="8" Margin="0,8,0,0">
             <CheckBox x:Name="RightClickSelectsNodeBox" Content="Right-Clicking a Folder in the Tree Selects It"
                       ToolTip="On: a right-click on a folder in the tree selects it first, so the list shows that folder, as a right-click on a file in the list selects the file. Off: the selected folder and the list stay as they are, and the folder you right-clicked gets an outline while its menu is open, as in Windows Explorer."/>
@@ -170,10 +188,10 @@
                           ToolTip="Show Open in Command Prompt in the right-click menu of a folder"/>
             </StackPanel>
         </GroupBox>
-                </StackPanel>
+                </StackPanel></ScrollViewer>
             </TabItem>
             <TabItem Header="Security">
-                <StackPanel Margin="8">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel Margin="8">
         <GroupBox Header="Starting Programs" Padding="8" Margin="0,8,0,0">
             <StackPanel>
                 <CheckBox x:Name="AskBeforeProgramsBox" Content="Ask Before Starting a Program"
@@ -190,14 +208,14 @@
                          ToolTip="Extensions of your own, for example sh;lnk. Only the last extension of a file name counts. Right-click for Clear."/>
             </StackPanel>
         </GroupBox>
-                </StackPanel>
+                </StackPanel></ScrollViewer>
             </TabItem>
         </TabControl>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="OK" Width="115" Margin="0,0,6,0" IsDefault="True" Click="OkButton_Click"
                     BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"/>
             <Button Content="Cancel" Width="115" IsCancel="True"/>
         </StackPanel>
-    </StackPanel>
+    </Grid>
 </Window>

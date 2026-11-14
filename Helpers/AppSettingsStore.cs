@@ -112,6 +112,12 @@ public class AppSettings
     /// GitHub Releases is asked once; a newer version shows a link at the right end of the menu bar (MainWindow.CheckForUpdateAsync).</summary>
     public bool CheckForUpdatesOnStartup { get; set; } = true;
 
+    /// <summary>Settings > General > "When the Program Is Started Again": what a new start does while the program runs already
+    /// (<c>SingleInstance</c>): 0 = start a new window, 1 = use the running window (the default, the user's choice 2026-11-14; a folder or
+    /// file named on the command line opens there), 2 = ask (always, also when the start names a folder or file).
+    /// A running window that is busy (a dialog is open, it does not answer) always means a new window.</summary>
+    public int WhenStartedAgain { get; set; } = 1;
+
     /// <summary>The user's own VirusTotal API key, encrypted with Windows DPAPI for this Windows user and written as base64
     /// (Settings > VirusTotal; <c>VirusTotal.GetApiKey / SetApiKey</c>). Empty = no key: "Send to VirusTotal" only opens the page.</summary>
     public string VirusTotalApiKeyProtected { get; set; } = "";

@@ -7,6 +7,22 @@ public partial class SettingsWindow : Window
 {
     private static readonly string[] Styles = { "Light", "Dark", "System", "Cyber Cyan" };
 
+    // "When the Program Is Started Again": the box lists Use the Running Window, Start a New Window, Ask; the saved values are
+    // SingleInstance.ModeUseRunning (1), ModeNewWindow (0), ModeAsk (2), so the box's order is not the value (an old settings.json stays valid).
+    private static int StartAgainIndex(int value) => value switch
+    {
+        SingleInstance.ModeNewWindow => 1,
+        SingleInstance.ModeAsk       => 2,
+        _                            => 0,   // use the running window, also for an unknown value
+    };
+
+    private static int StartAgainValue(int index) => index switch
+    {
+        1 => SingleInstance.ModeNewWindow,
+        2 => SingleInstance.ModeAsk,
+        _ => SingleInstance.ModeUseRunning,
+    };
+
     private const string DefaultFontText = "Default";
 
     private static string DefaultFontLine() =>
@@ -42,6 +58,17 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
+
+        // Never taller than the screen: the tab pages scroll when they do not fit (a low-resolution screen). The window is also kept
+        // inside the working area, as it is centered on its owner and a tall window could end up with its buttons below the screen.
+        var work = SystemParameters.WorkArea;
+        MaxHeight = work.Height - 24;
+        Loaded += (_, _) =>
+        {
+            if (Top + ActualHeight > work.Bottom) Top = work.Bottom - ActualHeight;
+            if (Top < work.Top) Top = work.Top;
+        };
+
         var current = AppSettingsStore.Current;
         StyleBox.SelectedIndex = Math.Max(0, Array.IndexOf(Styles, current.Style));
         // The font list: the first line is the program's usual font. Only that and the chosen font are there at first; the whole list
@@ -67,6 +94,7 @@ public partial class SettingsWindow : Window
         DisableDragDropBox.IsChecked       = current.DisableInternalDragDrop;
         PreloadPlayerBox.IsChecked         = current.PreloadMediaPlayer;
         CheckUpdatesBox.IsChecked          = current.CheckForUpdatesOnStartup;
+        StartAgainBox.SelectedIndex        = StartAgainIndex(current.WhenStartedAgain);
         (current.RoundedProgressBars ? RoundedBarsBox : SquareBarsBox).IsChecked = true;
         VirusTotalKeyBox.Password          = VirusTotal.GetApiKey() ?? "";
         MediaPlayerGroup.Visibility        = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, nothing to preload
@@ -194,6 +222,7 @@ public partial class SettingsWindow : Window
         settings.DisableInternalDragDrop = DisableDragDropBox.IsChecked == true;
         settings.PreloadMediaPlayer      = PreloadPlayerBox.IsChecked == true;
         settings.CheckForUpdatesOnStartup = CheckUpdatesBox.IsChecked == true;
+        settings.WhenStartedAgain         = StartAgainValue(StartAgainBox.SelectedIndex);
         settings.RoundedProgressBars     = RoundedBarsBox.IsChecked == true;
         settings.WarnHiddenNotSelected   = WarnHiddenNotSelectedBox.IsChecked == true;
         settings.AskBeforeStartingPrograms = AskBeforeProgramsBox.IsChecked == true;
