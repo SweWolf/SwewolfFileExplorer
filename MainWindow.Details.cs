@@ -137,7 +137,15 @@ public partial class MainWindow
         Row("Rating", item.RatingText);
         Row("Expectation", item.ExpectationText);
 
-        RenderDetails(item.DisplayName, rows, fileForViewer: !item.IsDirectory);
+        // A track of a known audio CD is headed "Artist - Title"; the file name (Track03.cda) stays when the disc is not known (yet). The
+        // lookup raises CdDiscInfo.Updated, which calls ShowDetails again, so the header follows by itself when the answer comes later.
+        string header = item.DisplayName;
+        if (!item.IsDirectory && AudioTagReader.IsCdTrackName(item.FullPath) && tags is { } cd && !string.IsNullOrWhiteSpace(cd.Title))
+        {
+            header = string.IsNullOrWhiteSpace(cd.Artist) ? cd.Title.Trim() : $"{cd.Artist.Trim()} - {cd.Title.Trim()}";
+        }
+
+        RenderDetails(header, rows, fileForViewer: !item.IsDirectory);
     }
 
     private static string FormatLength(TimeSpan d) =>
