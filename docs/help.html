@@ -51,11 +51,16 @@ AI picture under the list.</p>
 <li><a href="#hidden-items">Hidden Items</a></li>
 <li><a href="#file-name-extensions">File Name Extensions</a></li>
 </ul></li>
+<li><a href="#checking-a-file-on-virustotal">Checking a File on
+VirusTotal</a></li>
 <li><a href="#the-info-panel">The Info Panel</a></li>
 <li><a href="#opening-files">Opening Files</a></li>
 <li><a href="#right-click-menus">Right-Click Menus</a></li>
 <li><a href="#copying-moving-and-deleting">Copying, Moving and
-Deleting</a></li>
+Deleting</a>
+<ul>
+<li><a href="#undo">Undo</a></li>
+</ul></li>
 <li><a href="#renaming">Renaming</a></li>
 <li><a href="#creating-things">Creating Things</a></li>
 <li><a href="#shortcuts">Shortcuts</a></li>
@@ -68,7 +73,12 @@ Deleting</a></li>
 <li><a href="#what-you-have-read-ratings-and-tags">What You Have Read,
 Ratings and Tags</a></li>
 <li><a href="#dragging-and-dropping">Dragging and Dropping</a></li>
-<li><a href="#settings">Settings</a></li>
+<li><a href="#starting-programs">Starting Programs</a></li>
+<li><a href="#settings">Settings</a>
+<ul>
+<li><a href="#your-own-file-type-names-and-icons">Your Own File Type
+Names and Icons</a></li>
+</ul></li>
 <li><a href="#starting-from-the-command-line">Starting from the Command
 Line</a></li>
 <li><a href="#keyboard-shortcuts">Keyboard Shortcuts</a></li>
@@ -222,7 +232,10 @@ under the tree says “N hidden folders (click to show)”.</li>
 (see <a href="#what-you-have-read-ratings-and-tags">What You Have
 Read</a>), its <strong>Rating</strong> and <strong>Expectation</strong>
 when it has them, its <strong>Tags</strong>, and a picture of the folder
-when it has one.</li>
+when it has one. Right-click the folder picture for <strong>Choose
+Folder Picture…</strong>, <strong>No Folder Picture</strong> or
+<strong>Use Automatic Folder Picture</strong>. Its small
+<strong>x</strong> hides it, and a small button brings it back.</li>
 <li><strong>Set as Tree Root:</strong> right-click a folder in the tree
 to make it the top of the tree (also possible for an archive). Up and
 Backspace then stop there. <strong>Reset Tree Root</strong> brings back
@@ -240,12 +253,12 @@ Size</strong>, <strong>Free Space</strong> and <strong>Tracking Data
 Location</strong> (see below). Double-click a drive to open it.
 Right-click a drive for <strong>Open</strong>, <strong>Open in New
 Tab</strong>, <strong>Open in Windows Explorer</strong>, the two
-tracking data items (<strong>Store Tracking Data…</strong> and
-<strong>Clean Up Tracking Data</strong>), <strong>Properties</strong>
-and <strong>More Options</strong>. A drive that you connect or remove
-shows up or goes by itself within a couple of seconds;
-<strong>F5</strong> does it at once and also reads the free space
-again.</p>
+tracking data items (<strong>Store Tracking Data (Read Marks, Folder
+Options, Ratings…) Locally on This Drive</strong> and <strong>Clean Up
+Tracking Data</strong>), <strong>Properties</strong> and <strong>More
+Options</strong>. A drive that you connect or remove shows up or goes by
+itself within a couple of seconds; <strong>F5</strong> does it at once
+and also reads the free space again.</p>
 <h3 id="where-the-tracking-data-is-kept">Where the Tracking Data Is
 Kept</h3>
 <p>What the program remembers about your files (read marks, ratings,
@@ -361,8 +374,11 @@ included. Later Than starts at 00:00 and Earlier Than at 23:59, so the
 whole chosen day is included until you change the time. In the time box
 the Up and Down arrows or the mouse wheel change the minutes, and Page
 Up and Page Down the hours. <strong>Any Date</strong> turns the date
-filter off. <strong>Rating</strong> works the same way for ratings. All
-the filters work together.</p>
+filter off. The <strong>Rating</strong> choice filters by your rating:
+<strong>Any Rating</strong>, <strong>At Least</strong>,
+<strong>Exactly</strong>, <strong>At Most</strong> or <strong>Unrated
+Only</strong>, with a number box (1 to 10). All the filters work
+together.</p>
 <h3 id="typing-a-name">Typing a Name</h3>
 <p>With the list or the tree in focus, type the first letters of a name
 to jump to it. Type the same letter again to go on to the next name that
@@ -427,14 +443,16 @@ Clear the box to remove it.</li>
 <h2 id="the-info-panel">The Info Panel</h2>
 <p>The line under the list says which item is selected (“File 14/17”),
 how many are selected (“7 of 62 files selected”), or how many items
-there are. Below it:</p>
+there are. Two small buttons at the right end scroll the list to the top
+and to the bottom. After <strong>Ctrl+D</strong> a note appears here
+with the link <strong>Go to Bookmarks now?</strong> Below it:</p>
 <ul>
 <li><strong>Details</strong> on the left: the name of the item, and rows
 that fit its kind: type, size, dates, and for pictures, music and videos
-also the dimensions, length, bitrate, artist, title and so on. With
-several items selected you see their number and total size. Two small
-buttons in the corner open <strong>Properties</strong> and <strong>File
-Info Viewer</strong>.</li>
+also the dimensions, length, bitrate, artist, title (for a video, the
+title stored inside the file) and so on. With several items selected you
+see their number and total size. Two small buttons in the corner open
+<strong>Properties</strong> and <strong>File Info Viewer</strong>.</li>
 <li><strong>A preview picture</strong> of the selected picture, or the
 cover of a music file, or a frame of a video. Click the preview to open
 the picture in the picture viewer.</li>
@@ -442,7 +460,12 @@ the picture in the picture viewer.</li>
 <code>.nfo</code> file next to it has one.</li>
 <li><strong>The prompt, negative prompt and seed</strong> of an AI
 picture made by ComfyUI, Automatic1111 (also Forge and SD.Next) or
-Wan2GP.</li>
+Wan2GP. Right-click a box for <strong>Copy</strong> (the selected text,
+or all of it when nothing is selected) and <strong>Copy All
+Text</strong>. The <strong>Prompt</strong> box also has <strong>Select
+All Files with This Prompt</strong>: it selects the files of the same
+type in the list that have the same prompt (spaces, punctuation and
+digits are ignored).</li>
 <li><strong>Where a file came from:</strong> the Zone ID, Host URL and
 Referrer URL that your web browser saved with a downloaded file. They
 are also remembered, so they show even when the file has lost them.</li>
@@ -474,7 +497,9 @@ preview to <strong>Choose Preview Picture…</strong>, to choose
 Picture</strong> again, or to <strong>Save Preview Picture
 As…</strong>.</p>
 <p>For a picture file, right-click the preview and choose <strong>Set as
-Folder Picture</strong> to make it the picture of the folder.</p>
+Folder Picture</strong> to make it the picture of the folder.
+<strong>Use Automatic Folder Picture</strong> is there too when the
+folder has a choice, and takes it away.</p>
 <h3 id="the-plot">The Plot</h3>
 <p>Double-click the plot area of a video or music file, or right-click
 it and choose <strong>Edit Plot…</strong>, to write or change the plot.
@@ -488,9 +513,11 @@ does.</p>
 <h2 id="opening-files">Opening Files</h2>
 <ul>
 <li><strong>Pictures</strong> open in the picture viewer.</li>
-<li><strong>Music and videos</strong> open in SweWolf Media Player. If
-it is not found next to the program, the program Windows has for the
-file opens it.</li>
+<li><strong>Music and videos</strong> open in SweWolf Media Player; so
+do the <code>.cda</code> tracks of an audio CD. If the player is not
+found (in the same folder as this program, or in a sibling folder called
+<code>SwewolfMediaPlayer</code>), the program Windows has for the file
+opens it.</li>
 <li><strong>Archives</strong> (zip, RAR and so on) are opened like
 folders.</li>
 <li><strong>Everything else</strong> opens in the program Windows has
@@ -705,8 +732,15 @@ address becomes an Internet shortcut with the title and icon of the
 page.</li>
 <li>A bookmark of a video or music file can start at a time. SweWolf
 Media Player can make such a bookmark.</li>
-<li>Right-click a bookmark to rename or remove it. Removing a bookmark
-never touches the file or folder it points to, and does not ask.</li>
+<li>Right-click a bookmark, a group or the <strong>Bookmarks</strong>
+node for <strong>Open in New Tab</strong>, <strong>Rename
+Bookmark…</strong> (or <strong>Rename Group…</strong>), <strong>Remove
+Bookmark</strong> (or <strong>Remove Group</strong>), <strong>Add This
+Folder to Bookmarks</strong> and <strong>Show Bookmarks Folder</strong>,
+as far as they fit what you clicked. Removing a bookmark never touches
+the file or folder it points to, and does not ask.</li>
+<li>After <strong>Ctrl+D</strong>, a note with the link <strong>Go to
+Bookmarks now?</strong> appears in the info line.</li>
 </ul>
 <h2 id="workspaces-and-sessions">Workspaces and Sessions</h2>
 <p>A <strong>workspace</strong> is a set of folders that you save by
@@ -714,22 +748,50 @@ hand. A <strong>session</strong> is your open tabs, remembered all the
 time.</p>
 <ul>
 <li><strong>Workspace &gt; Save Current Tabs as Workspace…</strong>
-saves the open tabs. <strong>Workspace &gt; Open</strong> opens a saved
-one, in new tabs. You can close the current tabs first, or keep
-them.</li>
+saves the open tabs. Every saved workspace is listed at the bottom of
+the <strong>Workspace</strong> menu: click one to open it in new tabs.
+You can close the current tabs first, or keep them.</li>
 <li><strong>Session &gt; Start New Session…</strong> starts remembering
 your tabs under a name. The window title then shows the session.
-<strong>Session &gt; Open</strong> brings back a session, and
-<strong>Stop Session</strong> stops remembering.</li>
-<li>Both menus have <strong>Delete</strong> and <strong>Show
-Folder</strong> (it opens the folder in a new tab), and <strong>Create
-Shortcut to Workspace / Session…</strong> makes a shortcut that starts
-the program with it.</li>
+<strong>Stop Session</strong> stops remembering. Saved sessions are
+listed at the bottom of the <strong>Session</strong> menu (the one in
+use has a check mark): click one to bring it back.</li>
+<li><strong>Workspace Manager</strong> and <strong>Session
+Manager</strong> open a window with all the saved ones (see below).</li>
+<li><strong>Create Shortcut to Workspace “Name”…</strong> is in the
+Workspace menu once you have opened or saved a workspace, and
+<strong>Create Shortcut to Session “Name”…</strong> is in the Session
+menu while a session is on. The shortcut starts the program with
+it.</li>
 </ul>
 <p>Each workspace and session is one small file that you can copy to
 another computer. A folder that is not available (a drive that is not
 connected) is kept and shown as “(unavailable)”; press
 <strong>F5</strong> to try again.</p>
+<h3 id="the-workspace-manager-and-the-session-manager">The Workspace
+Manager and the Session Manager</h3>
+<p>The window lists the saved ones (the session in use is marked “(in
+use)”) with these buttons: <strong>Open</strong>,
+<strong>Rename…</strong>, <strong>Delete</strong>, <strong>Create
+Shortcut…</strong> and <strong>Move to Volume…</strong>. A double-click
+or Enter opens one, <strong>F2</strong> renames and
+<strong>Delete</strong> deletes. The <strong>Advanced</strong> check box
+also shows the number of tabs and when each was last changed, and an
+<strong>Open Folder</strong> button that opens the folder of the files
+in a new tab.</p>
+<p><strong>Move to Volume…</strong> moves the file to a folder you
+choose, for example on a USB stick, to use it on another computer. The
+folders on the drive of the file are saved without the drive letter, so
+they still work when the stick has another letter there. Tabs on other
+drives keep their full path (you are warned first). The program does not
+remember where the file went: open it by starting the program with it
+(see <a href="#starting-from-the-command-line">Starting from the Command
+Line</a>) or with a shortcut made by <strong>Create
+Shortcut…</strong>.</p>
+<p>A workspace or session file shown in the list asks <strong>Do you
+want to open this session now?</strong> when you open it: <strong>Open
+the Session</strong>, <strong>Open the File</strong> or
+<strong>Cancel</strong>.</p>
 <h2 id="the-picture-viewer">The Picture Viewer</h2>
 <p>Open a picture to see it full screen. The viewer goes through the
 pictures of the list, in the order of the list.</p>
@@ -779,7 +841,7 @@ pictures of the list, in the order of the list.</p>
 </tr>
 <tr>
 <td><strong>Ctrl+K</strong> / <strong>Ctrl+L</strong></td>
-<td>Turn the picture (for viewing only: the file is never changed)</td>
+<td>Turn the picture; a question then offers to save it (see below)</td>
 </tr>
 <tr>
 <td>F11, F, double-click</td>
@@ -841,6 +903,19 @@ and <strong>Move to Trash Folder</strong> ask whether they go along:
 <strong>Yes</strong> takes them too, <strong>No</strong> only the
 picture, <strong>Cancel</strong> nothing. The viewer does not move
 pictures inside an archive or a playlist.</p>
+<p><strong>Turning a picture:</strong> after <strong>Ctrl+K</strong> or
+<strong>Ctrl+L</strong> a panel in the lower right corner asks
+<strong>Do you want to save the turned picture?</strong>
+(<strong>Yes</strong>: Y, <strong>No</strong>: N or Enter,
+<strong>Cancel</strong>: Esc). A JPEG is turned without losing quality
+(only its orientation value changes), and a PNG keeps its prompt and
+other data. For other kinds (WebP, RAW, Photoshop, SVG, JPEG XL, a file
+in an archive) the panel offers <strong>Save Copy…</strong> instead, and
+the original is never changed. <strong>No</strong> keeps the turn for
+viewing only.</p>
+<p>A picture you delete or move to the Trash folder in the viewer can
+also be taken back with <strong>Undo</strong> in the explorer window
+afterwards.</p>
 <p>At the end of the list you can <strong>Go to Next Folder</strong>,
 <strong>Start from Beginning</strong> or <strong>Close</strong>. After
 10 seconds the first choice is made for you; move the mouse or press a
@@ -868,6 +943,9 @@ Show), Single Play, Repeat, Demo Play, Intro Play or Random Order.</li>
 <li><strong>Time per File (s)</strong>, <strong>End of List
 Action</strong> (Go to Next Folder, Start from Beginning or Close),
 <strong>Ask First</strong> and <strong>Time-out (s)</strong>.</li>
+<li><strong>Stop</strong> (the square button) closes the media player
+and ends the list. <strong>Show Media Player</strong>, at the right,
+brings the player to the front.</li>
 </ul>
 <p>Pictures are shown in the picture viewer. Music and videos play in
 SweWolf Media Player, which the explorer controls. With the Play bar
@@ -929,11 +1007,13 @@ dropping files into the program.</p>
 <h2 id="starting-programs">Starting Programs</h2>
 <p>Before the program starts a program (a double-click or Enter on it in
 the list, a bookmark that points to it, or files dropped on it) it asks
-<strong>Do you want to start this program?</strong> The question shows
-the program’s own icon (or the icon of its file type), the name and the
-whole path, and then, a moment later, what can be read from the file:
-product, description, company, version, size, date and where it was
-downloaded from.</p>
+<strong>Do you want to start this program?</strong> (for a program
+inside a compressed file: <strong>This program is inside a compressed
+file. Do you want to start it?</strong>). The window is called
+<strong>Security Check</strong>. It shows the program’s own icon (or the
+icon of its file type), the name and the whole path, and then, a moment
+later, what can be read from the file: product, description, company,
+version, size, date and where it was downloaded from.</p>
 <ul>
 <li><strong>Start</strong> starts the program (a PowerShell script runs
 in a PowerShell window that stays open; with .ps1 unchecked in Settings,
@@ -982,25 +1062,35 @@ you press OK.</li>
 <p>Windows’ own <strong>More Options</strong> menu is not covered:
 Windows asks for itself there.</p>
 <h2 id="settings">Settings</h2>
-<p>Open <strong>Tools &gt; Settings</strong>. Among other things you can
-choose:</p>
+<p>Open <strong>Tools &gt; Settings</strong>. The window has four tabs:
+<strong>General</strong>, <strong>Files</strong>, <strong>Menus</strong>
+and <strong>Security</strong>. Among other things you can choose:</p>
 <ul>
-<li><strong>Style:</strong> Light, Dark, System (follows Windows) or
-Cyber Cyan.</li>
+<li><strong>Appearance, Style:</strong> Light, Dark, System (follows
+Windows) or Cyber Cyan.</li>
 <li><strong>Font:</strong> the font of the file list and the folder tree
 (the size is set with Ctrl + mouse wheel).</li>
-<li><strong>Appearance:</strong> the style, and how unread files look
-(bold, italic).</li>
+<li><strong>Progress Bars:</strong> <strong>Square</strong> or
+<strong>Rounded</strong>.</li>
+<li><strong>Unread Files:</strong> how unread files look (bold,
+italic).</li>
 <li><strong>Drag and Drop:</strong> turn off dropping files into the
 program.</li>
-<li><strong>Hidden Files:</strong> the extensions that count as hidden,
-extra extensions to hide inside archives, and the warning when all files
-are selected but hidden items are not.</li>
-<li><strong>File Names:</strong> hide extensions, the registered name of
-file types in the Type column, and the offer to move renamed
-videos.</li>
-<li><strong>Folder Tree:</strong> whether a right-click selects the
-folder.</li>
+<li><strong>VirusTotal:</strong> your own API key (see <a href="#checking-a-file-on-virustotal">Checking a File on
+VirusTotal</a>).</li>
+<li><strong>Hidden Files</strong> (Files tab): the extensions that count
+as hidden, extra extensions to hide inside archives, and the warning
+when all files are selected but hidden items are not.</li>
+<li><strong>File Names</strong> (Files tab): hide extensions of known
+file types, show the registered name of file types in the Type column,
+the offer to move renamed videos, and two check boxes, <strong>Use
+SweWolf File Explorer’s Own Definition of Icons (Recommended)</strong>
+(Windows 11 only) and <strong>Use SweWolf File Explorer’s Own Definition
+of File Type Names (Recommended)</strong>. They give common file types
+(for example mp3, wav, mkv, jpg) a friendlier name and icon. Your own
+choices are in <code>FileTypes.json</code> (see below).</li>
+<li><strong>Folder Tree</strong> (Menus tab): whether a right-click
+selects the folder.</li>
 <li><strong>Security:</strong> ask before a program is started (and,
 separately, one inside a compressed file), which file types count as
 programs, and forgetting the “Don’t Ask Again” choices (see Starting
@@ -1015,6 +1105,23 @@ videos open fast later.</li>
 </ul>
 <p>The settings are saved in
 <code>%AppData%\SweWolfSoftware\SwewolfFileExplorer\settings.json</code>.</p>
+<h3 id="your-own-file-type-names-and-icons">Your Own File Type Names and
+Icons</h3>
+<p>To give a file type your own name or icon, make the file
+<code>%AppData%\SweWolfSoftware\SwewolfFileExplorer\FileTypes.json</code>,
+for example:</p>
+<pre><code>{ &quot;wav&quot;: { &quot;description&quot;: &quot;WAV Audio File&quot;, &quot;icon&quot;: &quot;%SystemRoot%\\System32\\shell32.dll,116&quot; } }</code></pre>
+<p>The keys are file extensions (with or without the dot). Both
+<code>description</code> and <code>icon</code> are optional. An icon is
+a picture file (<code>.ico</code>, <code>.png</code> …) or
+<code>file,number</code> for an icon inside a DLL or EXE;
+<code>%VAR%</code> names are understood, and a path that is not complete
+starts in the folder of <code>FileTypes.json</code>. Your list is used
+first, then the program’s own list, then the registered name (if that is
+chosen), then what Windows says. The file is read again when you press
+<strong>F5</strong>. Programs, icons, shortcuts and a few other types
+always keep their own icons. A mistake in the file is written to the log
+file and the normal name or icon is used.</p>
 <h2 id="starting-from-the-command-line">Starting from the Command
 Line</h2>
 <p><code>SwewolfFileExplorer.exe &quot;path&quot;</code> starts the program like
@@ -1054,6 +1161,10 @@ it is opened.</li>
 <tr>
 <td>Alt+Up</td>
 <td>Up one folder, from anywhere</td>
+</tr>
+<tr>
+<td>Alt+Home</td>
+<td>Go to This PC</td>
 </tr>
 <tr>
 <td>Alt+Left / Alt+Right</td>
@@ -1102,6 +1213,14 @@ it is opened.</li>
 <tr>
 <td>Ctrl+Shift+N</td>
 <td>New folder</td>
+</tr>
+<tr>
+<td>Ctrl+M</td>
+<td>Move/Copy to Folder…</td>
+</tr>
+<tr>
+<td>Ctrl+S</td>
+<td>Save the playlist that is shown</td>
 </tr>
 <tr>
 <td>Ctrl+T or Ctrl+N</td>

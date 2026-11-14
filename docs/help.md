@@ -20,10 +20,12 @@ archives like folders, and shows a preview, a plot or the prompt of an AI pictur
   - [Selecting Files](#selecting-files)
   - [Hidden Items](#hidden-items)
   - [File Name Extensions](#file-name-extensions)
+- [Checking a File on VirusTotal](#checking-a-file-on-virustotal)
 - [The Info Panel](#the-info-panel)
 - [Opening Files](#opening-files)
 - [Right-Click Menus](#right-click-menus)
 - [Copying, Moving and Deleting](#copying-moving-and-deleting)
+  - [Undo](#undo)
 - [Renaming](#renaming)
 - [Creating Things](#creating-things)
 - [Shortcuts](#shortcuts)
@@ -35,7 +37,9 @@ archives like folders, and shows a preview, a plot or the prompt of an AI pictur
 - [The Play Bar](#the-play-bar)
 - [What You Have Read, Ratings and Tags](#what-you-have-read-ratings-and-tags)
 - [Dragging and Dropping](#dragging-and-dropping)
+- [Starting Programs](#starting-programs)
 - [Settings](#settings)
+  - [Your Own File Type Names and Icons](#your-own-file-type-names-and-icons)
 - [Starting from the Command Line](#starting-from-the-command-line)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Log Files](#log-files)
@@ -132,7 +136,9 @@ Music and Videos) and **This PC**.
   folders (click to show)".
 - Under the tree you see the **Status** of the folder (see
   [What You Have Read](#what-you-have-read-ratings-and-tags)), its **Rating** and **Expectation**
-  when it has them, its **Tags**, and a picture of the folder when it has one.
+  when it has them, its **Tags**, and a picture of the folder when it has one. Right-click the folder
+  picture for **Choose Folder Picture...**, **No Folder Picture** or **Use Automatic Folder Picture**. Its small **x** hides it,
+  and a small button brings it back.
 - **Set as Tree Root:** right-click a folder in the tree to make it the top of the tree (also
   possible for an archive). Up and Backspace then stop there. **Reset Tree Root** brings back the normal tree.
 - Press **F8**, or click **Tree** in the toolbar, to hide and show the tree.
@@ -144,7 +150,7 @@ Typing a letter in the tree selects the next visible folder that starts with it.
 Click **This PC** in the tree to see your drives in a list of their own, as in Windows Explorer:
 **Name**, **Type**, **File System**, **Total Size**, **Free Space** and **Tracking Data Location**
 (see below). Double-click a drive to open it. Right-click a drive for **Open**, **Open in New Tab**, **Open in Windows
-Explorer**, the two tracking data items (**Store Tracking Data...** and **Clean Up Tracking Data**), **Properties** and **More Options**. A drive that you connect or remove
+Explorer**, the two tracking data items (**Store Tracking Data (Read Marks, Folder Options, Ratings...) Locally on This Drive** and **Clean Up Tracking Data**), **Properties** and **More Options**. A drive that you connect or remove
 shows up or goes by itself within a couple of seconds; **F5** does it at once and also reads the free space again.
 
 ### Where the Tracking Data Is Kept
@@ -229,7 +235,8 @@ The bar also has a **Modified** choice: **Later Than** or **Earlier Than** shows
 list shows only the items modified after or before that moment; an item modified at exactly that
 minute is included. Later Than starts at 00:00 and Earlier Than at 23:59, so the whole chosen day is
 included until you change the time. In the time box the Up and Down arrows or the mouse wheel change
-the minutes, and Page Up and Page Down the hours. **Any Date** turns the date filter off. **Rating** works the same way for ratings. All the filters work together.
+the minutes, and Page Up and Page Down the hours. **Any Date** turns the date filter off. The **Rating** choice filters by your rating: **Any Rating**, **At Least**, **Exactly**,
+**At Most** or **Unrated Only**, with a number box (1 to 10). All the filters work together.
 
 ### Typing a Name
 
@@ -284,18 +291,21 @@ flagged this file"), with an offer to open the full report.
 
 ## The Info Panel
 
-The line under the list says which item is selected ("File 14/17"), how many are selected ("7 of 62 files selected"), or how many items there are.
+The line under the list says which item is selected ("File 14/17"), how many are selected ("7 of 62 files selected"), or how many items there are. Two small buttons at the right end scroll the list to the top and to the bottom. After **Ctrl+D** a note
+appears here with the link **Go to Bookmarks now?**
 Below it:
 
 - **Details** on the left: the name of the item, and rows that fit its kind: type, size, dates,
-  and for pictures, music and videos also the dimensions, length, bitrate, artist, title and
-  so on. With several items selected you see their number and total size. Two small buttons in the corner open
+  and for pictures, music and videos also the dimensions, length, bitrate, artist, title (for a video, the title stored inside
+  the file) and so on. With several items selected you see their number and total size. Two small buttons in the corner open
   **Properties** and **File Info Viewer**.
 - **A preview picture** of the selected picture, or the cover of a music file, or a frame of a
   video. Click the preview to open the picture in the picture viewer.
 - **The plot** of a video or music file, when a `.nfo` file next to it has one.
 - **The prompt, negative prompt and seed** of an AI picture made by ComfyUI, Automatic1111 (also
-  Forge and SD.Next) or Wan2GP.
+  Forge and SD.Next) or Wan2GP. Right-click a box for **Copy** (the selected text, or all of it when nothing is
+  selected) and **Copy All Text**. The **Prompt** box also has **Select All Files with This Prompt**: it selects the files of the
+  same type in the list that have the same prompt (spaces, punctuation and digits are ignored).
 - **Where a file came from:** the Zone ID, Host URL and Referrer URL that your web browser saved
   with a downloaded file. They are also remembered, so they show even when the file has lost them.
 - **Audio Source:** the web page of a music file, shown under the Referrer URL. It is read from the
@@ -318,6 +328,7 @@ Right-click the preview to **Choose Preview Picture...**, to choose **No Preview
 **Use Automatic Preview Picture** again, or to **Save Preview Picture As...**.
 
 For a picture file, right-click the preview and choose **Set as Folder Picture** to make it the picture of the folder.
+**Use Automatic Folder Picture** is there too when the folder has a choice, and takes it away.
 
 ### The Plot
 
@@ -331,8 +342,8 @@ opens the whole file in the text editor, as a double-click on the `.nfo` file do
 ## Opening Files
 
 - **Pictures** open in the picture viewer.
-- **Music and videos** open in SweWolf Media Player. If it is not found next to the program, the
-  program Windows has for the file opens it.
+- **Music and videos** open in SweWolf Media Player; so do the `.cda` tracks of an audio CD. If the player is not found
+  (in the same folder as this program, or in a sibling folder called `SwewolfMediaPlayer`), the program Windows has for the file opens it.
 - **Archives** (zip, RAR and so on) are opened like folders.
 - **Everything else** opens in the program Windows has for it, started in the folder of the file.
 - A `.nfo` file opens in a text editor (Visual Studio Code if you have it, otherwise Notepad).
@@ -492,23 +503,42 @@ Explorer. Folders in it are groups.
 - Paste (**Ctrl+V**) or drop files, folders or a web address into the Bookmarks folder or a group to
   make bookmarks. A web address becomes an Internet shortcut with the title and icon of the page.
 - A bookmark of a video or music file can start at a time. SweWolf Media Player can make such a bookmark.
-- Right-click a bookmark to rename or remove it. Removing a bookmark never touches the file or folder it points to,
-  and does not ask.
+- Right-click a bookmark, a group or the **Bookmarks** node for **Open in New Tab**, **Rename Bookmark...** (or **Rename Group...**),
+  **Remove Bookmark** (or **Remove Group**), **Add This Folder to Bookmarks** and **Show Bookmarks Folder**, as far as they fit what
+  you clicked. Removing a bookmark never touches the file or folder it points to, and does not ask.
+- After **Ctrl+D**, a note with the link **Go to Bookmarks now?** appears in the info line.
 
 ## Workspaces and Sessions
 
 A **workspace** is a set of folders that you save by hand. A **session** is your open tabs,
 remembered all the time.
 
-- **Workspace > Save Current Tabs as Workspace...** saves the open tabs. **Workspace > Open** opens a
-  saved one, in new tabs. You can close the current tabs first, or keep them.
+- **Workspace > Save Current Tabs as Workspace...** saves the open tabs. Every saved workspace is listed at the bottom of the
+  **Workspace** menu: click one to open it in new tabs. You can close the current tabs first, or keep them.
 - **Session > Start New Session...** starts remembering your tabs under a name. The window title
-  then shows the session. **Session > Open** brings back a session, and **Stop Session** stops remembering.
-- Both menus have **Delete** and **Show Folder** (it opens the folder in a new tab), and **Create Shortcut to Workspace / Session...**
-  makes a shortcut that starts the program with it.
+  then shows the session. **Stop Session** stops remembering. Saved sessions are listed at the bottom of the **Session** menu (the
+  one in use has a check mark): click one to bring it back.
+- **Workspace Manager** and **Session Manager** open a window with all the saved ones (see below).
+- **Create Shortcut to Workspace "Name"...** is in the Workspace menu once you have opened or saved a workspace, and
+  **Create Shortcut to Session "Name"...** is in the Session menu while a session is on. The shortcut starts the program with it.
 
 Each workspace and session is one small file that you can copy to another computer. A folder
 that is not available (a drive that is not connected) is kept and shown as "(unavailable)"; press **F5** to try again.
+
+### The Workspace Manager and the Session Manager
+
+The window lists the saved ones (the session in use is marked "(in use)") with these buttons: **Open**, **Rename...**, **Delete**,
+**Create Shortcut...** and **Move to Volume...**. A double-click or Enter opens one, **F2** renames and **Delete** deletes. The **Advanced**
+check box also shows the number of tabs and when each was last changed, and an **Open Folder** button that opens the folder of the
+files in a new tab.
+
+**Move to Volume...** moves the file to a folder you choose, for example on a USB stick, to use it on another computer. The folders on the
+drive of the file are saved without the drive letter, so they still work when the stick has another letter there. Tabs on other drives keep
+their full path (you are warned first). The program does not remember where the file went: open it by starting the program with it (see
+[Starting from the Command Line](#starting-from-the-command-line)) or with a shortcut made by **Create Shortcut...**.
+
+A workspace or session file shown in the list asks **Do you want to open this session now?** when you open it: **Open the Session**,
+**Open the File** or **Cancel**.
 
 ## The Picture Viewer
 
@@ -525,7 +555,7 @@ the order of the list.
 | Num * | Fit the picture to the window (also enlarges) |
 | Num / | Normal size (fit, never enlarges) |
 | Drag | Move a zoomed picture |
-| **Ctrl+K** / **Ctrl+L** | Turn the picture (for viewing only: the file is never changed) |
+| **Ctrl+K** / **Ctrl+L** | Turn the picture; a question then offers to save it (see below) |
 | F11, F, double-click | Full screen, or a window |
 | Delete | Move the picture to the Recycle Bin, after a question |
 | Esc, X | Close |
@@ -553,6 +583,13 @@ When files belong to the picture (`photo.xmp`, `photo.aae`, `photo.jpg.json`, or
 **Move/Copy to Folder** and **Move to Trash Folder** ask whether they go along: **Yes** takes them too, **No** only the picture,
 **Cancel** nothing. The viewer does not move pictures inside an archive or a playlist.
 
+**Turning a picture:** after **Ctrl+K** or **Ctrl+L** a panel in the lower right corner asks **Do you want to save the turned picture?**
+(**Yes**: Y, **No**: N or Enter, **Cancel**: Esc). A JPEG is turned without losing quality (only its orientation value changes), and a PNG keeps
+its prompt and other data. For other kinds (WebP, RAW, Photoshop, SVG, JPEG XL, a file in an archive) the panel offers **Save Copy...**
+instead, and the original is never changed. **No** keeps the turn for viewing only.
+
+A picture you delete or move to the Trash folder in the viewer can also be taken back with **Undo** in the explorer window afterwards.
+
 At the end of the list you can **Go to Next Folder**, **Start from Beginning** or **Close**. After 10
 seconds the first choice is made for you; move the mouse or press a key to stop the count.
 
@@ -573,6 +610,8 @@ gets the keys itself).
 - **Play Mode:** Continuous Play (also called Slide Show), Single Play, Repeat, Demo Play, Intro Play or Random Order.
 - **Time per File (s)**, **End of List Action** (Go to Next Folder, Start from Beginning or Close),
   **Ask First** and **Time-out (s)**.
+- **Stop** (the square button) closes the media player and ends the list. **Show Media Player**, at the right, brings the player
+  to the front.
 
 Pictures are shown in the picture viewer. Music and videos play in SweWolf Media Player, which
 the explorer controls. With the Play bar shown, a double-click on a video or song starts a playlist from that file.
@@ -613,7 +652,7 @@ Renaming, moving and deleting in this program keeps all of this correct. Changes
 ## Starting Programs
 
 Before the program starts a program (a double-click or Enter on it in the list, a bookmark that points to it, or files dropped on it) it
-asks **Do you want to start this program?** The question shows the program's own icon (or the icon of its file type), the name and the whole path, and then, a moment later, what can be read from
+asks **Do you want to start this program?** (for a program inside a compressed file: **This program is inside a compressed file. Do you want to start it?**). The window is called **Security Check**. It shows the program's own icon (or the icon of its file type), the name and the whole path, and then, a moment later, what can be read from
 the file: product, description, company, version, size, date and where it was downloaded from.
 
 - **Start** starts the program (a PowerShell script runs in a PowerShell window that stays open; with .ps1 unchecked in Settings, Windows opens it in Notepad instead). **Cancel** does not. For a script (a batch file, VBScript, JavaScript, PowerShell, Python), or any file type of your own that looks like text, **Open in Visual Studio Code** (or **Open in Notepad**; for a PowerShell script **Open in Windows PowerShell ISE**) shows it in your text editor, so you can read what it does before you start it. **Send to VirusTotal** (above the boxes) checks the file on VirusTotal, as in the right-click menu; only that file is checked, not the files (such as DLL files) it uses.
@@ -635,21 +674,40 @@ Windows' own **More Options** menu is not covered: Windows asks for itself there
 
 ## Settings
 
-Open **Tools > Settings**. Among other things you can choose:
+Open **Tools > Settings**. The window has four tabs: **General**, **Files**, **Menus** and **Security**. Among other things you can choose:
 
-- **Style:** Light, Dark, System (follows Windows) or Cyber Cyan.
+- **Appearance, Style:** Light, Dark, System (follows Windows) or Cyber Cyan.
 - **Font:** the font of the file list and the folder tree (the size is set with Ctrl + mouse wheel).
-- **Appearance:** the style, and how unread files look (bold, italic).
+- **Progress Bars:** **Square** or **Rounded**.
+- **Unread Files:** how unread files look (bold, italic).
 - **Drag and Drop:** turn off dropping files into the program.
-- **Hidden Files:** the extensions that count as hidden, extra extensions to hide inside archives, and the warning when
+- **VirusTotal:** your own API key (see [Checking a File on VirusTotal](#checking-a-file-on-virustotal)).
+- **Hidden Files** (Files tab): the extensions that count as hidden, extra extensions to hide inside archives, and the warning when
   all files are selected but hidden items are not.
-- **File Names:** hide extensions, the registered name of file types in the Type column, and the offer to move renamed videos.
-- **Folder Tree:** whether a right-click selects the folder.
+- **File Names** (Files tab): hide extensions of known file types, show the registered name of file types in the Type column, the
+  offer to move renamed videos, and two check boxes, **Use SweWolf File Explorer's Own Definition of Icons (Recommended)** (Windows 11 only) and
+  **Use SweWolf File Explorer's Own Definition of File Type Names (Recommended)**. They give common file types (for example mp3, wav,
+  mkv, jpg) a friendlier name and icon. Your own choices are in `FileTypes.json` (see below).
+- **Folder Tree** (Menus tab): whether a right-click selects the folder.
 - **Security:** ask before a program is started (and, separately, one inside a compressed file), which file types count as programs, and forgetting the "Don't Ask Again" choices (see Starting Programs).
 - **Terminal Menu:** which of the three terminals are in the menus.
 - **Media Player:** preload SweWolf Media Player in the background at startup (on by default; only shown when the player is found). The first start of the player can be slow while your antivirus program scans its files; the preload does that once, with no window, so videos open fast later.
 
 The settings are saved in `%AppData%\SweWolfSoftware\SwewolfFileExplorer\settings.json`.
+
+### Your Own File Type Names and Icons
+
+To give a file type your own name or icon, make the file `%AppData%\SweWolfSoftware\SwewolfFileExplorer\FileTypes.json`, for example:
+
+```
+{ "wav": { "description": "WAV Audio File", "icon": "%SystemRoot%\\System32\\shell32.dll,116" } }
+```
+
+The keys are file extensions (with or without the dot). Both `description` and `icon` are optional. An icon is a picture file (`.ico`,
+`.png` ...) or `file,number` for an icon inside a DLL or EXE; `%VAR%` names are understood, and a path that is not complete starts in
+the folder of `FileTypes.json`. Your list is used first, then the program's own list, then the registered name (if that is chosen), then
+what Windows says. The file is read again when you press **F5**. Programs, icons, shortcuts and a few other types always keep
+their own icons. A mistake in the file is written to the log file and the normal name or icon is used.
 
 ## Starting from the Command Line
 
@@ -667,6 +725,7 @@ The settings are saved in `%AppData%\SweWolfSoftware\SwewolfFileExplorer\setting
 | Enter / double-click | Open the file or folder |
 | Backspace | Up one folder (in the list) |
 | Alt+Up | Up one folder, from anywhere |
+| Alt+Home | Go to This PC |
 | Alt+Left / Alt+Right | Back / forward |
 | F1 | This help |
 | F2 | Rename |
@@ -679,6 +738,8 @@ The settings are saved in `%AppData%\SweWolfSoftware\SwewolfFileExplorer\setting
 | Ctrl+Z | Undo the last delete, rename, move, copy or new folder / file |
 | Ctrl+Shift+C | Copy the path of the selected items |
 | Ctrl+Shift+N | New folder |
+| Ctrl+M | Move/Copy to Folder... |
+| Ctrl+S | Save the playlist that is shown |
 | Ctrl+T or Ctrl+N | New tab |
 | Ctrl+W or Ctrl+F4 | Close the tab |
 | Ctrl+Shift+T | Reopen the last closed tab |
