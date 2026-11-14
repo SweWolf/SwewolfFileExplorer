@@ -14,7 +14,16 @@ public class TreeItemViewModel : INotifyPropertyChanged
     private bool _isSelected;
     private bool _childrenLoaded;
 
-    public string Name { get; }
+    private string _name = "";
+    public string Name
+    {
+        get => _name;
+        private set { if (_name == value) return; _name = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Changes the text of the node (a drive that is an audio CD gets the album's name once it is known).</summary>
+    public void SetLabel(string text) => Name = text;
+
     public string FullPath { get; }
     private ImageSource? _icon;
     public ImageSource? Icon

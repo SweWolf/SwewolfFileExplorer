@@ -87,7 +87,8 @@ public static class FolderCoverFinder
         if (FromDesktopIni(folder, files) is { } icon) return icon;
 
         // 2. The cover embedded in a music file.
-        var music = files.Where(AudioTagReader.HasTags)
+        // (The tracks of an audio CD count: their cover is the album's front picture, from MusicBrainz, kept on this computer.)
+        var music = files.Where(f => AudioTagReader.HasTags(f) || AudioTagReader.IsCdTrackName(f))
             .OrderBy(f => System.IO.Path.GetFileName(f), Comparer<string>.Create(FileItemComparer.NaturalCompare))
             .Take(MaxMusicFilesTried);
         foreach (var song in music)

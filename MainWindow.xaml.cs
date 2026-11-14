@@ -152,6 +152,16 @@ public partial class MainWindow : Window
         VM.Session.Changed += UpdateSessionUi;
         UpdateSessionUi();
 
+        // The lookup of an audio CD (MusicBrainz, in the background) found its titles and cover: every tab that shows that disc reads its
+        // tags again and looks for the album cover, and the preview and the details of a selected track follow.
+        CdDiscInfo.Updated += discId => Dispatcher.BeginInvoke(new Action(() =>
+        {
+            foreach (var tab in VM.Tabs) tab.OnCdInfoUpdated(discId);
+            VM.SyncDrivesNow();   // the drive's node and its line on This PC now say "Artist - Album" instead of "Audio CD"
+            if (_mediaPreviewItem is { } shown && AudioTagReader.IsCdTrackName(shown.FullPath)) ShowThumbnail(shown);
+            QueueInfoUpdate();
+        }));
+
         // A few seconds after the window is on screen: load the media player once in the background (antivirus scan, disk cache).
         ContentRendered += (_, _) =>
         {
@@ -2564,7 +2574,8 @@ public partial class MainWindow : Window
 
         // A video or music file: the user's choice, a picture built into the file, a picture file next to it, for a video a
         // frame Windows makes (PreviewPictureFinder). Not inside an archive.
-        if (!item.IsInArchive && (MediaPlayerLauncher.IsVideo(path) || AudioTagReader.HasTags(path)))
+        // (A track of an audio CD too: the preview is the album's front cover, from MusicBrainz, kept on this computer.)
+        if (!item.IsInArchive && (MediaPlayerLauncher.IsVideo(path) || AudioTagReader.HasTags(path) || AudioTagReader.IsCdTrackName(path)))
         {
             _mediaPreviewItem = item;
             var found = await Task.Run(() =>

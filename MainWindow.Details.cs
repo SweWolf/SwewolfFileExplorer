@@ -90,7 +90,7 @@ public partial class MainWindow
             Row("Type", item.TypeName);
             Row("Date Modified", modified);
         }
-        else if (AudioTagReader.HasTags(item.FullPath))   // music
+        else if (AudioTagReader.HasTags(item.FullPath) || AudioTagReader.IsCdTrackName(item.FullPath))   // music (a CD track too)
         {
             Row("Type", item.TypeName);
             Row("Artist", tags?.Artist);
@@ -98,7 +98,7 @@ public partial class MainWindow
             Row("Track", tags is { TrackNumber: > 0 } ? tags.TrackNumber.ToString() : "");
             Row("Length", length);
             Row("Bitrate", bitrate);
-            Row("Size", size);
+            Row("Size", AudioTagReader.IsCdTrackName(item.FullPath) ? "" : size);   // a CD track's 44-byte stub says nothing
             Row("Date Modified", modified);
         }
         else if (MediaPlayerLauncher.IsVideo(item.FullPath))

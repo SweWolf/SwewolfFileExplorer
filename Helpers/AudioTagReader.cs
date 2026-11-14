@@ -33,7 +33,10 @@ public static class AudioTagReader
 
     /// <summary>A file of a kind the Length, Bitrate and Dimensions columns can say something about: music, video or a picture.</summary>
     public static bool HasMediaInfo(string path) =>
-        HasTags(path) || MediaPlayerLauncher.IsVideo(path) || ThumbnailLoader.IsImage(path) || HasVersionInfo(path);
+        HasTags(path) || MediaPlayerLauncher.IsVideo(path) || ThumbnailLoader.IsImage(path) || HasVersionInfo(path) || IsCdTrackName(path);
+
+    /// <summary>A .cda name: a track of an audio CD (whether it really is on a CD drive is checked when it is read, by <see cref="CdDiscInfo"/>).</summary>
+    public static bool IsCdTrackName(string path) => string.Equals(Path.GetExtension(path), ".cda", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Programs and libraries carry a product name and version (the Product name and Product version columns).</summary>
     private static readonly HashSet<string> VersionExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -51,6 +54,9 @@ public static class AudioTagReader
     {
         try
         {
+            // A track of an audio CD: the artist, title, length ... come from the disc's entry in MusicBrainz (kept on this computer), not from the file.
+            if (IsCdTrackName(path)) return CdDiscInfo.ReadTags(path);
+
             // A program or library: the product name and version from its version information (as Explorer's Details columns).
             if (HasVersionInfo(path))
             {
@@ -108,6 +114,8 @@ public static class AudioTagReader
     {
         try
         {
+            if (IsCdTrackName(path)) return CdDiscInfo.ReadCover(path);   // the front cover of the album, the same for every track of the disc
+
             using var file = TagLib.File.Create(new SharedReadFile(path), TagLib.ReadStyle.None);
             var pictures = file.Tag.Pictures;
             if (pictures == null || pictures.Length == 0) return null;

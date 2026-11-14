@@ -483,7 +483,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
             try
             {
                 if (!drive.IsReady) { if (drive.DriveType != DriveType.CDRom) notReady = true; continue; }
-                var label = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? drive.Name : $"{drive.VolumeLabel} ({drive.Name.TrimEnd('\\')})";
+                var volume = drive.VolumeLabel;
+                // An audio CD that is known (MusicBrainz, kept on this computer) is named "Album Artist - Album" instead of "Audio CD".
+                if (drive.DriveType == DriveType.CDRom && CdDiscInfo.DriveTitle(drive.RootDirectory.FullName) is { } album) volume = album;
+                var label = string.IsNullOrWhiteSpace(volume) ? drive.Name : $"{volume} ({drive.Name.TrimEnd('\\')})";
                 long total = -1, free = -1;
                 string fileSystem = "";
                 try { total = drive.TotalSize; free = drive.AvailableFreeSpace; fileSystem = drive.DriveFormat; } catch { /* sizes are left empty */ }
@@ -534,7 +537,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
             var child = node.Children[i];
             var drive = drives.FirstOrDefault(d => string.Equals(d.Root, child.FullPath, StringComparison.OrdinalIgnoreCase));
             if (drive == null) { if (!Holds(child)) node.Children.RemoveAt(i); }
-            else if (drive.Label != child.Name && !Holds(child)) node.Children[i] = MakeDriveNode(drive);
+            else if (drive.Label != child.Name)
+            {
+                if (!Holds(child)) node.Children[i] = MakeDriveNode(drive);
+                else child.SetLabel(drive.Label);   // the drive the tab is in: only the text changes (an audio CD's name once it is known)
+            }
         }
 
         foreach (var drive in drives)
@@ -1886,6 +1893,20 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         foreach (var item in items) item.TagsRequested = false;
         EnsureTags();   // when the tags are in, TagsLoaded lets the window sort again if it is sorted by a tag column
+    }
+
+    /// <summary>
+    /// The lookup of an audio CD has stored its titles and cover (<see cref="CdDiscInfo.Updated"/>, called on the UI thread): if this tab shows
+    /// that disc's drive, the tags of its tracks are read again and the folder picture is looked for again (the album cover).
+    /// </summary>
+    public void OnCdInfoUpdated(string discId)
+    {
+        var path = _currentPath;
+        if (string.IsNullOrEmpty(path) || _inArchive || CdDiscInfo.DiscId(path) != discId) return;
+
+        var tracks = CurrentItems.Where(i => !i.IsDirectory && AudioTagReader.IsCdTrackName(i.FullPath)).ToList();
+        if (tracks.Count > 0) ReloadTags(tracks);
+        UpdateFolderPicture(path);
     }
 
     private void LoadItems(string path, FolderListing? preread = null)
