@@ -3586,7 +3586,8 @@ public partial class MainWindow : Window
         foreach (var item in ((ContextMenu)sender).Items.OfType<UIElement>()) item.Visibility = Visibility.Visible;
 
         bool hasSelection = _menuMode != ListMenuMode.Empty && FileListView.SelectedItem != null;
-        bool canPaste    = VM.PasteCommand.CanExecute(null);
+        bool canPaste    = VM.PasteCommand.CanExecute(null)
+                       || (VM.HasFolder && !VM.InArchive && ClipboardFile.Detect() == ClipboardFile.Kind.Image);   // a picture: Paste offers to save it as a PNG, as Ctrl+V does
         bool inArchive    = VM.InArchive;   // read-only: files can be opened and copied out, nothing else
         bool hasFolder    = VM.HasFolder;   // false on This PC and Quick Access: the list is empty and there is no folder to act on
         string menuFolder = ListMenuFolder();   // where Paste and New go: the folder row clicked, else the folder shown
@@ -3922,6 +3923,8 @@ public partial class MainWindow : Window
     private void CtxPaste_Click(object sender, RoutedEventArgs e)
     {
         // On a folder row the files go into that folder, as with the tree's menu.
+        // A picture on the clipboard (no files): the same question as Ctrl+V, "save it as a new PNG file?"
+        if (!FileClipboard.HasFiles() && !FolderTabViewModel.IsUnderBookmarks(ListMenuFolder())) { VM.PasteFromKeyboard(_menuMode == ListMenuMode.FolderRow ? ListMenuFolder() : null); return; }
         if (_menuMode == ListMenuMode.FolderRow) VM.PasteInto(ListMenuFolder());
         else VM.PasteCommand.Execute(null);
     }
@@ -4585,7 +4588,7 @@ public partial class MainWindow : Window
                 "Cut"        => canChange,
                 "Create Shortcut..." => realFolder,   // a drive too
                 "Create Playlist..." => realFolder,
-                "Paste"      => realFolder && FileClipboard.HasFiles(),
+                "Paste"      => realFolder && (FileClipboard.HasFiles() || ClipboardFile.Detect() == ClipboardFile.Kind.Image),
                 "Delete"     => CanRenameOrDelete(path),
                 "Rename..."  => CanRenameOrDelete(path),
                 "New Folder" => realFolder,
@@ -4696,7 +4699,9 @@ public partial class MainWindow : Window
 
     private void TreeCtxPaste_Click(object sender, RoutedEventArgs e)
     {
-        if (_treeMenuNode != null) VM.PasteInto(_treeMenuNode.FullPath);
+        if (_treeMenuNode == null) return;
+        if (FileClipboard.HasFiles()) VM.PasteInto(_treeMenuNode.FullPath);
+        else VM.PasteFromKeyboard(_treeMenuNode.FullPath);   // a picture: "save it as a new PNG file?"
     }
 
     // ── Create Shortcut... ─────────────────────────────────────────────────────
