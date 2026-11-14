@@ -1412,6 +1412,28 @@
 
                     <Border x:Name="PlayBar" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" Visibility="Collapsed" Padding="0,2,0,4">
                         <DockPanel LastChildFill="True">
+                        <!-- The "x" at the far right (the first right-docked item is the outermost): hides the Play bar, like the toolbar's Play
+                             button and Ctrl+P. Red under the mouse, as the other close buttons. -->
+                        <Button x:Name="PlayBarCloseButton" DockPanel.Dock="Right" VerticalAlignment="Center" Focusable="False" Padding="6,2" Margin="8,0,0,0"
+                                ToolTip="Hide the Play Bar (the Play button in the toolbar or Ctrl+P shows it again)" Click="PlayBarClose_Click">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Box" Background="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource CloseHoverBrush}"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource ClosePressedBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="&#x2715;" FontSize="11" FontFamily="Segoe UI"/>
+                        </Button>
                         <Button x:Name="ShowPlayerButton" DockPanel.Dock="Right" Click="ShowPlayer_Click" Content="Show Media Player" FontSize="12" Padding="12,2" Margin="8,2,0,2"
                                 ToolTip="Bring SweWolf Media Player to the front (and back from the taskbar if it was minimized)"/>
                         <WrapPanel Orientation="Horizontal">

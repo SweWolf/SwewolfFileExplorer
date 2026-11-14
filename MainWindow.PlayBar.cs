@@ -101,6 +101,9 @@ public partial class MainWindow
         PlayModeBox.SelectedIndex = ModeSlideShow;   // PlaySetting_Changed saves it and updates the controls
     }
 
+    // The "x" at the right end of the bar: the same as the toolbar's Play button and Ctrl+P (ShowPlayBar also unpresses the toggle).
+    private void PlayBarClose_Click(object sender, RoutedEventArgs e) => ShowPlayBar(false);
+
     private void PlayToggle_Click(object sender, RoutedEventArgs e) => ShowPlayBar(PlayToggle.IsChecked == true);
 
     /// <summary>The info panel is as much taller as the bar is high (and not smaller than the picture needs), so the preview picture keeps its size.</summary>
