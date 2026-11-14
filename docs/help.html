@@ -423,7 +423,7 @@ not mean the file is safe, only that nobody has sent it there yet.</li>
 file (it is unpacked to a temporary folder first).</li>
 </ul>
 <p><strong>With your own API key</strong> (<strong>Tools &gt; Settings
-&gt; General &gt; VirusTotal</strong>; the link there takes you to
+&gt; Security &gt; VirusTotal</strong>; the link there takes you to
 VirusTotal’s page where you get a free key) the program asks VirusTotal
 itself and shows the answer in a message (“0 of 70 scanners flagged this
 file”), with an offer to open the full report.</p>
@@ -1076,8 +1076,6 @@ Windows) or Cyber Cyan.</li>
 italic).</li>
 <li><strong>Drag and Drop:</strong> turn off dropping files into the
 program.</li>
-<li><strong>VirusTotal:</strong> your own API key (see <a href="#checking-a-file-on-virustotal">Checking a File on
-VirusTotal</a>).</li>
 <li><strong>Hidden Files</strong> (Files tab): the extensions that count
 as hidden, extra extensions to hide inside archives, and the warning
 when all files are selected but hidden items are not.</li>
@@ -1091,10 +1089,10 @@ of File Type Names (Recommended)</strong>. They give common file types
 choices are in <code>FileTypes.json</code> (see below).</li>
 <li><strong>Folder Tree</strong> (Menus tab): whether a right-click
 selects the folder.</li>
-<li><strong>Security:</strong> ask before a program is started (and,
-separately, one inside a compressed file), which file types count as
-programs, and forgetting the “Don’t Ask Again” choices (see Starting
-Programs).</li>
+<li><strong>Security:</strong> your own VirusTotal API key (see <a href="#checking-a-file-on-virustotal">Checking a File on
+VirusTotal</a>); ask before a program is started (and, separately, one
+inside a compressed file), which file types count as programs, and
+forgetting the “Don’t Ask Again” choices (see Starting Programs).</li>
 <li><strong>Terminal Menu:</strong> which of the three terminals are in
 the menus.</li>
 <li><strong>When the Program Is Started Again</strong> (General tab):
@@ -1126,7 +1124,8 @@ menu bar; click it to open the release page in your web browser. Nothing
 is downloaded or installed, and nothing happens when you are offline.
 <strong>Help &gt; About</strong> also tells you whether you have the
 latest version.</li>
-<li><strong>Media Player:</strong> preload SweWolf Media Player in the
+<li><strong>Media Player</strong> (its own tab, the last one; only shown
+when the player is found): preload SweWolf Media Player in the
 background at startup (on by default; only shown when the player is
 found). The first start of the player can be slow while your antivirus
 program scans its files; the preload does that once, with no window, so

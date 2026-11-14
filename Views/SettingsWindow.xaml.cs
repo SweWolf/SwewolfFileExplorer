@@ -97,7 +97,7 @@ public partial class SettingsWindow : Window
         StartAgainBox.SelectedIndex        = StartAgainIndex(current.WhenStartedAgain);
         (current.RoundedProgressBars ? RoundedBarsBox : SquareBarsBox).IsChecked = true;
         VirusTotalKeyBox.Password          = VirusTotal.GetApiKey() ?? "";
-        MediaPlayerGroup.Visibility        = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, nothing to preload
+        MediaPlayerTab.Visibility          = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, no tab
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
         AskBeforeProgramsBox.IsChecked     = current.AskBeforeStartingPrograms;
         AskInArchivesBox.IsChecked         = current.AskBeforeStartingProgramsInArchives;
