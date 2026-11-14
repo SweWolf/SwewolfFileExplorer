@@ -157,6 +157,7 @@ public partial class MainWindow : Window
         CdDiscInfo.Updated += discId => Dispatcher.BeginInvoke(new Action(() =>
         {
             foreach (var tab in VM.Tabs) tab.OnCdInfoUpdated(discId);
+            ApplyFolderColumns();   // the disc just became known: its folder switches from the file names to Artist, Title, Track Number
             VM.SyncDrivesNow();   // the drive's node and its line on This PC now say "Artist - Album" instead of "Audio CD"
             if (_mediaPreviewItem is { } shown && AudioTagReader.IsCdTrackName(shown.FullPath)) ShowThumbnail(shown);
             QueueInfoUpdate();
@@ -701,6 +702,10 @@ public partial class MainWindow : Window
         var wantedShown = VM.Shared.TryGetFolderColumnsOrInherited(VM.CurrentPath, out var saved)   // its own, else the nearest parent's
             ? saved.ToList()
             : _defaultColumns.Where(c => c.Visible).Select(c => c.Key).ToList();
+        // An audio CD: Artist, Title, Track Number, in that order, every time the folder is entered (a template, hard-coded for now; the
+        // user may change the columns meanwhile, and nothing is saved for the disc).
+        if (CdDiscInfo.IsKnownAudioCd(VM.CurrentPath))   // only when the disc was found: otherwise the folder shows its file names as usual
+            wantedShown = new List<SortColumn> { SortColumn.Artist, SortColumn.Title, SortColumn.TrackNumber };
         wantedShown = wantedShown.Where(k => _layout.Any(c => c.Key == k)).ToList();
         if (wantedShown.Count == 0) wantedShown = DefaultShownColumns();   // no column at all counts as the default columns
 
@@ -731,6 +736,7 @@ public partial class MainWindow : Window
     {
         if (!VM.HasFolder) return;
         SyncLayoutFromGrid();
+        if (CdDiscInfo.IsAudioCdFolder(VM.CurrentPath)) return;   // an audio CD always starts with its template: nothing is kept for the disc
         VM.Shared.SetFolderColumns(VM.CurrentPath, _layout.Where(c => c.Visible).Select(c => c.Key).ToList());
     }
 

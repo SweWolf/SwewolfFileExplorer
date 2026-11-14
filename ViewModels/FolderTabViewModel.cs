@@ -116,7 +116,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         SortColumn    = column;
         SortAscending = ascending;
-        if (!string.IsNullOrEmpty(_currentPath))
+        // An audio CD always starts with its template (Artist, Title, Track Number by track number): a choice here lasts until the folder is left.
+        if (!string.IsNullOrEmpty(_currentPath) && !CdDiscInfo.IsAudioCdFolder(_currentPath))
             _shared.SetFolderSort(_currentPath, column, ascending);   // also saved for the next run
         SortChanged?.Invoke();
     }
@@ -128,6 +129,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     private void ApplyFolderSort()
     {
+        // An audio CD whose titles are known: by track number, ascending, every time it is entered (the template; the user may change it
+        // meanwhile). A disc that is not known is a folder like any other, until the lookup has found it (OnCdInfoUpdated).
+        if (CdDiscInfo.IsKnownAudioCd(_currentPath))
+        {
+            SortColumn    = SortColumn.TrackNumber;
+            SortAscending = true;
+            SortChanged?.Invoke();
+            return;
+        }
+
         var (column, ascending) = _shared.TryGetFolderSortOrInherited(_currentPath, out var s)
             ? s
             : (ArchiveSupport.ShowsStoredOrder(_currentPath) || PlaylistFile.IsPlaylistName(_currentPath) ? SortColumn.None : SortColumn.Name, true);   // a playlist: in the order of the list
@@ -1907,6 +1918,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var tracks = CurrentItems.Where(i => !i.IsDirectory && AudioTagReader.IsCdTrackName(i.FullPath)).ToList();
         if (tracks.Count > 0) ReloadTags(tracks);
         UpdateFolderPicture(path);
+        if (CdDiscInfo.IsKnownAudioCd(path)) ApplyFolderSort();   // the disc is known now: the audio CD template (by track number) takes over
     }
 
     private void LoadItems(string path, FolderListing? preread = null)

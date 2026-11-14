@@ -118,6 +118,9 @@ public partial class App : Application
                 LogFiles.AppendError($"Started again: a new window was opened because {SingleInstance.FailureReason}.");
         }
 
+        // For testing: SWEWOLF_CD_LOOKUP=0 switches the online lookup of audio CDs off (a disc then stays "not known").
+        if (Environment.GetEnvironmentVariable("SWEWOLF_CD_LOOKUP") == "0") CdDiscInfo.Enabled = false;
+
         // The web bookmarks' icons moved from %LocalAppData% to %AppData% (2026-11-10): once, and the shortcuts that name them follow.
         SwewolfFileExplorer.Helpers.BookmarkStore.MigrateFavicons();
 

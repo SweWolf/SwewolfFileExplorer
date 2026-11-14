@@ -73,6 +73,36 @@ public static class CdDiscInfo
         catch { return false; }
     }
 
+    /// <summary>The folder shown is the root of a CD drive that holds audio tracks (.cda files): the list then uses the audio CD template
+    /// (Artist, Title, Track Number, sorted by track number), whatever the user chose before. Reads the disc's root: not for the UI thread's hot paths.</summary>
+    public static bool IsAudioCdFolder(string? path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            var full = Path.GetFullPath(path);
+            var root = Path.GetPathRoot(full);
+            if (string.IsNullOrEmpty(root) || !string.Equals(full.TrimEnd('\\', '/'), root.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) return false;
+            return new DriveInfo(root).DriveType == DriveType.CDRom && Directory.EnumerateFiles(root, "*.cda").Any();
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// An audio CD whose titles are known (found by the lookup, or kept by an earlier one): only then the list uses the audio CD template. A disc
+    /// that is not known (offline, not in MusicBrainz, the lookup not finished yet) is shown like any folder, with the file names; the template
+    /// takes over by itself when the lookup is done (<see cref="Updated"/>).
+    /// </summary>
+    public static bool IsKnownAudioCd(string? path) =>
+        IsAudioCdFolder(path) && DiscId(path!) is { } id && HasTitles(id);
+
+    /// <summary>True if the kept information of the disc has a real title for at least one track (not only "Track 5").</summary>
+    public static bool HasTitles(string discId) =>
+        Load(discId)?.Tracks.Values.Any(t => !string.IsNullOrWhiteSpace(t.Title) && !IsGenericTitle(t.Title)) == true;
+
+    private static bool IsGenericTitle(string title) =>
+        System.Text.RegularExpressions.Regex.IsMatch(title.Trim(), @"^(Track|Sp.r)\s*\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool GetVolumeInformationW(string root, char[]? name, int nameSize, out uint serial, out uint maxComponent,
         out uint flags, char[]? fileSystem, int fileSystemSize);
@@ -176,7 +206,7 @@ public static class CdDiscInfo
                 artist = info.Artist?.Trim() ?? "";
                 title  = info.Title?.Trim() ?? "";
                 // CDDB (the Media Player's older lookup) names a track "Track 5" when it knows no title: that is not a title.
-                if (System.Text.RegularExpressions.Regex.IsMatch(title, @"^(Track|Sp.r)\s*\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) title = "";
+                if (IsGenericTitle(title)) title = "";
             }
             RequestLookup(path);   // only does something while the shared folder has nothing for the disc
         }
