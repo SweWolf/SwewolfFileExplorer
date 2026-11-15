@@ -140,6 +140,8 @@ public partial class PictureViewerWindow : Window
     {
         int version = ++_loadVersion;
         _loading = true;
+        bool announceLast = _announceLast;
+        _announceLast = false;
         HideRotateSavePanel(restartSlideShow: false);   // going on to another picture counts as "No" (the slide show restarts below)
         string path = CurrentPath;
         PictureChanged?.Invoke(path);
@@ -185,6 +187,7 @@ public partial class PictureViewerWindow : Window
 
             if (message != null) ShowOverlay(message);
             else ShowCurrentRating();
+            if (announceLast) ShowOverlay("End of file list", atTop: true, seconds: 2);
         }
 
         UpdateTransform();
@@ -207,9 +210,12 @@ public partial class PictureViewerWindow : Window
         _animationTimer.Start();
     }
 
-    private void ShowOverlay(string text)
+    private void ShowOverlay(string text, bool atTop = false, double seconds = 1.5)
     {
         OverlayText.Text = text;
+        Overlay.VerticalAlignment = atTop ? VerticalAlignment.Top : VerticalAlignment.Center;
+        Overlay.Margin = atTop ? new Thickness(0, 30, 0, 0) : new Thickness(0);
+        _overlayTimer.Interval = TimeSpan.FromSeconds(seconds);
         Overlay.Visibility = Visibility.Visible;
         _overlayTimer.Stop();
         _overlayTimer.Start();
@@ -338,6 +344,7 @@ public partial class PictureViewerWindow : Window
         Navigate(direction);
     }
 
+    private bool _announceLast;   // the picture about to be shown is the last one, reached by going forward
     private bool _loading;     // a picture is being read, or has been read and is not on screen yet
     private int _shownAtTick;  // Environment.TickCount of the moment the last picture was on screen
 
@@ -362,6 +369,8 @@ public partial class PictureViewerWindow : Window
         }
 
         _index = next;
+        // Arriving at the last picture (not trying to go past it) says so for a moment.
+        _announceLast = direction > 0 && _index == _files.Count - 1 && _files.Count > 1;
         ShowCurrent();
     }
 
@@ -776,6 +785,13 @@ public partial class PictureViewerWindow : Window
             case Key.End when plain:  GoTo(_files.Count - 1); break;
 
             case Key.Escape or Key.X when plain:
+                // A message on the picture goes first: the first Esc only removes it, the next one closes the viewer.
+                if (e.Key == Key.Escape && Overlay.Visibility == Visibility.Visible)
+                {
+                    _overlayTimer.Stop();
+                    Overlay.Visibility = Visibility.Collapsed;
+                    break;
+                }
                 Close();
                 break;
 
