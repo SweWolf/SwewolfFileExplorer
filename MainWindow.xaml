@@ -1370,9 +1370,9 @@
                     <!-- A row of its own above the picture and the plot: where the selected file is in the list (or how many are
                          selected / in the folder), and the hidden-items link well to the right of it -->
                     <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal" VerticalAlignment="Top">
-                        <TextBlock x:Name="PositionText" FontSize="12"/>
+                        <TextBlock x:Name="PositionText" FontSize="12" Margin="0,0,16,0"/>   <!-- the 16 px keep the next item (Undo, links) off the text -->
 
-                        <TextBlock FontSize="12" Margin="84,0,16,0"
+                        <TextBlock FontSize="12" Margin="68,0,16,0"
                                    Visibility="{Binding HasHiddenItems, Converter={StaticResource BoolToVisibility}}"
                                    ToolTip="Click to show or hide the hidden and system items of this folder">
                             <Hyperlink Command="{Binding ToggleHiddenCommand}">
@@ -1403,7 +1403,7 @@
 
                         <!-- What Ctrl+D (or Add to Bookmarks) just did, with a link to the Bookmarks: stays until another folder or file is
                              clicked (MainWindow.ShowBookmarkNote / HideBookmarkNote) -->
-                        <TextBlock x:Name="BookmarkNote" FontSize="12" Margin="30,0,16,0" Visibility="Collapsed">
+                        <TextBlock x:Name="BookmarkNote" FontSize="12" Margin="14,0,16,0" Visibility="Collapsed">
                             <Run x:Name="BookmarkNoteText"/>
                             <Run Text="   "/>
                             <Hyperlink x:Name="BookmarkNoteLink" TextDecorations="Underline" Click="BookmarkNoteLink_Click"
