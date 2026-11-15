@@ -97,6 +97,7 @@ public partial class SettingsWindow : Window
         StartAgainBox.SelectedIndex        = StartAgainIndex(current.WhenStartedAgain);
         (current.RoundedProgressBars ? RoundedBarsBox : SquareBarsBox).IsChecked = true;
         VirusTotalKeyBox.Password          = VirusTotal.GetApiKey() ?? "";
+        TmdbKeyBox.Password                = Tmdb.GetApiKey() ?? "";
         MediaPlayerTab.Visibility          = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, no tab
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
         AskBeforeProgramsBox.IsChecked     = current.AskBeforeStartingPrograms;
@@ -145,6 +146,35 @@ public partial class SettingsWindow : Window
         }
         VirusTotalKeyEye.Content = show ? "" : "";   // eye / eye with a slash
         VirusTotalKeyEye.ToolTip = show ? "Hide the API key" : "Show the API key";
+    }
+
+    private void TmdbKeyEye_Changed(object sender, RoutedEventArgs e)
+    {
+        bool show = TmdbKeyEye.IsChecked == true;
+        if (show)
+        {
+            TmdbKeyText.Text = TmdbKeyBox.Password;
+            TmdbKeyBox.Visibility = Visibility.Collapsed;
+            TmdbKeyText.Visibility = Visibility.Visible;
+            TmdbKeyText.Focus();
+            TmdbKeyText.CaretIndex = TmdbKeyText.Text.Length;
+        }
+        else
+        {
+            TmdbKeyBox.Password = TmdbKeyText.Text;
+            TmdbKeyText.Visibility = Visibility.Collapsed;
+            TmdbKeyBox.Visibility = Visibility.Visible;
+            TmdbKeyBox.Focus();
+        }
+        TmdbKeyEye.Content = show ? "" : "";   // eye with a slash / eye
+        TmdbKeyEye.ToolTip = show ? "Hide the API key" : "Show the API key";
+    }
+
+    private void TmdbKeyLink_Navigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        e.Handled = true;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = Tmdb.KeyPage, UseShellExecute = true }); }
+        catch { }
     }
 
     private void VirusTotalKeyLink_Navigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
@@ -202,8 +232,18 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        var tmdbKey = (TmdbKeyEye.IsChecked == true ? TmdbKeyText.Text : TmdbKeyBox.Password).Trim();
+        if (tmdbKey.Length > 0 && !Tmdb.IsValidKeyFormat(tmdbKey))
+        {
+            MessageBox.Show(this, "A TMDB API key has 32 letters and digits, and the API Read Access Token is a long text with two dots in it. Copy it again from your TMDB account, or leave the box empty.",
+                            AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            (TmdbKeyEye.IsChecked == true ? (System.Windows.Controls.Control)TmdbKeyText : TmdbKeyBox).Focus();
+            return;
+        }
+
         var settings = AppSettingsStore.Current;
         VirusTotal.SetApiKey(key);
+        Tmdb.SetApiKey(tmdbKey);
         settings.Style = Styles[StyleBox.SelectedIndex];
         settings.FontFamily = (FontBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "";
         settings.UnreadBold   = UnreadBoldBox.IsChecked == true;

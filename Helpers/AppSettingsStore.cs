@@ -122,6 +122,10 @@ public class AppSettings
     /// (Settings > VirusTotal; <c>VirusTotal.GetApiKey / SetApiKey</c>). Empty = no key: "Send to VirusTotal" only opens the page.</summary>
     public string VirusTotalApiKeyProtected { get; set; } = "";
 
+    /// <summary>The user's own The Movie Database (TMDB) API key or read access token, encrypted like the VirusTotal key
+    /// (Settings > Scrapers; <c>Tmdb.GetApiKey / SetApiKey</c>). Empty = "Download NFO File..." asks for it.</summary>
+    public string TmdbApiKeyProtected { get; set; } = "";
+
     /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the
     /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
     public bool WarnHiddenNotSelected { get; set; } = true;

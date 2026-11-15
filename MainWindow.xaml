@@ -1168,6 +1168,9 @@
                                                   ToolTip="Change the plot of this file, which is kept in its .nfo file (a double-click does the same)"/>
                                         <MenuItem x:Name="PlotEditNfoItem" Header="Edit NFO File" Click="PlotEditNfo_Click" Visibility="Collapsed"
                                                   ToolTip="Open the .nfo file of this video or music file in the text editor"/>
+                                        <Separator/>
+                                        <MenuItem Header="Download NFO File..." Click="PlotDownloadNfo_Click"
+                                                  ToolTip="Look up this movie or TV show on The Movie Database and save its details as a hidden .nfo file (needs a free TMDB API key in Tools > Settings > Scrapers)"/>
                                     </ContextMenu>
                                 </Grid.ContextMenu>
                                 <ScrollViewer x:Name="PlotScroll" Visibility="Collapsed"
