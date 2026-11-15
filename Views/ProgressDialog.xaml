@@ -58,7 +58,7 @@
             <TextBlock x:Name="PercentText" Grid.Column="1" Margin="10,0,0,0" MinWidth="200" TextAlignment="Right"/>
         </Grid>
 
-        <Button x:Name="CancelButton" Grid.Row="4" Content="Cancel" Width="90" Margin="0,16,0,0"
+        <Button x:Name="CancelButton" Grid.Row="4" Content="Cancel" Width="108" Margin="0,16,0,0"
                 HorizontalAlignment="Right" IsCancel="True"
                 BorderBrush="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}" BorderThickness="2"
                 Click="CancelButton_Click"/>
