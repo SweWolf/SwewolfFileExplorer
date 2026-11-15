@@ -3158,6 +3158,11 @@ public partial class MainWindow : Window
         if (CdDiscInfo.IsAudioCdFolder(drive.Root))
             Add("Look Up This Disc Again", () => LookUpDiscAgain(drive.Root)).ToolTip = "Ask MusicBrainz again for the titles and the cover of this audio CD. What is new replaces what is kept on this computer.";
         menu.Items.Add(new Separator());
+        if (DriveEject.CanEject(drive.Root))
+        {
+            Add("Eject", () => EjectDisc(drive.Root)).ToolTip = "Eject the disc from this drive.";
+            menu.Items.Add(new Separator());
+        }
         Add("Properties", () => PropertiesHelper.Show(new[] { drive.Root }));
         Add("More Options", () => Dispatcher.BeginInvoke(() => ShowWindowsMenuForFolder(drive.Root), DispatcherPriority.Background));
 
@@ -3695,13 +3700,13 @@ public partial class MainWindow : Window
     {
         "Open in Windows Explorer", "Add to Bookmarks", "Paste", "Create Playlist...", "Jump to Last Opened File",
         "Rating...", "Expectation...", "Open in Terminal", "Open in PowerShell", "Open in Command Prompt",
-        "New Folder", "New Text Document...", "New File from Clipboard", "Properties", "More Options"
+        "New Folder", "New Text Document...", "New File from Clipboard", "Look Up This Disc Again", "Eject", "Properties", "More Options"
     };
 
     private static readonly HashSet<string> FolderOnlyItems = new()
     {
         "Paste", "Create Playlist...", "Jump to Last Opened File", "Open in Terminal", "Open in PowerShell", "Open in Command Prompt",
-        "New Folder", "New Text Document...", "New File from Clipboard"
+        "New Folder", "New Text Document...", "New File from Clipboard", "Look Up This Disc Again", "Eject"
     };
 
     /// <summary>Hides what does not belong to the kind of click, then the separators that are left with nothing between them.</summary>
@@ -3843,7 +3848,27 @@ public partial class MainWindow : Window
             if (mi.Header is "Mark as Unread") mi.Visibility = files.Count == 0 || files.Any(i => !i.IsUnread) ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        // Eject and Look Up This Disc Again: only for the empty area (the folder shown) of an audio CD / a CD or DVD drive.
+        string? discRoot = hasFolder && _menuMode == ListMenuMode.Empty && !string.IsNullOrEmpty(VM.CurrentPath) ? System.IO.Path.GetPathRoot(VM.CurrentPath) : null;
+        foreach (var mi in menu.Items.OfType<MenuItem>())
+        {
+            if (mi.Header is "Eject")
+                mi.Visibility = discRoot != null && DriveEject.CanEject(discRoot) ? Visibility.Visible : Visibility.Collapsed;
+            if (mi.Header is "Look Up This Disc Again")
+                mi.Visibility = discRoot != null && CdDiscInfo.IsAudioCdFolder(discRoot) ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         ApplyListMenuMode(menu);
+    }
+
+    private void CtxEject_Click(object sender, RoutedEventArgs e)
+    {
+        if (System.IO.Path.GetPathRoot(VM.CurrentPath) is { Length: > 0 } root) EjectDisc(root);
+    }
+
+    private void CtxLookUpDisc_Click(object sender, RoutedEventArgs e)
+    {
+        if (System.IO.Path.GetPathRoot(VM.CurrentPath) is { Length: > 0 } root) LookUpDiscAgain(root);
     }
 
     /// <summary>
@@ -4807,7 +4832,41 @@ public partial class MainWindow : Window
         if (driveRoot != null && realFolder) PrepareCleanUpItem(TreeCleanUpItem, driveRoot);
         TreeLookUpDiscItem.Visibility = driveRoot != null && CdDiscInfo.IsAudioCdFolder(driveRoot) ? Visibility.Visible : Visibility.Collapsed;   // an audio CD
 
+        TreeEjectItem.Visibility = driveRoot != null && DriveEject.CanEject(driveRoot) ? Visibility.Visible : Visibility.Collapsed;   // a CD / DVD drive
+        TreeEjectSeparator.Visibility = TreeEjectItem.Visibility;
+
         TidySeparators(menu);   // hidden items leave no empty groups behind
+    }
+
+    private void TreeCtxEject_Click(object sender, RoutedEventArgs e)
+    {
+        if (_treeMenuNode != null && DriveRootOf(_treeMenuNode.FullPath) is { } root) EjectDisc(root);
+    }
+
+    /// <summary>"Eject" of a CD / DVD drive. Done in the background; a refusal (the disc is in use) is told in a message.</summary>
+    private async void EjectDisc(string root)
+    {
+        FlashTitle($"{BaseTitle} - Ejecting {root.Substring(0, 2)}...");
+        // This program's own tabs on the disc hold it open (the folder watchers): they go to This PC first.
+        foreach (var tab in VM.Tabs.ToList())
+            if (!string.IsNullOrEmpty(tab.CurrentPath) && tab.CurrentPath.StartsWith(root, StringComparison.OrdinalIgnoreCase)) tab.ShowThisPc();
+        await Task.Delay(300);
+
+        string? problem = await Task.Run(() => DriveEject.Eject(root));
+        if (problem == DriveEject.InUse)
+        {
+            var answer = MessageBox.Show(this, $"Another program is using the disc in drive {root.Substring(0, 2)}. Do you want to eject it anyway?",
+                AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+            if (answer != MessageBoxResult.Yes) return;
+            problem = await Task.Run(() => DriveEject.Eject(root, force: true));
+        }
+        if (problem != null)
+        {
+            LogFiles.AppendError("Eject failed: " + problem);
+            MessageBox.Show(this, problem, AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        VM.SyncDrivesNow();
     }
 
     private void TreeCtxLookUpDisc_Click(object sender, RoutedEventArgs e)

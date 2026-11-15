@@ -674,6 +674,9 @@
                             <MenuItem x:Name="TreeLookUpDiscItem" Header="Look Up This Disc Again" Click="TreeCtxLookUpDisc_Click" Visibility="Collapsed"
                                       ToolTip="Ask MusicBrainz again for the titles and the cover of this audio CD. What is new replaces what is kept on this computer."/>
                             <Separator x:Name="TreeCleanUpSeparator" Visibility="Collapsed"/>
+                            <MenuItem x:Name="TreeEjectItem" Header="Eject" Click="TreeCtxEject_Click" Visibility="Collapsed"
+                                      ToolTip="Eject the disc from this drive."/>
+                            <Separator x:Name="TreeEjectSeparator" Visibility="Collapsed"/>
                             <MenuItem Header="Properties"      Click="TreeCtxProperties_Click" InputGestureText="Alt+Enter"/>
                             <Separator/>
                             <MenuItem Header="More Options"    Click="TreeCtxMoreOptions_Click"
@@ -1073,6 +1076,11 @@
                         <Separator/>
                         <MenuItem x:Name="ListFileInfoItem" Header="File Info Viewer" Click="CtxFileInfo_Click" Visibility="Collapsed"
                                   ToolTip="Show everything about the selected file in File Info Viewer"/>
+                        <MenuItem Header="Look Up This Disc Again" Click="CtxLookUpDisc_Click"
+                                  ToolTip="Ask MusicBrainz again for the titles and the cover of this audio CD. What is new replaces what is kept on this computer."/>
+                        <Separator/>
+                        <MenuItem Header="Eject" Click="CtxEject_Click" ToolTip="Eject the disc from this drive."/>
+                        <Separator/>
                         <MenuItem Header="Properties" Click="CtxProperties_Click" InputGestureText="Alt+Enter"/>
                         <Separator/>
                         <MenuItem Header="More Options" Click="CtxMoreOptions_Click"
