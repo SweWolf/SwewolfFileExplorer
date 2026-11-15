@@ -86,6 +86,8 @@ public partial class PictureViewerWindow : Window
         _cursorTimer.Tick    += (_, _) => HideCursor();
         _overlayTimer.Tick   += (_, _) => { _overlayTimer.Stop(); Overlay.Visibility = Visibility.Collapsed; };
         _clickTimer.Interval  = TimeSpan.FromMilliseconds(GetDoubleClickTime());
+        PreviewTouchDown     += (_, _) => _lastTouchTick = Environment.TickCount64;
+        PreviewStylusDown    += (_, _) => _lastTouchTick = Environment.TickCount64;
         _clickTimer.Tick     += (_, _) =>
         {
             _clickTimer.Stop();
@@ -162,6 +164,12 @@ public partial class PictureViewerWindow : Window
         _quarterTurns = 0;
         _offsetX = _offsetY = 0;
 
+        // After a swipe the new picture starts outside the window on the side the old one left from, and slides in (see UpdateTransform).
+        double slideFrom = _slideIn;
+        _slideIn = 0;
+        _slide.BeginAnimation(TranslateTransform.XProperty, null);
+        _slide.X = slideFrom;
+
         if (loaded == null)
         {
             Picture.Source = null;
@@ -191,6 +199,11 @@ public partial class PictureViewerWindow : Window
         }
 
         UpdateTransform();
+        if (slideFrom != 0)
+            _slide.BeginAnimation(TranslateTransform.XProperty, new System.Windows.Media.Animation.DoubleAnimation(slideFrom, 0, TimeSpan.FromMilliseconds(170))
+            {
+                EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+            });
         RestartSlideTimer();   // also after a picture that could not be shown: the slide show goes on to the next one
 
         // The picture counts as shown when the window has drawn it (a big one takes a moment): keys pressed before that are dropped.
@@ -266,6 +279,7 @@ public partial class PictureViewerWindow : Window
         transform.Children.Add(new ScaleTransform(dips, dips));
         transform.Children.Add(new TranslateTransform(Viewport.ActualWidth / 2 + _offsetX,
                                                       Viewport.ActualHeight / 2 + _offsetY));
+        transform.Children.Add(_slide);   // the sideways move of a swipe
         Picture.RenderTransform = transform;
 
         UpdateTitle();
@@ -845,8 +859,10 @@ public partial class PictureViewerWindow : Window
 
         var point = e.GetPosition(Viewport);
         var move  = point - _pressPoint;
-        if (!_dragged && (Math.Abs(move.X) > SystemParameters.MinimumHorizontalDragDistance
-                          || Math.Abs(move.Y) > SystemParameters.MinimumVerticalDragDistance))
+        // A finger always moves a little during a tap, so for touch the picture only counts as dragged after a bigger move.
+        double startX = _pressTouch ? TouchTapSlop : SystemParameters.MinimumHorizontalDragDistance;
+        double startY = _pressTouch ? TouchTapSlop : SystemParameters.MinimumVerticalDragDistance;
+        if (!_dragged && (Math.Abs(move.X) > startX || Math.Abs(move.Y) > startY))
             _dragged = true;
 
         if (_dragged && CanPan)
@@ -855,6 +871,76 @@ public partial class PictureViewerWindow : Window
             _offsetY = _pressOffset.Y + move.Y;
             UpdateTransform();
         }
+        else if (_dragged && (_pressTouch || SwipeWithMouse) && (_swiping || Math.Abs(move.X) > Math.Abs(move.Y)))
+        {
+            // The picture fits the window: a sideways drag moves it with the finger (or the mouse), see EndSwipe.
+            _swiping = true;
+            _slide.BeginAnimation(TranslateTransform.XProperty, null);
+            _slide.X = move.X;
+        }
+    }
+
+    // ── Swiping to the next / previous picture ───────────────────────────────
+
+    /// <summary>Swiping is for touch (a finger or pen). Whether the mouse may swipe too is meant to become a setting later; until then it is off.</summary>
+    private static bool SwipeWithMouse => false;
+    private const double TouchTapSlop = 12;   // device-independent pixels (1/96 inch, about 3 mm): less than this is still a tap
+
+    private readonly TranslateTransform _slide = new();   // the sideways move of a swipe, on top of everything else in the picture's transform
+    private bool _swiping;     // the picture is being dragged sideways
+    private bool _swipeBusy;   // the old picture is sliding out: input is ignored
+    private double _slideIn;   // where the next picture starts (and slides in from); 0 = no slide
+    private bool _pressTouch;  // the press that is going on was made with a finger or a pen
+    private long _pressTick;
+    private long _lastTouchTick = long.MinValue / 2;   // when a finger last touched the viewer (TickCount64)
+
+    /// <summary>
+    /// Was this mouse press made by a finger or a pen? Windows turns a touch into a mouse press, and no single sign proves it in every
+    /// version of WPF's input stack, so any of three counts: the stylus device, Windows' marker in the message's extra info, or a real
+    /// touch event just before.
+    /// </summary>
+    private bool IsTouchPress(MouseButtonEventArgs e)
+    {
+        if (e.StylusDevice != null) return true;
+        if (((long)GetMessageExtraInfo() & 0xFFFFFF00L) == 0xFF515700L) return true;   // the signature of touch / pen input
+        return Environment.TickCount64 - _lastTouchTick < 700;
+    }
+
+    private void EndSwipe(double dx)
+    {
+        double width   = Viewport.ActualWidth;
+        long   elapsed = Environment.TickCount64 - _pressTick;
+        bool far   = Math.Abs(dx) > Math.Max(80, width * 0.15);   // dragged far enough ...
+        bool flick = Math.Abs(dx) > 40 && elapsed < 300;          // ... or a short quick flick
+        int dir  = dx < 0 ? +1 : -1;                              // dragged to the left: the next picture
+        int next = _index + dir;
+
+        if ((far || flick) && next >= 0 && next < _files.Count)
+        {
+            _swipeBusy = true;
+            double target = dx < 0 ? -width : width;
+            var anim = new System.Windows.Media.Animation.DoubleAnimation(dx, target, TimeSpan.FromMilliseconds(130))
+            {
+                EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseIn }
+            };
+            anim.Completed += (_, _) =>
+            {
+                _swipeBusy = false;
+                if (_closed) return;
+                _slideIn = -target;   // the next one comes in from the other side
+                Navigate(dir);
+            };
+            _slide.BeginAnimation(TranslateTransform.XProperty, anim);
+            return;
+        }
+
+        // Not far enough: back it goes. At the ends of the list the usual message / question comes as for a key press.
+        var back = new System.Windows.Media.Animation.DoubleAnimation(dx, 0, TimeSpan.FromMilliseconds(150))
+        {
+            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+        };
+        _slide.BeginAnimation(TranslateTransform.XProperty, back);
+        if (far || flick) Navigate(dir);
     }
 
     private void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -868,8 +954,12 @@ public partial class PictureViewerWindow : Window
             return;
         }
 
+        if (_swipeBusy) return;
+        _pressTouch      = IsTouchPress(e);
+        _pressTick       = Environment.TickCount64;
+        _swiping         = false;
         _pressPoint      = e.GetPosition(Viewport);
-        _pressOffset     = new Point(_offsetX, _offsetY);
+        _pressOffset    = new Point(_offsetX, _offsetY);
         _pressClickCount = e.ClickCount;
         _dragged         = false;
         _pressed         = true;
@@ -885,6 +975,12 @@ public partial class PictureViewerWindow : Window
         if (!_pressed) return;
         _pressed = false;
 
+        if (_swiping)
+        {
+            _swiping = false;
+            EndSwipe(e.GetPosition(Viewport).X - _pressPoint.X);
+            return;
+        }
         if (_dragged) return;
 
         if (_pressClickCount >= 2)
@@ -990,4 +1086,7 @@ public partial class PictureViewerWindow : Window
 
     [DllImport("user32.dll")]
     private static extern uint GetDoubleClickTime();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetMessageExtraInfo();
 }
