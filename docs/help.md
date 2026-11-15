@@ -206,6 +206,7 @@ Some columns are hidden until you choose them:
 
 - **Artist, Title and # (Track Number)** of music files. The track numbers are right-aligned.
 - **Length, Bitrate and Dimensions** of music, videos and pictures.
+- **Date Taken** of pictures: the date and time the camera or phone stored inside the picture. Unlike Date Modified it does not change when you edit or copy the file. Pictures that have none (screenshots, pictures edited by some programs, pictures sent by messaging apps) show nothing. The **Details** block under the list shows it too, above Date Modified.
 - **Product Name and Product Version** of programs and libraries.
 - **Rating and Expectation** (they appear when you set a value).
 

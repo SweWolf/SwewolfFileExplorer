@@ -77,6 +77,11 @@ public class FileItemViewModel : INotifyPropertyChanged
 
     public string BitrateText => BitrateKbps > 0 ? $"{BitrateKbps} kbps" : "";
 
+    /// <summary>When a picture was taken (the EXIF date inside the file); null when it has none or is not read yet.</summary>
+    public DateTime? DateTaken { get; private set; }
+
+    public string DateTakenText => DateTaken is { } taken ? Converters.DateTimeConverter.Format(taken) : "";
+
     public string DimensionsText => Width > 0 && Height > 0 ? $"{Width} x {Height}" : "";
 
     /// <summary>For sorting by dimensions: the number of pixels.</summary>
@@ -93,6 +98,8 @@ public class FileItemViewModel : INotifyPropertyChanged
         Height      = tags.Height;
         ProductName    = tags.ProductName;
         ProductVersion = tags.ProductVersion;
+        DateTaken      = tags.DateTaken;
+        OnPropertyChanged(nameof(DateTakenText));
         OnPropertyChanged(nameof(ProductName));
         OnPropertyChanged(nameof(ProductVersion));
         OnPropertyChanged(nameof(Artist));

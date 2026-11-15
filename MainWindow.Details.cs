@@ -117,6 +117,7 @@ public partial class MainWindow
             Row("Type", item.TypeName);
             Row("Dimensions", dims);
             Row("Size", size);
+            Row("Date Taken", tags?.DateTaken is { } taken ? Converters.DateTimeConverter.Format(taken) : "");   // the EXIF date, when the picture has one
             Row("Date Modified", modified);
         }
         else if (AudioTagReader.HasVersionInfo(item.FullPath))   // a program or library

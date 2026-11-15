@@ -46,6 +46,7 @@ public readonly record struct GpsPosition(double Latitude, double Longitude)
 /// Nothing is written, and nothing leaves the computer. TagLibSharp was not used: it cannot read HEIC, the format of an iPhone's pictures.
 /// History:
 ///   2026-10-24  First version (SweWolf File Explorer only).
+///   2026-11-15  The containers (JPEG, PNG, WebP, HEIC) take the TIFF-level reader as a parameter; ReadDateTaken (EXIF DateTimeOriginal) added.
 /// </summary>
 public static class GpsReader
 {
@@ -75,13 +76,8 @@ public static class GpsReader
             var ext = Path.GetExtension(path);
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
 
-            if (JpegExtensions.Contains(ext)) return FromJpeg(stream);
-            if (TiffExtensions.Contains(ext)) return FromTiff(stream, 0);
-            if (ext.Equals(".png", StringComparison.OrdinalIgnoreCase)) return FromPng(stream);
-            if (ext.Equals(".webp", StringComparison.OrdinalIgnoreCase)) return FromWebP(stream);
-            if (HeifExtensions.Contains(ext)) return FromHeif(stream);
             if (VideoExtensions.Contains(ext)) return FromVideo(stream);
-            return null;
+            return FromPicture<GpsPosition>(stream, ext, FromTiff);
         }
         catch
         {
@@ -89,10 +85,82 @@ public static class GpsReader
         }
     }
 
+    /// <summary>
+    /// The day and time a picture was taken ("Date Taken" in Windows Explorer): the EXIF tag DateTimeOriginal (0x9003, in the Exif directory
+    /// that tag 0x8769 of the first directory points to), else DateTimeDigitized (0x9004). Written by the camera or phone as local time with
+    /// no time zone, and kept in the file when it is copied; the file system's dates are not. Same containers as the GPS position (JPEG,
+    /// TIFF and RAW, PNG, WebP, HEIC); videos are not read. Null when the picture has none.
+    /// </summary>
+    public static DateTime? ReadDateTaken(string path)
+    {
+        try
+        {
+            var ext = Path.GetExtension(path);
+            if (VideoExtensions.Contains(ext) || !CanHave(path)) return null;
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return FromPicture<DateTime>(stream, ext, DateFromTiff);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Which files can have a Date Taken: pictures with an EXIF block (not videos).</summary>
+    public static bool CanHaveDateTaken(string path) => CanHave(path) && !VideoExtensions.Contains(Path.GetExtension(path));
+
+    private static T? FromPicture<T>(Stream stream, string ext, Func<Stream, long, T?> tiff) where T : struct
+    {
+        if (JpegExtensions.Contains(ext)) return FromJpeg(stream, tiff);
+        if (TiffExtensions.Contains(ext)) return tiff(stream, 0);
+        if (ext.Equals(".png", StringComparison.OrdinalIgnoreCase)) return FromPng(stream, tiff);
+        if (ext.Equals(".webp", StringComparison.OrdinalIgnoreCase)) return FromWebP(stream, tiff);
+        if (HeifExtensions.Contains(ext)) return FromHeif(stream, tiff);
+        return null;
+    }
+
+    private static DateTime? DateFromTiff(Stream s, long start)
+    {
+        var head = new byte[8];
+        s.Position = start;
+        if (s.Read(head, 0, 8) != 8) return null;
+
+        bool little;
+        if (head[0] == 'I' && head[1] == 'I') little = true;
+        else if (head[0] == 'M' && head[1] == 'M') little = false;
+        else return null;
+        if (U16(head, 2, little) != 42) return null;
+
+        long exifIfd = 0;
+        foreach (var e in ReadDirectory(s, start + U32(head, 4, little), little))
+            if (e.Tag == 0x8769) exifIfd = U32(e.Field, 0, little);   // a LONG: the offset of the Exif directory
+        if (exifIfd == 0) return null;
+
+        DateTime? original = null, digitized = null;
+        foreach (var e in ReadDirectory(s, start + exifIfd, little))
+        {
+            if (e.Tag == 0x9003) original = ReadExifDate(s, start, e, little);
+            else if (e.Tag == 0x9004) digitized = ReadExifDate(s, start, e, little);
+        }
+        return original ?? digitized;
+    }
+
+    /// <summary>An ASCII value "2024:07:14 18:03:52" (20 bytes with the ending zero, so the entry holds an offset).</summary>
+    private static DateTime? ReadExifDate(Stream s, long tiffStart, Entry e, bool little)
+    {
+        if (e.Type != 2 || e.Count < 19 || e.Count > 64) return null;
+        s.Position = tiffStart + U32(e.Field, 0, little);
+        var raw = new byte[e.Count];
+        if (s.Read(raw, 0, raw.Length) != raw.Length) return null;
+        var text = Encoding.ASCII.GetString(raw).TrimEnd('\0', ' ');
+        return DateTime.TryParseExact(text, "yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) && d.Year >= 1900
+            ? d : null;   // "0000:00:00 00:00:00" (a camera with no clock set) is none
+    }
+
     // ── Pictures ────────────────────────────────────────────────────────────
 
     /// <summary>JPEG: the APP1 segments before the picture data; the one that starts "Exif\0\0" holds the TIFF block.</summary>
-    private static GpsPosition? FromJpeg(Stream s)
+    private static T? FromJpeg<T>(Stream s, Func<Stream, long, T?> tiff) where T : struct
     {
         var b = new byte[6];
         if (s.Read(b, 0, 2) != 2 || b[0] != 0xFF || b[1] != 0xD8) return null;
@@ -114,7 +182,7 @@ public static class GpsReader
 
             if (marker == 0xE1 && length >= 8 && s.Read(b, 0, 6) == 6
                 && b[0] == 'E' && b[1] == 'x' && b[2] == 'i' && b[3] == 'f' && b[4] == 0 && b[5] == 0
-                && FromTiff(s, s.Position) is { } found)
+                && tiff(s, s.Position) is { } found)
                 return found;
 
             s.Position = next;
@@ -123,7 +191,7 @@ public static class GpsReader
     }
 
     /// <summary>PNG: the eXIf chunk (the TIFF block itself).</summary>
-    private static GpsPosition? FromPng(Stream s)
+    private static T? FromPng<T>(Stream s, Func<Stream, long, T?> tiff) where T : struct
     {
         var h = new byte[8];
         if (s.Read(h, 0, 8) != 8 || h[0] != 0x89 || h[1] != 'P' || h[2] != 'N' || h[3] != 'G') return null;
@@ -134,7 +202,7 @@ public static class GpsReader
             long length = ((long)h[0] << 24) | ((long)h[1] << 16) | ((long)h[2] << 8) | h[3];
             var type = Encoding.ASCII.GetString(h, 4, 4);
             long dataStart = s.Position;
-            if (type == "eXIf") return FromTiff(s, dataStart);
+            if (type == "eXIf") return tiff(s, dataStart);
             if (type == "IEND") return null;
             s.Position = dataStart + length + 4;   // data + CRC
         }
@@ -142,7 +210,7 @@ public static class GpsReader
     }
 
     /// <summary>WebP: a RIFF file; the EXIF chunk holds the TIFF block (some writers put "Exif\0\0" in front of it).</summary>
-    private static GpsPosition? FromWebP(Stream s)
+    private static T? FromWebP<T>(Stream s, Func<Stream, long, T?> tiff) where T : struct
     {
         var h = new byte[12];
         if (s.Read(h, 0, 12) != 12 || Encoding.ASCII.GetString(h, 0, 4) != "RIFF" || Encoding.ASCII.GetString(h, 8, 4) != "WEBP") return null;
@@ -158,7 +226,7 @@ public static class GpsReader
                 var prefix = new byte[6];
                 int got = s.Read(prefix, 0, 6);
                 bool exifPrefix = got == 6 && prefix[0] == 'E' && prefix[1] == 'x' && prefix[2] == 'i' && prefix[3] == 'f';
-                return FromTiff(s, exifPrefix ? dataStart + 6 : dataStart);
+                return tiff(s, exifPrefix ? dataStart + 6 : dataStart);
             }
             s.Position = dataStart + length + (length & 1);   // chunks are padded to an even size
         }
@@ -166,7 +234,7 @@ public static class GpsReader
     }
 
     /// <summary>HEIC / HEIF / AVIF: the Exif item starts "Exif\0\0" and the TIFF block follows; found by searching the start of the file.</summary>
-    private static GpsPosition? FromHeif(Stream s)
+    private static T? FromHeif<T>(Stream s, Func<Stream, long, T?> tiff) where T : struct
     {
         var buffer = new byte[(int)Math.Min(s.Length, HeifSearchSize)];
         int read = 0;
@@ -184,7 +252,7 @@ public static class GpsReader
         {
             int at = buffer.AsSpan(from, read - from).IndexOf(marker);
             if (at < 0) return null;
-            if (FromTiff(memory, from + at + 6) is { } found) return found;
+            if (tiff(memory, from + at + 6) is { } found) return found;
             from += at + 1;
         }
         return null;

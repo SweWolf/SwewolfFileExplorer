@@ -946,6 +946,10 @@
                         <GridViewColumn Header="Date Created" Width="150" x:Name="CreatedColumn"
                                         DisplayMemberBinding="{Binding DateCreated, Converter={StaticResource DateTimeConverter}}"/>
 
+                        <!-- The EXIF date inside a picture (when the camera took it); read in the background with the other file facts. Hidden until chosen. -->
+                        <GridViewColumn Header="Date Taken" Width="150" x:Name="DateTakenColumn"
+                                        DisplayMemberBinding="{Binding DateTakenText}"/>
+
                         <GridViewColumn Header="Type" Width="130" x:Name="TypeColumn"
                                         DisplayMemberBinding="{Binding TypeName}"/>
 

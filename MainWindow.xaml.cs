@@ -64,6 +64,7 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Name,         "Name",          NameColumn),
             new ColumnInfo(SortColumn.DateModified, "Date Modified", DateColumn),
             new ColumnInfo(SortColumn.DateCreated,  "Date Created",  CreatedColumn),
+            new ColumnInfo(SortColumn.DateTaken,    "Date Taken",    DateTakenColumn, visible: false),
             new ColumnInfo(SortColumn.Type,         "Type",          TypeColumn),
             new ColumnInfo(SortColumn.Size,         "Size",          SizeColumn),
             new ColumnInfo(SortColumn.Artist,       "Artist",        ArtistColumn, visible: false),
@@ -578,7 +579,7 @@ public partial class MainWindow : Window
     // The columns that need the files to be read (tags, length, bitrate, size in pixels).
     private static bool IsTagColumn(SortColumn key) =>
         key is SortColumn.Artist or SortColumn.Title or SortColumn.TrackNumber or SortColumn.Length or SortColumn.Bitrate or SortColumn.Dimensions
-            or SortColumn.ProductName or SortColumn.ProductVersion;
+            or SortColumn.ProductName or SortColumn.ProductVersion or SortColumn.DateTaken;
 
     private void ApplySort(SortColumn key, bool ascending)
     {
@@ -1337,6 +1338,7 @@ public partial class MainWindow : Window
             SortColumn.Name         => item.DisplayName,
             SortColumn.DateModified => Converters.DateTimeConverter.Format(item.DateModified),
             SortColumn.DateCreated  => Converters.DateTimeConverter.Format(item.DateCreated),
+            SortColumn.DateTaken    => item.DateTakenText,
             SortColumn.Type         => item.TypeName,
             SortColumn.Size         => sizeConverter.Convert(item.Size, typeof(string), null!, CultureInfo.CurrentCulture) as string ?? "",
             SortColumn.Length       => item.LengthText,

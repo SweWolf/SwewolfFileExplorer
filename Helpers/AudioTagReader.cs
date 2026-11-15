@@ -8,7 +8,7 @@ namespace SwewolfFileExplorer.Helpers;
 /// </summary>
 public record AudioTags(string Artist, string Title, uint TrackNumber,
                         TimeSpan Duration = default, int BitrateKbps = 0, int Width = 0, int Height = 0,
-                        string ProductName = "", string ProductVersion = "");
+                        string ProductName = "", string ProductVersion = "", DateTime? DateTaken = null);
 
 /// <summary>
 /// Reads the tags of a music file with TagLibSharp (mp3, m4a, flac, ogg, opus, wma, wav, ...), for the
@@ -51,6 +51,16 @@ public static class AudioTagReader
     /// null if nothing is known or the file cannot be read.
     /// </summary>
     public static AudioTags? Read(string path)
+    {
+        var tags = ReadCore(path);
+
+        // A picture's Date Taken (EXIF), in the same pass: the file is opened a second time, which is cheap next to the picture's own reading.
+        if (GpsReader.CanHaveDateTaken(path) && GpsReader.ReadDateTaken(path) is { } taken)
+            tags = tags == null ? new AudioTags("", "", 0, DateTaken: taken) : tags with { DateTaken = taken };
+        return tags;
+    }
+
+    private static AudioTags? ReadCore(string path)
     {
         try
         {
