@@ -1913,6 +1913,67 @@ public partial class MainWindow : Window
             VM.ShowNoFolder(item.IconShape);   // This PC / Quick Access: not a folder, so the list is emptied (and they have a picture of their own)
     }
 
+    // ── Expanding a folder by hand scrolls the tree so its subfolders can be seen ─────────────────────
+
+    private bool _userToggle;   // an expand made by the user (the arrow, or the Right / + / * key), not by the program following a navigation
+    private EventHandler? _treeScrollStep;
+
+    private void MarkUserToggle()
+    {
+        _userToggle = true;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () => _userToggle = false);
+    }
+
+    private void NavigationTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        for (var d = e.OriginalSource as DependencyObject; d != null && d != NavigationTree; d = System.Windows.Media.VisualTreeHelper.GetParent(d))
+            if (d is System.Windows.Controls.Primitives.ToggleButton) { MarkUserToggle(); return; }
+    }
+
+    private void NavigationTree_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Right or Key.Add or Key.Multiply) MarkUserToggle();
+    }
+
+    private void TreeItem_Expanded(object sender, RoutedEventArgs e)
+    {
+        if (!_userToggle || e.OriginalSource != sender) return;
+        var item = (TreeViewItem)sender;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, () => ScrollToShowChildren(item));
+    }
+
+    /// <summary>
+    /// After the user opens a folder in the tree: scrolls down so that all its subfolders are visible, but never so far that the folder
+    /// itself leaves the top (with very many subfolders the folder stays on top and the rest is below it). A quick, smooth scroll.
+    /// </summary>
+    private void ScrollToShowChildren(TreeViewItem item)
+    {
+        var sv = FindScrollViewer(NavigationTree);
+        if (sv == null || sv.CanContentScroll || !item.IsExpanded || item.Items.Count == 0) return;
+        if (item.ItemContainerGenerator.ContainerFromIndex(item.Items.Count - 1) is not FrameworkElement last) return;
+
+        double lastHeight = last is TreeViewItem t && t.IsExpanded ? 28 : last.ActualHeight;   // an opened last child: only its own line counts
+        double top    = item.TranslatePoint(new Point(0, 0), sv).Y;
+        double bottom = last.TranslatePoint(new Point(0, lastHeight), sv).Y;
+        double shift  = Math.Min(bottom - sv.ViewportHeight, top);
+        if (shift <= 0.5) return;
+
+        double from = sv.VerticalOffset, to = from + shift;
+        if (_treeScrollStep != null) System.Windows.Media.CompositionTarget.Rendering -= _treeScrollStep;
+        long start = Environment.TickCount64;
+        _treeScrollStep = (_, _) =>
+        {
+            double k = Math.Min(1, (Environment.TickCount64 - start) / 180.0);
+            sv.ScrollToVerticalOffset(from + (to - from) * (1 - Math.Pow(1 - k, 3)));
+            if (k >= 1 && _treeScrollStep != null)
+            {
+                System.Windows.Media.CompositionTarget.Rendering -= _treeScrollStep;
+                _treeScrollStep = null;
+            }
+        };
+        System.Windows.Media.CompositionTarget.Rendering += _treeScrollStep;
+    }
+
     private void TreeItem_Selected(object sender, RoutedEventArgs e)
     {
         // Scroll the selected node into view (it bubbles up through the parent nodes: handle it once).

@@ -596,6 +596,8 @@
                           PreviewMouseRightButtonDown="NavigationTree_PreviewMouseRightButtonDown"
                           AllowDrop="True" DragOver="NavigationTree_DragOver" Drop="NavigationTree_Drop"
                           KeyDown="NavigationTree_KeyDown"
+                          PreviewKeyDown="NavigationTree_PreviewKeyDown"
+                          PreviewMouseLeftButtonDown="NavigationTree_PreviewMouseLeftButtonDown"
                           PreviewTextInput="NavigationTree_PreviewTextInput"
                           SelectedItemChanged="NavigationTree_SelectedItemChanged">
 
@@ -743,6 +745,7 @@
                             <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
                             <Setter Property="Padding"    Value="2,2"/>
                             <EventSetter Event="Selected" Handler="TreeItem_Selected"/>
+                            <EventSetter Event="Expanded" Handler="TreeItem_Expanded"/>
                         </Style>
                     </TreeView.ItemContainerStyle>
                 </TreeView>
