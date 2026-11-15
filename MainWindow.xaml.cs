@@ -3728,6 +3728,24 @@ public partial class MainWindow : Window
             ListFileInfoItem.Visibility = Visibility.Collapsed;
         }
 
+        // On a read-only disc (an audio CD ...) everything that writes is hidden, not only disabled: the menu is long enough already.
+        if (VM.HasFolder && ReadOnlyVolume.Is(ListMenuFolder()))
+            foreach (var mi in menu.Items.OfType<MenuItem>())
+                if (mi.Header is string h && WriteItems.Contains(h)) mi.Visibility = Visibility.Collapsed;
+
+        TidySeparators(menu);
+    }
+
+    /// <summary>The menu items that change what is on the disk; hidden on a read-only volume.</summary>
+    private static readonly HashSet<string> WriteItems = new()
+    {
+        "Cut", "Paste", "Delete", "Remove from Playlist", "Rename...", "Rename All Selected Music Files and Video Files Using Smart Rename",
+        "Create Playlist...", "Set Tags...", "New Folder", "New Text Document...", "New File from Clipboard"
+    };
+
+    /// <summary>Shows a separator only when a visible item lies on both sides of it.</summary>
+    private static void TidySeparators(ContextMenu menu)
+    {
         bool itemBefore = false;
         Separator? pending = null;
         foreach (var item in menu.Items)
@@ -4745,11 +4763,12 @@ public partial class MainWindow : Window
         FillSendToMenu(TreeSendToMenu, canChange ? SendToHelper.GetEntries() : new(), TreeSendToItem_Click);
 
         var menu = (ContextMenu)sender;
+        bool readOnly = realFolder && ReadOnlyVolume.Is(path);
         foreach (var mi in menu.Items.OfType<MenuItem>())
         {
             mi.IsEnabled = mi.Header switch
             {
-                "Set as Tree Root"   => !(VM.HasTreeRoot && SharedState.Key(path).Equals(SharedState.Key(VM.TreeRootPath!), StringComparison.OrdinalIgnoreCase)),
+                "Set as Tree Root"  => !(VM.HasTreeRoot && SharedState.Key(path).Equals(SharedState.Key(VM.TreeRootPath!), StringComparison.OrdinalIgnoreCase)),
                 "Reset Tree Root"    => VM.HasTreeRoot,
                 "Send to"    => canChange,
                 "Open in Windows Explorer" => realFolder || System.IO.File.Exists(path),   // a packed file is shown selected in its folder
@@ -4773,6 +4792,10 @@ public partial class MainWindow : Window
             bool isCurrent = string.Equals(SharedState.Key(path), SharedState.Key(VM.CurrentPath), StringComparison.OrdinalIgnoreCase);
             if (mi.Header is "Mark as Read")   mi.Visibility = isCurrent && VM.FolderStatusText == "Status: Read"   ? Visibility.Collapsed : Visibility.Visible;
             if (mi.Header is "Mark as Unread") mi.Visibility = isCurrent && VM.FolderStatusText == "Status: Unread" ? Visibility.Collapsed : Visibility.Visible;
+
+            // A read-only disc (an audio CD ...): what writes is hidden, not only disabled.
+            if (mi.Header is string h && WriteItems.Contains(h))
+                mi.Visibility = readOnly ? Visibility.Collapsed : Visibility.Visible;
         }
 
         // Only a drive has it (after the loop, which enables every item it does not know).
@@ -4783,6 +4806,8 @@ public partial class MainWindow : Window
         TreeCleanUpSeparator.Visibility = TreeCleanUpItem.Visibility;
         if (driveRoot != null && realFolder) PrepareCleanUpItem(TreeCleanUpItem, driveRoot);
         TreeLookUpDiscItem.Visibility = driveRoot != null && CdDiscInfo.IsAudioCdFolder(driveRoot) ? Visibility.Visible : Visibility.Collapsed;   // an audio CD
+
+        TidySeparators(menu);   // hidden items leave no empty groups behind
     }
 
     private void TreeCtxLookUpDisc_Click(object sender, RoutedEventArgs e)
