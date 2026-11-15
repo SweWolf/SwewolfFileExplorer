@@ -431,6 +431,12 @@ public class MainViewModel : INotifyPropertyChanged
 
     public bool   HasHiddenItems => _activeTab.HasHiddenItems;
     public string HiddenText     => _activeTab.HiddenText;
+    public bool   HasPackedItems   => _activeTab.HasPackedItems;
+    public bool   HasPlaylistItems => _activeTab.HasPlaylistItems;
+    public string PackedText       => _activeTab.PackedText;
+    public string PlaylistText     => _activeTab.PlaylistText;
+    public RelayCommand TogglePackedCommand    => _activeTab.TogglePackedCommand;
+    public RelayCommand TogglePlaylistsCommand => _activeTab.TogglePlaylistsCommand;
     // Undo of the last file operation: one slot for the whole program (Helpers/FileUndo.cs), not one per tab.
     public bool   HasUndo  => FileUndo.Current != null;
     public string UndoText => FileUndo.Current?.Text ?? "";

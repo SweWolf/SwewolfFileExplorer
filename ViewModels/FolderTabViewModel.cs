@@ -347,6 +347,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
                                                                   || IsUnderBookmarks(_currentPath)));   // in Bookmarks: always on, it explains what can be pasted
         PasteKeyCommand  = new RelayCommand(_ => PasteFromKeyboard(null));
         ToggleHiddenCommand = new RelayCommand(_ => ToggleHidden());
+        TogglePackedCommand    = new RelayCommand(_ => { _showPacked = !_showPacked; LoadItems(_currentPath); });
+        TogglePlaylistsCommand = new RelayCommand(_ => { _showLists = !_showLists; LoadItems(_currentPath); });
         CopyPathCommand  = new RelayCommand(_ => CopyPathsAsText(_selectedItems.Select(i => i.FullPath)),
                                             _ => _selectedItems.Count > 0);
         ToggleTreeHiddenCommand = new RelayCommand(_ => ToggleTreeHidden());
@@ -867,6 +869,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
 
         _showHidden = false;   // hidden items are shown for one folder at a time
+        _showPacked = _showLists = false;   // so are the compressed files and playlists the Folders button leaves out
         _unavailable = false;
         _noFolderShown = false;
         _thisPcShown = false;
@@ -915,9 +918,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         CurrentItems.Clear();
         _hiddenCount = 0;
+        _packedCount = _listCount = 0;
         ClearReadState();
         OnPropertyChanged(nameof(HasHiddenItems));
         OnPropertyChanged(nameof(HiddenText));
+        RaiseTreeFileLinks();
         StatusText = "";
     }
 
@@ -1392,6 +1397,38 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         _showHidden = !_showHidden;
         LoadItems(_currentPath);
+    }
+
+    // ── Compressed files and playlists the Folders button leaves out ──────────
+    // With the Folders button off they are not in the list (they are in the tree). A line under the list says how many there are,
+    // and a click shows them for this folder only, as for the hidden items (the next folder starts hidden again).
+
+    private bool _showPacked, _showLists;
+    private int  _packedCount, _listCount;
+
+    public bool HasPackedItems   => _packedCount > 0;
+    public bool HasPlaylistItems => _listCount > 0;
+    public string PackedText   => $"{(_showPacked ? "Showing " : "")}{_packedCount} compressed {(_packedCount == 1 ? "file" : "files")}";
+    public string PlaylistText => $"{(_showLists ? "Showing " : "")}{_listCount} {(_listCount == 1 ? "playlist" : "playlists")}";
+
+    public RelayCommand TogglePackedCommand   { get; private set; } = null!;
+    public RelayCommand TogglePlaylistsCommand { get; private set; } = null!;
+
+    private void RaiseTreeFileLinks()
+    {
+        OnPropertyChanged(nameof(HasPackedItems));
+        OnPropertyChanged(nameof(PackedText));
+        OnPropertyChanged(nameof(HasPlaylistItems));
+        OnPropertyChanged(nameof(PlaylistText));
+    }
+
+    /// <summary>True when a packed file or playlist is left out of the list now (the Folders button is off and the folder's link has not been clicked). Counts them.</summary>
+    private bool LeftOutTreeFile(string name, ref int packed, ref int lists)
+    {
+        if (_shared.ShowFolders || !TreeItemViewModel.IsTreeFile(name)) return false;
+        if (PlaylistFile.IsPlaylistName(name)) { lists++; return !_showLists; }
+        packed++;
+        return !_showPacked;
     }
 
     // ── Hidden folders in the tree ───────────────────────────────────────────
@@ -1928,6 +1965,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         CurrentItems.Clear();
         _hiddenCount = 0;
+        _packedCount = _listCount = 0;
         ClearReadState();
         UpdateTreeHidden(path, preread?.Counts);
 
@@ -1961,6 +1999,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             LoadPlaylistItems(path);
             OnPropertyChanged(nameof(HasHiddenItems));
             OnPropertyChanged(nameof(HiddenText));
+            RaiseTreeFileLinks();
             return;
         }
 
@@ -1969,6 +2008,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             LoadArchiveItems(path);
             OnPropertyChanged(nameof(HasHiddenItems));
             OnPropertyChanged(nameof(HiddenText));
+            RaiseTreeFileLinks();
             return;
         }
 
@@ -2004,8 +2044,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 try
                 {
-                    // A packed file is a folder here (it is in the tree): listed only when the folders are.
-                    if (!_shared.ShowFolders && TreeItemViewModel.IsTreeFile(file.Name)) continue;
+                    // A packed file is a folder here (it is in the tree): listed only when the folders are (or its link was clicked).
+                    if (LeftOutTreeFile(file.Name, ref _packedCount, ref _listCount)) continue;
 
                     bool hidden = HiddenItems.IsHiddenFile(file.Attributes, file.Name);
                     if (hidden) _hiddenCount++;
@@ -2033,6 +2073,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         OnPropertyChanged(nameof(HasHiddenItems));
         OnPropertyChanged(nameof(HiddenText));
+        RaiseTreeFileLinks();
     }
 
     private static FileItemViewModel NewDirItem(DirectoryInfo dir, bool hidden) => new()
@@ -2345,7 +2386,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     {
         // What the list should hold: the same choices as LoadItems (hidden items, packed files, the Folders button).
         var wanted = new Dictionary<string, (FileSystemInfo Info, bool Hidden)>(StringComparer.OrdinalIgnoreCase);
-        int hiddenCount = 0;
+        int hiddenCount = 0, packedCount = 0, listCount = 0;
 
         foreach (var dir in listing.Dirs)
         {
@@ -2356,7 +2397,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
         foreach (var file in listing.Files)
         {
-            if (!_shared.ShowFolders && TreeItemViewModel.IsTreeFile(file.Name)) continue;
+            if (LeftOutTreeFile(file.Name, ref packedCount, ref listCount)) continue;
             bool hidden = HiddenItems.IsHiddenFile(file.Attributes, file.Name);
             if (hidden) hiddenCount++;
             if (hidden && !_showHidden) continue;
@@ -2405,11 +2446,19 @@ public class FolderTabViewModel : INotifyPropertyChanged
             structural = true;
         }
 
+        if (packedCount != _packedCount || listCount != _listCount)
+        {
+            _packedCount = packedCount;
+            _listCount = listCount;
+            RaiseTreeFileLinks();
+        }
+
         if (hiddenCount != _hiddenCount)
         {
             _hiddenCount = hiddenCount;
             OnPropertyChanged(nameof(HasHiddenItems));
             OnPropertyChanged(nameof(HiddenText));
+            RaiseTreeFileLinks();
         }
 
         if (structural)

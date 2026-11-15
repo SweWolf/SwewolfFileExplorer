@@ -1380,6 +1380,22 @@
                             </Hyperlink>
                         </TextBlock>
 
+                        <!-- Compressed files and playlists the Folders button leaves out: a click shows them for this folder only -->
+                        <TextBlock FontSize="12" Margin="0,0,16,0"
+                                   Visibility="{Binding HasPackedItems, Converter={StaticResource BoolToVisibility}}"
+                                   ToolTip="Click to show or hide the compressed files of this folder (they are in the folder tree)">
+                            <Hyperlink Command="{Binding TogglePackedCommand}">
+                                <Run Text="{Binding PackedText, Mode=OneWay}"/>
+                            </Hyperlink>
+                        </TextBlock>
+                        <TextBlock FontSize="12" Margin="0,0,16,0"
+                                   Visibility="{Binding HasPlaylistItems, Converter={StaticResource BoolToVisibility}}"
+                                   ToolTip="Click to show or hide the playlists of this folder (they are in the folder tree)">
+                            <Hyperlink Command="{Binding TogglePlaylistsCommand}">
+                                <Run Text="{Binding PlaylistText, Mode=OneWay}"/>
+                            </Hyperlink>
+                        </TextBlock>
+
                         <!-- Everything shown is selected, but the folder has hidden items that are not shown: they would be left out of a copy or move
                              (MainWindow.UpdateHiddenWarning; Settings > Files > Hidden Files) -->
                         <TextBlock x:Name="HiddenWarning" FontSize="12" FontWeight="SemiBold" Foreground="#E5484D" Margin="0,0,16,0" Visibility="Collapsed"
