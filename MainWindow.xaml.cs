@@ -50,7 +50,8 @@ public partial class MainWindow : Window
             AddressBar.Text = text;
             AddressBar.CaretIndex = text.Length;
         };
-        VM.BookmarksPasteRequested += PasteIntoBookmarks;    // Ctrl+V in the Bookmarks folder: bookmarks are made, nothing is copied there
+        VM.RipRequested += (folder, tracks) => Dispatcher.BeginInvoke(new Action(() => RipDroppedTracks(folder, tracks)));   // audio CD tracks copied / dropped into a folder
+        VM.BookmarksPasteRequested += PasteIntoBookmarks;   // Ctrl+V in the Bookmarks folder: bookmarks are made, nothing is copied there
         VM.SortChanged   += () => ApplySort(VM.SortColumn, VM.SortAscending);
         VM.LastTabClosed += Close;
 
@@ -4961,7 +4962,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Audio CD tracks among the items are ripped there by RipDroppedTracks (a moment later, from the dispatcher): the box says whether to open the folder then.
+        _openFolderAfterRip = dialog.OpenInNewTab;
         var result = await VM.DropFilesAsync(dialog.FolderPath, items, dialog.IsMove);
+        Dispatcher.BeginInvoke(new Action(() => _openFolderAfterRip = false), System.Windows.Threading.DispatcherPriority.ContextIdle);   // not for a later drag
 
         // "Open This Folder in a New Tab When Finished": only when something was done and the user did not cancel.
         if (dialog.OpenInNewTab && result is { Canceled: false } && result.Done.Count > 0)

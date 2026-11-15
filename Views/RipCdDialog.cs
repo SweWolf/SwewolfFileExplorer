@@ -27,9 +27,29 @@ public sealed class RipCdDialog : Window
     /// <summary>The output folder chosen (the full path; it may not exist yet).</summary>
     public string FolderPath { get; private set; } = "";
 
-    public RipCdDialog(string summary)
+    private readonly RadioButton _radioSelected = new() { GroupName = "RipWhich", Margin = new Thickness(0, 0, 0, 6) };
+    private readonly RadioButton _radioAll      = new() { GroupName = "RipWhich" };
+
+    /// <summary>True: rip all the tracks of the disc. False: only the ones that were selected.</summary>
+    public bool AllTracks { get; private set; } = true;
+
+    private static string TracksText(string what, string? disc) =>
+        disc != null ? $"Rip {what} of \"{disc}\" to music files." : $"Rip {what} of the audio CD to music files.";
+
+    /// <param name="disc">The name of the disc (null if not known).</param>
+    /// <param name="total">How many tracks the disc has.</param>
+    /// <param name="selected">How many of them are selected in the list.</param>
+    /// <param name="icon">The icon of the CD drive, as the tree shows it.</param>
+    private readonly bool _folderFixed;
+
+    /// <param name="fixedFolder">Tracks were dropped in this folder: it is the output folder and cannot be changed (null: the user chooses).</param>
+    public RipCdDialog(string? disc, int total, int selected, System.Windows.Media.ImageSource? icon = null, string? fixedFolder = null)
     {
+        _folderFixed = !string.IsNullOrEmpty(fixedFolder);
         Title = "Rip Audio CD";
+        if (icon != null) Icon = icon;
+        string allText = TracksText(total == 1 ? "the track" : $"all {total} tracks", disc);
+        bool choice = selected > 0 && selected < total;   // with none or all selected there is nothing to choose
         FontSize = 14;
         SizeToContent = SizeToContent.WidthAndHeight;
         MaxWidth = 900;
@@ -41,7 +61,21 @@ public sealed class RipCdDialog : Window
         var settings = AppSettingsStore.Current;
         var panel = new StackPanel { Margin = new Thickness(24) };
 
-        panel.Children.Add(new TextBlock { Text = summary, TextWrapping = TextWrapping.Wrap, MaxWidth = 640, Margin = new Thickness(0, 0, 0, 14) });
+        if (choice)
+        {
+            // "All" is listed first, but the selected tracks are the default: the other way is one click away.
+            _radioSelected.Content = new TextBlock { Text = TracksText(selected == 1 ? "the selected track" : $"the {selected} selected tracks", disc), TextWrapping = TextWrapping.Wrap, MaxWidth = 600 };
+            _radioAll.Content      = new TextBlock { Text = allText, TextWrapping = TextWrapping.Wrap, MaxWidth = 600 };
+            _radioSelected.IsChecked = true;
+            var which = new StackPanel { Margin = new Thickness(0, 0, 0, 14) };
+            _radioAll.Margin = new Thickness(0, 0, 0, 6);   // "all" on top; "selected" below it is still the one checked
+            _radioSelected.Margin = new Thickness(0);
+            which.Children.Add(_radioAll);
+            which.Children.Add(_radioSelected);
+            panel.Children.Add(which);
+        }
+        else
+            panel.Children.Add(new TextBlock { Text = allText, TextWrapping = TextWrapping.Wrap, MaxWidth = 640, Margin = new Thickness(0, 0, 0, 14) });
 
         // File type and quality.
         panel.Children.Add(Label("File Type:", _format));
@@ -77,10 +111,10 @@ public sealed class RipCdDialog : Window
 
         // OK / Cancel.
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
-        var ok = new Button { Content = "OK", MinWidth = 96, Padding = new Thickness(16, 6, 16, 6), IsDefault = true };
+        var ok = new Button { Content = "OK", MinWidth = 115, Padding = new Thickness(16, 6, 16, 6), IsDefault = true };
         ok.SetResourceReference(Control.BorderBrushProperty, SystemColors.AccentColorBrushKey);   // the default button shows it, as in the other dialogs
         ok.BorderThickness = new Thickness(2);
-        var cancel = new Button { Content = "Cancel", MinWidth = 96, Padding = new Thickness(16, 6, 16, 6), Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
+        var cancel = new Button { Content = "Cancel", MinWidth = 115, Padding = new Thickness(16, 6, 16, 6), Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);
         panel.Children.Add(buttons);
@@ -89,6 +123,13 @@ public sealed class RipCdDialog : Window
         // The folder: the last one used, else the user's Music folder.
         var start = settings.RipFolder;
         if (string.IsNullOrWhiteSpace(start)) start = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+        if (_folderFixed)
+        {
+            // Dropped in a folder: that is where the files go. Shown, but not to be changed.
+            start = fixedFolder!;
+            _folder.IsEnabled = false;
+            browse.IsEnabled = false;
+        }
         _folder.Text = start;
         _folder.TextChanged += (_, _) => UpdateHint();
         browse.Click += (_, _) => Browse();
@@ -97,9 +138,9 @@ public sealed class RipCdDialog : Window
     }
 
     /// <summary>Asks; returns the dialog when the user chose OK (null if canceled).</summary>
-    public static RipCdDialog? Ask(Window? owner, string summary)
+    public static RipCdDialog? Ask(Window? owner, string? disc, int total, int selected, System.Windows.Media.ImageSource? icon = null, string? fixedFolder = null)
     {
-        var dlg = new RipCdDialog(summary) { Owner = owner is { IsVisible: true } ? owner : null };
+        var dlg = new RipCdDialog(disc, total, selected, icon, fixedFolder) { Owner = owner is { IsVisible: true } ? owner : null };
         if (dlg.Owner == null) dlg.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         return dlg.ShowDialog() == true ? dlg : null;
     }
@@ -118,6 +159,7 @@ public sealed class RipCdDialog : Window
 
     private void UpdateHint()
     {
+        if (_folderFixed) { _hint.Text = "The tracks go to the folder you copied or dropped them in."; return; }
         var text = CleanFolder(_folder.Text);
         _hint.Text = text.Length > 0 && Path.IsPathRooted(text) && !Directory.Exists(text) && !File.Exists(text)
             ? "This folder does not exist yet. It will be created."
@@ -145,6 +187,7 @@ public sealed class RipCdDialog : Window
             return;
         }
 
+        AllTracks    = _radioAll.IsChecked == true || _radioSelected.IsChecked != true;
         Format       = CdRipper.Formats[Math.Max(0, _format.SelectedIndex)];
         QualityIndex = Math.Max(0, _quality.SelectedIndex);
         Verify       = _verify.IsChecked == true;
@@ -154,7 +197,7 @@ public sealed class RipCdDialog : Window
         settings.RipFormat  = Format.Key;
         settings.RipQuality = QualityIndex;
         settings.RipVerify  = Verify;
-        settings.RipFolder  = FolderPath;
+        if (!_folderFixed) settings.RipFolder = FolderPath;   // a dropped-in folder is not "the last folder chosen"
         AppSettingsStore.Save(settings);
 
         DialogResult = true;

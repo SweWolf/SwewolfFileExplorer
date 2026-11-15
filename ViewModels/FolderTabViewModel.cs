@@ -3656,6 +3656,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>Ctrl+V found a picture or text and not files, and the user said yes: the window asks for the name and makes the file in this folder.</summary>
     public event Action<string>? ClipboardFileRequested;
 
+    /// <summary>Audio CD tracks were pasted, dropped or sent to a folder: the folder and the tracks. The window asks the Rip questions (the folder is fixed).</summary>
+    public event Action<string, List<string>>? RipRequested;
+
     /// <summary>The picture viewer's "Show Host URL" as this tab last had it (not stored: a new tab, and a new run, start with it off).</summary>
     public bool ViewerShowHostUrl { get; set; }
 
@@ -3685,6 +3688,16 @@ public class FolderTabViewModel : INotifyPropertyChanged
         {
             if (RemoteFiles.HasVirtualFiles()) await PasteRemoteAsync(destination);
             return null;
+        }
+
+        // Tracks of an audio CD (.cda) cannot be copied: they are 44-byte stubs. Copying or moving them (paste, drop, Move/Copy to Folder)
+        // means "rip them there": the window asks the Rip questions with this folder fixed. Anything else in the same paste goes on as usual.
+        var cdTracks = sources.Where(s => CdDiscInfo.IsCdTrack(s)).ToList();
+        if (cdTracks.Count > 0)
+        {
+            sources = sources.Except(cdTracks, StringComparer.OrdinalIgnoreCase).ToList();
+            RipRequested?.Invoke(destination, cdTracks);
+            if (sources.Count == 0) return null;
         }
 
         // Cut video or music files: do the files that belong to them follow? Asked before anything is moved; Cancel stops the paste.

@@ -365,6 +365,9 @@ It copies the tracks of the disc to music files on your disk.
      scratched discs. It is checked by default.
    - **Output Folder**: type a folder or use **Browse...**. A folder that does not exist yet is made.
 
+   - When only some of the tracks are selected, two buttons let you choose between **all tracks** of the disc and **the selected tracks**
+     (the selected ones are chosen to begin with).
+
    What you choose is remembered for next time. **OK** starts the ripping, **Cancel** stops it before anything happens.
 3. A progress window shows the track being ripped and has **Cancel**. The tracks that are finished stay; the one in
    progress is removed.
@@ -381,6 +384,10 @@ correct, is mentioned too, but is not a warning.
 
 The program reads the audio from the disc itself and uses **FFmpeg** to make the files, so `ffmpeg.exe` must be next to
 the program or in a folder in your PATH. Without it the **Rip** button tells you so.
+
+**Copying tracks to a folder:** a track of an audio CD cannot be copied as a file (it is only a pointer to the audio). If you copy, drag
+or send (**Move/Copy to Folder**) tracks of an audio CD to a folder, the same questions appear, and the files are ripped to that folder
+(it cannot be changed in the window). Moving works as copying: nothing is removed from the disc. When it is done, a message tells how it went; the folder is not offered in a new tab, but with **Move/Copy to Folder** the box **Open This Folder in a New Tab When Finished** is used.
 
 ## Right-Click Menus
 

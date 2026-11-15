@@ -451,7 +451,7 @@ public static class CdRipper
     /// ("Track 7 had read problems (around 2:31). It may click or skip."), and the offer to open the folder. <paramref name="problems"/> says
     /// whether a track failed or is damaged (the message then carries a warning symbol).
     /// </summary>
-    public static string ReportText(RipResult rip, string folder, int total, bool verify, bool allTracks, out bool problems)
+    public static string ReportText(RipResult rip, string folder, int total, bool verify, bool allTracks, out bool problems, bool askToOpen = true)
     {
         var done = rip.Tracks.Where(t => t.OutputPath != null).ToList();
         var lines = new List<string>();
@@ -482,6 +482,7 @@ public static class CdRipper
             foreach (var line in lines.Take(12)) text.AppendLine(line);
             if (lines.Count > 12) text.AppendLine($"... and {lines.Count - 12} more.");
         }
+        if (!askToOpen) return text.ToString().TrimEnd();
         text.AppendLine().AppendLine().Append("Do you want to open the folder in a new tab?");
         return text.ToString();
     }
