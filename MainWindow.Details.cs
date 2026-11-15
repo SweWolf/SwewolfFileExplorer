@@ -98,8 +98,9 @@ public partial class MainWindow
             Row("Track", tags is { TrackNumber: > 0 } ? tags.TrackNumber.ToString() : "");
             Row("Length", length);
             Row("Bitrate", bitrate);
-            Row("Size", AudioTagReader.IsCdTrackName(item.FullPath) ? "" : size);   // a CD track's 44-byte stub says nothing
-            Row("Date Modified", modified);
+            bool cdTrack = AudioTagReader.IsCdTrackName(item.FullPath);
+            Row("Size", cdTrack ? "" : size);   // a CD track's 44-byte stub says nothing
+            Row("Date Modified", cdTrack ? "" : modified);   // nor does its date (always 1994-12-31)
         }
         else if (MediaPlayerLauncher.IsVideo(item.FullPath))
         {
