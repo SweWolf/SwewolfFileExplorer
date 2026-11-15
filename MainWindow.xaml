@@ -329,6 +329,26 @@
                     </StackPanel>
                 </ToggleButton>
 
+                <!-- Only while an audio CD is shown: rips the selected tracks (all when none is selected) to MP3, FLAC or M4A files. The symbol is a disc, drawn here. -->
+                <Button x:Name="RipButton" Click="RipButton_Click" Visibility="Collapsed"
+                        ToolTip="Rip the Selected Tracks (All Tracks if None Is Selected) of the Audio CD to Music Files"
+                        Padding="6,4">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Width="14" Height="14" Stretch="Uniform" SnapsToDevicePixels="True" VerticalAlignment="Center" Margin="0,0,5,0"
+                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}">
+                            <Path.Data>
+                                <GeometryGroup FillRule="EvenOdd">
+                                    <EllipseGeometry Center="8,8" RadiusX="7.5" RadiusY="7.5"/>
+                                    <EllipseGeometry Center="8,8" RadiusX="4.8" RadiusY="4.8"/>
+                                    <EllipseGeometry Center="8,8" RadiusX="4" RadiusY="4"/>
+                                    <EllipseGeometry Center="8,8" RadiusX="1.8" RadiusY="1.8"/>
+                                </GeometryGroup>
+                            </Path.Data>
+                        </Path>
+                        <TextBlock Text="Rip" FontSize="12"/>
+                    </StackPanel>
+                </Button>
+
             </ToolBar>
         </ToolBarTray>
 

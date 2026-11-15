@@ -161,6 +161,12 @@ public class AppSettings
     /// <summary>The "Advanced" checkbox of the Session Manager window: kept from one time to the next (off at first).</summary>
     public bool SessionManagerAdvanced { get; set; } = false;
 
+    /// <summary>The Rip Audio CD window (Rip button in the toolbar): the file type ("mp3", "flac", "m4a"), the quality (index in that type's list), whether to verify, and the output folder; kept from one time to the next.</summary>
+    public string RipFormat { get; set; } = "mp3";
+    public int RipQuality { get; set; } = 0;
+    public bool RipVerify { get; set; } = true;
+    public string RipFolder { get; set; } = "";
+
     /// <summary>Show "Open in Terminal" (Windows Terminal) in the right-click menus of folders (Settings > Terminal Menu).</summary>
     public bool ShowOpenInTerminal { get; set; } = true;
 

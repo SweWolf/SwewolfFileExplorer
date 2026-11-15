@@ -102,6 +102,9 @@ public partial class MainWindow : Window
                 QueueInfoUpdate();
 
             // Another folder (or another tab): the filter goes away, so a folder never looks empty because of an old filter.
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(MainViewModel.CurrentPath) or nameof(MainViewModel.HasFolder))
+                UpdateRipButton();   // the Rip button is there while an audio CD is shown
+
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.CurrentPath))
             {
                 CloseFilterOnFolderChange();

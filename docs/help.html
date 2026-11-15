@@ -55,6 +55,7 @@ AI picture under the list.</p>
 VirusTotal</a></li>
 <li><a href="#the-info-panel">The Info Panel</a></li>
 <li><a href="#opening-files">Opening Files</a></li>
+<li><a href="#ripping-an-audio-cd">Ripping an Audio CD</a></li>
 <li><a href="#right-click-menus">Right-Click Menus</a></li>
 <li><a href="#copying-moving-and-deleting">Copying, Moving and
 Deleting</a>
@@ -530,6 +531,52 @@ another program. It is not shown for programs and scripts, or for
 folders. <strong>Edit</strong> is shown for the types that have an edit
 command (for example <code>.bat</code> and <code>.cmd</code> files), and
 opens the file in its editor.</p>
+<h2 id="ripping-an-audio-cd">Ripping an Audio CD</h2>
+<p>While an audio CD is shown (open the CD drive), a
+<strong>Rip</strong> button appears in the toolbar, to the right of
+<strong>Play</strong>. It copies the tracks of the disc to music files
+on your disk.</p>
+<ol type="1">
+<li><strong>Select the tracks</strong> you want in the list. If no track
+is selected, all tracks are ripped, from top to bottom.</li>
+<li>Click <strong>Rip</strong>. A window asks:
+<ul>
+<li><strong>File Type</strong>: <strong>MP3</strong>, <strong>FLAC
+(Lossless)</strong> or <strong>M4A (AAC)</strong>, and the
+<strong>Quality</strong> of that type.</li>
+<li><strong>Verify the Rip by Reading Each Track Twice</strong>: slower
+(about twice as long), but it finds read problems on scratched discs. It
+is checked by default.</li>
+<li><strong>Output Folder</strong>: type a folder or use
+<strong>Browse…</strong>. A folder that does not exist yet is made.</li>
+</ul>
+What you choose is remembered for next time. <strong>OK</strong> starts
+the ripping, <strong>Cancel</strong> stops it before anything
+happens.</li>
+<li>A progress window shows the track being ripped and has
+<strong>Cancel</strong>. The tracks that are finished stay; the one in
+progress is removed.</li>
+</ol>
+<p><strong>File names and tags.</strong> If the disc is known (it is
+looked up on MusicBrainz, see <strong>This PC and Drives</strong>), a
+file is called <code>Artist - Title</code>, for example
+<code>Ava Max - Kings &amp; Queens.mp3</code>; otherwise
+<code>Track 02</code>. A name that is taken gets <code>(1)</code>,
+<code>(2)</code> and so on: an existing file is never replaced. Each
+file gets its tags (title, artist, album, album artist, track number and
+number of tracks) and the album cover as its picture, if one is
+known.</p>
+<p><strong>How it went.</strong> When the ripping is over, one message
+says either that there were <strong>no read problems</strong>, or which
+tracks had trouble, for example “Track 7 had read problems (around
+2:31). It may click or skip.” It then asks whether you want to open the
+output folder in a new tab. A track that needed to be read again in some
+places, and ended up correct, is mentioned too, but is not a
+warning.</p>
+<p>The program reads the audio from the disc itself and uses
+<strong>FFmpeg</strong> to make the files, so <code>ffmpeg.exe</code>
+must be next to the program or in a folder in your PATH. Without it the
+<strong>Rip</strong> button tells you so.</p>
 <h2 id="right-click-menus">Right-Click Menus</h2>
 <p>Right-click a file or a folder in the list, or a folder in the tree.
 The menus have the same groups, in this order: opening, cut / copy /
@@ -1338,6 +1385,10 @@ Extension from the Microsoft Store.</p>
 <p><strong>A video has no preview picture.</strong> Put
 <code>ffmpeg.exe</code> next to the program or on the PATH, or choose a
 picture yourself (right-click the preview).</p>
+<p><strong>There is no Rip button, or it says FFmpeg was not
+found.</strong> The button shows only while the root of an audio CD is
+the folder shown. Ripping needs <code>ffmpeg.exe</code> next to the
+program or in a folder in your PATH.</p>
 <p><strong>A music or video file opens in another program.</strong>
 SweWolf Media Player was not found next to the program or in
 <code>..\SwewolfMediaPlayer</code>.</p>

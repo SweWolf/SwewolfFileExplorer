@@ -23,6 +23,7 @@ archives like folders, and shows a preview, a plot or the prompt of an AI pictur
 - [Checking a File on VirusTotal](#checking-a-file-on-virustotal)
 - [The Info Panel](#the-info-panel)
 - [Opening Files](#opening-files)
+- [Ripping an Audio CD](#ripping-an-audio-cd)
 - [Right-Click Menus](#right-click-menus)
 - [Copying, Moving and Deleting](#copying-moving-and-deleting)
   - [Undo](#undo)
@@ -351,6 +352,35 @@ opens the whole file in the text editor, as a double-click on the `.nfo` file do
 **Open With...** in the right-click menu lets you choose another program. It is not shown for
 programs and scripts, or for folders. **Edit** is shown for the types that have an edit command
 (for example `.bat` and `.cmd` files), and opens the file in its editor.
+
+## Ripping an Audio CD
+
+While an audio CD is shown (open the CD drive), a **Rip** button appears in the toolbar, to the right of **Play**.
+It copies the tracks of the disc to music files on your disk.
+
+1. **Select the tracks** you want in the list. If no track is selected, all tracks are ripped, from top to bottom.
+2. Click **Rip**. A window asks:
+   - **File Type**: **MP3**, **FLAC (Lossless)** or **M4A (AAC)**, and the **Quality** of that type.
+   - **Verify the Rip by Reading Each Track Twice**: slower (about twice as long), but it finds read problems on
+     scratched discs. It is checked by default.
+   - **Output Folder**: type a folder or use **Browse...**. A folder that does not exist yet is made.
+
+   What you choose is remembered for next time. **OK** starts the ripping, **Cancel** stops it before anything happens.
+3. A progress window shows the track being ripped and has **Cancel**. The tracks that are finished stay; the one in
+   progress is removed.
+
+**File names and tags.** If the disc is known (it is looked up on MusicBrainz, see **This PC and Drives**), a file is
+called `Artist - Title`, for example `Ava Max - Kings & Queens.mp3`; otherwise `Track 02`. A name that is taken gets
+` (1)`, ` (2)` and so on: an existing file is never replaced. Each file gets its tags (title, artist, album, album artist,
+track number and number of tracks) and the album cover as its picture, if one is known.
+
+**How it went.** When the ripping is over, one message says either that there were **no read problems**, or which
+tracks had trouble, for example "Track 7 had read problems (around 2:31). It may click or skip." It then asks whether
+you want to open the output folder in a new tab. A track that needed to be read again in some places, and ended up
+correct, is mentioned too, but is not a warning.
+
+The program reads the audio from the disc itself and uses **FFmpeg** to make the files, so `ffmpeg.exe` must be next to
+the program or in a folder in your PATH. Without it the **Rip** button tells you so.
 
 ## Right-Click Menus
 
@@ -778,6 +808,10 @@ Install [ImageMagick](https://imagemagick.org) or Windows' JPEG XL Image Extensi
 
 **A video has no preview picture.**
 Put `ffmpeg.exe` next to the program or on the PATH, or choose a picture yourself (right-click the preview).
+
+**There is no Rip button, or it says FFmpeg was not found.**
+The button shows only while the root of an audio CD is the folder shown. Ripping needs `ffmpeg.exe` next to the program
+or in a folder in your PATH.
 
 **A music or video file opens in another program.**
 SweWolf Media Player was not found next to the program or in `..\SwewolfMediaPlayer`.

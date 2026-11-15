@@ -7,6 +7,9 @@ public static partial class CdDiscInfo
 {
     private const int BitrateKbps = 1411;   // CD audio: 44.1 kHz, 16 bit, stereo
 
+    /// <summary>Track number, first sector and length in sectors from a .cda stub (what the ripper reads from the disc); null if the stub cannot be read.</summary>
+    internal static (int Number, int Start, int Length)? StubOf(string file) => ReadStub(file);
+
     /// <summary>
     /// Artist, title, track number, length and bitrate of a CD track for the list's columns and the details. The title and artist are empty
     /// until the disc is known (the lookup is started in the background and <see cref="Updated"/> says when it is done).
