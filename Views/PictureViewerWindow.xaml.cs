@@ -214,7 +214,7 @@ public partial class PictureViewerWindow : Window
     {
         OverlayText.Text = text;
         Overlay.VerticalAlignment = atTop ? VerticalAlignment.Top : VerticalAlignment.Center;
-        Overlay.Margin = atTop ? new Thickness(0, 30, 0, 0) : new Thickness(0);
+        Overlay.Margin = atTop ? new Thickness(0) : new Thickness(0);
         _overlayTimer.Interval = TimeSpan.FromSeconds(seconds);
         Overlay.Visibility = Visibility.Visible;
         _overlayTimer.Stop();
