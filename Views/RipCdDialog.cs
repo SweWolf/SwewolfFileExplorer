@@ -14,6 +14,7 @@ namespace SwewolfFileExplorer.Views;
 public sealed class RipCdDialog : Window
 {
     private readonly ComboBox _format  = new() { MinWidth = 300, HorizontalAlignment = HorizontalAlignment.Left };
+    private TextBlock _qualityLabel = null!;
     private readonly ComboBox _quality = new() { MinWidth = 300, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly CheckBox _verify  = new() { Content = "Verify the Rip by Reading Each Track Twice", Margin = new Thickness(0, 16, 0, 0) };
     private readonly TextBox _folder   = new() { MinWidth = 440, Padding = new Thickness(6, 4, 6, 4), VerticalContentAlignment = VerticalAlignment.Center };
@@ -45,7 +46,7 @@ public sealed class RipCdDialog : Window
         // File type and quality.
         panel.Children.Add(Label("File Type:", _format));
         panel.Children.Add(_format);
-        panel.Children.Add(Label("Quality:", _quality, top: 12));
+        panel.Children.Add(_qualityLabel = Label("Quality:", _quality, top: 12));
         panel.Children.Add(_quality);
 
         foreach (var f in CdRipper.Formats) _format.Items.Add(f.Name);
@@ -109,6 +110,7 @@ public sealed class RipCdDialog : Window
     private void FillQualities(int formatIndex, int wanted)
     {
         var format = CdRipper.Formats[Math.Clamp(formatIndex, 0, CdRipper.Formats.Length - 1)];
+        _qualityLabel.Text = format.QualityHeader;
         _quality.Items.Clear();
         foreach (var q in format.Qualities) _quality.Items.Add(q.Label);
         _quality.SelectedIndex = Math.Clamp(wanted, 0, format.Qualities.Length - 1);

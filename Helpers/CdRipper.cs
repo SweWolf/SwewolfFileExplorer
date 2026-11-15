@@ -40,7 +40,7 @@ public static class CdRipper
     /// <summary>One quality choice of a format: the text in the box and the ffmpeg options (the codec included).</summary>
     public sealed record Quality(string Label, string[] Args);
 
-    public sealed record RipFormat(string Key, string Name, string Extension, Quality[] Qualities);
+    public sealed record RipFormat(string Key, string Name, string Extension, Quality[] Qualities, string QualityHeader = "Quality:");
 
     public static readonly RipFormat[] Formats =
     {
@@ -54,10 +54,10 @@ public static class CdRipper
         }),
         new("flac", "FLAC (Lossless)", ".flac", new Quality[]
         {
-            new("Standard",                         new[] { "-c:a", "flac", "-compression_level", "5" }),
-            new("Smallest Files (Slower)",          new[] { "-c:a", "flac", "-compression_level", "8" }),
-            new("Fastest",                          new[] { "-c:a", "flac", "-compression_level", "0" }),
-        }),
+            new("Standard (Recommended)",                       new[] { "-c:a", "flac", "-compression_level", "5" }),
+            new("Smallest Files (Slowest, ≈ 0.5% Smaller)",     new[] { "-c:a", "flac", "-compression_level", "8" }),
+            new("Fastest (Largest Files, ≈ 5% Bigger)",         new[] { "-c:a", "flac", "-compression_level", "0" }),
+        }, "Compression:"),
         new("m4a", "M4A (AAC)", ".m4a", new Quality[]
         {
             new("256 kbps",                         new[] { "-c:a", "aac", "-b:a", "256k" }),
