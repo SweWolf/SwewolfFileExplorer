@@ -552,6 +552,7 @@ public class MainViewModel : INotifyPropertyChanged
 
     private void UserRefresh()
     {
+        FileUndo.Clear();   // the user looks at the folder again: the Undo of the last file operation is over
         if (FileTypeOverrides.ReloadIfChanged())
         {
             foreach (var tab in Tabs)

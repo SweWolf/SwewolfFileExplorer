@@ -332,11 +332,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
         _shared = shared;
         LibraryService.FolderChanged += OnLibraryFolderChanged;
 
-        BackCommand     = new RelayCommand(_ => GoBack(),        _ => _backHistory.Count > 0);
-        ForwardCommand   = new RelayCommand(_ => GoForward(),     _ => _forwardHistory.Count > 0);
-        UpCommand        = new RelayCommand(_ => GoUp(),          _ => CanGoUp());
+        BackCommand     = new RelayCommand(_ => { FileUndo.Clear(); GoBack(); },        _ => _backHistory.Count > 0);
+        ForwardCommand   = new RelayCommand(_ => { FileUndo.Clear(); GoForward(); },     _ => _forwardHistory.Count > 0);
+        UpCommand        = new RelayCommand(_ => { FileUndo.Clear(); GoUp(); },          _ => CanGoUp());
         RefreshCommand   = new RelayCommand(_ => Refresh());
-        NavigateCommand  = new RelayCommand(_ => Navigate(TidyTypedPath(AddressText)));   // Enter in the address bar: what was typed, spelled the Windows way (the box then shows that)
+        NavigateCommand  = new RelayCommand(_ => { FileUndo.Clear(); Navigate(TidyTypedPath(AddressText)); });   // Enter in the address bar: what was typed, spelled the Windows way (the box then shows that)
         // An archive is read-only: only copying out of it is possible.
         DeleteCommand    = new RelayCommand(_ => DeleteSelected(), _ => _selectedItems.Count > 0 && (!_inArchive || _inPlaylist));   // in a playlist: remove from the list
         PermanentDeleteCommand = new RelayCommand(_ => DeleteSelected(permanent: true), _ => _selectedItems.Count > 0 && !_inArchive);
@@ -2489,6 +2489,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // A packed file opens like a folder (a real one, or a zip inside a zip).
         if (item.IsDirectory || ArchiveSupport.IsArchiveName(item.Name) || PlaylistFile.IsPlaylistName(item.Name))
         {
+            FileUndo.Clear();   // the user moved on to another folder: the Undo of the last file operation is over
             Navigate(item.FullPath);
             return;
         }

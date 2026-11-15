@@ -1900,6 +1900,8 @@ public partial class MainWindow : Window
         // The tab selected this node itself, to follow a navigation: nothing to navigate to.
         if (VM.ConsumeProgrammaticTreeSelection(item)) return;
 
+        FileUndo.Clear();   // a click on another folder: the Undo of the last file operation is over
+
         // A bookmark of a file: its folder is opened and the file selected.
         if (item.Bookmark is { IsFile: true } && !string.IsNullOrEmpty(item.FullPath))
         {
