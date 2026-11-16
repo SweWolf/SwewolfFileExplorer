@@ -4293,6 +4293,19 @@ public class FolderTabViewModel : INotifyPropertyChanged
         return await task;
     }
 
+    /// <summary>False when the folder refuses a new file with "access denied" (a test file is made and removed at once); any other trouble counts as writable, so the normal path reports it.</summary>
+    private static bool CanWriteTo(string folder)
+    {
+        try
+        {
+            var probe = Path.Combine(folder, ".swewolf-write-test-" + Guid.NewGuid().ToString("N"));
+            using (new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose)) { }
+            return true;
+        }
+        catch (UnauthorizedAccessException) { return false; }
+        catch { return true; }
+    }
+
     /// <summary>
     /// Paste of files that are not on a disk (Remote Desktop clipboard): see <see cref="RemoteFiles"/>. Always a copy: a Cut on the
     /// other side is never answered with a delete over there, and the clipboard is left as it is.
@@ -4303,9 +4316,38 @@ public class FolderTabViewModel : INotifyPropertyChanged
         BeginFileWork();
         TransferResult result;
         var policy = NewConflictPolicy();
-        try { result = await RunWithProgressAsync((progress, token) => RemoteFiles.RunAsync(destination, progress, token, policy),
-                                                  "Copying", "files from the clipboard", destination, policy); }
-        finally { _pasting = false; EndFileWork(); }
+
+        // A folder that needs administrator permission (Program Files ...): the elevated helper cannot reach the other computer's clipboard,
+        // so the files are first written to a staging folder under Local AppData, and then moved into place like any other paste
+        // (with the administrator step). Windows' own Explorer cannot do this.
+        string? staging = null;
+        if (!await Task.Run(() => CanWriteTo(destination)))
+        {
+            staging = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SweWolfSoftware", AppInfo.FolderName,
+                                   "Staging", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(staging);
+        }
+
+        try
+        {
+            result = await RunWithProgressAsync((progress, token) => RemoteFiles.RunAsync(staging ?? destination, progress, token, policy),
+                                                "Copying", "files from the clipboard", staging ?? destination, policy);
+
+            if (staging != null && !result.Canceled && result.Done.Count > 0)
+            {
+                var staged = Directory.GetFileSystemEntries(staging).ToList();
+                var second = await RunTransferAsync(staged, destination, move: true);
+                if (second.AccessDenied.Count > 0 && !second.Canceled)
+                    (second, _) = await RetryAsAdministratorAsync(second, destination, move: true);
+                // What the user sees is what reached the real folder; what could not be read from the clipboard stays in the list of failures.
+                result = second with { Failed = result.Failed.Concat(second.Failed).ToList() };
+            }
+        }
+        finally
+        {
+            _pasting = false; EndFileWork();
+            if (staging != null) { try { Directory.Delete(staging, true); } catch { /* left in Local AppData\...\Staging */ } }
+        }
 
         if (result.Failed.Count > 0)
         {
