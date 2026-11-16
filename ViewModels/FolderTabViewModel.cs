@@ -3743,11 +3743,17 @@ public class FolderTabViewModel : INotifyPropertyChanged
         });
 
         var result = new TransferResult(new(), new(), false, 0);
+        bool usedAdministrator = false;
         if (toDo.Count > 0)
         {
             _pasting = true;
             BeginFileWork();
-            try { result = await RunTransferAsync(toDo, destination, isCut); }
+            try
+            {
+                result = await RunTransferAsync(toDo, destination, isCut);
+                if (result.AccessDenied.Count > 0 && !result.Canceled)
+                    (result, usedAdministrator) = await RetryAsAdministratorAsync(result, destination, isCut);
+            }
             finally { _pasting = false; EndFileWork(); }
         }
 
@@ -3794,7 +3800,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // not taken back either (those files would stay behind); a move only within one drive (a rename: nothing is lost on the way back).
         if (result.Done.Count > 0)
         {
-            if (anyTaken || result.Skipped > 0 || result.RenamedOld.Count > 0 || (!isCut && relatedMoves.Count > 0))
+            if (usedAdministrator || anyTaken || result.Skipped > 0 || result.RenamedOld.Count > 0 || (!isCut && relatedMoves.Count > 0))   // an undo would need the administrator too
                 FileUndo.Clear();
             else if (isCut)
             {
@@ -3843,6 +3849,49 @@ public class FolderTabViewModel : INotifyPropertyChanged
             StatusText = $"{result.Skipped} {(result.Skipped == 1 ? "file was" : "files were")} skipped.";
 
         return result;
+    }
+
+    /// <summary>
+    /// Some items failed with "access denied" (a folder in Program Files ...): asks, as Windows Explorer does, whether to go on as the
+    /// administrator, and if so runs those items in the elevated helper (<see cref="ElevatedTransfer"/>; Windows asks for permission).
+    /// The helper's result is merged into <paramref name="first"/>. Says whether the administrator was used.
+    /// </summary>
+    private async Task<(TransferResult Result, bool Used)> RetryAsAdministratorAsync(TransferResult first, string destination, bool move)
+    {
+        var sources = first.AccessDenied;
+        var folder = Path.GetFileName(destination.TrimEnd('\\', '/'));
+        if (string.IsNullOrEmpty(folder)) folder = destination;
+        var thing = sources.Count == 1 ? $"'{Path.GetFileName(sources[0].TrimEnd('\\', '/'))}'" : $"{sources.Count} items";
+        var answer = MessageBox.Show(
+            $"You need administrator permission to {(move ? "move" : "copy")} {thing} to the folder '{folder}'. Windows will ask for your permission next." +
+            $"{Environment.NewLine}{Environment.NewLine}Do you want to continue?",
+            AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.Yes);
+        if (answer != MessageBoxResult.Yes) return (first, false);
+
+        bool declined = false;
+        var second = await RunWithProgressAsync(async (progress, token) =>
+        {
+            var (r, d) = await ElevatedTransfer.RunAsync(sources, destination, move, progress, token);
+            declined = d;
+            return r;
+        }, move ? "Moving" : "Copying", thing, destination);
+        if (declined) return (first, false);   // the user said no to Windows' question: the first result stands, with its "access denied" lines
+
+        // The items the helper took over no longer count as failed here; its own failures replace them.
+        var names = new HashSet<string>(sources.Select(s => Path.GetFileName(s.TrimEnd('\\', '/'))), StringComparer.OrdinalIgnoreCase);
+        var failed = first.Failed.Where(f => !names.Contains(f.Name)).Concat(second.Failed).ToList();
+        var merged = first with
+        {
+            Done = first.Done.Concat(second.Done).ToList(),
+            Failed = failed,
+            Canceled = second.Canceled,
+            Skipped = first.Skipped + second.Skipped,
+            Renamed = first.RenamedOld.Concat(second.RenamedOld).ToList(),
+            Identical = first.IdenticalSkipped.Concat(second.IdenticalSkipped).ToList(),
+            CreatedItems = (first.CreatedItems ?? new()).Concat(second.CreatedItems ?? new()).ToList(),
+            AccessDenied = new(),
+        };
+        return (merged, second.Done.Count > 0 || second.RenamedOld.Count > 0 || second.CreatedItems?.Count > 0);
     }
 
     /// <summary>The Undo of a copy: what the copy made, with each file's size and date as it was left (a file edited since is kept by the undo).</summary>

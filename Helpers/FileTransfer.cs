@@ -30,6 +30,9 @@ public sealed record TransferResult(List<(string From, string To)> Done, List<(s
 
     /// <summary>Existing files that were renamed to "name (old N)" so the pasted file could have their name (what the library remembers follows them).</summary>
     public List<(string From, string To)> RenamedOld => Renamed ?? new();
+
+    /// <summary>Sources (full paths) that failed because Windows said "access denied": the paste offers to run them again as the administrator (<see cref="ElevatedTransfer"/>).</summary>
+    public List<string> AccessDenied { get; init; } = new();
 }
 
 /// <summary>
@@ -80,6 +83,7 @@ public static class FileTransfer
     {
         var done   = new List<(string, string)>();
         var failed = new List<(string, string)>();
+        var denied = new List<string>();
 
         // First count what there is to do, so the window can say "file 3 of 12" and show a bar.
         int files = 0;
@@ -156,17 +160,22 @@ public static class FileTransfer
             catch (OperationCanceledException)
             {
                 Undo(ctx.Item);
-                return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical, ctx.AllCreated);
+                return new TransferResult(done, failed, true, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical, ctx.AllCreated) { AccessDenied = denied };
             }
             catch (Exception ex)
             {
                 Undo(ctx.Item);
                 failed.Add((name, ex.Message));
+                if (IsAccessDenied(ex)) denied.Add(src);
             }
         }
 
-        return new TransferResult(done, failed, false, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical, ctx.AllCreated);
+        return new TransferResult(done, failed, false, sources.Count, ctx.Skipped, ctx.Renamed, ctx.Identical, ctx.AllCreated) { AccessDenied = denied };
     }
+
+    /// <summary>Windows' "access denied" (error 5), however it reached us: an UnauthorizedAccessException or an IOException that carries the code.</summary>
+    internal static bool IsAccessDenied(Exception ex) =>
+        ex is UnauthorizedAccessException || (ex.HResult & 0xFFFF) == 5 && ((uint)ex.HResult >> 16) == 0x8007;
 
     // ── Counting ──────────────────────────────────────────────────────────────
 
@@ -378,7 +387,7 @@ public static class FileTransfer
         {
             int error = Marshal.GetLastWin32Error();
             if (error == ERROR_REQUEST_ABORTED || ctx.Cancel.IsCancellationRequested) throw new OperationCanceledException();
-            throw new IOException(new System.ComponentModel.Win32Exception(error).Message);
+            throw new IOException(new System.ComponentModel.Win32Exception(error).Message, unchecked((int)(0x80070000u | (uint)error)));   // the code is kept: "access denied" offers the administrator
         }
 
         GC.KeepAlive(callback);

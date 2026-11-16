@@ -20,6 +20,15 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // The administrator helper of Paste / drops into protected folders (Helpers/ElevatedTransfer): no window, no hand-over, ends when done.
+        if (SwewolfFileExplorer.Helpers.ElevatedTransfer.IsHelperStart(e.Args))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            SwewolfFileExplorer.Helpers.ElevatedTransfer.RunHelper(e.Args);
+            Shutdown();
+            return;
+        }
+
         // The data folders of the first versions had spaces in their name: moved to the new name before anything is read.
         SwewolfFileExplorer.Helpers.AppInfo.MigrateFolders();
 
