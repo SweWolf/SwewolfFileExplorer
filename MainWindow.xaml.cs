@@ -75,6 +75,7 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Dimensions,   "Dimensions",    DimensionsColumn, visible: false),
             new ColumnInfo(SortColumn.ProductName,  "Product Name",  ProductNameColumn, visible: false),
             new ColumnInfo(SortColumn.ProductVersion, "Product Version", ProductVersionColumn, visible: false),
+            new ColumnInfo(SortColumn.Comment,      "Comment",       CommentColumn, visible: false),
             new ColumnInfo(SortColumn.Rating,       "Rating",       RatingColumn, visible: false),
             new ColumnInfo(SortColumn.Expectation,  "Expectation",   ExpectationColumn, visible: false)
         });
@@ -586,7 +587,7 @@ public partial class MainWindow : Window
     // The columns that need the files to be read (tags, length, bitrate, size in pixels).
     private static bool IsTagColumn(SortColumn key) =>
         key is SortColumn.Artist or SortColumn.Title or SortColumn.TrackNumber or SortColumn.Length or SortColumn.Bitrate or SortColumn.Dimensions
-            or SortColumn.ProductName or SortColumn.ProductVersion or SortColumn.DateTaken;
+            or SortColumn.ProductName or SortColumn.ProductVersion or SortColumn.DateTaken or SortColumn.Comment;
 
     private void ApplySort(SortColumn key, bool ascending)
     {
@@ -1362,6 +1363,7 @@ public partial class MainWindow : Window
             SortColumn.Dimensions   => item.DimensionsText,
             SortColumn.ProductName  => item.ProductName,
             SortColumn.ProductVersion => item.ProductVersion,
+            SortColumn.Comment      => item.Comment,
             SortColumn.Artist      => item.Artist,
             SortColumn.Title        => item.Title,
             SortColumn.TrackNumber  => item.TrackText,
@@ -1390,6 +1392,9 @@ public partial class MainWindow : Window
 
             // A very long name must not push the other columns out of the window.
             if (col.Key == SortColumn.Name) width = Math.Min(width, Math.Max(300, FileListView.ActualWidth * 0.6));
+
+            // The same for a long comment (an AI video can hold hundreds of characters there).
+            if (col.Key == SortColumn.Comment) width = Math.Min(width, Math.Max(300, FileListView.ActualWidth * 0.4));
 
             col.Width = Math.Ceiling(width);
         }

@@ -8,7 +8,7 @@ namespace SwewolfFileExplorer.Helpers;
 /// </summary>
 public record AudioTags(string Artist, string Title, uint TrackNumber,
                         TimeSpan Duration = default, int BitrateKbps = 0, int Width = 0, int Height = 0,
-                        string ProductName = "", string ProductVersion = "", DateTime? DateTaken = null);
+                        string ProductName = "", string ProductVersion = "", DateTime? DateTaken = null, string Comment = "");
 
 /// <summary>
 /// Reads the tags of a music file with TagLibSharp (mp3, m4a, flac, ogg, opus, wma, wav, ...), for the
@@ -109,14 +109,38 @@ public static class AudioTagReader
             if (props?.VideoWidth > 0 && duration.TotalSeconds >= 1)
                 kbps = (int)Math.Round(new FileInfo(path).Length * 8 / duration.TotalSeconds / 1000);
 
-            return artist.Length == 0 && title.Length == 0 && track == 0 && duration == TimeSpan.Zero && kbps == 0 && width == 0
+            var comment = ReadComment(file);
+
+            return artist.Length == 0 && title.Length == 0 && track == 0 && duration == TimeSpan.Zero && kbps == 0 && width == 0 && comment.Length == 0
                 ? null
-                : new AudioTags(artist, title, track, duration, kbps, width, height);
+                : new AudioTags(artist, title, track, duration, kbps, width, height, Comment: comment);
         }
         catch
         {
             return null;   // not a file TagLib knows, damaged, locked or gone: the cells stay empty
         }
+    }
+
+    /// <summary>
+    /// The comment of a file, on one line. An MP4 / M4A keeps it in the <c>©cmt</c> atom, sometimes in several pieces (Suno: "made with suno",
+    /// "created=...", "id=...") of which TagLib's <c>Tag.Comment</c> returns only the first: the pieces are joined with "; ".
+    /// Other formats: TagLib's comment (ID3 COMM, Vorbis COMMENT ...). Cut at 500 characters (an AI video can hold a long JSON text there).
+    /// </summary>
+    private static string ReadComment(TagLib.File file)
+    {
+        string text = "";
+        try
+        {
+            if (file.GetTag(TagLib.TagTypes.Apple, false) is TagLib.Mpeg4.AppleTag apple)
+                text = string.Join("; ", apple.GetText("©cmt").Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()));
+        }
+        catch { /* fall back to the plain comment */ }
+
+        if (text.Length == 0) text = file.Tag.Comment ?? "";
+
+        var chars = text.Select(c => char.IsControl(c) ? ' ' : c).ToArray();
+        text = System.Text.RegularExpressions.Regex.Replace(new string(chars), @"\s{2,}", " ").Trim();
+        return text.Length > 500 ? text[..500] + "..." : text;
     }
 
     /// <summary>The picture embedded in a music file (the front cover if there is one, else the first picture); null if none.</summary>

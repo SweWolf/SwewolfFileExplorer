@@ -67,9 +67,20 @@ public static class ElevatedTransfer
     /// <summary>Runs the job named by <paramref name="args"/>[1] and writes the result. Called from <c>App.OnStartup</c>; no window is made.</summary>
     public static void RunHelper(string[] args)
     {
+        // Sign of life first, then everything that goes wrong is written down where the first copy looks: a helper that dies silently
+        // would leave the first copy waiting for nothing.
+        var dir = Path.GetDirectoryName(args[1]) ?? "";
+        void Note(string text) { try { File.AppendAllText(Path.Combine(dir, "helper.log"), $"{DateTime.Now:HH:mm:ss} {text}{Environment.NewLine}"); } catch { } }
+        Note($"started as {Environment.UserName}, elevated={IsElevated()}");
+
         Job job;
         try { job = JsonSerializer.Deserialize<Job>(File.ReadAllText(args[1]), Json)!; }
-        catch { return; }
+        catch (Exception ex)
+        {
+            Note($"the job file could not be read: {ex.GetType().Name}: {ex.Message}");
+            try { File.WriteAllText(Path.Combine(dir, "result.json"), JsonSerializer.Serialize(new ResultDto { Error = "the administrator helper could not read its job (" + ex.Message + ")" }, Json)); } catch { }
+            return;
+        }
 
         var result = new ResultDto();
         try
@@ -103,7 +114,8 @@ public static class ElevatedTransfer
             result.Identical = r.IdenticalSkipped;
             result.CreatedItems = (r.CreatedItems ?? new()).Select(c => new Created { Path = c.Path, IsDirectory = c.IsDirectory }).ToList();
         }
-        catch (Exception ex) { result.Error = ex.Message; }
+        catch (Exception ex) { result.Error = ex.Message; Note($"the transfer failed: {ex}"); }
+        Note($"done: {result.Done.Count} done, {result.Failed.Count} failed, error={result.Error}");
 
         // Written under another name and moved into place, so the other side never reads half of it.
         try
@@ -113,6 +125,16 @@ public static class ElevatedTransfer
             File.Move(temp, job.ResultFile, true);
         }
         catch { /* nobody to tell */ }
+    }
+
+    private static bool IsElevated()
+    {
+        try
+        {
+            using var id = System.Security.Principal.WindowsIdentity.GetCurrent();
+            return new System.Security.Principal.WindowsPrincipal(id).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        }
+        catch { return false; }
     }
 
     // ── The first copy ─────────────────────────────────────────────────────────────────────────
@@ -142,42 +164,69 @@ public static class ElevatedTransfer
             Process? process;
             try
             {
-                process = Process.Start(new ProcessStartInfo(exe)
+                // On another thread: Windows' permission question blocks the caller until it is answered, and the window must not freeze meanwhile.
+                process = await Task.Run(() => Process.Start(new ProcessStartInfo(exe)
                 {
                     UseShellExecute = true,
                     Verb = "runas",
                     Arguments = $"{Argument} \"{jobFile}\"",
                     WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
-                });
+                }));
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)   // the user said no to Windows' question
             {
                 return (new TransferResult(new(), new(), true, sources.Count), true);
             }
+            catch (Exception ex)   // the helper could not be started at all (blocked by policy, a missing file ...): say why, never crash
+            {
+                try { LogFiles.AppendError($"The administrator helper could not be started ({exe}): {ex.GetType().Name}: {ex.Message}"); } catch { }
+                var failed = sources.Select(s => (Path.GetFileName(s.TrimEnd('\\', '/')), $"the administrator helper could not be started: {ex.Message}")).ToList();
+                return (new TransferResult(new(), failed, false, sources.Count), false);
+            }
 
-            bool cancelSent = false;
+            // Wait for the result. Never forever: the helper must show a sign of life (its own log file appears at once) within 30 seconds,
+            // and after Cancel it gets 15 seconds to answer. A process that has ended without a result also ends the wait.
+            var started = DateTime.UtcNow;
+            DateTime? cancelSentAt = null;
+            string helperLog = Path.Combine(dir, "helper.log");
+            string? gaveUp = null;
             while (!File.Exists(job.ResultFile))
             {
-                if (cancel.IsCancellationRequested && !cancelSent)
+                if (cancel.IsCancellationRequested && cancelSentAt == null)
                 {
-                    cancelSent = true;
+                    cancelSentAt = DateTime.UtcNow;
                     try { File.WriteAllText(job.CancelFile, ""); } catch { }
                 }
                 ReadProgress(job.ProgressFile, progress);
 
                 bool exited = false;
-                try { exited = process?.HasExited ?? false; } catch { /* no access to ask: rely on the result file */ }
-                if (exited && !File.Exists(job.ResultFile)) { await Task.Delay(300); break; }   // a moment for the file to appear
+                try { exited = process?.HasExited ?? false; } catch { /* no access to ask an elevated process: the time limits below decide */ }
+                if (exited)
+                {
+                    await Task.Delay(500);   // a moment for the result file to appear
+                    if (!File.Exists(job.ResultFile)) gaveUp = "the administrator helper ended without a result";
+                    break;
+                }
+
+                if (!File.Exists(helperLog) && (DateTime.UtcNow - started).TotalSeconds > 30)
+                { gaveUp = "the administrator helper did not start working (Windows or security software may have blocked it)"; break; }
+                if (cancelSentAt is { } at && (DateTime.UtcNow - at).TotalSeconds > 15)
+                { gaveUp = "the administrator helper did not answer after Cancel"; break; }
                 await Task.Delay(150);
             }
 
             ResultDto? dto = null;
-            try { dto = JsonSerializer.Deserialize<ResultDto>(await File.ReadAllTextAsync(job.ResultFile), Json); } catch { }
-            process?.Dispose();
+            if (gaveUp == null)
+                try { dto = JsonSerializer.Deserialize<ResultDto>(await File.ReadAllTextAsync(job.ResultFile), Json); } catch { }
+            try { process?.Dispose(); } catch { }
 
-            if (dto == null || dto.Error != null)
+            string helperText = "";
+            try { if (File.Exists(helperLog)) helperText = File.ReadAllText(helperLog).Trim(); } catch { }
+
+            if (gaveUp != null || dto == null || dto.Error != null)
             {
-                var why = dto?.Error ?? "the helper ended without a result";
+                var why = gaveUp ?? dto?.Error ?? "the helper ended without a result";
+                try { LogFiles.AppendError($"The administrator helper failed: {why}. Helper log: {(helperText.Length > 0 ? helperText.Replace(Environment.NewLine, " | ") : "(none)")}"); } catch { }
                 var failed = sources.Select(s => (Path.GetFileName(s.TrimEnd('\\', '/')), why)).ToList();
                 return (new TransferResult(new(), failed, false, sources.Count), false);
             }

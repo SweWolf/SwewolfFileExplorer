@@ -3865,7 +3865,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var answer = MessageBox.Show(
             $"You need administrator permission to {(move ? "move" : "copy")} {thing} to the folder '{folder}'. Windows will ask for your permission next." +
             $"{Environment.NewLine}{Environment.NewLine}Do you want to continue?",
-            AppInfo.Name, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.Yes);
+            AppInfo.Name, MessageBoxButton.YesNo, MessageBox.Shield, MessageBoxResult.Yes);
         if (answer != MessageBoxResult.Yes) return (first, false);
 
         bool declined = false;

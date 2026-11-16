@@ -1066,6 +1066,10 @@
                         <GridViewColumn Header="Product Version" Width="120" x:Name="ProductVersionColumn"
                                         DisplayMemberBinding="{Binding ProductVersion}"/>
 
+                        <!-- The comment inside the file (an MP4's ©cmt, an MP3's comment ...). -->
+                        <GridViewColumn Header="Comment" Width="250" x:Name="CommentColumn"
+                                        DisplayMemberBinding="{Binding Comment}"/>
+
                         <!-- The user's own rating and expectation (1-10, Ctrl+R and Ctrl+E), as in TeraTool. Hidden until used. -->
                         <GridViewColumn Header="Rating" Width="80" x:Name="RatingColumn"
                                         DisplayMemberBinding="{Binding RatingText}"/>

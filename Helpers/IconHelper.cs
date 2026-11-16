@@ -47,6 +47,7 @@ public static class IconHelper
     private static extern int SHGetStockIconInfo(int siid, uint uFlags, ref SHSTOCKICONINFO psii);
 
     private const int SIID_RECYCLER = 31, SIID_RECYCLERFULL = 32;
+    public const int SIID_SHIELD = 77;   // the UAC shield
     public const int SIID_HELP = 23, SIID_WARNING = 78, SIID_INFO = 79, SIID_ERROR = 80;
 
     /// <summary>The Recycle Bin's own icon, empty or full as Windows draws it (for the window of a delete); null if Windows has none.</summary>

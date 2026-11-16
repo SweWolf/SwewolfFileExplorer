@@ -70,6 +70,9 @@ public class FileItemViewModel : INotifyPropertyChanged
     public string ProductName { get; private set; } = "";
     public string ProductVersion { get; private set; } = "";
 
+    /// <summary>The comment inside the file (an MP4's ©cmt, an MP3's COMM ...), on one line.</summary>
+    public string Comment { get; private set; } = "";
+
     /// <summary>"3:45", or "1:02:03" from an hour up.</summary>
     public string LengthText => Duration < TimeSpan.FromSeconds(0.5) ? ""
         : Duration.TotalHours >= 1 ? $"{(int)Duration.TotalHours}:{Duration.Minutes:00}:{Duration.Seconds:00}"
@@ -99,6 +102,8 @@ public class FileItemViewModel : INotifyPropertyChanged
         ProductName    = tags.ProductName;
         ProductVersion = tags.ProductVersion;
         DateTaken      = tags.DateTaken;
+        Comment        = tags.Comment;
+        OnPropertyChanged(nameof(Comment));
         OnPropertyChanged(nameof(DateTakenText));
         OnPropertyChanged(nameof(ProductName));
         OnPropertyChanged(nameof(ProductVersion));

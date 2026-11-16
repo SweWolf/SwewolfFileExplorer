@@ -17,6 +17,11 @@ namespace SwewolfFileExplorer.Views;
 /// </summary>
 public static class ThemedMessageBox
 {
+    /// <summary>The blue and yellow UAC shield (Windows' stock icon): for a question that is about administrator permission. Pass it as the image; no sound.</summary>
+    public const MessageBoxImage Shield = (MessageBoxImage)77;
+
+    private static MessageBoxImage ForWindows(MessageBoxImage image) => image == Shield ? MessageBoxImage.Warning : image;   // Windows' own box does not know the shield
+
     public static MessageBoxResult Show(string text) => Show(null, text, "", MessageBoxButton.OK, MessageBoxImage.None, MessageBoxResult.None);
     public static MessageBoxResult Show(string text, string caption) => Show(null, text, caption, MessageBoxButton.OK, MessageBoxImage.None, MessageBoxResult.None);
     public static MessageBoxResult Show(string text, string caption, MessageBoxButton button) => Show(null, text, caption, button, MessageBoxImage.None, MessageBoxResult.None);
@@ -52,7 +57,7 @@ public static class ThemedMessageBox
                                              ImageSource? windowIcon, string? checkText, System.Runtime.CompilerServices.StrongBox<bool>? check)
     {
         var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher == null) return System.Windows.MessageBox.Show(text, caption, button, image, defaultResult);   // no WPF yet: Windows' own box
+        if (dispatcher == null) return System.Windows.MessageBox.Show(text, caption, button, ForWindows(image), defaultResult);   // no WPF yet: Windows' own box
         if (!dispatcher.CheckAccess())
             return dispatcher.Invoke(() => ShowCore(owner, text, caption, button, image, defaultResult, windowIcon, checkText, check));
 
@@ -72,7 +77,7 @@ public static class ThemedMessageBox
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
             // The window could not be made or shown (an owner in a bad state): the message must still reach the user.
-            return System.Windows.MessageBox.Show(text, caption, button, image, defaultResult);
+            return System.Windows.MessageBox.Show(text, caption, button, ForWindows(image), defaultResult);
         }
     }
 
@@ -201,6 +206,7 @@ public static class ThemedMessageBox
             MessageBoxImage.Warning     => IconHelper.GetStockIcon(IconHelper.SIID_WARNING),
             MessageBoxImage.Information => IconHelper.GetStockIcon(IconHelper.SIID_INFO),
             MessageBoxImage.Question    => IconHelper.GetStockIcon(IconHelper.SIID_HELP),
+            Shield                      => IconHelper.GetStockIcon(IconHelper.SIID_SHIELD),
             _ => null,
         };
     }
