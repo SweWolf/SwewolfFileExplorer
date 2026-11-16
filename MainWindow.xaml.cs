@@ -2458,24 +2458,38 @@ public partial class MainWindow : Window
     /// The plot from the .nfo file of the selected video or music file, to the right of the preview picture; nothing (and no
     /// space) when there is none. Read in the background; a late answer for a file no longer selected is ignored.
     /// </summary>
-    private async void ShowPlot(FileItemViewModel? item)
+    private void ShowPlot(FileItemViewModel? item)
+    {
+        if (item == null)   // nothing selected: the folder shown can be a TV show (its tvshow.nfo)
+            ShowPlotFor(VM.HasFolder && PlotFolderOk(VM.CurrentPath) ? VM.CurrentPath : null, isFolder: true);
+        else if (item.IsDirectory)
+            ShowPlotFor(!item.IsInArchive && PlotFolderOk(item.FullPath) ? item.FullPath : null, isFolder: true);
+        else
+            ShowPlotFor(!item.IsInArchive && (MediaPlayerLauncher.IsVideo(item.FullPath) || AudioTagReader.HasTags(item.FullPath)) ? item.FullPath : null, isFolder: false);
+    }
+
+    // A real folder (not a drive, an archive, a playlist or the Bookmarks folder) can hold a tvshow.nfo.
+    private bool PlotFolderOk(string folder) =>
+        !VM.InArchive && !VM.InPlaylist && System.IO.Directory.Exists(folder) && !FolderTabViewModel.IsUnderBookmarks(folder)
+        && !string.Equals(System.IO.Path.GetPathRoot(folder)?.TrimEnd('\\', '/'), folder.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+
+    private async void ShowPlotFor(string? path, bool isFolder)
     {
         int version = ++_plotVersion;
 
-        if (item == null || item.IsDirectory || item.IsInArchive
-            || !(MediaPlayerLauncher.IsVideo(item.FullPath) || AudioTagReader.HasTags(item.FullPath)))
+        if (path == null)
         {
-            _plotItem = null;
-            PlotArea.Visibility = Visibility.Collapsed;   // not a file that has a plot: no area, no hint, no space
+            _plotPath = null;
+            PlotArea.Visibility = Visibility.Collapsed;   // nothing that has a plot: no area, no hint, no space
             LayoutInfoColumns();
             return;
         }
 
-        string path = item.FullPath;
         var plot = await Task.Run(() => NfoPoster.Plot(path));
         if (version != _plotVersion) return;
 
-        _plotItem = item;
+        _plotPath = path;
+        _plotIsFolder = isFolder;
         PlotArea.Visibility = Visibility.Visible;
         LayoutInfoColumns();
 
@@ -2494,7 +2508,8 @@ public partial class MainWindow : Window
         PlotScroll.Visibility = Visibility.Visible;
     }
 
-    private FileItemViewModel? _plotItem;   // the file whose plot (or hint) is shown
+    private string? _plotPath;      // the file or folder whose plot (or hint) is shown
+    private bool _plotIsFolder;
 
     // A double-click in the plot area (also where there is only the hint) opens Edit Plot.
     private void PlotArea_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -2508,7 +2523,7 @@ public partial class MainWindow : Window
 
     // The .nfo file that belongs to the file whose plot is shown (the same names the plot is read from), or null if there is none.
     private string? ExistingNfoOfPlotItem() =>
-        _plotItem == null ? null : NfoPoster.NfoFilesOf(_plotItem.FullPath).FirstOrDefault(System.IO.File.Exists);
+        _plotPath == null ? null : NfoPoster.NfoFilesOf(_plotPath).FirstOrDefault(System.IO.File.Exists);
 
     // "View/Edit NFO File" is only in the menu when the .nfo file exists.
     private void PlotArea_ContextMenuOpening(object sender, ContextMenuEventArgs e) =>
@@ -2527,18 +2542,17 @@ public partial class MainWindow : Window
 
     private void EditPlot()
     {
-        if (_plotItem == null) return;
-        var item = _plotItem;
+        if (_plotPath == null) return;
 
-        var window = new PlotEditWindow(item.FullPath) { Owner = this };
+        var window = new PlotEditWindow(_plotPath) { Owner = this };
         if (window.ShowDialog() != true || !window.Saved) return;
 
-        // A .nfo file may have been made: the folder is read again (the selection stays), and the plot is read again.
+        // A .nfo file may have been made: the folder is read again (the selection stays), and the plot and preview are read again
+        // (a poster may be named in the changed file).
         var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
         VM.RefreshCommand.Execute(null);
         ReselectInList(selected);
-        ShowPlot(item);
-        ShowThumbnail(item);   // a poster may be named in the changed file
+        UpdateInfoPanel();
     }
 
     // Twice the width of the preview box (so it stays sharp on a high-DPI screen); the box is 160 px wide until the panel is dragged taller.

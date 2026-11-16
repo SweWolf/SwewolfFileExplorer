@@ -74,7 +74,9 @@ public sealed class DownloadNfoWindow : Window
         });
         panel.Children.Add(new TextBlock
         {
-            Text = "The file is saved as a hidden .nfo file with the same name, next to the video.",
+            Text = Directory.Exists(mediaPath)
+                ? "The details are saved as a hidden tvshow.nfo in this folder (movie.nfo for a movie), and the poster as a hidden poster.jpg, which the folder picture shows."
+                : "The file is saved as a hidden .nfo file with the same name, next to the video.",
             Margin = new Thickness(0, 12, 0, 0), TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
         });
 

@@ -21,6 +21,7 @@ public static class NfoWriter
             if (File.Exists(nfo)) { exists = true; return nfo; }
         }
         exists = false;
+        if (Directory.Exists(mediaPath)) return Path.Combine(mediaPath, "tvshow.nfo");   // a folder: the show's file
         return Path.Combine(Path.GetDirectoryName(mediaPath)!, Path.GetFileNameWithoutExtension(mediaPath) + ".nfo");
     }
 
@@ -54,9 +55,10 @@ public static class NfoWriter
     {
         if (plot.Length == 0) return;   // nothing to say: no file is made for it
 
-        var xml = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n<movie>\n  "
+        var root = Path.GetFileName(file).Equals("tvshow.nfo", StringComparison.OrdinalIgnoreCase) ? "tvshow" : "movie";
+        var xml = $"<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n<{root}>\n  "
                 + new XElement("plot", plot).ToString(SaveOptions.DisableFormatting)
-                + "\n</movie>\n";
+                + $"\n</{root}>\n";
         xml = xml.Replace("\r\n", "\n").Replace("\n", "\r\n");
 
         using var stream = new FileStream(file, FileMode.CreateNew, FileAccess.Write, FileShare.None);   // never replaces a file

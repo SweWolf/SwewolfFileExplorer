@@ -21,6 +21,14 @@ public static class NfoPoster
     /// <summary>The .nfo files that may belong to a video: &lt;name&gt;.nfo and &lt;name with extension&gt;.nfo (Movie.mkv.nfo).</summary>
     public static IEnumerable<string> NfoFilesOf(string mediaPath)
     {
+        // A folder (a TV show, or a movie that has a folder of its own): tvshow.nfo / movie.nfo inside it, the names Kodi and Jellyfin use.
+        if (Directory.Exists(mediaPath))
+        {
+            yield return Path.Combine(mediaPath, "tvshow.nfo");
+            yield return Path.Combine(mediaPath, "movie.nfo");
+            yield break;
+        }
+
         var folder = Path.GetDirectoryName(mediaPath);
         if (string.IsNullOrEmpty(folder)) yield break;
 

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Input;
 using SwewolfFileExplorer.Helpers;
 using SwewolfFileExplorer.ViewModels;
 using SwewolfFileExplorer.Views;
@@ -17,8 +18,9 @@ public partial class MainWindow
 
     private async void PlotDownloadNfo_Click(object sender, RoutedEventArgs e)
     {
-        var item = _plotItem;
-        if (item == null) return;
+        var path = _plotPath;   // a video / music file, or a folder (a TV show: its tvshow.nfo and poster)
+        if (path == null) return;
+        bool folder = _plotIsFolder;
 
         if (Tmdb.GetApiKey() == null)
         {
@@ -28,7 +30,7 @@ public partial class MainWindow
             return;
         }
 
-        var ask = new DownloadNfoWindow(item.FullPath) { Owner = this };
+        var ask = new DownloadNfoWindow(path) { Owner = this };
         if (ask.ShowDialog() != true) return;
 
         Tmdb.Result chosen;
@@ -88,12 +90,15 @@ public partial class MainWindow
         }
 
         // 2. An existing .nfo is never replaced without asking.
-        var target = NfoWriter.TargetFile(item.FullPath, out bool exists);   // an existing .nfo of the file, else the new <name>.nfo
+        // A file: its own .nfo (an existing one, else the new <name>.nfo). A folder: tvshow.nfo in it (movie.nfo for a movie).
+        string target; bool exists;
+        if (folder) { target = System.IO.Path.Combine(path, chosen.IsTv ? "tvshow.nfo" : "movie.nfo"); exists = File.Exists(target); }
+        else target = NfoWriter.TargetFile(path, out exists);
         if (exists && MessageBox.Show(this, $"\"{System.IO.Path.GetFileName(target)}\" already exists. Do you want to replace it?",
                 "Download NFO File", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel) != MessageBoxResult.OK) return;
 
         // 3. Details and save.
-        var episode = chosen.IsTv ? Tmdb.EpisodeOf(System.IO.Path.GetFileNameWithoutExtension(item.FullPath)) : null;
+        var episode = chosen.IsTv && !folder ? Tmdb.EpisodeOf(System.IO.Path.GetFileNameWithoutExtension(path)) : null;
         var built = WaitWindow.Run(this, "Download NFO File", "Getting the details from The Movie Database...", chosen.Title, async ct =>
         {
             try { return new NfoOutcome(null, await Tmdb.BuildNfoAsync(chosen, episode, ct), null); }
@@ -107,12 +112,54 @@ public partial class MainWindow
         try { Tmdb.WriteNfo(target, built.Xml!, replace: exists); }
         catch (InvalidOperationException ex) { MessageBox.Show(this, ex.Message, "Download NFO File", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
 
-        // The folder is read again (the selection stays); the plot and the preview are read again from the new file.
+        // A folder (a TV show) also gets its poster, as a hidden poster.jpg in it: the picture under the tree shows it.
+        string? posterProblem = null;
+        if (folder)
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            try { posterProblem = await SaveFolderPosterAsync(path, target); }
+            finally { Mouse.OverrideCursor = null; }
+        }
+
+        // The folder is read again (the selection stays); the plot, the preview and the folder picture are read again.
         var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
         VM.RefreshCommand.Execute(null);
         ReselectInList(selected);
-        ShowPlot(item);
-        ShowThumbnail(item);
+        UpdateInfoPanel();
+        if (folder) VM.RefreshFolderPicture();
         FlashTitle($"{BaseTitle} - Saved {System.IO.Path.GetFileName(target)}");
+        if (posterProblem != null)
+            MessageBox.Show(this, $"\"{System.IO.Path.GetFileName(target)}\" was saved, but the poster was not: {posterProblem}", "Download NFO File", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    /// <summary>
+    /// Downloads the poster named in the .nfo into the folder as a hidden poster.jpg (poster.png for a PNG): the name Jellyfin and Kodi use,
+    /// and one the folder picture already looks for. A poster that is there already is never replaced. Returns null when it is done (or
+    /// nothing is to be done), else the reason it was not.
+    /// </summary>
+    private static async Task<string?> SaveFolderPosterAsync(string folder, string nfo)
+    {
+        foreach (var existing in new[] { "poster.jpg", "poster.jpeg", "poster.png" })
+            if (File.Exists(System.IO.Path.Combine(folder, existing))) return null;
+
+        var address = NfoPoster.Addresses(nfo).FirstOrDefault(a => a.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+        if (address == null) return null;   // the .nfo names no poster on the web
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        string outcome = "failed";
+        try
+        {
+            var download = await FileDownloader.GetBytesAsync(address, 30L * 1024 * 1024, 30, "poster");
+            outcome = $"ok, {download.Bytes.Length:N0} bytes";
+            var name = download.ContentType == "image/png" ? "poster.png" : "poster.jpg";
+            FileDownloader.WriteNew(System.IO.Path.Combine(folder, name), download.Bytes, hidden: true);
+            return null;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            outcome = "failed: " + ex.Message;
+            return ex.Message;
+        }
+        finally { LogFiles.AppendInternet($"GET\timage.tmdb.org\t{address}\t{outcome}\t{watch.ElapsedMilliseconds} ms"); }
     }
 }

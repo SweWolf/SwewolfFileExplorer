@@ -83,9 +83,11 @@ public static class Tmdb
     /// <summary>The name, year and kind suggested by a file: a TV show when a parent folder is "TV Shows" or the name has S02E03, else a movie.</summary>
     public static (string Name, string Year, Kind Kind) Guess(string path)
     {
-        var baseName = Path.GetFileNameWithoutExtension(path);
+        // A folder is taken as a TV show (its whole name counts: "Show.Name.2010" has no extension), and its year is the show's.
+        bool isFolder = Directory.Exists(path);
+        var baseName = isFolder ? Path.GetFileName(path.TrimEnd('\\', '/')) : Path.GetFileNameWithoutExtension(path);
         var episode = EpisodeRx.Match(baseName);
-        bool tv = episode.Success || InTvShowsFolder(path);
+        bool tv = isFolder || episode.Success || InTvShowsFolder(path);
 
         string title = baseName;
         string year = "";
@@ -100,7 +102,7 @@ public static class Tmdb
         if (cut > 0) title = baseName[..cut];
 
         title = Regex.Replace(title.Replace('.', ' ').Replace('_', ' ').Trim(' ', '-', '(', '[', ')', ']'), @"\s+", " ");
-        return (title, tv ? "" : year, tv ? Kind.Tv : Kind.Movie);
+        return (title, tv && !isFolder ? "" : year, tv ? Kind.Tv : Kind.Movie);
     }
 
     // ── The web ──────────────────────────────────────────────────────────────────────────────────────────────────
