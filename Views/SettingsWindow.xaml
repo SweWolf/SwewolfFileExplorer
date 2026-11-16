@@ -159,6 +159,12 @@
                           ToolTip="Show Open in Command Prompt in the right-click menu of a folder"/>
             </StackPanel>
         </GroupBox>
+        <GroupBox Header="Folder Tree Menu (Right-Click in the Tree)" Padding="8" Margin="0,8,0,0">
+            <StackPanel x:Name="TreeMenuChoicesPanel"/>
+        </GroupBox>
+        <GroupBox Header="File List Menu (Right-Click in the List)" Padding="8" Margin="0,8,0,0">
+            <StackPanel x:Name="ListMenuChoicesPanel"/>
+        </GroupBox>
                 </StackPanel></ScrollViewer>
             </TabItem>
             <TabItem Header="Security">

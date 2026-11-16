@@ -140,6 +140,12 @@ public class AppSettings
     /// internet.log (<c>LogFiles.AppendInternet</c>). Errors always go to errors.log, whatever this says.</summary>
     public bool LogInternetCalls { get; set; } = false;
 
+    /// <summary>Settings > Menus: the items of the list's right-click menu that are turned off (<see cref="MenuChoices"/> keys joined with ";"). Empty = everything is shown.</summary>
+    public string HiddenListMenuItems { get; set; } = "";
+
+    /// <summary>The same for the right-click menu of the folder tree.</summary>
+    public string HiddenTreeMenuItems { get; set; } = "";
+
     /// <summary>Settings > Troubleshooting > "Log Warnings" (off by default): also write the "Warning:" lines (things that needed a second try, such as
     /// asking for administrator permission) to errors.log. Errors are always written.</summary>
     public bool LogWarnings { get; set; } = false;

@@ -3915,6 +3915,8 @@ public partial class MainWindow : Window
         }
 
         ApplyListMenuMode(menu);
+        MenuChoices.Apply(menu, MenuChoices.List, AppSettingsStore.Current.HiddenListMenuItems, new HashSet<UIElement>());   // Settings > Menus
+        TidySeparators(menu);
     }
 
     private void CtxEject_Click(object sender, RoutedEventArgs e)
@@ -4828,8 +4830,11 @@ public partial class MainWindow : Window
         OpenTerminal(sender, folder, admin: true);
     }
 
+    private readonly HashSet<UIElement> _treeHiddenByChoice = new();   // items Settings > Menus hid last time (the tree menu does not reset every item)
+
     private void TreeContextMenu_Opened(object sender, RoutedEventArgs e)
     {
+        MenuChoices.Restore(_treeHiddenByChoice);
         if (_treeMenuNode == null) return;
 
         string path       = _treeMenuNode.FullPath;
@@ -4891,6 +4896,7 @@ public partial class MainWindow : Window
         TreeEjectItem.Visibility = driveRoot != null && DriveEject.CanEject(driveRoot) ? Visibility.Visible : Visibility.Collapsed;   // a CD / DVD drive
         TreeEjectSeparator.Visibility = TreeEjectItem.Visibility;
 
+        MenuChoices.Apply(menu, MenuChoices.Tree, AppSettingsStore.Current.HiddenTreeMenuItems, _treeHiddenByChoice);   // Settings > Menus
         TidySeparators(menu);   // hidden items leave no empty groups behind
     }
 

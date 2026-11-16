@@ -69,6 +69,13 @@ public partial class SettingsWindow : Window
             if (Top < work.Top) Top = work.Top;
         };
 
+        // A tab can be taller than the one shown first: the window grows downwards, so it is moved up when its buttons would end below the screen.
+        SizeChanged += (_, e) =>
+        {
+            if (!e.HeightChanged || !IsLoaded) return;
+            if (Top + ActualHeight > work.Bottom) Top = Math.Max(work.Top, work.Bottom - ActualHeight);
+        };
+
         var current = AppSettingsStore.Current;
         StyleBox.SelectedIndex = Math.Max(0, Array.IndexOf(Styles, current.Style));
         // The font list: the first line is the program's usual font. Only that and the chosen font are there at first; the whole list
@@ -103,6 +110,8 @@ public partial class SettingsWindow : Window
         MediaPlayerTab.Visibility          = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, no tab
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
         AskBeforeAdminBox.IsChecked        = current.AskBeforeAdministrator;
+        FillMenuChoices(ListMenuChoicesPanel, MenuChoices.List, current.HiddenListMenuItems);
+        FillMenuChoices(TreeMenuChoicesPanel, MenuChoices.Tree, current.HiddenTreeMenuItems);
         AskBeforeProgramsBox.IsChecked     = current.AskBeforeStartingPrograms;
         AskInArchivesBox.IsChecked         = current.AskBeforeStartingProgramsInArchives;
         foreach (var (label, extensions) in ProgramTypes.Groups)
@@ -224,6 +233,22 @@ public partial class SettingsWindow : Window
                         ForgetCaption, MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    /// <summary>One check box per choice; checked = shown (everything is shown unless turned off).</summary>
+    private static void FillMenuChoices(System.Windows.Controls.Panel panel, MenuChoices.Choice[] choices, string? hiddenSetting)
+    {
+        var hidden = MenuChoices.Parse(hiddenSetting);
+        foreach (var c in choices)
+            panel.Children.Add(new System.Windows.Controls.CheckBox
+            {
+                Content = c.Key, Tag = c.Key, IsChecked = !hidden.Contains(c.Key),
+                Margin = new Thickness(0, panel.Children.Count == 0 ? 0 : 4, 0, 0),
+                ToolTip = "Show " + c.Key + " in the right-click menu",
+            });
+    }
+
+    private static IEnumerable<string> UncheckedKeys(System.Windows.Controls.Panel panel) =>
+        panel.Children.OfType<System.Windows.Controls.CheckBox>().Where(c => c.IsChecked != true).Select(c => (string)c.Tag);
+
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {
         var key = (VirusTotalKeyEye.IsChecked == true ? VirusTotalKeyText.Text : VirusTotalKeyBox.Password).Trim();
@@ -271,6 +296,8 @@ public partial class SettingsWindow : Window
         settings.RoundedProgressBars     = RoundedBarsBox.IsChecked == true;
         settings.WarnHiddenNotSelected   = WarnHiddenNotSelectedBox.IsChecked == true;
         settings.AskBeforeAdministrator    = AskBeforeAdminBox.IsChecked == true;
+        settings.HiddenListMenuItems       = MenuChoices.Join(UncheckedKeys(ListMenuChoicesPanel));
+        settings.HiddenTreeMenuItems       = MenuChoices.Join(UncheckedKeys(TreeMenuChoicesPanel));
         settings.AskBeforeStartingPrograms = AskBeforeProgramsBox.IsChecked == true;
         settings.AskBeforeStartingProgramsInArchives = AskInArchivesBox.IsChecked == true;
         settings.ProgramExtensions         = ProgramTypes.Join(ProgramKindsPanel.Children.OfType<System.Windows.Controls.CheckBox>().Select(c => c.IsChecked == true).ToList(),
