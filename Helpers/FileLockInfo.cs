@@ -43,6 +43,35 @@ public static class FileLockInfo
     [DllImport("rstrtmgr.dll")]
     private static extern int RmGetList(uint session, out uint needed, ref uint count, [In, Out] RmProcessInfo[]? info, out uint reasons);
 
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateFileW(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
+
+    /// <summary>
+    /// True when another program has the file open in a way that stops it from being deleted or renamed (a sharing violation when we ask
+    /// for DELETE access; nothing is changed). For a folder: any of its files (the first 5000). Does not depend on the language of Windows,
+    /// unlike the text of the exception.
+    /// </summary>
+    public static bool IsLocked(string path)
+    {
+        try
+        {
+            if (System.IO.Directory.Exists(path))
+                return System.IO.Directory.EnumerateFiles(path, "*", new System.IO.EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
+                    .Take(5000).Any(IsFileLocked);
+            return IsFileLocked(path);
+        }
+        catch { return false; }
+    }
+
+    private static bool IsFileLocked(string file)
+    {
+        const uint DELETE = 0x10000, ShareAll = 7, OpenExisting = 3, BackupSemantics = 0x02000000, OpenReparsePoint = 0x00200000;
+        var h = CreateFileW(file, DELETE, ShareAll, IntPtr.Zero, OpenExisting, BackupSemantics | OpenReparsePoint, IntPtr.Zero);
+        if (h != new IntPtr(-1)) { CloseHandle(h); return false; }
+        return Marshal.GetLastWin32Error() == 32;   // ERROR_SHARING_VIOLATION
+    }
+
     /// <summary>
     /// <see cref="WhoUses"/> with a time limit: an empty list when the answer takes longer than <paramref name="limit"/> (the caller
     /// goes on without names; the lookup is left to finish by itself on a pool thread).

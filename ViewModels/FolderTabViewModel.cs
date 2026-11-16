@@ -2877,6 +2877,40 @@ public class FolderTabViewModel : INotifyPropertyChanged
         if (outcome.AccessDenied.Count > 0 && !outcome.Canceled)
             (outcome, usedAdministrator) = await RetryDeleteAsAdministratorAsync(outcome, permanent);
 
+        // Items another program has open: "Try Again" runs just those once more (the user may have closed the program), until none is left or Skip.
+        var skippedLocked = new List<string>();
+        while (!outcome.Canceled)
+        {
+            var (again, skipped) = await AskTryAgainAsync(outcome.Failed, items.Select(i => i.Path), outcome.AccessDenied, "deleted");
+            if (again.Count == 0)
+            {
+                // The user chose Skip: those items are not an error any more (a note in the status bar instead of the message box).
+                skippedLocked = skipped;
+                var skippedNames = new HashSet<string>(skipped.Select(p => Path.GetFileName(p.TrimEnd('\\', '/'))), StringComparer.OrdinalIgnoreCase);
+                outcome = outcome with { Failed = outcome.Failed.Where(f => !skippedNames.Contains(f.Name)).ToList() };
+                break;
+            }
+            var retryEntries = entries.Where(e => again.Contains(e.Path, StringComparer.OrdinalIgnoreCase)).ToList();
+            var retryNames = new HashSet<string>(retryEntries.Select(e => e.Name), StringComparer.OrdinalIgnoreCase);
+            TransferResult second;
+            _deleting = true;
+            BeginFileWork();
+            try
+            {
+                second = await RunWithProgressAsync((progress, token) => FileDelete.RunAsync(retryEntries, permanent, progress, token),
+                                                    "Deleting", names, ParentFolder(items[0].Path) ?? "", heading: $"Deleting {names}",
+                                                    icon: IconHelper.GetRecycleBinIcon(full: true));
+            }
+            finally { _deleting = false; EndFileWork(); }
+            outcome = outcome with
+            {
+                Done = outcome.Done.Concat(second.Done).ToList(),
+                Failed = outcome.Failed.Where(f => !retryNames.Contains(f.Name)).Concat(second.Failed).ToList(),
+                Canceled = second.Canceled,
+                AccessDenied = outcome.AccessDenied.Where(a => !again.Contains(a, StringComparer.OrdinalIgnoreCase)).Concat(second.AccessDenied).ToList(),
+            };
+        }
+
         var deleted = outcome.Done.Select(d => d.From).ToList();
 
         // Undo takes back this delete: what is in the Recycle Bin now can be put back (a permanent delete, or an item the bin could not
@@ -2887,21 +2921,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         if (outcome.Failed.Count > 0)
         {
-            // Who has it open? Asked for the lines that are shown, all together under one limit of 4 seconds: after that the message
-            // comes as it was (a slow network drive must not hold the window up).
-            var lookups = outcome.Failed.Take(8).Select(f =>
-            {
-                var path = items.FirstOrDefault(i => string.Equals(i.Name, f.Name, StringComparison.OrdinalIgnoreCase)).Path;
-                return (f, task: path == null || outcome.AccessDenied.Contains(path) ? Task.FromResult(new List<string>())
-                                                                                      : FileLockInfo.WhoUsesAsync(path, TimeSpan.FromSeconds(4)));
-            }).ToList();
-            await Task.WhenAny(Task.WhenAll(lookups.Select(l => l.task)), Task.Delay(4000));
-            var lines = lookups.Select(l =>
-            {
-                var who = l.task.IsCompletedSuccessfully ? l.task.Result : new List<string>();
-                if (who.Count > 0) LogFiles.AppendError($"Delete of \"{l.f.Name}\" failed: in use by {string.Join(", ", who)}");
-                return $"{l.f.Name}: {l.f.Reason}" + (who.Count > 0 ? $" In use by: {string.Join(", ", who)}." : "");
-            });
+            var lines = await FailureLinesAsync(outcome.Failed, items.Select(i => i.Path), outcome.AccessDenied, 8, "Delete");
             var more  = outcome.Failed.Count > 8 ? $"{nl2}... and {outcome.Failed.Count - 8} more." : "";
             MessageBox.Show($"These could not be deleted:{nl2}{nl2}" + string.Join(nl2, lines) + more,
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -2930,6 +2950,8 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         if (outcome.Canceled)
             StatusText = $"Delete canceled: {outcome.Done.Count} of {outcome.Total} items were deleted.";
+        else if (skippedLocked.Count > 0)
+            StatusText = $"{outcome.Done.Count} of {outcome.Total} items were deleted. {skippedLocked.Count} {(skippedLocked.Count == 1 ? "item was" : "items were")} skipped because another program has {(skippedLocked.Count == 1 ? "it" : "them")} open.";
     }
 
 
@@ -3448,10 +3470,19 @@ public class FolderTabViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             // Say who holds the file when it is in use (Windows' Restart Manager), and keep it in the log.
-            var holders = ex is IOException && !item.IsDirectory ? FileLockInfo.WhoUses(item.FullPath) : new List<string>();
+            var holders = ex is IOException ? await FileLockInfo.WhoUsesAsync(item.FullPath, TimeSpan.FromSeconds(4)) : new List<string>();
             string who = holders.Count > 0 ? "\n\nIn use by: " + string.Join(", ", holders) : "";
             LogFiles.AppendError($"Rename failed: {item.FullPath} -> {newName}: {ex.GetType().Name}: {ex.Message}" +
                                  (holders.Count > 0 ? " In use by: " + string.Join(", ", holders) : ""));
+            if (ex is IOException && await Task.Run(() => FileLockInfo.IsLocked(item.FullPath)))
+            {
+                // Another program has it open: the user may be able to close it, so Try Again runs the whole rename once more.
+                var again = Ask(Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow, AppInfo.Name,
+                    $"'{item.Name}' could not be renamed, because another program has it open.{who}{Environment.NewLine}{Environment.NewLine}" +
+                    "If you close the program, choose Try Again.", new[] { "Try Again", "Cancel" }, 0, 1);
+                if (again == 0) RenameItem(item, newName);
+                return;
+            }
             MessageBox.Show($"Cannot rename: {ex.Message}{who}", AppInfo.Name,
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -3809,6 +3840,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         var result = new TransferResult(new(), new(), false, 0);
         bool usedAdministrator = false;
+        var skippedLocked = new List<string>();
         if (toDo.Count > 0)
         {
             _pasting = true;
@@ -3820,11 +3852,42 @@ public class FolderTabViewModel : INotifyPropertyChanged
                     (result, usedAdministrator) = await RetryAsAdministratorAsync(result, destination, isCut);
             }
             finally { _pasting = false; EndFileWork(); }
+
+            // Items another program has open: "Try Again" runs just those once more, until none is left or Skip.
+            while (!result.Canceled)
+            {
+                var (again, skipped) = await AskTryAgainAsync(result.Failed, toDo, result.AccessDenied, isCut ? "moved" : "copied");
+                if (again.Count == 0)
+                {
+                    // The user chose Skip: those items are not an error any more (a note in the status bar instead of the message box).
+                    skippedLocked = skipped;
+                    var skippedNames = new HashSet<string>(skipped.Select(p => Path.GetFileName(p.TrimEnd('\\', '/'))), StringComparer.OrdinalIgnoreCase);
+                    result = result with { Failed = result.Failed.Where(f => !skippedNames.Contains(f.Name)).ToList() };
+                    break;
+                }
+                var retryNames = new HashSet<string>(again.Select(a => Path.GetFileName(a.TrimEnd('\\', '/'))), StringComparer.OrdinalIgnoreCase);
+                _pasting = true;
+                BeginFileWork();
+                TransferResult second;
+                try { second = await RunTransferAsync(again, destination, isCut); }
+                finally { _pasting = false; EndFileWork(); }
+                result = result with
+                {
+                    Done = result.Done.Concat(second.Done).ToList(),
+                    Failed = result.Failed.Where(f => !retryNames.Contains(f.Name)).Concat(second.Failed).ToList(),
+                    Canceled = second.Canceled,
+                    Skipped = result.Skipped + second.Skipped,
+                    Renamed = result.RenamedOld.Concat(second.RenamedOld).ToList(),
+                    Identical = result.IdenticalSkipped.Concat(second.IdenticalSkipped).ToList(),
+                    CreatedItems = (result.CreatedItems ?? new()).Concat(second.CreatedItems ?? new()).ToList(),
+                    AccessDenied = result.AccessDenied.Where(a => !again.Contains(a, StringComparer.OrdinalIgnoreCase)).Concat(second.AccessDenied).ToList(),
+                };
+            }
         }
 
         if (result.Failed.Count > 0)
         {
-            var lines = result.Failed.Take(8).Select(f => $"{f.Name}: {f.Reason}");
+            var lines = await FailureLinesAsync(result.Failed, toDo, result.AccessDenied, 8, isCut ? "Move" : "Copy");
             var more  = result.Failed.Count > 8 ? $"{Environment.NewLine}... and {result.Failed.Count - 8} more." : "";
             MessageBox.Show($"These could not be {(isCut ? "moved" : "copied")}:{Environment.NewLine}{Environment.NewLine}"
                             + string.Join(Environment.NewLine, lines) + more,
@@ -3910,10 +3973,69 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         if (result.Canceled)
             StatusText = $"{(isCut ? "Move" : "Copy")} canceled: {result.Done.Count} of {result.Total} items were done.";
+        else if (skippedLocked.Count > 0)
+            StatusText = $"{result.Done.Count} of {toDo.Count} items were {(isCut ? "moved" : "copied")}. " +
+                         $"{skippedLocked.Count} {(skippedLocked.Count == 1 ? "item was" : "items were")} skipped because another program has {(skippedLocked.Count == 1 ? "it" : "them")} open.";
         else if (result.Skipped > 0)
             StatusText = $"{result.Skipped} {(result.Skipped == 1 ? "file was" : "files were")} skipped.";
 
         return result;
+    }
+
+    /// <summary>
+    /// Items that failed because another program has them open: says which program, and asks "Try Again" or "Skip" (the user may be able to
+    /// close that program). Returns the paths to try again; empty when nothing is locked or the user chose Skip. Whether an item is locked is
+    /// asked of Windows (<see cref="FileLockInfo.IsLocked"/>), not read from the text of the error.
+    /// </summary>
+    private static async Task<(List<string> Retry, List<string> Skipped)> AskTryAgainAsync(IReadOnlyList<(string Name, string Reason)> failed, IEnumerable<string> paths,
+                                                             ICollection<string> skip, string verb)
+    {
+        var all = paths.ToList();
+        var locked = await Task.Run(() => failed
+            .Select(f => all.FirstOrDefault(p => string.Equals(Path.GetFileName(p.TrimEnd('\\', '/')), f.Name, StringComparison.OrdinalIgnoreCase)))
+            .Where(p => p != null && !skip.Contains(p) && FileLockInfo.IsLocked(p))
+            .Select(p => p!).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+        if (locked.Count == 0) return (new List<string>(), new List<string>());
+
+        var nl2 = Environment.NewLine + Environment.NewLine;
+        var holders = new List<string>();
+        foreach (var p in locked.Take(8))
+            foreach (var h in await FileLockInfo.WhoUsesAsync(p, TimeSpan.FromSeconds(3)))
+                if (!holders.Contains(h)) holders.Add(h);
+        var names = string.Join(Environment.NewLine, locked.Take(8).Select(p => "    " + Path.GetFileName(p.TrimEnd('\\', '/'))))
+                  + (locked.Count > 8 ? $"{Environment.NewLine}    ... and {locked.Count - 8} more" : "");
+        var who = holders.Count > 0 ? $"{nl2}In use by: {string.Join(", ", holders)}." : "";
+        var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
+        var answer = Ask(owner, AppInfo.Name,
+            $"{(locked.Count == 1 ? "This item was" : "These items were")} not {verb}, because another program has {(locked.Count == 1 ? "it" : "them")} open:{nl2}{names}{who}" +
+            $"{nl2}If you close the program, choose Try Again. Choose Skip to leave {(locked.Count == 1 ? "it" : "them")} as {(locked.Count == 1 ? "it is" : "they are")}.",
+            new[] { "Try Again", "Skip" }, 0, 1);
+        return answer == 0 ? (locked, new List<string>()) : (new List<string>(), locked);   // Skip: the user knows, so it is no error afterwards
+    }
+
+    /// <summary>
+    /// The lines of a "These could not be ..." message: "name: reason", and, when a program has the item open, a new paragraph
+    /// "In use by: Word (1234)." (Windows' Restart Manager, <see cref="FileLockInfo"/>; all lookups together get 4 seconds, then the
+    /// message comes without names). <paramref name="paths"/> are the items the names belong to; <paramref name="skip"/> (refused with
+    /// "access denied") are not asked about. Every program found is also written to errors.log.
+    /// </summary>
+    private static async Task<List<string>> FailureLinesAsync(IReadOnlyList<(string Name, string Reason)> failed, IEnumerable<string> paths,
+                                                              ICollection<string> skip, int take, string what)
+    {
+        var all = paths.ToList();
+        var lookups = failed.Take(take).Select(f =>
+        {
+            var path = all.FirstOrDefault(p => string.Equals(Path.GetFileName(p.TrimEnd('\\', '/')), f.Name, StringComparison.OrdinalIgnoreCase));
+            return (f, task: path == null || skip.Contains(path) ? Task.FromResult(new List<string>())
+                                                                 : FileLockInfo.WhoUsesAsync(path, TimeSpan.FromSeconds(4)));
+        }).ToList();
+        await Task.WhenAny(Task.WhenAll(lookups.Select(l => l.task)), Task.Delay(4000));
+        return lookups.Select(l =>
+        {
+            var who = l.task.IsCompletedSuccessfully ? l.task.Result : new List<string>();
+            if (who.Count > 0) LogFiles.AppendError($"{what} of \"{l.f.Name}\" failed: in use by {string.Join(", ", who)}");
+            return $"{l.f.Name}: {l.f.Reason}" + (who.Count > 0 ? $"{Environment.NewLine}{Environment.NewLine}In use by: {string.Join(", ", who)}." : "");
+        }).ToList();
     }
 
     /// <summary>

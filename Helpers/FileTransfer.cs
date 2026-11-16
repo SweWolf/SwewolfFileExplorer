@@ -113,6 +113,15 @@ public static class FileTransfer
             var name = Path.GetFileName(src.TrimEnd('\\', '/'));
             var dest = Path.Combine(destinationFolder, name);
             ctx.Item = new ItemState();
+
+            // A move to another drive is a copy and then a delete of the original. If another program has the original open the delete
+            // would fail after the copy was made: so it is not started at all (no stray copy); the caller can offer Try Again.
+            if (move && !SameDrive(src, destinationFolder) && FileLockInfo.IsLocked(src))
+            {
+                failed.Add((name, "it is in use by another program, so it was not moved"));
+                continue;
+            }
+
             try
             {
                 if (Directory.Exists(src))
