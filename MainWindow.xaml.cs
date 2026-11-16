@@ -5082,7 +5082,7 @@ public partial class MainWindow : Window
         // Audio CD tracks among the items are ripped there by RipDroppedTracks (a moment later, from the dispatcher): the box says whether to open the folder then.
         _openFolderAfterRip = dialog.OpenInNewTab;
         var result = await VM.DropFilesAsync(dialog.FolderPath, items, dialog.IsMove);
-        Dispatcher.BeginInvoke(new Action(() => _openFolderAfterRip = false), System.Windows.Threading.DispatcherPriority.ContextIdle);   // not for a later drag
+        _ = Dispatcher.BeginInvoke(new Action(() => _openFolderAfterRip = false), System.Windows.Threading.DispatcherPriority.ContextIdle);   // not for a later drag (nothing to wait for)
 
         // "Open This Folder in a New Tab When Finished": only when something was done and the user did not cancel.
         if (dialog.OpenInNewTab && result is { Canceled: false } && result.Done.Count > 0)
