@@ -3856,7 +3856,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             // Items another program has open: "Try Again" runs just those once more, until none is left or Skip.
             while (!result.Canceled)
             {
-                var (again, skipped) = await AskTryAgainAsync(result.Failed, toDo, result.AccessDenied, isCut ? "moved" : "copied");
+                var (again, skipped) = await AskTryAgainAsync(result.Failed, toDo, result.AccessDenied, isCut ? "moved" : "copied", destination);
                 if (again.Count == 0)
                 {
                     // The user chose Skip: those items are not an error any more (a note in the status bar instead of the message box).
@@ -3939,9 +3939,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 FileUndo.Set(await BuildCopyUndoAsync(result));
         }
 
-        if (isCut && !result.Canceled && dropped == null)
+        if (isCut && dropped == null)
         {
-            FileClipboard.Clear();   // what was cut is moved: there is nothing left to paste (after a Cancel the rest can be pasted again)
+            // What was cut and is moved is gone from the clipboard. What was not moved (locked, skipped, failed, canceled) stays on it as a cut,
+            // so it can be pasted again (the user: after a failed paste the clipboard was empty).
+            var left = toDo.Where(t => !movedFrom.Contains(t)).ToList();
+            if (left.Count == 0) FileClipboard.Clear();
+            else FileClipboard.Set(left, cut: true);
             PasteCommand.RaiseCanExecuteChanged();
         }
 
@@ -3988,18 +3992,27 @@ public class FolderTabViewModel : INotifyPropertyChanged
     /// asked of Windows (<see cref="FileLockInfo.IsLocked"/>), not read from the text of the error.
     /// </summary>
     private static async Task<(List<string> Retry, List<string> Skipped)> AskTryAgainAsync(IReadOnlyList<(string Name, string Reason)> failed, IEnumerable<string> paths,
-                                                             ICollection<string> skip, string verb)
+                                                             ICollection<string> skip, string verb, string? destination = null)
     {
         var all = paths.ToList();
-        var locked = await Task.Run(() => failed
+        // An item is locked when the item itself is open elsewhere, or (a paste) the file in the destination it would replace is.
+        var lockedPairs = await Task.Run(() => failed
             .Select(f => all.FirstOrDefault(p => string.Equals(Path.GetFileName(p.TrimEnd('\\', '/')), f.Name, StringComparison.OrdinalIgnoreCase)))
-            .Where(p => p != null && !skip.Contains(p) && FileLockInfo.IsLocked(p))
-            .Select(p => p!).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+            .Where(p => p != null && !skip.Contains(p))
+            .Select(p =>
+            {
+                if (FileLockInfo.IsLocked(p!)) return (Source: p!, Locked: p!);
+                var target = destination == null ? null : Path.Combine(destination, Path.GetFileName(p!.TrimEnd('\\', '/')));
+                if (target != null && (File.Exists(target) || Directory.Exists(target)) && FileLockInfo.IsLocked(target)) return (Source: p!, Locked: target);
+                return (Source: (string?)null, Locked: "");
+            })
+            .Where(x => x.Source != null).ToList());
+        var locked = lockedPairs.Select(x => x.Source!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (locked.Count == 0) return (new List<string>(), new List<string>());
 
         var nl2 = Environment.NewLine + Environment.NewLine;
         var holders = new List<string>();
-        foreach (var p in locked.Take(8))
+        foreach (var p in lockedPairs.Select(x => x.Locked).Distinct(StringComparer.OrdinalIgnoreCase).Take(8))
             foreach (var h in await FileLockInfo.WhoUsesAsync(p, TimeSpan.FromSeconds(3)))
                 if (!holders.Contains(h)) holders.Add(h);
         var names = string.Join(Environment.NewLine, locked.Take(8).Select(p => "    " + Path.GetFileName(p.TrimEnd('\\', '/'))))
