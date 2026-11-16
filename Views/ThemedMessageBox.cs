@@ -81,6 +81,10 @@ public static class ThemedMessageBox
         }
     }
 
+    [System.Runtime.InteropServices.DllImport("winmm.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern bool PlaySoundW(string sound, IntPtr module, uint flags);
+    private const uint SND_ALIAS = 0x10000, SND_ASYNC = 0x1, SND_NODEFAULT = 0x2;
+
     private static void PlaySound(MessageBoxImage image)
     {
         try
@@ -90,6 +94,9 @@ public static class ThemedMessageBox
                 case MessageBoxImage.Error:       SystemSounds.Hand.Play(); break;
                 case MessageBoxImage.Warning:     SystemSounds.Exclamation.Play(); break;
                 case MessageBoxImage.Information: SystemSounds.Asterisk.Play(); break;
+                // The shield: Windows' own "Windows User Account Control" sound event, as the real permission question plays it. It follows the
+                // user's sound scheme (silent if the scheme has none); SND_NODEFAULT: no beep when the event is not set.
+                case Shield: PlaySoundW("WindowsUAC", IntPtr.Zero, SND_ALIAS | SND_ASYNC | SND_NODEFAULT); break;
             }
         }
         catch { /* no sound */ }
