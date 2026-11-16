@@ -145,6 +145,10 @@ public class AppSettings
     public bool WarnHiddenNotSelected { get; set; } = true;
 
 
+    /// <summary>Settings > Security > "Explain Before Asking for Administrator Permission" (off by default, the user's choice 2026-11-16): on shows
+    /// the question "You need administrator permission to ... Do you want to continue?" before Windows' own UAC prompt; off goes straight to Windows' prompt.</summary>
+    public bool AskBeforeAdministrator { get; set; } = false;
+
     /// <summary>Settings > Security > "Ask Before Starting a Program" (on by default: the program asks until the user says it should not).
     /// Not used yet: the question itself is not built (see the plan in dev-notes).</summary>
     public bool AskBeforeStartingPrograms { get; set; } = true;

@@ -27,6 +27,9 @@ public static class ElevatedTransfer
         public List<string> Sources { get; set; } = new();
         public string Destination { get; set; } = "";
         public bool Move { get; set; }
+        /// <summary>"transfer" (copy / move into Destination) or "delete" (Sources are deleted; Permanent = not to the Recycle Bin).</summary>
+        public string Kind { get; set; } = "transfer";
+        public bool Permanent { get; set; }
         public string ProgressFile { get; set; } = "";
         public string ResultFile { get; set; } = "";
         public string CancelFile { get; set; } = "";
@@ -102,8 +105,32 @@ public static class ElevatedTransfer
                 catch { /* the other side may be reading it: the next tick writes again */ }
             }, null, 0, 250);
 
-            var policy = new ConflictPolicy(_ => (ConflictChoice.KeepBoth, true));   // never overwrite
-            var r = FileTransfer.RunAsync(job.Sources, job.Destination, job.Move, progress, cts.Token, policy).GetAwaiter().GetResult();
+            TransferResult r;
+            if (job.Kind == "delete")
+            {
+                var items = job.Sources.Select(s => new FileDelete.Item(s, Path.GetFileName(s.TrimEnd('\\', '/')), Directory.Exists(s))).ToList();
+                r = FileDelete.RunAsync(items, job.Permanent, progress, cts.Token).GetAwaiter().GetResult();
+            }
+            else if (job.Kind == "rename")
+            {
+                // Sources[0] is renamed to Destination (a full path). Never replaces: Move fails when the name is taken.
+                var from = job.Sources[0];
+                try
+                {
+                    if (Directory.Exists(from)) Directory.Move(from, job.Destination); else File.Move(from, job.Destination);
+                    r = new TransferResult(new() { (from, job.Destination) }, new(), false, 1);
+                }
+                catch (Exception ex)
+                {
+                    Note($"rename failed: {ex.GetType().Name}: {ex.Message}");
+                    r = new TransferResult(new(), new() { (Path.GetFileName(from), ex.Message) }, false, 1);
+                }
+            }
+            else
+            {
+                var policy = new ConflictPolicy(_ => (ConflictChoice.KeepBoth, true));   // never overwrite
+                r = FileTransfer.RunAsync(job.Sources, job.Destination, job.Move, progress, cts.Token, policy).GetAwaiter().GetResult();
+            }
 
             result.Done = r.Done.Select(d => new Pair { From = d.From, To = d.To }).ToList();
             result.Failed = r.Failed.Select(f => new Fail { Name = f.Name, Reason = f.Reason }).ToList();
@@ -144,13 +171,50 @@ public static class ElevatedTransfer
     /// the result is "canceled" with nothing done (and <paramref name="declined"/> is set). Progress and Cancel are passed on.
     /// </summary>
     public static async Task<(TransferResult Result, bool Declined)> RunAsync(IReadOnlyList<string> sources, string destination, bool move,
-                                                                              TransferProgress progress, CancellationToken cancel)
+                                                                              TransferProgress progress, CancellationToken cancel,
+                                                                              string kind = "transfer", bool permanent = false)
+    {
+        // The window that has the keyboard now: Windows' permission prompt and the helper take the foreground, and it is not given back
+        // by itself (found by the user: another program came to the front after every elevated step).
+        var foreground = GetForegroundWindow();
+        try { return await RunCoreAsync(sources, destination, move, progress, cancel, kind, permanent); }
+        finally { RestoreForeground(foreground); }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hWnd);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+
+    /// <summary>Brings <paramref name="window"/> (one of ours) back to the front once the dialogs of the step are closed.</summary>
+    private static void RestoreForeground(IntPtr window)
+    {
+        try
+        {
+            GetWindowThreadProcessId(window, out var pid);
+            if (window == IntPtr.Zero || pid != (uint)Environment.ProcessId) return;   // the front window was not ours: leave it
+            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+            {
+                if (!IsWindow(window)) return;
+                // Windows only lets the program that has the foreground change it; a tap on Alt makes this program count as having had input.
+                keybd_event(0x12, 0, 0, UIntPtr.Zero);
+                keybd_event(0x12, 0, 2, UIntPtr.Zero);
+                SetForegroundWindow(window);
+            }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+        catch { }
+    }
+
+    private static async Task<(TransferResult Result, bool Declined)> RunCoreAsync(IReadOnlyList<string> sources, string destination, bool move,
+                                                                                   TransferProgress progress, CancellationToken cancel,
+                                                                                   string kind, bool permanent)
     {
         var dir = Path.Combine(Path.GetTempPath(), "SwewolfFileExplorer-elevated-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var job = new Job
         {
-            Sources = sources.ToList(), Destination = destination, Move = move,
+            Sources = sources.ToList(), Destination = destination, Move = move, Kind = kind, Permanent = permanent,
             ProgressFile = Path.Combine(dir, "progress.json"),
             ResultFile = Path.Combine(dir, "result.json"),
             CancelFile = Path.Combine(dir, "cancel"),

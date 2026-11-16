@@ -101,6 +101,7 @@ public partial class SettingsWindow : Window
         LogInternetBox.IsChecked           = current.LogInternetCalls;
         MediaPlayerTab.Visibility          = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, no tab
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
+        AskBeforeAdminBox.IsChecked        = current.AskBeforeAdministrator;
         AskBeforeProgramsBox.IsChecked     = current.AskBeforeStartingPrograms;
         AskInArchivesBox.IsChecked         = current.AskBeforeStartingProgramsInArchives;
         foreach (var (label, extensions) in ProgramTypes.Groups)
@@ -267,6 +268,7 @@ public partial class SettingsWindow : Window
         settings.WhenStartedAgain         = StartAgainValue(StartAgainBox.SelectedIndex);
         settings.RoundedProgressBars     = RoundedBarsBox.IsChecked == true;
         settings.WarnHiddenNotSelected   = WarnHiddenNotSelectedBox.IsChecked == true;
+        settings.AskBeforeAdministrator    = AskBeforeAdminBox.IsChecked == true;
         settings.AskBeforeStartingPrograms = AskBeforeProgramsBox.IsChecked == true;
         settings.AskBeforeStartingProgramsInArchives = AskInArchivesBox.IsChecked == true;
         settings.ProgramExtensions         = ProgramTypes.Join(ProgramKindsPanel.Children.OfType<System.Windows.Controls.CheckBox>().Select(c => c.IsChecked == true).ToList(),

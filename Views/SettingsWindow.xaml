@@ -163,6 +163,12 @@
             </TabItem>
             <TabItem Header="Security">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel Margin="8">
+        <GroupBox Header="Administrator Permission" Padding="8" Margin="0,8,0,0">
+            <StackPanel>
+                <CheckBox x:Name="AskBeforeAdminBox" Content="Explain Before Asking for Administrator Permission"
+                          ToolTip="On: when copying, moving, deleting or renaming in a protected folder (such as Program Files) needs administrator permission, a question first says so. Off: Windows' own permission prompt shows at once."/>
+            </StackPanel>
+        </GroupBox>
         <GroupBox Header="Starting Programs" Padding="8" Margin="0,8,0,0">
             <StackPanel>
                 <CheckBox x:Name="AskBeforeProgramsBox" Content="Ask Before Starting a Program"

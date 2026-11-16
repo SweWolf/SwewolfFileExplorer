@@ -1488,7 +1488,9 @@ public partial class MainWindow : Window
         try
         {
             System.IO.Directory.CreateDirectory(LogFiles.LogFolder);
-            Process.Start("explorer.exe", $"\"{LogFiles.LogFolder}\"");
+            // Shown in a new tab of this program; Windows' own Explorer is only the fallback.
+            try { VM.OpenNewTab(LogFiles.LogFolder, activate: true); }
+            catch { Process.Start("explorer.exe", $"\"{LogFiles.LogFolder}\""); }
         }
         catch (Exception ex) { MessageBox.Show(this, $"Cannot open the log folder: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning); }
     }

@@ -39,6 +39,13 @@ public static class FileDelete
 
     private static TransferResult Run(IReadOnlyList<Item> items, bool permanent, TransferProgress progress, CancellationToken cancel)
     {
+        var denied = new List<string>();
+        var r = RunCore(items, permanent, progress, cancel, denied);
+        return r with { AccessDenied = denied };
+    }
+
+    private static TransferResult RunCore(IReadOnlyList<Item> items, bool permanent, TransferProgress progress, CancellationToken cancel, List<string> denied)
+    {
         var done   = new List<(string From, string To)>();
         var failed = new List<(string Name, string Reason)>();
 
@@ -61,14 +68,26 @@ public static class FileDelete
             progress.FileIndex   = handled + 1;
 
             var timer = System.Diagnostics.Stopwatch.StartNew();
-            ShFileOperation(batch.Select(b => b.Path), permanent);
+            int rc = ShFileOperation(batch.Select(b => b.Path), permanent);
             double perItem = timer.Elapsed.TotalSeconds / batch.Count;
             batchSize = (int)Math.Clamp(Math.Round(TargetSeconds / Math.Max(perItem, 0.0005)), 1, MaxBatch);
 
             foreach (var b in batch)
             {
-                if (!File.Exists(b.Path) && !Directory.Exists(b.Path)) done.Add((b.Path, ""));
-                else failed.Add((b.Name, "it could not be deleted (in use by another program, or no access)"));
+                if (!File.Exists(b.Path) && !Directory.Exists(b.Path)) { done.Add((b.Path, "")); continue; }
+
+                // Still there: was it "access denied" (a folder in Program Files ...)? Then the caller can offer the administrator.
+                bool noAccess = rc is 5 or 0x78 or 0x79 or 0x7C || ProbeAccessDenied(b.Path);
+                if (noAccess) denied.Add(b.Path);
+                failed.Add((b.Name, noAccess ? "access denied (administrator permission is needed)"
+                                             : "it could not be deleted (in use by another program, or no access)"));
+                try
+                {
+                    var text = $"Delete of \"{b.Path}\" failed: SHFileOperation returned 0x{rc:X}";
+                    if (noAccess) LogFiles.AppendWarning(text + " (administrator permission is needed)");   // the program offers to go on as the administrator
+                    else LogFiles.AppendError(text);
+                }
+                catch { }
             }
             handled += batch.Count;
             start   += batch.Count;   // by what was taken, not by the next size
@@ -88,7 +107,18 @@ public static class FileDelete
                 if (!File.Exists(item.Path) && !Directory.Exists(item.Path)) done.Add((item.Path, ""));
                 else failed.Add((item.Name, "it could not be deleted"));
             }
-            catch (Exception ex) { failed.Add((item.Name, ex.Message)); }
+            catch (Exception ex)
+            {
+                if (ex is UnauthorizedAccessException) denied.Add(item.Path);
+                failed.Add((item.Name, ex.Message));
+                try
+                {
+                    var text = $"Delete of \"{item.Path}\" failed: {ex.GetType().Name}: {ex.Message}";
+                    if (ex is UnauthorizedAccessException) LogFiles.AppendWarning(text + " (administrator permission is needed)");
+                    else LogFiles.AppendError(text);
+                }
+                catch { }
+            }
         }
 
         return new TransferResult(done, failed, false, items.Count);
@@ -119,7 +149,20 @@ public static class FileDelete
     /// Deletes the paths in one call, with no window of Windows' own (our window shows the progress) and no questions (we asked
     /// already, and we looked at what can reach the Recycle Bin). The return code is ignored: the caller looks at the disk.
     /// </summary>
-    private static void ShFileOperation(IEnumerable<string> paths, bool permanent)
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateFileW(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
+
+    /// <summary>True when the current user is not allowed to delete the item (asked with a DELETE access request; nothing is changed).</summary>
+    private static bool ProbeAccessDenied(string path)
+    {
+        const uint DELETE = 0x10000, ShareAll = 7, OpenExisting = 3, BackupSemantics = 0x02000000, OpenReparsePoint = 0x00200000;
+        var h = CreateFileW(path, DELETE, ShareAll, IntPtr.Zero, OpenExisting, BackupSemantics | OpenReparsePoint, IntPtr.Zero);
+        if (h != new IntPtr(-1)) { CloseHandle(h); return false; }
+        return Marshal.GetLastWin32Error() == 5;
+    }
+
+    private static int ShFileOperation(IEnumerable<string> paths, bool permanent)
     {
         var op = new SHFILEOPSTRUCT
         {
@@ -129,6 +172,6 @@ public static class FileDelete
             pTo    = null,
             fFlags = (ushort)(FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | (permanent ? 0 : FOF_ALLOWUNDO)),
         };
-        SHFileOperationW(ref op);
+        return SHFileOperationW(ref op);
     }
 }

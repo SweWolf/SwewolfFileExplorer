@@ -2872,12 +2872,18 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
         finally { _deleting = false; EndFileWork(); }
 
+        // Some items were refused with "access denied" (a folder in Program Files ...): offer to go on as the administrator.
+        bool usedAdministrator = false;
+        if (outcome.AccessDenied.Count > 0 && !outcome.Canceled)
+            (outcome, usedAdministrator) = await RetryDeleteAsAdministratorAsync(outcome, permanent);
+
         var deleted = outcome.Done.Select(d => d.From).ToList();
 
         // Undo takes back this delete: what is in the Recycle Bin now can be put back (a permanent delete, or an item the bin could not
-        // take, cannot: then there is nothing, or only the part that went to the bin, to undo).
+        // take, cannot: then there is nothing, or only the part that went to the bin, to undo). After an administrator step there is no
+        // undo (putting the items back would need the administrator too).
         var inBin = deleted.Where(recoverable.Contains).ToList();
-        if (deleted.Count > 0) FileUndo.Set(inBin.Count > 0 ? new DeleteUndo(inBin, startedUtc) : null);
+        if (deleted.Count > 0) FileUndo.Set(inBin.Count > 0 && !usedAdministrator ? new DeleteUndo(inBin, startedUtc) : null);
 
         if (outcome.Failed.Count > 0)
         {
@@ -3344,7 +3350,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         }
     }
 
-    public void RenameItem(FileItemViewModel item, string newName)
+    public async void RenameItem(FileItemViewModel item, string newName)
     {
         newName = newName.Trim();
         if (string.IsNullOrEmpty(newName) || newName == item.Name) return;
@@ -3385,8 +3391,19 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 newCurrent = newPath;   // the playlist shown is renamed: it is open under its new name
             }
 
-            if (item.IsDirectory) Directory.Move(item.FullPath, newPath);
-            else                  File.Move(item.FullPath, newPath);
+            bool usedAdministrator = false;
+            try
+            {
+                if (item.IsDirectory) Directory.Move(item.FullPath, newPath);
+                else                  File.Move(item.FullPath, newPath);
+            }
+            catch (UnauthorizedAccessException ex) when (!item.IsInArchive)
+            {
+                // A protected folder (Program Files ...): the same as for copy and delete, the elevated helper does it.
+                LogFiles.AppendWarning($"Rename of \"{item.FullPath}\" to \"{newName}\" failed: {ex.GetType().Name}: {ex.Message} (administrator permission is needed)");
+                if (!await RenameAsAdministratorAsync(item.FullPath, newPath)) return;
+                usedAdministrator = true;
+            }
 
             // What is remembered about it (read marks, ratings, a folder's state and what is below it) follows the new name.
             LibraryService.Move(new[] { (item.FullPath, newPath) });
@@ -3394,8 +3411,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
             // The files that belong to it, if the user said yes.
             var relatedDone = MoveRelated(relatedMoves, notDone, rename: true);
 
-            // This rename is the step Undo takes back now.
-            FileUndo.Set(new PairsUndo("Rename", new List<(string From, string To)> { (item.FullPath, newPath) }.Concat(relatedDone).ToList()));
+            // This rename is the step Undo takes back now (not after an administrator step: the undo would need the administrator too).
+            FileUndo.Set(usedAdministrator ? null
+                : new PairsUndo("Rename", new List<(string From, string To)> { (item.FullPath, newPath) }.Concat(relatedDone).ToList()));
 
             // The tree first: it must know the new name before it is asked for the node of the folder.
             RefreshTreeFolder(dir);
@@ -3852,6 +3870,40 @@ public class FolderTabViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// The question before Windows' own permission prompt. Only asked when Settings > Security > "Explain Before Asking for Administrator
+    /// Permission" is on (off by default): otherwise true at once, and Windows' prompt is the one question (its "No" cancels quietly).
+    /// </summary>
+    private static bool ConfirmAdministrator(string what)
+    {
+        if (!AppSettingsStore.Current.AskBeforeAdministrator) return true;
+        return MessageBox.Show(
+            $"{what} Windows will ask for your permission next.{Environment.NewLine}{Environment.NewLine}Do you want to continue?",
+            AppInfo.Name, MessageBoxButton.YesNo, MessageBox.Shield, MessageBoxResult.Yes) == MessageBoxResult.Yes;
+    }
+
+    /// <summary>A rename that was refused with "access denied": runs it in the elevated helper. False when it was not done (declined, or failed with a message shown).</summary>
+    private async Task<bool> RenameAsAdministratorAsync(string from, string to)
+    {
+        var name = Path.GetFileName(from.TrimEnd('\\', '/'));
+        if (!ConfirmAdministrator($"You need administrator permission to rename '{name}'.")) return false;
+
+        bool declined = false;
+        var result = await RunWithProgressAsync(async (progress, token) =>
+        {
+            var (r, d) = await ElevatedTransfer.RunAsync(new[] { from }, to, false, progress, token, kind: "rename");
+            declined = d;
+            return r;
+        }, "Renaming", $"'{name}'", ParentFolder(from) ?? "");
+        if (declined) return false;
+        if (result.Done.Count > 0) return true;
+
+        var reason = result.Failed.Count > 0 ? result.Failed[0].Reason : "the rename was not done";
+        LogFiles.AppendError($"Rename as administrator failed: {from} -> {to}: {reason}");
+        MessageBox.Show($"Cannot rename: {reason}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
+        return false;
+    }
+
+    /// <summary>
     /// Some items failed with "access denied" (a folder in Program Files ...): asks, as Windows Explorer does, whether to go on as the
     /// administrator, and if so runs those items in the elevated helper (<see cref="ElevatedTransfer"/>; Windows asks for permission).
     /// The helper's result is merged into <paramref name="first"/>. Says whether the administrator was used.
@@ -3862,11 +3914,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         var folder = Path.GetFileName(destination.TrimEnd('\\', '/'));
         if (string.IsNullOrEmpty(folder)) folder = destination;
         var thing = sources.Count == 1 ? $"'{Path.GetFileName(sources[0].TrimEnd('\\', '/'))}'" : $"{sources.Count} items";
-        var answer = MessageBox.Show(
-            $"You need administrator permission to {(move ? "move" : "copy")} {thing} to the folder '{folder}'. Windows will ask for your permission next." +
-            $"{Environment.NewLine}{Environment.NewLine}Do you want to continue?",
-            AppInfo.Name, MessageBoxButton.YesNo, MessageBox.Shield, MessageBoxResult.Yes);
-        if (answer != MessageBoxResult.Yes) return (first, false);
+        if (!ConfirmAdministrator($"You need administrator permission to {(move ? "move" : "copy")} {thing} to the folder '{folder}'.")) return (first, false);
 
         bool declined = false;
         var second = await RunWithProgressAsync(async (progress, token) =>
@@ -3892,6 +3940,37 @@ public class FolderTabViewModel : INotifyPropertyChanged
             AccessDenied = new(),
         };
         return (merged, second.Done.Count > 0 || second.RenamedOld.Count > 0 || second.CreatedItems?.Count > 0);
+    }
+
+    /// <summary>
+    /// The same for a delete: the items that were refused with "access denied" are deleted by the elevated helper after the user agrees
+    /// (Windows asks for permission next). The helper's result is merged into <paramref name="first"/>.
+    /// </summary>
+    private async Task<(TransferResult Result, bool Used)> RetryDeleteAsAdministratorAsync(TransferResult first, bool permanent)
+    {
+        var sources = first.AccessDenied;
+        var thing = sources.Count == 1 ? $"'{Path.GetFileName(sources[0].TrimEnd('\\', '/'))}'" : $"{sources.Count} items";
+        if (!ConfirmAdministrator($"You need administrator permission to delete {thing}.")) return (first, false);
+
+        bool declined = false;
+        var second = await RunWithProgressAsync(async (progress, token) =>
+        {
+            var (r, d) = await ElevatedTransfer.RunAsync(sources, "", false, progress, token, kind: "delete", permanent: permanent);
+            declined = d;
+            return r;
+        }, "Deleting", thing, ParentFolder(sources[0]) ?? "", heading: $"Deleting {thing}",
+           icon: IconHelper.GetRecycleBinIcon(full: true));
+        if (declined) return (first, false);
+
+        var names = new HashSet<string>(sources.Select(s => Path.GetFileName(s.TrimEnd('\\', '/'))), StringComparer.OrdinalIgnoreCase);
+        var merged = first with
+        {
+            Done = first.Done.Concat(second.Done).ToList(),
+            Failed = first.Failed.Where(f => !names.Contains(f.Name)).Concat(second.Failed).ToList(),
+            Canceled = second.Canceled,
+            AccessDenied = new(),
+        };
+        return (merged, second.Done.Count > 0);
     }
 
     /// <summary>The Undo of a copy: what the copy made, with each file's size and date as it was left (a file edited since is kept by the undo).</summary>

@@ -167,7 +167,13 @@ public static class FileTransfer
                 Undo(ctx.Item);
                 failed.Add((name, ex.Message));
                 if (IsAccessDenied(ex)) denied.Add(src);
-                try { LogFiles.AppendError($"Transfer of \"{src}\" to \"{destinationFolder}\" failed: {ex.GetType().Name} 0x{ex.HResult:X8}: {ex.Message} (access denied: {IsAccessDenied(ex)})"); } catch { }
+                try
+                {
+                    var text = $"Transfer of \"{src}\" to \"{destinationFolder}\" failed: {ex.GetType().Name} 0x{ex.HResult:X8}: {ex.Message}";
+                    if (IsAccessDenied(ex)) LogFiles.AppendWarning(text + " (administrator permission is needed)");   // the program offers to go on as the administrator
+                    else LogFiles.AppendError(text);
+                }
+                catch { }
             }
         }
 
