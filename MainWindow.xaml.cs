@@ -3800,7 +3800,7 @@ public partial class MainWindow : Window
     /// <summary>The menu items that change what is on the disk; hidden on a read-only volume.</summary>
     private static readonly HashSet<string> WriteItems = new()
     {
-        "Cut", "Paste", "Delete", "Remove from Playlist", "Rename...", "Rename All Selected Music Files and Video Files Using Smart Rename",
+        "Cut", "Paste", "Delete", "Remove from Playlist", "Rename...", "Hide", "Unhide", "Rename All Selected Music Files and Video Files Using Smart Rename",
         "Create Playlist...", "Set Tags...", "New Folder", "New Text Document...", "New File from Clipboard"
     };
 
@@ -3851,8 +3851,20 @@ public partial class MainWindow : Window
         ShowVirusTotalItem(ListVirusTotalSeparator, ListVirusTotalItem, oneFile);
 
         var menu = (ContextMenu)sender;
+
+        // Hide or Unhide: Unhide when every selected item (on the disk) has the Hidden attribute already.
+        bool allHaveHidden = false;
+        if (hasSelection && !inArchive)
+        {
+            var sel = FileListView.SelectedItems.OfType<FileItemViewModel>().Take(200).ToList();
+            try { allHaveHidden = sel.Count > 0 && sel.All(i => (System.IO.File.GetAttributes(i.FullPath) & System.IO.FileAttributes.Hidden) != 0); }
+            catch { allHaveHidden = false; }
+        }
+
         foreach (var mi in menu.Items.OfType<MenuItem>())
         {
+            if (mi.Header is "Hide" or "Unhide") mi.Header = allHaveHidden ? "Unhide" : "Hide";
+
             // In a playlist "Delete" takes the entries out of the list (the files stay).
             if (mi.Header is "Delete" or "Remove from Playlist") mi.Header = VM.InPlaylist ? "Remove from Playlist" : "Delete";
 
@@ -3885,6 +3897,7 @@ public partial class MainWindow : Window
                 "Rating..." or "Expectation..." => hasSelection || (_menuMode == ListMenuMode.Empty && hasFolder && !string.IsNullOrEmpty(VM.CurrentPath)),
                 "Delete" or "Remove from Playlist" => hasSelection && (!inArchive || VM.InPlaylist),
                 "Rename..."  => hasSelection && !inArchive,
+                "Hide" or "Unhide" => hasSelection && !inArchive && !VM.InPlaylist,
                 "Rename All Selected Music Files and Video Files Using Smart Rename" =>
                     !inArchive && FileListView.SelectedItems.OfType<FileItemViewModel>().Any(i => !i.IsDirectory && !i.IsInArchive && SmartName.Applies(i.Name)),
                 "New Folder" => !inArchive && menuFolderOk,
@@ -4211,6 +4224,12 @@ public partial class MainWindow : Window
     {
         if (FileListView.SelectedItem is FileItemViewModel item)
             ShowRenameDialog(item);
+    }
+
+    private void CtxHide_Click(object sender, RoutedEventArgs e)
+    {
+        var items = FileListView.SelectedItems.OfType<FileItemViewModel>().Where(i => !i.IsInArchive).Select(i => i.FullPath).ToList();
+        if (items.Count > 0) VM.SetHiddenAttribute(items, hide: CtxHideItem.Header as string != "Unhide");
     }
 
     private void CtxCopyPath_Click(object sender, RoutedEventArgs e) => VM.CopyPathCommand.Execute(null);

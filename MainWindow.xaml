@@ -1113,6 +1113,8 @@
                         <MenuItem Header="Rename..."  Click="CtxRename_Click"    InputGestureText="F2"/>
                         <MenuItem Header="Rename All Selected Music Files and Video Files Using Smart Rename" Click="CtxSmartRenameAll_Click"
                                   ToolTip="Every selected music file and video file gets the name that Rename suggests with Use Smart Name (Artist - Title, Title (Year), Title - s01e02). Asks first, and can be undone until another folder is shown."/>
+                        <MenuItem Header="Hide" x:Name="CtxHideItem" Click="CtxHide_Click"
+                                  ToolTip="Hide: give the selected files and folders the Hidden attribute, so the list no longer shows them (the hidden-items line under the list shows them again). Unhide: take the attribute away again. Both can be undone with Ctrl+Z."/>
                         <Separator/>
                         <MenuItem Header="Mark as Read"   Click="CtxMarkRead_Click"
                                   ToolTip="Remember that the selected files have been opened"/>

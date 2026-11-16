@@ -3329,6 +3329,50 @@ public class FolderTabViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Hide / Unhide (list menu): sets or clears the Hidden attribute of the paths. One undo step for the ones that changed.
+    /// Hidden items leave the list at once (unless the hidden-items line shows them); an item that cannot be changed is listed in one message.
+    /// </summary>
+    public async void SetHiddenAttribute(List<string> paths, bool hide)
+    {
+        var changed = new List<string>();
+        var failed  = new List<(string Name, string Reason)>();
+        await Task.Run(() =>
+        {
+            foreach (var p in paths)
+            {
+                var name = Path.GetFileName(p.TrimEnd('\\', '/'));
+                try
+                {
+                    if (!File.Exists(p) && !Directory.Exists(p)) { failed.Add((name, "it is gone")); continue; }
+                    bool has = (File.GetAttributes(p) & FileAttributes.Hidden) != 0;
+                    if (has == hide) continue;   // nothing to do for this one
+                    HiddenItems.SetHiddenAttribute(p, hide);
+                    changed.Add(p);
+                }
+                catch (Exception ex)
+                {
+                    failed.Add((name, ex is UnauthorizedAccessException ? "access denied" : ex.Message.TrimEnd('.')));
+                    LogFiles.AppendError($"{(hide ? "Hide" : "Unhide")} of \"{p}\" failed: {ex.GetType().Name}: {ex.Message}");
+                }
+            }
+        });
+
+        FileUndo.Set(changed.Count > 0 ? new HiddenUndo(changed, hide) : FileUndo.Current);
+        foreach (var folder in changed.Select(c => Path.GetDirectoryName(c)).Where(f => !string.IsNullOrEmpty(f)).Distinct(StringComparer.OrdinalIgnoreCase))
+            RefreshTreeFolder(folder!);   // a hidden folder leaves the tree too
+        Refresh();
+        if (!hide && changed.Count > 0) SelectPathsRequested?.Invoke(changed);
+
+        string word = hide ? "Hidden" : "Unhidden";
+        StatusText = changed.Count == 0 && failed.Count == 0 ? $"Nothing to {(hide ? "hide" : "unhide")}"
+                   : $"{word}: {(changed.Count == 1 ? Path.GetFileName(changed[0]) : changed.Count + " items")} (Ctrl+Z undoes it)";
+
+        if (failed.Count > 0)
+            MessageBox.Show($"These could not be {word.ToLowerInvariant()}:\n\n" + string.Join("\n", failed.Take(12).Select(f => $"{f.Name}: {f.Reason}")),
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    /// <summary>
     /// The Undo button / Ctrl+Z: takes back the last file operation (<see cref="FileUndo"/>). The entry checks everything first and
     /// leaves alone what it cannot be sure about; what could not be undone is told about once, at the end, and in the log file.
     /// The restored items are selected when their folder is the one shown.

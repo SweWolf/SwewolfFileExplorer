@@ -272,3 +272,38 @@ public sealed class CreatedUndo(string path, bool isDirectory, long length, Date
         return Task.FromResult(new UndoReport(new(), problems, null, string.IsNullOrEmpty(parent) ? new() : new() { parent }));
     }
 }
+
+/// <summary>
+/// Hide / Unhide: the Hidden attribute was set (or cleared) on these items. Undo gives it back, item by item, only where the
+/// attribute is still as the step left it (an item that is gone or was changed since is left alone and reported).
+/// </summary>
+public sealed class HiddenUndo(List<string> paths, bool hid) : UndoEntry
+{
+    private readonly List<string> _paths = paths;
+    private readonly bool _hid = hid;
+    private IReadOnlyList<string> Names => _paths.Select(p => Path.GetFileName(p.TrimEnd('\\', '/'))).ToList();
+
+    public override string Text => Label(_hid ? "Hide" : "Unhide", Names);
+    public override string Tip  => TipOf(_hid ? "Show again (clear the Hidden attribute):" : "Hide again (set the Hidden attribute):", Names);
+
+    public override Task<UndoReport> UndoAsync()
+    {
+        var problems = new List<(string Name, string Reason)>();
+        var done     = new List<string>();
+        foreach (var path in _paths)
+        {
+            var name = Path.GetFileName(path.TrimEnd('\\', '/'));
+            try
+            {
+                if (!File.Exists(path) && !Directory.Exists(path)) { problems.Add((name, "it is gone")); continue; }
+                var a = File.GetAttributes(path);
+                if (((a & FileAttributes.Hidden) != 0) != _hid) { problems.Add((name, "its Hidden attribute was changed since, so it is left as it is")); continue; }
+                HiddenItems.SetHiddenAttribute(path, !_hid);
+                done.Add(path);
+            }
+            catch (Exception ex) { problems.Add((name, ex.Message.TrimEnd('.'))); }
+        }
+        var touched = done.Select(ParentOf).Where(p => !string.IsNullOrEmpty(p)).Select(p => p!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return Task.FromResult(new UndoReport(done, problems, null, touched));
+    }
+}

@@ -753,6 +753,7 @@ public class MainViewModel : INotifyPropertyChanged
     public void DeleteFolder(string path)                         => _activeTab.DeleteFolder(path);
     public void RenameFolder(string path, string name)            => _activeTab.RenameFolder(path, name);
     public void CreateFolderIn(string path)                       => _activeTab.CreateNewFolderIn(path);
+    public void SetHiddenAttribute(List<string> paths, bool hide) => _activeTab.SetHiddenAttribute(paths, hide);
     public void RefreshFolder(string path)                        => _activeTab.RefreshFolder(path);
     public void UpdateSelectedItems(List<FileItemViewModel> items) => _activeTab.UpdateSelectedItems(items);
 

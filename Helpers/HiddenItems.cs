@@ -17,6 +17,15 @@ public static class HiddenItems
     private static string _parsedFrom = "";
     private static HashSet<string> _extensions = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Sets or clears the Hidden attribute of a file or folder and keeps its other attributes (System is left alone).</summary>
+    public static void SetHiddenAttribute(string path, bool hidden)
+    {
+        var a = File.GetAttributes(path);
+        a = hidden ? (a | FileAttributes.Hidden) & ~FileAttributes.Normal : a & ~FileAttributes.Hidden;
+        if (a == 0) a = FileAttributes.Normal;
+        File.SetAttributes(path, a);
+    }
+
     public static bool IsHiddenByAttributes(FileAttributes attributes) => (attributes & HiddenAttributes) != 0;
 
     /// <summary>A file is hidden by its attributes or by its extension. (Folders only have the attributes.)</summary>

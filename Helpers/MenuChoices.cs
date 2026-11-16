@@ -32,6 +32,7 @@ public static class MenuChoices
         new("Create Shortcut...", "Create Shortcut..."),
         new("Create Playlist...", "Create Playlist..."),
         new("Rename All Selected Music Files and Video Files Using Smart Rename", "Rename All Selected Music Files and Video Files Using Smart Rename"),
+        new("Hide / Unhide", "Hide", "Unhide"),
         new("Mark as Read / Mark as Unread", "Mark as Read", "Mark as Unread"),
         new("Jump to Last Opened File", "Jump to Last Opened File"),
         new("Rating... / Expectation...", "Rating...", "Expectation..."),
