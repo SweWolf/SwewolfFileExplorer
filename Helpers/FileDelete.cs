@@ -72,18 +72,26 @@ public static class FileDelete
             double perItem = timer.Elapsed.TotalSeconds / batch.Count;
             batchSize = (int)Math.Clamp(Math.Round(TargetSeconds / Math.Max(perItem, 0.0005)), 1, MaxBatch);
 
+            // Windows stops a batch at the first item it cannot delete, so the ones after it are untouched (found by a test: one locked file
+            // made its neighbour fail too). Whatever is still there is tried again on its own: only the really stuck ones then fail.
+            var rcOf = batch.ToDictionary(b => b.Path, _ => rc, StringComparer.OrdinalIgnoreCase);
+            if (batch.Count > 1 && rc != 0)
+                foreach (var b in batch)
+                    if (File.Exists(b.Path) || Directory.Exists(b.Path)) rcOf[b.Path] = ShFileOperation(new[] { b.Path }, permanent);
+
             foreach (var b in batch)
             {
                 if (!File.Exists(b.Path) && !Directory.Exists(b.Path)) { done.Add((b.Path, "")); continue; }
+                int code = rcOf[b.Path];
 
                 // Still there: was it "access denied" (a folder in Program Files ...)? Then the caller can offer the administrator.
-                bool noAccess = rc is 5 or 0x78 or 0x79 or 0x7C || ProbeAccessDenied(b.Path);
+                bool noAccess = code is 5 or 0x78 or 0x79 or 0x7C || ProbeAccessDenied(b.Path);
                 if (noAccess) denied.Add(b.Path);
                 failed.Add((b.Name, noAccess ? "access denied (administrator permission is needed)"
                                              : "it could not be deleted (in use by another program, or no access)"));
                 try
                 {
-                    var text = $"Delete of \"{b.Path}\" failed: SHFileOperation returned 0x{rc:X}";
+                    var text = $"Delete of \"{b.Path}\" failed: SHFileOperation returned 0x{code:X}";
                     if (noAccess) LogFiles.AppendWarning(text + " (administrator permission is needed)");   // the program offers to go on as the administrator
                     else LogFiles.AppendError(text);
                 }
