@@ -2887,7 +2887,21 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         if (outcome.Failed.Count > 0)
         {
-            var lines = outcome.Failed.Take(8).Select(f => $"{f.Name}: {f.Reason}");
+            // Who has it open? Asked for the lines that are shown, all together under one limit of 4 seconds: after that the message
+            // comes as it was (a slow network drive must not hold the window up).
+            var lookups = outcome.Failed.Take(8).Select(f =>
+            {
+                var path = items.FirstOrDefault(i => string.Equals(i.Name, f.Name, StringComparison.OrdinalIgnoreCase)).Path;
+                return (f, task: path == null || outcome.AccessDenied.Contains(path) ? Task.FromResult(new List<string>())
+                                                                                      : FileLockInfo.WhoUsesAsync(path, TimeSpan.FromSeconds(4)));
+            }).ToList();
+            await Task.WhenAny(Task.WhenAll(lookups.Select(l => l.task)), Task.Delay(4000));
+            var lines = lookups.Select(l =>
+            {
+                var who = l.task.IsCompletedSuccessfully ? l.task.Result : new List<string>();
+                if (who.Count > 0) LogFiles.AppendError($"Delete of \"{l.f.Name}\" failed: in use by {string.Join(", ", who)}");
+                return $"{l.f.Name}: {l.f.Reason}" + (who.Count > 0 ? $" In use by: {string.Join(", ", who)}." : "");
+            });
             var more  = outcome.Failed.Count > 8 ? $"{nl2}... and {outcome.Failed.Count - 8} more." : "";
             MessageBox.Show($"These could not be deleted:{nl2}{nl2}" + string.Join(nl2, lines) + more,
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
