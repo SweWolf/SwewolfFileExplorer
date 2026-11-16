@@ -165,8 +165,8 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel Margin="8">
         <GroupBox Header="Administrator Permission" Padding="8" Margin="0,8,0,0">
             <StackPanel>
-                <CheckBox x:Name="AskBeforeAdminBox" Content="Explain Before Asking for Administrator Permission"
-                          ToolTip="On: when copying, moving, deleting or renaming in a protected folder (such as Program Files) needs administrator permission, a question first says so. Off: Windows' own permission prompt shows at once."/>
+                <CheckBox x:Name="AskBeforeAdminBox" Content="Show a Message Box Before Windows Asks for Administrator Permission"
+                          ToolTip="On: when copying, moving, deleting, renaming or creating in a protected folder (such as Program Files) needs administrator permission, a message box with a question comes first. Off: Windows' own permission prompt shows at once."/>
             </StackPanel>
         </GroupBox>
         <GroupBox Header="Starting Programs" Padding="8" Margin="0,8,0,0">
@@ -260,8 +260,10 @@
             <StackPanel>
                 <CheckBox x:Name="LogInternetBox" Content="Log All Internet Calls"
                           ToolTip="Write every call the program makes to a web service (what was asked, the answer and the time) to internet.log, which you find with Help > Open Log Folder. Passwords and API keys are never written to it."/>
+                <CheckBox x:Name="LogWarningsBox" Content="Log Warnings" Margin="0,10,0,0"
+                          ToolTip="Also write warnings to errors.log: things that did not work at first but were handled, for example a step that needed administrator permission. Errors are always written."/>
                 <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left" Opacity="0.75"
-                           Text="Off normally. Turn it on to see what the program asks the internet for, for example when a search finds something unexpected. Errors are always written to errors.log, whatever this says."/>
+                           Text="Off normally. Turn it on to see what the program asks the internet for, for example when a search finds something unexpected. Warnings are lines starting with &quot;Warning:&quot;. Errors are always written to errors.log, whatever this says."/>
             </StackPanel>
         </GroupBox>
                 </StackPanel></ScrollViewer>

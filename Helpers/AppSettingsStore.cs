@@ -140,12 +140,16 @@ public class AppSettings
     /// internet.log (<c>LogFiles.AppendInternet</c>). Errors always go to errors.log, whatever this says.</summary>
     public bool LogInternetCalls { get; set; } = false;
 
+    /// <summary>Settings > Troubleshooting > "Log Warnings" (off by default): also write the "Warning:" lines (things that needed a second try, such as
+    /// asking for administrator permission) to errors.log. Errors are always written.</summary>
+    public bool LogWarnings { get; set; } = false;
+
     /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the
     /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
     public bool WarnHiddenNotSelected { get; set; } = true;
 
 
-    /// <summary>Settings > Security > "Explain Before Asking for Administrator Permission" (off by default, the user's choice 2026-11-16): on shows
+    /// <summary>Settings > Security > "Show a Message Box Before Windows Asks for Administrator Permission" (off by default, the user's choice 2026-11-16): on shows
     /// the question "You need administrator permission to ... Do you want to continue?" before Windows' own UAC prompt; off goes straight to Windows' prompt.</summary>
     public bool AskBeforeAdministrator { get; set; } = false;
 

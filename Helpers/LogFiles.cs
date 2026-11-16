@@ -19,7 +19,7 @@ namespace SwewolfFileExplorer.Helpers;
 ///   2026-11-15  New in the explorer: InternetLogFile, AppendInternet (internet.log: every web call, also the ones that worked;
 ///               first used by the TMDB calls).
 ///   2026-11-15  AppendInternet only writes when the setting LogInternetCalls is on (off by default).
-///   2026-11-16  New in the explorer: AppendWarning (a "Warning:" line in errors.log).
+///   2026-11-16  New in the explorer: AppendWarning (a "Warning:" line in errors.log), only written when the setting LogWarnings is on (off by default).
 /// </summary>
 internal static class LogFiles
 {
@@ -62,7 +62,11 @@ internal static class LogFiles
     /// Appends a "Warning:" line to errors.log: something that needed more than the first try but is not a failure by itself
     /// (e.g. a folder that needs administrator permission; the program then asks for it). Never throws.
     /// </summary>
-    internal static void AppendWarning(string message) => AppendError("Warning: " + message);
+    internal static void AppendWarning(string message)
+    {
+        if (!AppSettingsStore.Current.LogWarnings) return;   // Settings > Troubleshooting > Log Warnings: off by default
+        AppendError("Warning: " + message);
+    }
 
     /// <summary>
     /// Appends one line to errors.log. Logging must never stop what the user is doing, so errors here are ignored.

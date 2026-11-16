@@ -3397,7 +3397,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 if (item.IsDirectory) Directory.Move(item.FullPath, newPath);
                 else                  File.Move(item.FullPath, newPath);
             }
-            catch (UnauthorizedAccessException ex) when (!item.IsInArchive)
+            catch (Exception ex) when (!item.IsInArchive && FileTransfer.IsAccessDenied(ex))   // a folder's Directory.Move reports it as an IOException
             {
                 // A protected folder (Program Files ...): the same as for copy and delete, the elevated helper does it.
                 LogFiles.AppendWarning($"Rename of \"{item.FullPath}\" to \"{newName}\" failed: {ex.GetType().Name}: {ex.Message} (administrator permission is needed)");
@@ -3445,8 +3445,34 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     public void CreateNewFolder() => CreateNewFolderIn(_currentPath);
 
+    /// <summary>
+    /// A new folder or empty file that was refused with "access denied" (Program Files ...): made by the elevated helper after the
+    /// usual question. False when it was not made (declined, or failed with a message shown).
+    /// </summary>
+    internal static async Task<bool> CreateAsAdministratorAsync(string path, bool isDirectory)
+    {
+        var name = Path.GetFileName(path.TrimEnd('\\', '/'));
+        var folder = Path.GetDirectoryName(path.TrimEnd('\\', '/')) ?? "";
+        if (!ConfirmAdministrator($"You need administrator permission to create {(isDirectory ? "the folder" : "the file")} '{name}' here.")) return false;
+
+        bool declined = false;
+        var result = await RunWithProgressAsync(async (progress, token) =>
+        {
+            var (r, d) = await ElevatedTransfer.RunAsync(new[] { path }, "", isDirectory, progress, token, kind: "create");
+            declined = d;
+            return r;
+        }, "Creating", $"'{name}'", folder);
+        if (declined) return false;
+        if (result.Done.Count > 0) return true;
+
+        var reason = result.Failed.Count > 0 ? result.Failed[0].Reason : "it was not made";
+        LogFiles.AppendError($"Create as administrator failed: {path}: {reason}");
+        MessageBox.Show($"Cannot create {(isDirectory ? "the folder" : "the file")}: {reason}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
+        return false;
+    }
+
     /// <summary>Makes a new folder in <paramref name="parent"/> (the current folder, or a folder of the tree) and asks for its name.</summary>
-    public void CreateNewFolderIn(string parent)
+    public async void CreateNewFolderIn(string parent)
     {
         var baseName = "New Folder";
         var path     = Path.Combine(parent, baseName);
@@ -3457,7 +3483,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
         try
         {
-            Directory.CreateDirectory(path);
+            bool usedAdministrator = false;
+            try { Directory.CreateDirectory(path); }
+            catch (UnauthorizedAccessException ex)
+            {
+                LogFiles.AppendWarning($"Creating \"{path}\" failed: {ex.Message} (administrator permission is needed)");
+                if (!await CreateAsAdministratorAsync(path, isDirectory: true)) return;
+                usedAdministrator = true;
+            }
             Refresh();
             RefreshTreeFolder(parent);
 
@@ -3483,7 +3516,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                 // The folder may have got its own name in the box (the tab then follows it): Undo removes it again while it is empty.
                 var final = Directory.Exists(path) ? path
                           : IsSamePath(ParentFolder(_currentPath), parent) && Directory.Exists(_currentPath) ? _currentPath : null;
-                if (final != null) FileUndo.Set(CreatedUndo.ForNewFolder(final));
+                if (final != null) FileUndo.Set(usedAdministrator ? null : CreatedUndo.ForNewFolder(final));
             }
         }
         catch (Exception ex)

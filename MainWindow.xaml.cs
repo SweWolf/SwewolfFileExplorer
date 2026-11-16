@@ -5938,7 +5938,7 @@ public partial class MainWindow : Window
     /// Asks for a name (suggested: New Text Document.txt, numbered when taken) and makes an empty text file in <paramref name="folder"/>.
     /// Nothing is made until OK; Cancel makes no file.
     /// </summary>
-    private void NewTextDocument(string folder)
+    private async void NewTextDocument(string folder)
     {
         if (!CanSaveIn(folder)) return;
         if (FolderTabViewModel.IsUnderBookmarks(folder))   // the Bookmarks folder only holds bookmarks
@@ -5962,9 +5962,17 @@ public partial class MainWindow : Window
         if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.InputText)) return;
 
         var path = System.IO.Path.Combine(folder, Real(dlg.InputText).Trim());
+        bool usedAdministrator = false;
         try
         {
             using (new System.IO.FileStream(path, System.IO.FileMode.CreateNew, System.IO.FileAccess.Write, System.IO.FileShare.None)) { }
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            // A protected folder (Program Files ...): the elevated helper makes it.
+            LogFiles.AppendWarning($"Creating \"{path}\" failed: {ex.Message} (administrator permission is needed)");
+            if (!await FolderTabViewModel.CreateAsAdministratorAsync(path, isDirectory: false)) return;
+            usedAdministrator = true;
         }
         catch (Exception ex)
         {
@@ -5972,7 +5980,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        FileUndo.Set(CreatedUndo.ForNewFile(path));   // Undo removes it again while it is still empty
+        FileUndo.Set(usedAdministrator ? null : CreatedUndo.ForNewFile(path));   // Undo removes it again while it is still empty
         VM.RefreshFolder(folder);
         OnSelectPathRequested(path);   // the new file is selected (when its folder is the one shown)
     }

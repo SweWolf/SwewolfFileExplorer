@@ -111,6 +111,22 @@ public static class ElevatedTransfer
                 var items = job.Sources.Select(s => new FileDelete.Item(s, Path.GetFileName(s.TrimEnd('\\', '/')), Directory.Exists(s))).ToList();
                 r = FileDelete.RunAsync(items, job.Permanent, progress, cts.Token).GetAwaiter().GetResult();
             }
+            else if (job.Kind == "create")
+            {
+                // Sources[0] is made new: a folder when Move is true, else an empty file. Never replaces.
+                var path = job.Sources[0];
+                try
+                {
+                    if (job.Move) Directory.CreateDirectory(path);
+                    else using (new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { }
+                    r = new TransferResult(new() { (path, path) }, new(), false, 1);
+                }
+                catch (Exception ex)
+                {
+                    Note($"create failed: {ex.GetType().Name}: {ex.Message}");
+                    r = new TransferResult(new(), new() { (Path.GetFileName(path), ex.Message) }, false, 1);
+                }
+            }
             else if (job.Kind == "rename")
             {
                 // Sources[0] is renamed to Destination (a full path). Never replaces: Move fails when the name is taken.
@@ -178,7 +194,31 @@ public static class ElevatedTransfer
         // by itself (found by the user: another program came to the front after every elevated step).
         var foreground = GetForegroundWindow();
         try { return await RunCoreAsync(sources, destination, move, progress, cancel, kind, permanent); }
-        finally { RestoreForeground(foreground); }
+        finally { RestoreForeground(foreground); Repaint(); }
+    }
+
+    /// <summary>
+    /// Asks every window of ours to draw itself again, now and a moment later: after Windows' permission prompt (a separate desktop) the
+    /// progress window could stay blank white until something forced a repaint (found by the user).
+    /// </summary>
+    internal static void Repaint()
+    {
+        void Do()
+        {
+            try
+            {
+                foreach (System.Windows.Window w in System.Windows.Application.Current.Windows)
+                {
+                    w.InvalidateVisual();
+                    w.UpdateLayout();
+                }
+            }
+            catch { }
+        }
+        var d = System.Windows.Application.Current?.Dispatcher;
+        if (d == null) return;
+        d.BeginInvoke(new Action(Do), System.Windows.Threading.DispatcherPriority.Render);
+        d.BeginInvoke(new Action(async () => { await Task.Delay(700); Do(); }), System.Windows.Threading.DispatcherPriority.Background);
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
@@ -236,6 +276,7 @@ public static class ElevatedTransfer
                     Arguments = $"{Argument} \"{jobFile}\"",
                     WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
                 }));
+                Repaint();   // back from Windows' permission prompt: the progress window is drawn again at once (it stayed blank white)
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)   // the user said no to Windows' question
             {
