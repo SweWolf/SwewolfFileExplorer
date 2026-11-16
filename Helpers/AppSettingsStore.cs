@@ -126,6 +126,10 @@ public class AppSettings
     /// (Settings > Scrapers; <c>Tmdb.GetApiKey / SetApiKey</c>). Empty = "Download NFO File..." asks for it.</summary>
     public string TmdbApiKeyProtected { get; set; } = "";
 
+    /// <summary>Settings > Troubleshooting > "Log All Internet Calls" (off by default): every call to a web service is written to
+    /// internet.log (<c>LogFiles.AppendInternet</c>). Errors always go to errors.log, whatever this says.</summary>
+    public bool LogInternetCalls { get; set; } = false;
+
     /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the
     /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
     public bool WarnHiddenNotSelected { get; set; } = true;

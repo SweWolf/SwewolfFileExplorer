@@ -98,6 +98,7 @@ public partial class SettingsWindow : Window
         (current.RoundedProgressBars ? RoundedBarsBox : SquareBarsBox).IsChecked = true;
         VirusTotalKeyBox.Password          = VirusTotal.GetApiKey() ?? "";
         TmdbKeyBox.Password                = Tmdb.GetApiKey() ?? "";
+        LogInternetBox.IsChecked           = current.LogInternetCalls;
         MediaPlayerTab.Visibility          = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, no tab
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
         AskBeforeProgramsBox.IsChecked     = current.AskBeforeStartingPrograms;
@@ -244,6 +245,7 @@ public partial class SettingsWindow : Window
         var settings = AppSettingsStore.Current;
         VirusTotal.SetApiKey(key);
         Tmdb.SetApiKey(tmdbKey);
+        settings.LogInternetCalls = LogInternetBox.IsChecked == true;
         settings.Style = Styles[StyleBox.SelectedIndex];
         settings.FontFamily = (FontBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "";
         settings.UnreadBold   = UnreadBoldBox.IsChecked == true;

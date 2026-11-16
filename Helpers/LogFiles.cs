@@ -18,6 +18,7 @@ namespace SwewolfFileExplorer.Helpers;
 ///               new: ErrorsLogFile, AppendError (errors.log over 0.5 MB is cut down to its newest 0.25 MB).
 ///   2026-11-15  New in the explorer: InternetLogFile, AppendInternet (internet.log: every web call, also the ones that worked;
 ///               first used by the TMDB calls).
+///   2026-11-15  AppendInternet only writes when the setting LogInternetCalls is on (off by default).
 /// </summary>
 internal static class LogFiles
 {
@@ -40,6 +41,7 @@ internal static class LogFiles
     /// </summary>
     internal static void AppendInternet(string message)
     {
+        if (!AppSettingsStore.Current.LogInternetCalls) return;   // Settings > Troubleshooting: off by default
         try
         {
             lock (WriteLock)

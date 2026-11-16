@@ -248,6 +248,18 @@
         </GroupBox>
                 </StackPanel></ScrollViewer>
             </TabItem>
+            <TabItem Header="Troubleshooting">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel Margin="8">
+        <GroupBox Header="Logging" Padding="8">
+            <StackPanel>
+                <CheckBox x:Name="LogInternetBox" Content="Log All Internet Calls"
+                          ToolTip="Write every call the program makes to a web service (what was asked, the answer and the time) to internet.log, which you find with Help > Open Log Folder. Passwords and API keys are never written to it."/>
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left" Opacity="0.75"
+                           Text="Off normally. Turn it on to see what the program asks the internet for, for example when a search finds something unexpected. Errors are always written to errors.log, whatever this says."/>
+            </StackPanel>
+        </GroupBox>
+                </StackPanel></ScrollViewer>
+            </TabItem>
         </TabControl>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
