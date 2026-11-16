@@ -170,6 +170,13 @@ public partial class PictureViewerWindow : Window
         _slide.BeginAnimation(TranslateTransform.XProperty, null);
         _slide.X = slideFrom;
 
+        // "End of file list" belongs to the last picture only: going back (or on) takes it away at once instead of letting the timer run out.
+        if (Overlay.Visibility == Visibility.Visible && OverlayText.Text == EndOfListText)
+        {
+            _overlayTimer.Stop();
+            Overlay.Visibility = Visibility.Collapsed;
+        }
+
         if (loaded == null)
         {
             Picture.Source = null;
@@ -195,7 +202,7 @@ public partial class PictureViewerWindow : Window
 
             if (message != null) ShowOverlay(message);
             else ShowCurrentRating();
-            if (announceLast) ShowOverlay("End of file list", atTop: true, seconds: 2);
+            if (announceLast) ShowOverlay(EndOfListText, atTop: true, seconds: 2);
         }
 
         UpdateTransform();
@@ -222,6 +229,8 @@ public partial class PictureViewerWindow : Window
         _animationTimer.Interval = TimeSpan.FromMilliseconds(delay);
         _animationTimer.Start();
     }
+
+    private const string EndOfListText = "End of file list";
 
     private void ShowOverlay(string text, bool atTop = false, double seconds = 1.5)
     {
