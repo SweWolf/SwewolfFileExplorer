@@ -2665,7 +2665,7 @@ public partial class MainWindow : Window
         _previewSource    = null;
         _mediaPreviewItem = null;
 
-        if (item == null || item.IsDirectory)
+        if (item == null)
         {
             ThumbnailImage.Source = null;
             ShowPreviewFrame(false);
@@ -2673,6 +2673,23 @@ public partial class MainWindow : Window
         }
 
         string path = item.FullPath;
+
+        // A folder in the list (the Folders button): its folder picture, the one the tree pane shows when the folder is open
+        // (a chosen picture, Folder.jpg / poster.jpg, an album cover ...). Not inside an archive (that can cost a 7-Zip run) or in Bookmarks.
+        if (item.IsDirectory)
+        {
+            ThumbnailImage.Source = null;
+            ShowPreviewFrame(false);
+            if (item.IsInArchive || FolderTabViewModel.IsUnderBookmarks(path)) return;
+
+            var cover = await Task.Run(() => FolderCoverFinder.Find(path, ThumbnailDecodeWidth, CancellationToken.None));
+            if (version != _thumbnailVersion || cover == null) return;   // another item was selected meanwhile, or the folder has none
+
+            ThumbnailImage.Source = cover.Image;
+            _previewItem   = item;   // a click opens it in the viewer, as for the picture under the tree
+            _previewSource = new PreviewPicture(cover.Image, cover.Path, cover.Data, false);
+            return;
+        }
 
         // A picture: off the UI thread, as a large photo takes a moment to decode and the arrow keys must stay responsive.
         if (ThumbnailLoader.IsImage(path))
