@@ -2510,7 +2510,7 @@ public partial class MainWindow : Window
     private string? ExistingNfoOfPlotItem() =>
         _plotItem == null ? null : NfoPoster.NfoFilesOf(_plotItem.FullPath).FirstOrDefault(System.IO.File.Exists);
 
-    // "Edit NFO File" is only in the menu when the .nfo file exists.
+    // "View/Edit NFO File" is only in the menu when the .nfo file exists.
     private void PlotArea_ContextMenuOpening(object sender, ContextMenuEventArgs e) =>
         PlotEditNfoItem.Visibility = ExistingNfoOfPlotItem() != null ? Visibility.Visible : Visibility.Collapsed;
 

@@ -1166,7 +1166,7 @@
                                     <ContextMenu>
                                         <MenuItem Header="Edit Plot..." Click="PlotEdit_Click"
                                                   ToolTip="Change the plot of this file, which is kept in its .nfo file (a double-click does the same)"/>
-                                        <MenuItem x:Name="PlotEditNfoItem" Header="Edit NFO File" Click="PlotEditNfo_Click" Visibility="Collapsed"
+                                        <MenuItem x:Name="PlotEditNfoItem" Header="View/Edit NFO File" Click="PlotEditNfo_Click" Visibility="Collapsed"
                                                   ToolTip="Open the .nfo file of this video or music file in the text editor"/>
                                         <Separator/>
                                         <MenuItem Header="Download NFO File..." Click="PlotDownloadNfo_Click"

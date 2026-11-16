@@ -338,7 +338,7 @@ Double-click the plot area of a video or music file, or right-click it and choos
 write or change the plot. The text is saved in the `.nfo` file next to the file, which is made
 when it does not exist. An existing `.nfo` file is changed carefully: only the plot changes.
 
-When the `.nfo` file exists, the right-click menu of the plot area also has **Edit NFO File**, which
+When the `.nfo` file exists, the right-click menu of the plot area also has **View/Edit NFO File**, which
 opens the whole file in the text editor, as a double-click on the `.nfo` file does.
 
 ## Opening Files

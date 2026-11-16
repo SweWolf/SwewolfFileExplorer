@@ -7,6 +7,7 @@ namespace SwewolfFileExplorer.Helpers;
 /// Log files under %APPDATA%\SweWolfSoftware\&lt;app&gt;\Logs\ (Help > Open Log File, Help > Open Log Folder):
 ///   errors.log   one line per thing that could not be done: "yyyy-MM-dd HH:mm:ss&lt;TAB&gt;what, and why". Errors only,
 ///                no log of what worked (the user's decision, 2026-10-18).
+///   internet.log one line per call to a web service, also the ones that worked (2026-11-15), so the errors stay few and readable.
 ///
 /// Taken from MP3toMP4's LogFiles.cs (same folder layout, LogFolder, and the way a file is cut down when it gets too big),
 /// without its conversion parts. When copying to another app: change the namespace and AppFolderName.
@@ -15,6 +16,8 @@ namespace SwewolfFileExplorer.Helpers;
 /// History:
 ///   2026-10-18  Created in the explorer, from MP3toMP4's LogFiles.cs (2026-09-27): LogFolder, TruncateToNewestHalf;
 ///               new: ErrorsLogFile, AppendError (errors.log over 0.5 MB is cut down to its newest 0.25 MB).
+///   2026-11-15  New in the explorer: InternetLogFile, AppendInternet (internet.log: every web call, also the ones that worked;
+///               first used by the TMDB calls).
 /// </summary>
 internal static class LogFiles
 {
@@ -26,7 +29,30 @@ internal static class LogFiles
 
     internal static string ErrorsLogFile => Path.Combine(LogFolder, "errors.log");
 
+    /// <summary>internet.log: one line per call to a web service (what was asked, the answer, the time). Never holds a key or a password.</summary>
+    internal static string InternetLogFile => Path.Combine(LogFolder, "internet.log");
+
     private const long ErrorsMaxBytes = 512 * 1024;
+
+    /// <summary>
+    /// Appends one line to internet.log ("yyyy-MM-dd HH:mm:ss&lt;TAB&gt;method&lt;TAB&gt;site&lt;TAB&gt;what&lt;TAB&gt;answer&lt;TAB&gt;time"). Unlike errors.log it
+    /// also lists the calls that worked; the caller must leave secrets out of the text. Cut down like errors.log. Never throws.
+    /// </summary>
+    internal static void AppendInternet(string message)
+    {
+        try
+        {
+            lock (WriteLock)
+            {
+                Directory.CreateDirectory(LogFolder);
+                var file = InternetLogFile;
+                var line = message.Replace("\r", "").Replace("\n", " ");
+                File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{line}\r\n", Encoding.UTF8);
+                TruncateToNewestHalf(file, ErrorsMaxBytes);
+            }
+        }
+        catch { }
+    }
     private static readonly object WriteLock = new();
 
     /// <summary>

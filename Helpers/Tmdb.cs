@@ -113,47 +113,69 @@ public static class Tmdb
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(20));
+
+        // Every call is written to internet.log (what was asked, what came back, how long it took). The key is never in it:
+        // the address that is logged is built without it.
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        string outcome = "no answer (canceled)";
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            if (token) request.Headers.Authorization = new("Bearer", key);
-            request.Headers.UserAgent.ParseAdd("SweWolfFileExplorer/1.0");
-            using var response = await Http.SendAsync(request, timeout.Token);
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                if (token) request.Headers.Authorization = new("Bearer", key);
+                request.Headers.UserAgent.ParseAdd("SweWolfFileExplorer/1.0");
+                using var response = await Http.SendAsync(request, timeout.Token);
+                outcome = ((int)response.StatusCode).ToString();
 
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                throw new InvalidOperationException("TMDB did not accept the API key. Check it in Tools > Settings > Scrapers.");
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                throw new InvalidOperationException("TMDB has no entry for this.");
-            if ((int)response.StatusCode == 429)
-                throw new InvalidOperationException("TMDB says there were too many requests. Try again in a moment.");
-            response.EnsureSuccessStatusCode();
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    throw new InvalidOperationException("TMDB did not accept the API key. Check it in Tools > Settings > Scrapers.");
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    throw new InvalidOperationException("TMDB has no entry for this.");
+                if ((int)response.StatusCode == 429)
+                    throw new InvalidOperationException("TMDB says there were too many requests. Try again in a moment.");
+                response.EnsureSuccessStatusCode();
 
-            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
-            return doc.RootElement.Clone();
+                using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
+                if (doc.RootElement.TryGetProperty("results", out var found) && found.ValueKind == JsonValueKind.Array)
+                    outcome += $", {found.GetArrayLength()} results";
+                return doc.RootElement.Clone();
+            }
+            catch (HttpRequestException ex) { outcome = "failed: " + ex.Message; throw new InvalidOperationException($"TMDB could not be reached: {ex.Message}"); }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { outcome = "no answer within 20 s"; throw new InvalidOperationException("TMDB did not answer in time."); }
+            catch (JsonException) { outcome += ", answer could not be read"; throw new InvalidOperationException("TMDB gave an answer that could not be read."); }
         }
-        catch (HttpRequestException ex) { throw new InvalidOperationException($"TMDB could not be reached: {ex.Message}"); }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw new InvalidOperationException("TMDB did not answer in time."); }
-        catch (JsonException) { throw new InvalidOperationException("TMDB gave an answer that could not be read."); }
+        finally
+        {
+            LogFiles.AppendInternet($"GET\tthemoviedb.org\t{path}?language=en-US{(query.Length > 0 ? "&" + query : "")}\t{outcome}\t{watch.ElapsedMilliseconds} ms");
+        }
     }
 
-    public static async Task<List<Result>> SearchAsync(string name, string year, Kind kind, CancellationToken ct)
+    /// <summary>The hits, and whether the year had to be dropped to find any (then the list holds every year).</summary>
+    public sealed record SearchOutcome(List<Result> Results, bool YearIgnored);
+
+    public static async Task<SearchOutcome> SearchAsync(string name, string year, Kind kind, bool includeAdult, CancellationToken ct)
     {
         bool hasYear = year.Length == 4 && year.All(char.IsAsciiDigit);
-        var results = await SearchOnceAsync(name, hasYear ? year : "", kind, ct);
+        var results = await SearchOnceAsync(name, hasYear ? year : "", kind, includeAdult, ct);
         // The year in a file name is often a little wrong: when nothing fits it, try again without it.
-        if (results.Count == 0 && hasYear) results = await SearchOnceAsync(name, "", kind, ct);
-        return results;
+        if (results.Count == 0 && hasYear)
+            return new SearchOutcome(await SearchOnceAsync(name, "", kind, includeAdult, ct), true);
+        return new SearchOutcome(results, false);
     }
 
-    private static async Task<List<Result>> SearchOnceAsync(string name, string year, Kind kind, CancellationToken ct)
+    private static async Task<List<Result>> SearchOnceAsync(string name, string year, Kind kind, bool includeAdult, CancellationToken ct)
     {
         var results = new List<Result>();
-        string q = "query=" + Uri.EscapeDataString(name);
+        // include_video and sort_by are what the user's research suggested (TMDB's own pages do not say they matter for a search).
+        string q = "query=" + Uri.EscapeDataString(name)
+                 + "&include_adult=" + (includeAdult ? "true" : "false") + "&include_video=true&sort_by=popularity.desc";
         bool hasYear = year.Length == 4;
 
         if (kind != Kind.Tv)
         {
-            var json = await GetAsync("/search/movie", q + (hasYear ? "&year=" + year : ""), ct);
+            // primary_release_year = the main release date only; "year" also matches any other release date (festivals, other countries).
+            var json = await GetAsync("/search/movie", q + (hasYear ? "&primary_release_year=" + year : ""), ct);
             foreach (var r in json.GetProperty("results").EnumerateArray())
                 results.Add(new Result(false, r.GetProperty("id").GetInt32(), Str(r, "title"), YearOf(Str(r, "release_date")), Str(r, "overview")));
         }
@@ -164,6 +186,41 @@ public static class Tmdb
                 results.Add(new Result(true, r.GetProperty("id").GetInt32(), Str(r, "name"), YearOf(Str(r, "first_air_date")), Str(r, "overview")));
         }
         return results;
+    }
+
+    private static readonly Regex ImdbRx = new(@"(?<![A-Za-z0-9])tt\d{5,10}(?![0-9])", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>An IMDb ID (<c>tt0137523</c>) found in typed or pasted text (also in an address like imdb.com/title/tt0137523/), lower case; else null.</summary>
+    public static string? ParseImdbId(string text)
+    {
+        var m = ImdbRx.Match(text);
+        return m.Success ? m.Value.ToLowerInvariant() : null;
+    }
+
+    /// <summary>
+    /// The movie or TV show that has this IMDb ID (TMDB's "find by external ID"). The type decides which one wins in the rare case that
+    /// both exist; a missing one is answered by the other. Null when TMDB does not know the ID. The ID of a single TV episode is refused
+    /// with a message (use the ID of the show).
+    /// </summary>
+    public static async Task<Result?> FindByImdbAsync(string imdbId, Kind kind, CancellationToken ct)
+    {
+        var json = await GetAsync($"/find/{imdbId}", "external_source=imdb_id", ct);
+
+        Result? movie = null, tv = null;
+        if (json.TryGetProperty("movie_results", out var movies) && movies.GetArrayLength() > 0)
+        {
+            var r = movies[0];
+            movie = new Result(false, r.GetProperty("id").GetInt32(), Str(r, "title"), YearOf(Str(r, "release_date")), Str(r, "overview"));
+        }
+        if (json.TryGetProperty("tv_results", out var shows) && shows.GetArrayLength() > 0)
+        {
+            var r = shows[0];
+            tv = new Result(true, r.GetProperty("id").GetInt32(), Str(r, "name"), YearOf(Str(r, "first_air_date")), Str(r, "overview"));
+        }
+        if (movie == null && tv == null && json.TryGetProperty("tv_episode_results", out var eps) && eps.GetArrayLength() > 0)
+            throw new InvalidOperationException($"{imdbId} is the IMDb ID of a single TV episode. Enter the IMDb ID of the TV show instead.");
+
+        return kind == Kind.Tv ? tv ?? movie : movie ?? tv;
     }
 
     private static string Str(JsonElement e, string name) =>
