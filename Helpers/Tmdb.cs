@@ -171,7 +171,8 @@ public static class Tmdb
         var results = new List<Result>();
         // include_video and sort_by are what the user's research suggested (TMDB's own pages do not say they matter for a search).
         string q = "query=" + Uri.EscapeDataString(name)
-                 + "&include_adult=" + (includeAdult ? "true" : "false") + "&include_video=true&sort_by=popularity.desc";
+                 + (includeAdult ? "&include_adult=true" : "")   // false is TMDB's default: not sent
+                 + "&include_video=true&sort_by=popularity.desc";
         bool hasYear = year.Length == 4;
 
         if (kind != Kind.Tv)
