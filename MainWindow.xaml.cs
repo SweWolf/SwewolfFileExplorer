@@ -125,6 +125,10 @@ public partial class MainWindow : Window
                 QueueDrivesFit();
             }
 
+            // The Icons button was pressed, or the tiles got another size.
+            if (e.PropertyName == nameof(MainViewModel.IsIconView)) ApplyViewMode();
+            if (e.PropertyName == nameof(MainViewModel.IconViewSize)) IconSizeChanged();
+
             // The text of the list got bigger or smaller (Ctrl + wheel, or another tab with another size): so do the columns.
             if (e.PropertyName is nameof(MainViewModel.ListFontSize) or nameof(MainViewModel.ContentFontFamily))
             {
@@ -146,6 +150,9 @@ public partial class MainWindow : Window
         UpdateInfoPanelVisibility();   // the panel was hidden in an earlier run
         LoadColumnLayout();
         ApplySort(VM.SortColumn, VM.SortAscending);
+
+        FileListView.PreviewKeyDown += IconView_PreviewKeyDown;
+        ApplyViewMode();   // the Icons view, if it was on in the last run
 
         Closing += (_, e) =>
         {
@@ -630,7 +637,7 @@ public partial class MainWindow : Window
     /// <summary>All columns in display order; hidden ones are kept here but are not in the GridView.</summary>
     private readonly List<ColumnInfo> _layout = new();
 
-    private GridView ListGrid => (GridView)FileListView.View;
+    private GridView ListGrid => _detailsGrid ??= (GridView)FileListView.View;   // the Details columns; View is null while the Icons view is on
 
     private void LoadColumnLayout()
     {
@@ -830,6 +837,7 @@ public partial class MainWindow : Window
     /// <summary>A right-click on a column header shows the column menu, not the file menu.</summary>
     private void FileListView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
+        UpdateIconSortMenu();   // "Sort By" in the Icons view, which has no column headers
         _contextOverEmpty = false;
         if (e.CursorLeft < 0) return;   // opened with the keyboard
         _contextOverEmpty = !IsOverListItem();
@@ -978,8 +986,11 @@ public partial class MainWindow : Window
     private readonly System.Windows.Threading.DispatcherTimer _titleTimer = new() { Interval = TimeSpan.FromSeconds(2.5) };
     private int _wheelDelta;
 
-    private void List_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
+    private void List_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender == FileListView && ChangeIconSizeByWheel(e)) return;   // the Icons view: the size of the tiles
         ChangeFontSize(e, () => VM.ListFontSize, v => VM.ListFontSize = v, "List");
+    }
 
     private void Tree_PreviewMouseWheel(object sender, MouseWheelEventArgs e) =>
         ChangeFontSize(e, () => VM.TreeFontSize, v => VM.TreeFontSize = v, "Tree");
@@ -1276,6 +1287,11 @@ public partial class MainWindow : Window
         {
             if (!FileListView.IsKeyboardFocusWithin) FileListView.Focus();
             FileListView.SelectAll();
+            e.Handled = true;
+        }
+        // The Icons view: the same keys change the size of the tiles.
+        else if (Keyboard.Modifiers is ModifierKeys.Control or (ModifierKeys.Control | ModifierKeys.Shift) && ChangeIconSizeByKey(e))
+        {
             e.Handled = true;
         }
         // Ctrl + plus / minus / 0: font size of the tree (when it has the focus) or else of the list, like Ctrl + mouse wheel; 0 = back to the default.

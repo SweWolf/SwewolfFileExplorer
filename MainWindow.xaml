@@ -4,6 +4,7 @@
         xmlns:vm="clr-namespace:SwewolfFileExplorer.ViewModels"
         xmlns:conv="clr-namespace:SwewolfFileExplorer.Converters"
         xmlns:helpers="clr-namespace:SwewolfFileExplorer.Helpers"
+        xmlns:views="clr-namespace:SwewolfFileExplorer.Views"
         Title="SweWolf File Explorer"
         Icon="Resourses/fluent_file_explorer.ico"
         Height="640" Width="1024"
@@ -295,6 +296,16 @@
                               ToolTip="Show File Name Extensions (.txt, .jpg ...) of Known File Types"
                               Padding="6,4">
                     <TextBlock Text=".ext" FontSize="12"/>
+                </ToggleButton>
+
+                <!-- Pressed = the list shows icons (thumbnails) instead of the Details columns. Ctrl + mouse wheel or Ctrl + plus / minus changes their size. -->
+                <ToggleButton IsChecked="{Binding IsIconView}"
+                              ToolTip="Show Icons Instead of Details. Ctrl + Mouse Wheel or Ctrl + Plus / Minus Changes the Size."
+                              Padding="6,4">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE80A;" FontSize="12" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Icons" FontSize="12"/>
+                    </StackPanel>
                 </ToggleButton>
 
                 <Button Command="{Binding NewFolderCommand}"
@@ -883,6 +894,53 @@
                       MouseDoubleClick="FileListView_MouseDoubleClick"
                       KeyDown="FileListView_KeyDown"
                       PreviewTextInput="FileListView_PreviewTextInput">
+
+                <!-- The Icons view (toolbar button): the same list, laid out as tiles. MainWindow.ApplyViewMode swaps these in and out. -->
+                <ListView.Resources>
+                    <ItemsPanelTemplate x:Key="IconPanelTemplate">
+                        <views:VirtualizingWrapPanel ItemWidth="{Binding DataContext.IconCellWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                     ItemHeight="{Binding DataContext.IconCellHeight, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                    </ItemsPanelTemplate>
+
+                    <Style x:Key="IconItemStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
+                        <Setter Property="MinHeight" Value="0"/>
+                        <Setter Property="MinWidth"  Value="0"/>
+                        <Setter Property="Padding"   Value="2"/>
+                        <Setter Property="Margin"    Value="0"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="VerticalContentAlignment"   Value="Top"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsUnread}" Value="True">
+                                <Setter Property="FontWeight" Value="{Binding Weight, Source={x:Static helpers:UnreadStyle.Instance}}"/>
+                                <Setter Property="FontStyle"  Value="{Binding Style,  Source={x:Static helpers:UnreadStyle.Instance}}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+
+                    <DataTemplate x:Key="IconItemTemplate">
+                        <Grid ClipToBounds="True" ToolTip="{Binding DisplayName, Mode=OneWay}">
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                            <Setter Property="Opacity" Value="0.55"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Image Source="{Binding Thumb}" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,6,0,4"
+                                   Width="{Binding DataContext.IconViewSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Height="{Binding DataContext.IconViewSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <TextBlock Grid.Row="1" Text="{Binding DisplayName, Mode=OneWay}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                       TextAlignment="Center" HorizontalAlignment="Center"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.Resources>
 
                 <!-- The Fluent theme makes the rows 40 px high: closer together, so more files fit on the screen -->
                 <ListView.ItemContainerStyle>

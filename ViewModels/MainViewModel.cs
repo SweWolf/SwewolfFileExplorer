@@ -590,6 +590,39 @@ public class MainViewModel : INotifyPropertyChanged
     /// <summary>The names shown in the Name column changed (extensions shown or hidden): the window filters and fits the columns again.</summary>
     public event Action? DisplayNamesChanged;
 
+    /// <summary>The list shows icons (thumbnails) instead of the Details columns: the toolbar's Icons button. Remembered.</summary>
+    public bool IsIconView
+    {
+        get => _shared.Settings.IconView;
+        set
+        {
+            if (_shared.Settings.IconView == value) return;
+            _shared.Settings.IconView = value;
+            AppSettingsStore.Save(_shared.Settings);
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>The size of a thumbnail in the Icons view (device-independent pixels, 48 to 256). Remembered.</summary>
+    public int IconViewSize
+    {
+        get => _shared.Settings.IconViewSize;
+        set
+        {
+            value = Math.Max(AppSettings.MinIconViewSize, Math.Min(AppSettings.MaxIconViewSize, value));
+            if (_shared.Settings.IconViewSize == value) return;
+            _shared.Settings.IconViewSize = value;
+            AppSettingsStore.Save(_shared.Settings);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IconCellWidth));
+            OnPropertyChanged(nameof(IconCellHeight));
+        }
+    }
+
+    /// <summary>A tile of the Icons view: the picture with a margin, and room for two lines of the name (they follow the list's font size).</summary>
+    public double IconCellWidth => IconViewSize + 28;
+    public double IconCellHeight => IconViewSize + 18 + 2 * ListFontSize * 1.4;
+
     public double ListFontSize
     {
         get => _shared.Settings.ListFontSize;
@@ -600,6 +633,7 @@ public class MainViewModel : INotifyPropertyChanged
             _shared.Settings.ListFontSize = value;
             AppSettingsStore.Save(_shared.Settings);
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IconCellHeight));
 
             // The icons follow the font: a new size gives every item of every tab its icon again (the kinds are kept per size, so this is quick).
             int size = IconHelper.IconSizeForFont(value);

@@ -165,6 +165,23 @@ public class FileItemViewModel : INotifyPropertyChanged
         set { _icon = value; OnPropertyChanged(); }
     }
 
+    // ── The Icons view ────────────────────────────────────────────────────────
+
+    private ImageSource? _thumb;
+
+    /// <summary>The picture of the item in the Icons view: its icon first, then the thumbnail (see <see cref="ThumbnailService"/>).</summary>
+    public ImageSource? Thumb
+    {
+        get => _thumb;
+        set { _thumb = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>The item is on screen in the Icons view (set and cleared by the panel as it makes and drops the item's tile).</summary>
+    public volatile bool ThumbWanted;
+
+    /// <summary>The pixel size the thumbnail was asked for at (0 = not asked): the panel asks at every layout, this stops it asking twice.</summary>
+    public int ThumbDoneAt { get; set; }
+
     public void LoadIconAsync()
     {
         // The icon of the type of file (kept per extension, no disk access) for everything inside an archive and for every file

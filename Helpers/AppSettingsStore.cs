@@ -17,6 +17,16 @@ public class AppSettings
     public double ListFontSize { get; set; } = DefaultFontSize;
     public double TreeFontSize { get; set; } = DefaultFontSize;
 
+    /// <summary>The file list shows icons (thumbnails) instead of the Details columns: the toolbar's Icons button.</summary>
+    public bool IconView { get; set; }
+
+    public const int DefaultIconViewSize = 96;
+    public const int MinIconViewSize = 48;
+    public const int MaxIconViewSize = 256;
+
+    /// <summary>The size of a thumbnail in the Icons view (device-independent pixels): Ctrl + mouse wheel or Ctrl + plus / minus.</summary>
+    public int IconViewSize { get; set; } = DefaultIconViewSize;
+
     /// <summary>Font of the file list, the drives list and the tree (Tools > Settings > Font). Empty = the program's usual font.</summary>
     public string FontFamily { get; set; } = "";
 
