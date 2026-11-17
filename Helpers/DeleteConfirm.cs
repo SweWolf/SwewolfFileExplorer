@@ -56,7 +56,7 @@ public static class DeleteConfirm
     /// Asks what has to be asked. Returns true when the delete should go on (the answer was Yes, or nothing needed asking: then the flash
     /// message was shown). Shows the hourglass while folders are looked at.
     /// </summary>
-    public static async Task<bool> AskAsync(Window? owner, IReadOnlyList<(string Path, string Name, bool IsDirectory)> items, bool permanent)
+    public static async Task<bool> AskAsync(Window? owner, IReadOnlyList<(string Path, string Name, bool IsDirectory)> items, bool permanent, bool alwaysAsk = false)
     {
         var names = items.Count == 1 ? $"'{items[0].Name}'" : $"{items.Count} items";
         var nl2   = Environment.NewLine;
@@ -76,6 +76,13 @@ public static class DeleteConfirm
                 $"{(items.Count == 1 ? "This item" : $"{noBin.Count} of these {items.Count} items")} cannot be moved to the Recycle Bin ({noBin[0]}).{nl2}"
                 + $"{(items.Count == 1 ? "It" : "They")} would be deleted permanently. This cannot be undone.{nl2}{nl2}Delete {names} anyway?",
                 "Confirm Permanent Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No, bin) == MessageBoxResult.Yes;
+
+        // Search results: always asked, for files and folders, whatever "Don't ask again" says (the user's rule 2026-11-17: the items come from
+        // many folders and the user may not know them all). No check box.
+        if (alwaysAsk)
+            return MessageBox.Show(owner, $"Are you sure you want to move {names} to the Recycle Bin?" +
+                                          (items.Any(i => i.IsDirectory) ? $"{nl2}{nl2}Everything inside a folder goes with it." : ""),
+                "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No, bin) == MessageBoxResult.Yes;
 
         // A bookmark (a shortcut in the Bookmarks folder, or a group) is only a bookmark, and it goes to the Recycle Bin: no question.
         if (items.All(i => FolderTabViewModel.IsUnderBookmarks(i.Path) && !FolderTabViewModel.IsBookmarksRoot(i.Path)))

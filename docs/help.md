@@ -16,6 +16,7 @@ archives like folders, and shows a preview, a plot or the prompt of an AI pictur
   - [Columns](#columns)
   - [Sorting](#sorting)
   - [Filtering the List](#filtering-the-list)
+  - [Searching](#searching)
   - [Typing a Name](#typing-a-name)
   - [Selecting Files](#selecting-files)
   - [Hidden Items](#hidden-items)
@@ -82,7 +83,7 @@ From top to bottom:
 - **The menu bar:** Tools, Workspace, Session and Help.
 - **The tab strip:** one tab per folder you have open.
 - **The toolbar:** Back, Forward, Up, the address bar, **Go**, Refresh, and the buttons
-  **Tree**, **Folders**, **.ext**, **New Folder**, **Filter** and **Play**.
+  **Tree**, **Folders**, **.ext**, **New Folder**, **Play**, **Filter** and **Search**.
 - **The folder tree** on the left, with its own header (Up, Sort By, and an **x** that hides the tree).
 - **The file list** in the middle.
 - **The info panel** under the list: the line "File 14/17", and below it details, a preview picture and more.
@@ -239,6 +240,36 @@ minute is included. Later Than starts at 00:00 and Earlier Than at 23:59, so the
 included until you change the time. In the time box the Up and Down arrows or the mouse wheel change
 the minutes, and Page Up and Page Down the hours. **Any Date** turns the date filter off. The **Rating** choice filters by your rating: **Any Rating**, **At Least**, **Exactly**,
 **At Most** or **Unrated Only**, with a number box (1 to 10). All the filters work together.
+
+### Searching
+
+Click **Search** or press **Ctrl+Shift+F** to look for files and folders in other folders too. (The **Filter** bar
+above only works on the folder you are in.) The Search window asks:
+
+- **Look in:** the folder to search. It starts with the folder you are in. Leave it empty to search all
+  local drives, and separate several folders with a semicolon (;). **Include Subfolders** is checked by default.
+- **Name:** every word must be in the name, in any order and in any case. `*` and `?` are wildcards,
+  and quotes (`"summer holiday"`) keep words together as a phrase. Only names are searched, not what is inside the files.
+- **Search for:** **Files and Folders**, **Files Only** or **Folders Only**; and **Visible Items Only**,
+  **Visible and Hidden Items** or **Hidden Items Only**. A hidden folder is not entered unless hidden items are included.
+- **Date Modified** and **Date Created**: a **From** and a **To** date. Leave one empty for no limit on that side; the last day is included.
+
+Compressed files (zip, RAR, 7z and so on) are not searched inside, but a compressed file is found by its own name.
+
+Click **Search** in the window and the results open in a **new tab** (named "Search: ..."), so the rest of
+the program stays free to use while the search goes on. The items appear as they are found, with the
+number found shown above the list, and **Cancel** stops the search (what was found stays). A search that
+finds more than 50,000 items stops there: narrow it to see the rest. Folders reached through a link
+(junction or symbolic link) are not followed.
+
+The results are an ordinary list with an extra **Location** column that says which folder each item is in.
+Open, rename, copy, rate, drag, preview and everything else works as in a folder, with these differences:
+
+- **Delete always asks first** in search results, whatever "Don't ask again" says.
+- Opening a folder in the results opens it in another tab, so the results stay.
+- **Open File Location** in the right-click menu shows an item in its own folder, in a new tab.
+- Paste and New Folder are off (there is no folder). Click a folder in the tree to leave the results.
+- Results are not read again by F5. **New Search...** in the bar above the list starts another search in a new tab.
 
 ### Typing a Name
 
@@ -784,6 +815,7 @@ their own icons. A mistake in the file is written to the log file and the normal
 | Ctrl+Shift+T | Reopen the last closed tab |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab |
 | Ctrl+F | Filter bar |
+| Ctrl+Shift+F | Search |
 | Esc | Close the filter bar |
 | Ctrl+D | Add to Bookmarks |
 | Ctrl+Shift+O | Go to the Bookmarks |

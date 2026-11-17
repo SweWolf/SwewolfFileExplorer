@@ -46,6 +46,7 @@ AI picture under the list.</p>
 <li><a href="#columns">Columns</a></li>
 <li><a href="#sorting">Sorting</a></li>
 <li><a href="#filtering-the-list">Filtering the List</a></li>
+<li><a href="#searching">Searching</a></li>
 <li><a href="#typing-a-name">Typing a Name</a></li>
 <li><a href="#selecting-files">Selecting Files</a></li>
 <li><a href="#hidden-items">Hidden Items</a></li>
@@ -159,7 +160,8 @@ open.</li>
 <li><strong>The toolbar:</strong> Back, Forward, Up, the address bar,
 <strong>Go</strong>, Refresh, and the buttons <strong>Tree</strong>,
 <strong>Folders</strong>, <strong>.ext</strong>, <strong>New
-Folder</strong>, <strong>Filter</strong> and <strong>Play</strong>.</li>
+Folder</strong>, <strong>Play</strong>, <strong>Filter</strong> and
+<strong>Search</strong>.</li>
 <li><strong>The folder tree</strong> on the left, with its own header
 (Up, Sort By, and an <strong>x</strong> that hides the tree).</li>
 <li><strong>The file list</strong> in the middle.</li>
@@ -386,6 +388,55 @@ filter off. The <strong>Rating</strong> choice filters by your rating:
 <strong>Exactly</strong>, <strong>At Most</strong> or <strong>Unrated
 Only</strong>, with a number box (1 to 10). All the filters work
 together.</p>
+<h3 id="searching">Searching</h3>
+<p>Click <strong>Search</strong> or press <strong>Ctrl+Shift+F</strong>
+to look for files and folders in other folders too. (The
+<strong>Filter</strong> bar above only works on the folder you are in.)
+The Search window asks:</p>
+<ul>
+<li><strong>Look in:</strong> the folder to search. It starts with the
+folder you are in. Leave it empty to search all local drives, and
+separate several folders with a semicolon (;). <strong>Include
+Subfolders</strong> is checked by default.</li>
+<li><strong>Name:</strong> every word must be in the name, in any order
+and in any case. <code>*</code> and <code>?</code> are wildcards, and
+quotes (<code>&quot;summer holiday&quot;</code>) keep words together as a phrase.
+Only names are searched, not what is inside the files.</li>
+<li><strong>Search for:</strong> <strong>Files and Folders</strong>,
+<strong>Files Only</strong> or <strong>Folders Only</strong>; and
+<strong>Visible Items Only</strong>, <strong>Visible and Hidden
+Items</strong> or <strong>Hidden Items Only</strong>. A hidden folder is
+not entered unless hidden items are included.</li>
+<li><strong>Date Modified</strong> and <strong>Date Created</strong>: a
+<strong>From</strong> and a <strong>To</strong> date. Leave one empty
+for no limit on that side; the last day is included.</li>
+</ul>
+<p>Compressed files (zip, RAR, 7z and so on) are not searched inside,
+but a compressed file is found by its own name.</p>
+<p>Click <strong>Search</strong> in the window and the results open in a
+<strong>new tab</strong> (named “Search: …”), so the rest of the program
+stays free to use while the search goes on. The items appear as they are
+found, with the number found shown above the list, and
+<strong>Cancel</strong> stops the search (what was found stays). A
+search that finds more than 50,000 items stops there: narrow it to see
+the rest. Folders reached through a link (junction or symbolic link) are
+not followed.</p>
+<p>The results are an ordinary list with an extra
+<strong>Location</strong> column that says which folder each item is in.
+Open, rename, copy, rate, drag, preview and everything else works as in
+a folder, with these differences:</p>
+<ul>
+<li><strong>Delete always asks first</strong> in search results,
+whatever “Don’t ask again” says.</li>
+<li>Opening a folder in the results opens it in another tab, so the
+results stay.</li>
+<li><strong>Open File Location</strong> in the right-click menu shows an
+item in its own folder, in a new tab.</li>
+<li>Paste and New Folder are off (there is no folder). Click a folder in
+the tree to leave the results.</li>
+<li>Results are not read again by F5. <strong>New Search…</strong> in
+the bar above the list starts another search in a new tab.</li>
+</ul>
 <h3 id="typing-a-name">Typing a Name</h3>
 <p>With the list or the tree in focus, type the first letters of a name
 to jump to it. Type the same letter again to go on to the next name that
@@ -1336,6 +1387,10 @@ it is opened.</li>
 <tr>
 <td>Ctrl+F</td>
 <td>Filter bar</td>
+</tr>
+<tr>
+<td>Ctrl+Shift+F</td>
+<td>Search</td>
 </tr>
 <tr>
 <td>Esc</td>

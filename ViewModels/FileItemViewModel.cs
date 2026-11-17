@@ -18,6 +18,9 @@ public class FileItemViewModel : INotifyPropertyChanged
     /// <summary>The setting that hides extensions changed: the name shown is worked out again.</summary>
     public void RefreshDisplayName() => OnPropertyChanged(nameof(DisplayName));
     public string FullPath { get; set; } = "";
+
+    /// <summary>The folder the item is in: shown by the Location column, which only a search result tab has.</summary>
+    public string Location { get; set; } = "";
     public bool IsDirectory { get; set; }
     private string _typeName = "";
     public string TypeName { get => _typeName; set { _typeName = value; OnPropertyChanged(); } }

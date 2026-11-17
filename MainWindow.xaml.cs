@@ -27,6 +27,7 @@ public partial class MainWindow : Window
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => TogglePlayBar()), Key.P, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => { if (VM.InPlaylist) VM.ActiveTab.SavePlaylist(); }), Key.S, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ToggleFilterBar()), Key.F, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => ShowSearchWindow()), Key.F, ModifierKeys.Control | ModifierKeys.Shift));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => GoToDefaultFolder()), Key.Home, ModifierKeys.Alt));   // Alt+Home: the default folder
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => BookmarkSelectionOrFolder()), Key.D, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new SwewolfFileExplorer.Commands.RelayCommand(_ => MoveCopyShortcut()), Key.M, ModifierKeys.Control));
@@ -67,6 +68,7 @@ public partial class MainWindow : Window
         _layout.AddRange(new[]
         {
             new ColumnInfo(SortColumn.Name,         "Name",          NameColumn),
+            new ColumnInfo(SortColumn.Location,     "Location",      LocationColumn, visible: false),   // search results only
             new ColumnInfo(SortColumn.DateModified, "Date Modified", DateColumn),
             new ColumnInfo(SortColumn.DateCreated,  "Date Created",  CreatedColumn),
             new ColumnInfo(SortColumn.DateTaken,    "Date Taken",    DateTakenColumn, visible: false),
@@ -112,6 +114,12 @@ public partial class MainWindow : Window
             // Another folder (or another tab): the filter goes away, so a folder never looks empty because of an old filter.
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(MainViewModel.CurrentPath) or nameof(MainViewModel.HasFolder))
                 UpdateRipButton();   // the Rip button is there while an audio CD is shown
+
+            // Search results (a tab of their own): the search bar, and the columns with Location.
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(MainViewModel.InSearch) or nameof(MainViewModel.SearchStatus) or nameof(MainViewModel.SearchRunning))
+                UpdateSearchBar();
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.InSearch))
+                ApplyFolderColumns();
 
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.CurrentPath))
             {
@@ -722,15 +730,19 @@ public partial class MainWindow : Window
     /// </summary>
     private void ApplyFolderColumns()
     {
-        if (!VM.HasFolder || _defaultColumns == null) return;   // This PC and the like: the file list is not shown, keep what is there
+        if (_defaultColumns == null || (!VM.HasFolder && !VM.InSearch)) return;   // This PC and the like: the file list is not shown, keep what is there
 
         SyncLayoutFromGrid();
-        var wantedShown = VM.Shared.TryGetFolderColumnsOrInherited(VM.CurrentPath, out var saved)   // its own, else the nearest parent's
-            ? saved.ToList()
-            : _defaultColumns.Where(c => c.Visible).Select(c => c.Key).ToList();
+        // Search results: Name, Location (only here), the dates, Type, Size, every time (nothing is saved for a search).
+        var wantedShown = VM.InSearch
+            ? new List<SortColumn> { SortColumn.Name, SortColumn.Location, SortColumn.DateModified, SortColumn.DateCreated, SortColumn.Type, SortColumn.Size }
+            : VM.Shared.TryGetFolderColumnsOrInherited(VM.CurrentPath, out var saved)   // its own, else the nearest parent's
+                ? saved.ToList()
+                : _defaultColumns.Where(c => c.Visible).Select(c => c.Key).ToList();
+        wantedShown.RemoveAll(k => k == SortColumn.Location && !VM.InSearch);   // the Location column belongs to search results only
         // An audio CD: Artist, Title, Track Number, in that order, every time the folder is entered (a template, hard-coded for now; the
         // user may change the columns meanwhile, and nothing is saved for the disc).
-        if (CdDiscInfo.IsKnownAudioCd(VM.CurrentPath))   // only when the disc was found: otherwise the folder shows its file names as usual
+        if (!VM.InSearch && CdDiscInfo.IsKnownAudioCd(VM.CurrentPath))   // only when the disc was found: otherwise the folder shows its file names as usual
             wantedShown = new List<SortColumn> { SortColumn.Artist, SortColumn.Title, SortColumn.TrackNumber };
         wantedShown = wantedShown.Where(k => _layout.Any(c => c.Key == k)).ToList();
         if (wantedShown.Count == 0) wantedShown = DefaultShownColumns();   // no column at all counts as the default columns
@@ -899,7 +911,7 @@ public partial class MainWindow : Window
         SyncLayoutFromGrid();
 
         var menu = new ContextMenu();
-        foreach (var info in _layout)
+        foreach (var info in _layout.Where(c => c.Key != SortColumn.Location || VM.InSearch))   // Location: search results only
         {
             var item = new MenuItem
             {
@@ -964,7 +976,7 @@ public partial class MainWindow : Window
     {
         SyncLayoutFromGrid();
 
-        var dlg = new ChooseDetailsDialog(_layout.Select(c => new ColumnChoice
+        var dlg = new ChooseDetailsDialog(_layout.Where(c => c.Key != SortColumn.Location || VM.InSearch).Select(c => new ColumnChoice
         {
             Key       = c.Key.ToString(),
             Title     = c.MenuTitle,
@@ -982,6 +994,7 @@ public partial class MainWindow : Window
             info.Width   = choice.Width;
             ordered.Add(info);
         }
+        ordered.AddRange(_layout.Except(ordered));   // a column the window did not offer (Location outside a search) keeps its place
 
         _layout.Clear();
         _layout.AddRange(ordered);
@@ -1369,6 +1382,7 @@ public partial class MainWindow : Window
             SortColumn.DateModified => Converters.DateTimeConverter.Format(item.DateModified),
             SortColumn.DateCreated  => Converters.DateTimeConverter.Format(item.DateCreated),
             SortColumn.DateTaken    => item.DateTakenText,
+            SortColumn.Location     => item.Location,
             SortColumn.Type         => item.TypeName,
             SortColumn.Size         => sizeConverter.Convert(item.Size, typeof(string), null!, CultureInfo.CurrentCulture) as string ?? "",
             SortColumn.Length       => item.LengthText,
@@ -3315,6 +3329,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Search results: a folder (or a packed file) opens in a new tab, so the results stay where they are.
+        if (VM.InSearch && (item.IsDirectory || ArchiveSupport.IsArchiveName(item.Name)))
+        {
+            VM.OpenNewTab(item.FullPath, activate: true);
+            return;
+        }
+
         // A workspace or session file: asks whether to open it as one (or as the file it is).
         if (TryOpenAsTabSet(item)) return;
 
@@ -3983,6 +4004,9 @@ public partial class MainWindow : Window
             if (mi.Header is "Look Up This Disc Again")
                 mi.Visibility = discRoot != null && CdDiscInfo.IsAudioCdFolder(discRoot) ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        // Search results: "Open File Location" shows the item in its own folder (a new tab). Not offered anywhere else.
+        CtxOpenLocation.Visibility = VM.InSearch && _menuMode != ListMenuMode.Empty && FileListView.SelectedItems.Count == 1 ? Visibility.Visible : Visibility.Collapsed;
 
         ApplyListMenuMode(menu);
         MenuChoices.Apply(menu, MenuChoices.List, AppSettingsStore.Current.HiddenListMenuItems, new HashSet<UIElement>());   // Settings > Menus

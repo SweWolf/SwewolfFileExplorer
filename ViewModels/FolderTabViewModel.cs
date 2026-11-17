@@ -16,7 +16,7 @@ namespace SwewolfFileExplorer.ViewModels;
 /// One tab: its own folder, file list, navigation tree, history, selection and sort.
 /// The clipboard and the remembered per-folder sort orders are shared between the tabs.
 /// </summary>
-public class FolderTabViewModel : INotifyPropertyChanged
+public partial class FolderTabViewModel : INotifyPropertyChanged
 {
     private readonly SharedState _shared;
 
@@ -883,6 +883,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             _forwardHistory.Clear();
         }
 
+        EndSearch();   // a folder is opened in a tab that shows search results: the results are left (a search opens its own tab)
         _showHidden = false;   // hidden items are shown for one folder at a time
         _showPacked = _showLists = false;   // so are the compressed files and playlists the Folders button leaves out
         _unavailable = false;
@@ -911,6 +912,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public void ShowNoFolder(string? place = null)
     {
         if (_playlistDirty && !ConfirmLeavePlaylist()) return;
+        if (place != "search") EndSearch();
         _noFolderShown = true;
         _thisPcShown = place == "pc";
         OnPropertyChanged(nameof(IsThisPcShown));
@@ -1975,6 +1977,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     private void LoadItems(string path, FolderListing? preread = null)
     {
+        if (_searchMode) return;   // the list holds search results: only a navigation (which ends the search first) may replace them
         _tagsCts?.Cancel();   // the tags of the folder we leave are no longer wanted
         _tagsCts = null;
 
@@ -2872,7 +2875,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
         // The questions (and the flash message when none is needed) are in DeleteConfirm: same rules for the list, the tree and the picture viewer.
         bool go;
         _deleting = true;   // a second Delete while folders are being looked at is ignored
-        try { go = await DeleteConfirm.AskAsync(null, items, permanent); }
+        try { go = await DeleteConfirm.AskAsync(null, items, permanent, alwaysAsk: _searchMode); }   // in search results: always asked (the user's rule)
         finally { _deleting = false; }
         if (!go) return;
 
@@ -2959,8 +2962,14 @@ public class FolderTabViewModel : INotifyPropertyChanged
         foreach (var parent in items.Select(i => ParentFolder(i.Path)).Distinct(StringComparer.OrdinalIgnoreCase))
             RefreshTreeFolder(parent);
 
+        // Search results: what is gone leaves the list (nothing is read again: the results are not a folder).
+        if (_searchMode)
+        {
+            RemoveFoundItems(deleted);
+            if (selectAfter != null) SelectPathRequested?.Invoke(selectAfter);
+        }
         // The folder shown may be one of those deleted (or inside one): go to the nearest folder that is left.
-        if (!Directory.Exists(_currentPath) && !ArchiveSupport.IsInside(_currentPath))
+        else if (!Directory.Exists(_currentPath) && !ArchiveSupport.IsInside(_currentPath))
         {
             var left = _currentPath;
             while (!string.IsNullOrEmpty(left) && !Directory.Exists(left)) left = Path.GetDirectoryName(left) ?? "";
@@ -3523,7 +3532,12 @@ public class FolderTabViewModel : INotifyPropertyChanged
             // The tree first: it must know the new name before it is asked for the node of the folder.
             RefreshTreeFolder(dir);
 
-            if (newCurrent != null)
+            if (_searchMode)
+            {
+                ReplaceFoundItem(item, newPath);   // the results are not a folder: the item gets its new name in place
+                SelectPathRequested?.Invoke(newPath);
+            }
+            else if (newCurrent != null)
             {
                 Navigate(newCurrent, addToHistory: false);
             }

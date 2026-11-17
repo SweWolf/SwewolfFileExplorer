@@ -322,16 +322,6 @@
 
                 <Separator/>
 
-                <!-- A bar above the list where the names can be filtered: only what contains the typed letters is listed -->
-                <ToggleButton x:Name="FilterToggle" Click="FilterToggle_Click"
-                              ToolTip="Filter the List by Name (Ctrl+F)"
-                              Padding="6,4">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x1F50D;" FontSize="12" Margin="0,0,4,0"/>
-                        <TextBlock Text="Filter" FontSize="12"/>
-                    </StackPanel>
-                </ToggleButton>
-
                 <!-- Shows and hides the Play bar in the info panel (Ctrl+P): hidden when the program starts -->
                 <ToggleButton x:Name="PlayToggle" Click="PlayToggle_Click"
                               ToolTip="Show the Play Bar: Continuous Play and Other Play Modes (Ctrl+P)"
@@ -342,6 +332,26 @@
                         <TextBlock Text="Play" FontSize="12"/>
                     </StackPanel>
                 </ToggleButton>
+
+                <!-- A bar above the list where the names can be filtered: only what contains the typed letters is listed -->
+                <ToggleButton x:Name="FilterToggle" Click="FilterToggle_Click"
+                              ToolTip="Filter the List by Name (Ctrl+F)"
+                              Padding="6,4">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F50D;" FontSize="12" Margin="0,0,4,0"/>
+                        <TextBlock Text="Filter" FontSize="12"/>
+                    </StackPanel>
+                </ToggleButton>
+
+                <!-- Opens the Search window; OK there opens a new tab with the results (Ctrl+Shift+F) -->
+                <Button x:Name="SearchButton" Click="SearchButton_Click"
+                        ToolTip="Search for Files and Folders in Folders and Drives (Ctrl+Shift+F)"
+                        Padding="6,4">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE721;" FontSize="12" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Search" FontSize="12"/>
+                    </StackPanel>
+                </Button>
 
                 <!-- Only while an audio CD is shown: rips the selected tracks (all when none is selected) to MP3, FLAC or M4A files. The symbol is a disc, drawn here. -->
                 <Button x:Name="RipButton" Click="RipButton_Click" Visibility="Collapsed"
@@ -775,6 +785,18 @@
 
             <!-- File list, with the filter bar above it when it is switched on -->
             <DockPanel Grid.Column="2" Grid.Row="0">
+            <!-- Only in a tab that shows search results: how it is going, and Cancel while it is still looking -->
+            <Border x:Name="SearchBar" DockPanel.Dock="Top" Visibility="Collapsed" Padding="8,5"
+                    Background="{DynamicResource PaneBrush}"
+                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
+                <DockPanel LastChildFill="True">
+                    <Button x:Name="SearchCancelButton" DockPanel.Dock="Right" Content="Cancel" FontSize="12" Padding="14,2" Margin="12,0,0,0"
+                            ToolTip="Stop looking. What was found so far stays in the list." Click="SearchCancel_Click"/>
+                    <Button x:Name="SearchAgainButton" DockPanel.Dock="Right" Content="New Search..." FontSize="12" Padding="14,2" Margin="12,0,0,0"
+                            ToolTip="Search again (Ctrl+Shift+F); the results open in another tab" Click="SearchButton_Click"/>
+                    <TextBlock x:Name="SearchStatusText" VerticalAlignment="Center" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+            </Border>
             <Border x:Name="FilterBar" DockPanel.Dock="Top" Visibility="Collapsed" Padding="8,5"
                     Background="{DynamicResource PaneBrush}"
                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
@@ -1004,6 +1026,9 @@
                         <GridViewColumn Header="Date Modified" Width="150" x:Name="DateColumn"
                                         DisplayMemberBinding="{Binding DateModified, Converter={StaticResource DateTimeConverter}}"/>
 
+                        <GridViewColumn Header="Location" Width="260" x:Name="LocationColumn"
+                                        DisplayMemberBinding="{Binding Location}"/>
+
                         <GridViewColumn Header="Date Created" Width="150" x:Name="CreatedColumn"
                                         DisplayMemberBinding="{Binding DateCreated, Converter={StaticResource DateTimeConverter}}"/>
 
@@ -1089,6 +1114,8 @@
                         <MenuItem Header="Edit" Click="CtxEdit_Click"/>
                         <MenuItem Header="Open With..." Click="CtxOpenWith_Click"/>
                         <MenuItem Header="Open in New Tab" Click="CtxOpenInNewTab_Click"/>
+                        <MenuItem x:Name="CtxOpenLocation" Header="Open File Location" Click="CtxOpenLocation_Click" Visibility="Collapsed"
+                                  ToolTip="Search results only: show this item in its own folder, in a new tab"/>
                         <MenuItem Header="Open in Windows Explorer" Click="CtxExplorer_Click"
                                   ToolTip="Open this folder in Windows' own File Explorer (a selected file is shown selected in its folder)"/>
                         <MenuItem Header="Send to"    x:Name="SendToMenu" PreviewMouseRightButtonUp="SendToMenu_RightClick"

@@ -243,6 +243,16 @@ public class MainViewModel : INotifyPropertyChanged
         PreviousTabCommand.RaiseCanExecuteChanged();
     }
 
+    /// <summary>Starts a search in a new tab (the results stream in; the rest of the program stays free).</summary>
+    public void OpenSearchTab(SwewolfFileExplorer.Helpers.SearchCriteria criteria)
+    {
+        OpenNewTab("", activate: true);
+        ActiveTab.StartSearch(criteria);
+    }
+
+    /// <summary>Stops the walk of the search in the active tab (its results stay).</summary>
+    public void CancelSearch() => _activeTab.CancelSearch();
+
     // ── Workspaces and sessions ──────────────────────────────────────────────
 
     /// <summary>
@@ -304,6 +314,7 @@ public class MainViewModel : INotifyPropertyChanged
             ActiveTab = Tabs[index < Tabs.Count - 1 ? index + 1 : index - 1];
 
         Tabs.Remove(tab);
+        tab.CancelSearch();   // a search that is still walking folders stops with its tab
 
         _closedTabs.Add((tab, index));
         if (_closedTabs.Count > MaxClosedTabs) _closedTabs.RemoveAt(0);
@@ -427,6 +438,9 @@ public class MainViewModel : INotifyPropertyChanged
 
     /// <summary>The folder shown is an M3U playlist.</summary>
     public bool   InPlaylist     => _activeTab.InPlaylist;
+    public bool   InSearch       => _activeTab.InSearch;          // the list holds search results
+    public bool   SearchRunning  => _activeTab.SearchRunning;
+    public string SearchStatus   => _activeTab.SearchStatus;
 
     /// <summary>The playlist shown has changes that are not saved.</summary>
     public bool   PlaylistDirty  => _activeTab.PlaylistDirty;
