@@ -248,8 +248,9 @@ above only works on the folder you are in.) The Search window asks:
 
 - **Look in:** the folder to search. It starts with the folder you are in. Leave it empty to search all
   local drives, and separate several folders with a semicolon (;). **Include Subfolders** is checked by default.
-- **Name:** every word must be in the name, in any order and in any case. `*` and `?` are wildcards,
-  and quotes (`"summer holiday"`) keep words together as a phrase. Only names are searched, not what is inside the files.
+- **Name:** every word must be in the name, in any order and in any case. A word with `*` or `?` must fit
+  the whole name, as in Windows (`*.ico` finds names that end in .ico, `alpha*` names that start with alpha, `*alpha*` names that
+  have it anywhere). Quotes (`"summer holiday"`) keep words together as a phrase. Only names are searched, not what is inside the files.
 - **Search for:** **Files and Folders**, **Files Only** or **Folders Only**; and **Visible Items Only**,
   **Visible and Hidden Items** or **Hidden Items Only**. A hidden folder is not entered unless hidden items are included.
 - **Date Modified** and **Date Created**: a **From** and a **To** date. Leave one empty for no limit on that side; the last day is included.

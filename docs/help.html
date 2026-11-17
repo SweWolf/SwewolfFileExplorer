@@ -399,9 +399,12 @@ folder you are in. Leave it empty to search all local drives, and
 separate several folders with a semicolon (;). <strong>Include
 Subfolders</strong> is checked by default.</li>
 <li><strong>Name:</strong> every word must be in the name, in any order
-and in any case. <code>*</code> and <code>?</code> are wildcards, and
-quotes (<code>&quot;summer holiday&quot;</code>) keep words together as a phrase.
-Only names are searched, not what is inside the files.</li>
+and in any case. A word with <code>*</code> or <code>?</code> must fit
+the whole name, as in Windows (<code>*.ico</code> finds names that end
+in .ico, <code>alpha*</code> names that start with alpha,
+<code>*alpha*</code> names that have it anywhere). Quotes
+(<code>&quot;summer holiday&quot;</code>) keep words together as a phrase. Only
+names are searched, not what is inside the files.</li>
 <li><strong>Search for:</strong> <strong>Files and Folders</strong>,
 <strong>Files Only</strong> or <strong>Folders Only</strong>; and
 <strong>Visible Items Only</strong>, <strong>Visible and Hidden

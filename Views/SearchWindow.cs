@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -29,7 +29,7 @@ public sealed class SearchWindow : Window
     public SearchWindow(string suggestedFolder)
     {
         Title = "Search";
-        Icon = IconHelper.GetStockIcon(IconHelper.SIID_FIND) ?? GlyphIcon.Make("");   // Windows' own search icon; the symbol-font magnifier if Windows has none
+        Icon = IconHelper.GetStockIcon(IconHelper.SIID_FIND) ?? GlyphIcon.Make("îœ¡");   // Windows' own search icon; the symbol-font magnifier if Windows has none
         FontSize = 14;
         SizeToContent = SizeToContent.WidthAndHeight;
         ResizeMode = ResizeMode.NoResize;
@@ -79,7 +79,7 @@ public sealed class SearchWindow : Window
         Put(nameLabel, row, 0);
         var namePanel = new StackPanel { Margin = new Thickness(0, 18, 0, 0) };
         namePanel.Children.Add(_name);
-        namePanel.Children.Add(Hint("Every word must be in the name, in any order and in any case. Use * and ? as wildcards, and quotes for a phrase. Only names are searched, not what is inside the files."));
+        namePanel.Children.Add(Hint("Every word must be in the name, in any order and in any case. A word with * or ? must fit the whole name (*.ico ends in .ico). Use quotes for a phrase. Only names are searched, not what is inside the files."));
         Put(namePanel, row, 1);
         row++;
 
