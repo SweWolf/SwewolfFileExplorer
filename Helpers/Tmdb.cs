@@ -313,11 +313,13 @@ public static class Tmdb
     private static void AddCrew(XElement root, JsonElement credits)
     {
         if (!credits.TryGetProperty("crew", out var crew) || crew.ValueKind != JsonValueKind.Array) return;
+        var seen = new HashSet<string>();   // one person can have several jobs (Writer and Screenplay): the name is listed once
         foreach (var c in crew.EnumerateArray())
         {
             var job = Str(c, "job");
-            if (job == "Director") Add(root, "director", Str(c, "name"));
-            else if (job is "Writer" or "Screenplay" or "Story") Add(root, "credits", Str(c, "name"));
+            var name = Str(c, "name");
+            if (job == "Director" && seen.Add("d|" + name)) Add(root, "director", name);
+            else if (job is "Writer" or "Screenplay" or "Story" && seen.Add("c|" + name)) Add(root, "credits", name);
         }
     }
 

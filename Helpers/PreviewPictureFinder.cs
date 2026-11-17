@@ -15,7 +15,8 @@ public sealed record PreviewPicture(BitmapSource Image, string? File, byte[]? By
 ///   1. what the user chose in the library database (a picture, or "none": then there is no preview picture at all),
 ///   2. a picture built into the file (the cover of a music file; the cover of an mp4 / mkv),
 ///   3. a picture file in the same folder: &lt;name&gt;-poster.png / .jpg / .jpeg, then &lt;name&gt;.png / .jpg / .jpeg
-///      (TeraTool looked for the same names),
+///      (TeraTool looked for the same names), and the poster named in its .nfo file;
+///      for a VIDEO steps 3 comes before step 2 (the picture inside a downloaded video is often an advertisement),
 ///   4. for a video: the thumbnail Windows makes (<see cref="ShellThumbnail"/>); where Windows has none, a frame made with
 ///      ffmpeg at 10 % of the length (<see cref="FfmpegFrame"/>, kept in a cache folder, never beside the video).
 /// Runs on a background thread; never writes anything and never keeps a file open.
@@ -97,6 +98,17 @@ public static class PreviewPictureFinder
         return null;
     }
 
+    // A picture file next to the file, else the poster named in the .nfo file beside it (a file on the disk, or downloaded and kept as a
+    // hidden poster file).
+    private static PreviewPicture? Beside(string path, int decodeWidth)
+    {
+        foreach (var side in SideFiles(path))
+            if (File.Exists(side) && ThumbnailLoader.Load(side, decodeWidth) is { } picture)
+                return new PreviewPicture(picture, side, null, false);
+
+        return FromNfo(path, decodeWidth);
+    }
+
     public static PreviewPicture? Find(string path, int decodeWidth)
     {
         bool isVideo = MediaPlayerLauncher.IsVideo(path);
@@ -107,17 +119,17 @@ public static class PreviewPictureFinder
         if (choice is { Picture: { } chosen } && File.Exists(chosen) && ThumbnailLoader.Load(chosen, decodeWidth) is { } picked)
             return new PreviewPicture(picked, chosen, null, false);   // a chosen file that is gone counts as not chosen
 
+        // For a VIDEO a picture or .nfo put beside it comes before the picture built into the file: that one is often an advertisement
+        // of the site the file came from (found with Bula (2022).mkv: a "MKVKING.COM" logo inside the mkv hid the poster of its .nfo).
+        // For a song the cover inside the file comes first, as before.
+        if (isVideo && Beside(path, decodeWidth) is { } wanted) return wanted;
+
         // 2. A picture inside the file.
         if (AudioTagReader.ReadCover(path) is { } cover && ThumbnailLoader.LoadBytes(cover, decodeWidth) is { } inside)
             return new PreviewPicture(inside, null, cover, false);
 
-        // 3. A picture file next to it.
-        foreach (var side in SideFiles(path))
-            if (File.Exists(side) && ThumbnailLoader.Load(side, decodeWidth) is { } beside)
-                return new PreviewPicture(beside, side, null, false);
-
-        // 3b. The poster named in the .nfo file beside it: a file on the disk, or downloaded (and kept as a hidden poster file).
-        if (FromNfo(path, decodeWidth) is { } named) return named;
+        // 3. A picture file next to it, 3b. the poster named in the .nfo file beside it (a song's, here).
+        if (!isVideo && Beside(path, decodeWidth) is { } beside) return beside;
 
         // 4. A frame of the video: the thumbnail Windows makes, else (it has no codec) one made with ffmpeg at 10 % of the length.
         if (isVideo)
