@@ -23,6 +23,17 @@ public sealed class SearchWindow : Window
     private readonly ComboBox _hidden = new();
     private readonly DatePicker _modFrom = new(), _modTo = new(), _creFrom = new(), _creTo = new();
 
+    // The size filter: Any Size / At Least / At Most / Between, one or two numbers and a unit. A size means files only (a folder has no size).
+    private readonly ComboBox _sizeMode = new() { Width = 130 };
+    private readonly TextBox _size1 = new() { Width = 80, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(10, 0, 0, 0), VerticalContentAlignment = VerticalAlignment.Center };
+    private readonly TextBox _size2 = new() { Width = 80, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0), VerticalContentAlignment = VerticalAlignment.Center };
+    private readonly TextBlock _sizeAnd = new() { Text = "and", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 10, 0) };
+    private readonly ComboBox _sizeUnit = new() { Width = 72, Margin = new Thickness(10, 0, 0, 0) };
+    private TextBlock? _sizeNote;
+    private int _kindsBeforeSize;   // what "Search for" was before a size forced Files Only
+    private static (int Mode, string Text1, string Text2, int Unit) _lastSize;   // this run only
+    private static int _lastKindsChoice;
+
     /// <summary>The criteria when the window closed with Search.</summary>
     public SearchCriteria? Result { get; private set; }
 
@@ -104,6 +115,29 @@ public sealed class SearchWindow : Window
         Put(Hint("Leave a date empty for no limit on that side. The last day is included."), row, 1);
         row++;
 
+        // Size
+        foreach (var s in new[] { "Any Size", "At Least", "At Most", "Between" }) _sizeMode.Items.Add(s);
+        foreach (var s in new[] { "KB", "MB", "GB" }) _sizeUnit.Items.Add(s);
+        _sizeMode.SelectedIndex = 0;
+        _sizeUnit.SelectedIndex = 1;
+        NewRow();
+        var sizeLabel = Label("Size:");
+        sizeLabel.Margin = new Thickness(0, 14, 16, 0);
+        Put(sizeLabel, row, 0);
+        var sizeRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 14, 0, 0) };
+        sizeRow.Children.Add(_sizeMode);
+        sizeRow.Children.Add(_size1);
+        sizeRow.Children.Add(_sizeAnd);
+        sizeRow.Children.Add(_size2);
+        sizeRow.Children.Add(_sizeUnit);
+        Put(sizeRow, row, 1);
+        row++;
+        NewRow();
+        _sizeNote = Hint("A folder has no size, so with a size only files are searched.");
+        Put(_sizeNote, row, 1);
+        row++;
+        _sizeMode.SelectionChanged += (_, _) => UpdateSizeUi();
+
         // The limit of what is searched
         NewRow();
         var note = new TextBlock
@@ -135,13 +169,18 @@ public sealed class SearchWindow : Window
         {
             _name.Text = _last.Text;
             _subfolders.IsChecked = _last.Subfolders;
-            _kinds.SelectedIndex = (int)_last.Kinds;
+            _kinds.SelectedIndex = _lastKindsChoice;
             _hidden.SelectedIndex = (int)_last.Hidden;
             _modFrom.SelectedDate = _last.ModifiedFrom;
             _modTo.SelectedDate = _last.ModifiedTo;
             _creFrom.SelectedDate = _last.CreatedFrom;
             _creTo.SelectedDate = _last.CreatedTo;
+            _size1.Text = _lastSize.Text1;
+            _size2.Text = _lastSize.Text2;
+            _sizeUnit.SelectedIndex = _lastSize.Unit;
+            _sizeMode.SelectedIndex = _lastSize.Mode;   // (this also shows or hides the boxes)
         }
+        UpdateSizeUi();
 
         browse.Click += (_, _) => Browse();
         search.Click += (_, _) => Accept();
@@ -186,6 +225,46 @@ public sealed class SearchWindow : Window
             : dlg.FolderName;
     }
 
+    /// <summary>Shows what the chosen size mode needs. With a size "Search for" is Files Only and locked (a folder has no size); Any Size gives the old choice back.</summary>
+    private void UpdateSizeUi()
+    {
+        int mode = _sizeMode.SelectedIndex;
+        bool on = mode > 0;
+        _size1.Visibility = _sizeUnit.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        _sizeAnd.Visibility = _size2.Visibility = mode == 3 ? Visibility.Visible : Visibility.Collapsed;
+        if (_sizeNote != null) _sizeNote.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+
+        if (on && _kinds.IsEnabled)
+        {
+            _kindsBeforeSize = _kinds.SelectedIndex;
+            _kinds.SelectedIndex = (int)SearchKinds.FilesOnly;
+            _kinds.IsEnabled = false;
+        }
+        else if (!on && !_kinds.IsEnabled)
+        {
+            _kinds.SelectedIndex = _kindsBeforeSize;
+            _kinds.IsEnabled = true;
+        }
+    }
+
+    /// <summary>Reads a size box: "200", "1.5" or "1,5", with KB, MB or GB typed after it overriding the unit box. Says what is wrong and returns false.</summary>
+    private bool TryReadSize(TextBox box, out long? bytes)
+    {
+        bytes = null;
+        var m = System.Text.RegularExpressions.Regex.Match(box.Text.Trim(), @"^(\d+(?:[.,]\d+)?)\s*(kb|mb|gb)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!m.Success)
+        {
+            MessageBox.Show(this, "Enter the size as a number, for example 200 or 1.5. The unit (KB, MB or GB) is chosen in the box next to it.",
+                            AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+            box.Focus();
+            return false;
+        }
+        double number = double.Parse(m.Groups[1].Value.Replace(',', '.'), System.Globalization.CultureInfo.InvariantCulture);
+        int unit = m.Groups[2].Success ? "kb mb gb".Split(' ').ToList().IndexOf(m.Groups[2].Value.ToLowerInvariant()) : _sizeUnit.SelectedIndex;
+        bytes = (long)Math.Round(number * Math.Pow(1024, unit + 1));
+        return true;
+    }
+
     private void Accept()
     {
         var roots = new List<string>();
@@ -228,6 +307,28 @@ public sealed class SearchWindow : Window
             MessageBox.Show(this, "The first date is later than the last date. Change one of them.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+
+        // The size: a number (with a unit typed after it, 1.5GB, if wanted) for At Least and At Most, two for Between.
+        int mode = _sizeMode.SelectedIndex;
+        if (mode > 0)
+        {
+            long? lo = null, hi = null;
+            if (mode != 2 && !TryReadSize(_size1, out lo)) return;
+            if (mode == 2 && !TryReadSize(_size1, out hi)) return;
+            if (mode == 3 && !TryReadSize(_size2, out hi)) return;
+            if (mode == 1) hi = null;
+            if (lo > hi)
+            {
+                MessageBox.Show(this, "The first size is larger than the second. Change one of them.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                _size1.Focus();
+                return;
+            }
+            c.MinBytes = lo;
+            c.MaxBytes = hi;
+            c.Kinds = SearchKinds.FilesOnly;
+        }
+        _lastSize = (mode, _size1.Text, _size2.Text, _sizeUnit.SelectedIndex);
+        _lastKindsChoice = _kinds.IsEnabled ? _kinds.SelectedIndex : _kindsBeforeSize;   // not the Files Only that a size forced
 
         _last = c.Clone();
         Result = c;

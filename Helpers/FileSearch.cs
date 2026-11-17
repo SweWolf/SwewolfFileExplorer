@@ -13,6 +13,7 @@ namespace SwewolfFileExplorer.Helpers;
 //   2026-11-17  First version: name words / wildcards, files / folders, hidden rules, created / modified date ranges, batches, cap.
 //   2026-11-17  Progress about every 150 ms even with no results, with the folder that has been read longest (a slow folder shows);
 //               onFolder callback with the time of every folder (for the search log).
+//   2026-11-17  Size limits (MinBytes / MaxBytes, files only: a size search never returns folders).
 //   2026-11-17  A term with * or ? must fit the whole name (anchored): *.ico no longer finds "MainWindow.IconView.cs".
 
 public enum SearchKinds { FilesAndFolders, FilesOnly, FoldersOnly }
@@ -37,6 +38,11 @@ public sealed class SearchCriteria
     public DateTime? CreatedFrom { get; set; }
     public DateTime? CreatedTo { get; set; }
 
+    /// <summary>Size limits of a FILE in bytes, both ends included; null = no limit on that side. A folder has no size: with a limit set no folder is a result.</summary>
+    public long? MinBytes { get; set; }
+    public long? MaxBytes { get; set; }
+    public bool HasSizeLimit => MinBytes != null || MaxBytes != null;
+
     public SearchCriteria Clone()
     {
         var c = (SearchCriteria)MemberwiseClone();
@@ -51,7 +57,18 @@ public sealed class SearchCriteria
         if (Text.Trim().Length > 0) parts.Add(Text.Trim());
         if (ModifiedFrom != null || ModifiedTo != null) parts.Add("modified " + Range(ModifiedFrom, ModifiedTo));
         if (CreatedFrom != null || CreatedTo != null) parts.Add("created " + Range(CreatedFrom, CreatedTo));
+        if (HasSizeLimit)
+            parts.Add("size " + (MinBytes != null && MaxBytes != null ? $"{FormatBytes(MinBytes.Value)} - {FormatBytes(MaxBytes.Value)}"
+                               : MinBytes != null ? $"at least {FormatBytes(MinBytes.Value)}" : $"at most {FormatBytes(MaxBytes!.Value)}"));
         return parts.Count > 0 ? string.Join(", ", parts) : "all items";
+    }
+
+    /// <summary>"200 MB", "1.5 GB", "0 KB": the biggest unit (KB, MB, GB) that keeps the number at 1 or more, up to 2 decimals.</summary>
+    public static string FormatBytes(long bytes)
+    {
+        if (bytes >= 1L << 30) return $"{bytes / (double)(1L << 30):0.##} GB";
+        if (bytes >= 1L << 20) return $"{bytes / (double)(1L << 20):0.##} MB";
+        return $"{bytes / 1024.0:0.##} KB";
     }
 
     private static string Range(DateTime? from, DateTime? to) =>
@@ -211,7 +228,8 @@ public static class FileSearch
                     queue.Enqueue(e.FullName);
                 }
 
-                if (isDir ? !wantDirs : !wantFiles) continue;
+                if (isDir ? !wantDirs || c.HasSizeLimit : !wantFiles) continue;   // a folder has no size: never a result when a size is asked for
+                if (!isDir && c.HasSizeLimit && !SizeMatches(c, e)) continue;
                 if (c.Hidden == SearchHidden.VisibleOnly && hidden) continue;
                 if (c.Hidden == SearchHidden.HiddenOnly && !hidden) continue;
                 if (!matches(e.Name)) continue;
@@ -242,6 +260,13 @@ public static class FileSearch
         if ((e.Attributes & FileAttributes.ReparsePoint) == 0) return false;
         try { return e.LinkTarget != null; }
         catch { return true; }
+    }
+
+    private static bool SizeMatches(SearchCriteria c, FileSystemInfo e)
+    {
+        long len;
+        try { len = ((FileInfo)e).Length; } catch { return false; }
+        return (c.MinBytes == null || len >= c.MinBytes) && (c.MaxBytes == null || len <= c.MaxBytes);
     }
 
     private static bool DatesMatch(SearchCriteria c, FileSystemInfo e)

@@ -254,6 +254,10 @@ above only works on the folder you are in.) The Search window asks:
 - **Search for:** **Files and Folders**, **Files Only** or **Folders Only**; and **Visible Items Only**,
   **Visible and Hidden Items** or **Hidden Items Only**. A hidden folder is not entered unless hidden items are included.
 - **Date Modified** and **Date Created**: a **From** and a **To** date. Leave one empty for no limit on that side; the last day is included.
+- **Size:** **At Least**, **At Most** or **Between** (two numbers), with the unit KB, MB or GB. A decimal such as 1.5 works,
+  and the unit can also be typed after the number (`1.5GB`). Both ends are included, and 1 MB is 1,048,576 bytes, as Windows counts.
+  A folder has no size, so with a size set only files are searched ("Search for" is locked to **Files Only**; **Any Size** unlocks it).
+  **At Most** 0 KB finds empty files.
 
 Compressed files (zip, RAR, 7z and so on) are not searched inside, but a compressed file is found by its own name.
 
