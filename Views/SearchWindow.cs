@@ -29,6 +29,7 @@ public sealed class SearchWindow : Window
     public SearchWindow(string suggestedFolder)
     {
         Title = "Search";
+        Icon = GlyphIcon.Make("");   // the magnifier of Windows' symbol font
         FontSize = 14;
         SizeToContent = SizeToContent.WidthAndHeight;
         ResizeMode = ResizeMode.NoResize;
