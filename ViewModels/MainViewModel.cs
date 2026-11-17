@@ -224,6 +224,7 @@ public class MainViewModel : INotifyPropertyChanged
         tab.BookmarksPasteRequested += folder => { if (tab == _activeTab) BookmarksPasteRequested?.Invoke(folder); };
         tab.RipRequested += (folder, tracks) => RipRequested?.Invoke(folder, tracks);
         tab.AddressPasteRequested += text => { if (tab == _activeTab) AddressPasteRequested?.Invoke(text); };
+        tab.TypedFileRequested += path => { if (tab == _activeTab) TypedFileRequested?.Invoke(path); };
         // The tree sort order is shared: the other tabs' trees show the same folder in the same order.
         tab.TreeSortChanged += path => { foreach (var t in Tabs) t.ResortTree(path); };
         // So is whether the tree shows the hidden folders of a folder.
@@ -709,6 +710,7 @@ public class MainViewModel : INotifyPropertyChanged
     public event Action<string>? BookmarksPasteRequested;
     public event Action<string, List<string>>? RipRequested;
     public event Action<string>? AddressPasteRequested;
+    public event Action<string>? TypedFileRequested;
 
     /// <summary>The tags of the music files in the list have been read.</summary>
     public event Action? TagsLoaded;

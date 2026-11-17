@@ -257,6 +257,9 @@
                         Padding="6,4">
                     <Button.ContextMenu>
                         <ContextMenu Opened="GoMenu_Opened">
+                            <MenuItem x:Name="GoShowItemMenuItem" Header="Select This Item in Its Folder" Click="GoShowItem_Click" InputGestureText="Shift+Enter"
+                                      ToolTip="Open the folder of the file or folder in the address bar and select it there, without opening or playing it. A hidden item is shown too."/>
+                            <Separator/>
                             <MenuItem x:Name="GoSetRootMenuItem" Header="Set as Tree Root" Click="GoSetRoot_Click"
                                       ToolTip="Make the folder in the address bar the top of the folder tree in this tab. Not remembered."/>
                             <MenuItem x:Name="GoResetRootMenuItem" Header="Reset Tree Root" Click="GoResetRoot_Click"

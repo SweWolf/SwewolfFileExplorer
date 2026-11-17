@@ -749,8 +749,17 @@ public class FolderTabViewModel : INotifyPropertyChanged
     public static string CleanTypedPath(string? text)
     {
         if (string.IsNullOrEmpty(text)) return "";
-        return text.Replace("\"", "").Replace("\u201C", "").Replace("\u201D", "").Replace("\u201E", "").Trim();
+        var cleaned = text.Replace("\"", "").Replace("\u201C", "").Replace("\u201D", "").Replace("\u201E", "").Trim();
+
+        // Single quotes (PowerShell and other scripts write 'D:\path') are removed only as a pair around the whole path: a single quote
+        // inside a name is real (it's a valid file name character), and a path never starts with one, so a quote at both ends is a slip.
+        // (A real item that is literally named 'x', with the quotes, is left alone.)
+        if (cleaned.Length >= 2 && IsSingleQuote(cleaned[0]) && IsSingleQuote(cleaned[^1]) && !File.Exists(cleaned) && !Directory.Exists(cleaned))
+            cleaned = cleaned[1..^1].Trim();
+        return cleaned;
     }
+
+    private static bool IsSingleQuote(char c) => c is '\'' or '\u2018' or '\u2019' or '\u201A';
 
     /// <summary>
     /// What the user typed in the address bar, written the way Windows spells it: <c>d:/mytemp</c> becomes <c>D:\MyTemp</c> (backslashes, a capital
@@ -848,7 +857,13 @@ public class FolderTabViewModel : INotifyPropertyChanged
             if (!ArchiveSupport.FolderExists(path, out var archiveError))
             {
                 if (archiveError != null) { StatusText = $"Cannot open the archive: {archiveError}"; return; }
-                if (File.Exists(path)) { OpenFile(path); return; }
+                if (File.Exists(path))
+                {
+                    // A file named in the address bar: the window shows it in its folder (and plays / opens it unless Shift is held).
+                    AddressText = path;   // without the quotes of a pasted path
+                    if (TypedFileRequested != null) TypedFileRequested(path); else OpenFile(path);
+                    return;
+                }
                 StatusText = $"Path not found: {path}";
                 // As in Windows Explorer: an error box with the error sound, so the typed mistake is not overlooked.
                 MessageBox.Show($"Windows cannot find '{path}'. Check the spelling and try again.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
@@ -3834,6 +3849,9 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     /// <summary>Ctrl+V with no folder shown and text on the clipboard: the window puts the text in the address bar and focuses it (no Enter).</summary>
     public event Action<string>? AddressPasteRequested;
+
+    /// <summary>A file (not a packed file or playlist) was typed or pasted in the address bar and Enter pressed: the window shows it in its folder, then opens it (Shift: only shows it).</summary>
+    public event Action<string>? TypedFileRequested;
 
     /// <summary>Ctrl+V found a picture or text and not files, and the user said yes: the window asks for the name and makes the file in this folder.</summary>
     public event Action<string>? ClipboardFileRequested;

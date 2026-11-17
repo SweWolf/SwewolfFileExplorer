@@ -44,6 +44,11 @@ public partial class MainWindow : Window
         VM.SelectPathsRequested += OnSelectPathsRequested;
         VM.SelectionRestoreRequested += OnSelectionRestoreRequested;
         VM.ClipboardFileRequested += NewFileFromClipboard;   // Ctrl+V with a picture or text on the clipboard, and the user said yes
+        VM.TypedFileRequested += path =>   // a file in the address bar + Enter: shown in its folder, then opened (Shift: only shown)
+        {
+            var item = GoToItem(path);
+            if (item != null && (Keyboard.Modifiers & ModifierKeys.Shift) == 0) VM.ActiveTab.OpenItem(item);
+        };
         VM.AddressPasteRequested += text =>   // Ctrl+V on This PC with text on the clipboard: into the address bar, no Enter
         {
             AddressBar.Focus();
@@ -353,6 +358,14 @@ public partial class MainWindow : Window
     /// </summary>
     private void AddressBar_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key is Key.Enter or Key.Return && Keyboard.Modifiers == ModifierKeys.Shift)
+        {
+            // Shift+Enter: only show the item (file or folder) in its folder, without opening or playing it.
+            e.Handled = true;
+            ShowItemFromAddress();
+            KeepAddressCaretAtEnd();
+            return;
+        }
         if (e.Key is Key.Enter or Key.Return) KeepAddressCaretAtEnd();   // the navigation (a key binding) may spell the text again: the caret must not jump to the start
         if (e.Key != Key.Escape || Keyboard.Modifiers != ModifierKeys.None) return;
 
@@ -3473,26 +3486,53 @@ public partial class MainWindow : Window
     /// A file named on the command line (by SweWolf Media Player and the other sibling programs), and the bookmark of a file: its
     /// folder is opened and the file is selected and has the focus. Nothing is played or opened. A hidden file is shown (the folder's hidden items are turned on).
     /// </summary>
-    private void GoToFile(string file)
+    private void GoToFile(string file) => GoToItem(file);
+
+    /// <summary>
+    /// Shows a file or folder in its folder: the folder is opened (the tree follows and selects it; a tree locked to a root keeps its root
+    /// when the folder is under it, else it goes back to the normal tree), the item is selected in the list and the list gets the focus.
+    /// Nothing is played or opened. This one item is shown even when it is hidden (the folder's hidden items are turned on for it).
+    /// A folder that the list does not show (the Folders button is off) is opened itself instead. Returns the item, or null.
+    /// </summary>
+    private FileItemViewModel? GoToItem(string path)
     {
-        var folder = System.IO.Path.GetDirectoryName(file);
-        if (string.IsNullOrEmpty(folder)) return;
+        path = path.TrimEnd('\\', '/') is { Length: > 2 } t ? t : path;
+        var folder = System.IO.Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(folder))
+        {
+            VM.Navigate(path);   // a drive: nothing above it to select it in
+            return null;
+        }
 
         VM.Navigate(folder);
 
-        FileItemViewModel? Find() => VM.CurrentItems.FirstOrDefault(i => string.Equals(i.FullPath, file, StringComparison.OrdinalIgnoreCase));
+        FileItemViewModel? Find() => VM.CurrentItems.FirstOrDefault(i => string.Equals(i.FullPath, path, StringComparison.OrdinalIgnoreCase));
 
         var item = Find();
         if (item == null)
         {
-            VM.ActiveTab.ShowHiddenItems();   // a hidden file would not be listed
+            VM.ActiveTab.ShowHiddenItems();   // a hidden item would not be listed
             item = Find();
         }
-        if (item == null) return;
+        if (item == null)
+        {
+            if (System.IO.Directory.Exists(path)) VM.Navigate(path);   // the list shows no folders: go into it
+            return null;
+        }
 
         FileListView.SelectedItem = item;
         FileListView.ScrollIntoView(item);
         FileListView.Focus();
+        return item;
+    }
+
+    /// <summary>The address bar's item (file or folder) is shown in its folder and selected, without being opened (Shift+Enter, and the Go arrow's menu).</summary>
+    private void ShowItemFromAddress()
+    {
+        var path = FolderTabViewModel.TidyTypedPath(AddressBar.Text);
+        if (path.Length == 0) return;
+        if (System.IO.File.Exists(path) || System.IO.Directory.Exists(path)) GoToItem(path);
+        else VM.Navigate(path);   // says that it was not found
     }
 
     private void SelectInList(string path)
@@ -5039,7 +5079,11 @@ public partial class MainWindow : Window
     private void GoMenu_Opened(object sender, RoutedEventArgs e)
     {
         GoResetRootMenuItem.IsEnabled = VM.HasTreeRoot;
+        var typed = FolderTabViewModel.CleanTypedPath(AddressBar.Text);
+        GoShowItemMenuItem.IsEnabled = typed.Length > 0 && (System.IO.File.Exists(typed) || System.IO.Directory.Exists(typed));
     }
+
+    private void GoShowItem_Click(object sender, RoutedEventArgs e) => ShowItemFromAddress();
 
     private void GoSetRoot_Click(object sender, RoutedEventArgs e) => SetTreeRoot(AddressBar.Text);
 
