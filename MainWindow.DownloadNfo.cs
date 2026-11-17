@@ -123,6 +123,8 @@ public partial class MainWindow
 
         // The folder is read again (the selection stays); the plot, the preview and the folder picture are read again.
         var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
+        // The tiles of the Icons view keep the picture they had: a poster may be new for the video (or the videos of a TV show folder).
+        ThumbnailService.InvalidateFolder(folder ? path : System.IO.Path.GetDirectoryName(path) ?? "", VM.ActiveTab.CurrentItems);
         VM.RefreshCommand.Execute(null);
         ReselectInList(selected);
         UpdateInfoPanel();

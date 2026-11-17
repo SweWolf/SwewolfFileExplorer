@@ -2382,6 +2382,10 @@ public class FolderTabViewModel : INotifyPropertyChanged
 
     private (string Path, string Signature)? _treeSeen;   // what the tree was last brought in line with
 
+    // Files that can give a video or music file its picture without changing the file itself: its .nfo and a picture beside it.
+    private static bool IsPictureSidecar(string name) =>
+        Path.GetExtension(name).ToLowerInvariant() is ".nfo" or ".jpg" or ".jpeg" or ".png";
+
     private void ApplyListing(string path, FolderListing listing, string treeSignature)
     {
         // What the list should hold: the same choices as LoadItems (hidden items, packed files, the Folders button).
@@ -2404,7 +2408,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             wanted[file.Name] = (file, hidden);
         }
 
-        bool structural = false, valuesChanged = false;
+        bool structural = false, valuesChanged = false, sidecarChanged = false;
         var changedFiles = new List<FileItemViewModel>();
         var present = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -2414,6 +2418,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
             {
                 CurrentItems.Remove(item);   // gone, or turned into something else (a hidden one when hidden ones are not shown)
                 structural = true;
+                if (IsPictureSidecar(item.Name)) sidecarChanged = true;
                 continue;
             }
 
@@ -2427,6 +2432,7 @@ public class FolderTabViewModel : INotifyPropertyChanged
                     item.DateCreated = f.CreationTime;
                     changedFiles.Add(item);
                     valuesChanged = true;
+                    if (IsPictureSidecar(item.Name)) sidecarChanged = true;
                 }
             }
             else if (item.DateModified != w.Info.LastWriteTime)
@@ -2444,7 +2450,11 @@ public class FolderTabViewModel : INotifyPropertyChanged
             CurrentItems.Add(vm);
             vm.LoadIconAsync();
             structural = true;
+            if (IsPictureSidecar(name)) sidecarChanged = true;
         }
+
+        // A poster or .nfo file came, changed or went: the tiles of the videos and songs may need another picture.
+        if (sidecarChanged) ThumbnailService.InvalidateFolder(path, CurrentItems);
 
         if (packedCount != _packedCount || listCount != _listCount)
         {

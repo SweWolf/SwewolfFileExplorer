@@ -71,6 +71,34 @@ public static class ThumbnailService
         Signal.Release();
     }
 
+    /// <summary>
+    /// The pictures kept for the files of this folder are thrown away and the tiles on screen are asked for again (UI thread). A video's
+    /// picture can change although the video does not: a poster or .nfo file appeared beside it, was changed or was removed, and the
+    /// memory cache is keyed by the video's own date and size only. Found with a video that showed its poster in the info panel but
+    /// an old frame in its tile.
+    /// </summary>
+    public static void InvalidateFolder(string folder, IEnumerable<FileItemViewModel> items)
+    {
+        if (string.IsNullOrEmpty(folder)) return;
+        var prefix = folder.TrimEnd('\\', '/') + "\\";
+
+        lock (CacheGate)
+        {
+            foreach (var key in Cache.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList())
+            {
+                CacheOrder.Remove(Cache[key]);
+                Cache.Remove(key);
+            }
+        }
+
+        foreach (var item in items.ToList())
+        {
+            if (item.IsDirectory || !item.ThumbWanted) continue;
+            item.ThumbDoneAt = 0;
+            Wanted(item);
+        }
+    }
+
     /// <summary>The item's tile left the screen (UI thread): its picture is let go (the memory cache may keep it).</summary>
     public static void Unwanted(FileItemViewModel item)
     {

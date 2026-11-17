@@ -554,6 +554,7 @@ public class MainViewModel : INotifyPropertyChanged
     private void UserRefresh()
     {
         FileUndo.Clear();   // the user looks at the folder again: the Undo of the last file operation is over
+        ThumbnailService.InvalidateFolder(CurrentPath, ActiveTab.CurrentItems);   // F5 also makes the tiles' pictures again
         if (FileTypeOverrides.ReloadIfChanged())
         {
             foreach (var tab in Tabs)
