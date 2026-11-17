@@ -1235,6 +1235,8 @@
                                                   ToolTip="Change the plot of this file, which is kept in its .nfo file (a double-click does the same)"/>
                                         <MenuItem x:Name="PlotEditNfoItem" Header="View/Edit NFO File" Click="PlotEditNfo_Click" Visibility="Collapsed"
                                                   ToolTip="Open the .nfo file of this video or music file in the text editor"/>
+                                        <MenuItem x:Name="PlotViewNfoPageItem" Header="View NFO File as a Web Page" Click="PlotViewNfoPage_Click" Visibility="Collapsed"
+                                                  ToolTip="Show the details of the .nfo file as a web page in your browser, with links for the trailer, IMDb and other addresses. The .nfo file is not changed."/>
                                         <Separator/>
                                         <MenuItem Header="Download NFO File..." Click="PlotDownloadNfo_Click"
                                                   ToolTip="Look up this movie or TV show on The Movie Database and save its details as a hidden .nfo file (needs a free TMDB API key in Tools > Settings > Scrapers)"/>

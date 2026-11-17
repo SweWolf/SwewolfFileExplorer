@@ -2562,8 +2562,23 @@ public partial class MainWindow : Window
         _plotPath == null ? null : NfoPoster.NfoFilesOf(_plotPath).FirstOrDefault(System.IO.File.Exists);
 
     // "View/Edit NFO File" is only in the menu when the .nfo file exists.
-    private void PlotArea_ContextMenuOpening(object sender, ContextMenuEventArgs e) =>
-        PlotEditNfoItem.Visibility = ExistingNfoOfPlotItem() != null ? Visibility.Visible : Visibility.Collapsed;
+    private void PlotArea_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        var shown = ExistingNfoOfPlotItem() != null ? Visibility.Visible : Visibility.Collapsed;
+        PlotEditNfoItem.Visibility = shown;
+        PlotViewNfoPageItem.Visibility = shown;
+    }
+
+    // The details of the .nfo file as a temporary web page in the default browser.
+    private void PlotViewNfoPage_Click(object sender, RoutedEventArgs e)
+    {
+        var nfo = ExistingNfoOfPlotItem();
+        if (nfo == null) return;
+
+        var error = NfoPage.Show(nfo);
+        if (error != null)
+            MessageBox.Show(this, $"Cannot show \"{System.IO.Path.GetFileName(nfo)}\" as a web page: {error}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
 
     // Opens the .nfo file as a double-click on it does: in the text editor (a System Information file with Windows' program).
     private void PlotEditNfo_Click(object sender, RoutedEventArgs e)
