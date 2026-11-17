@@ -2891,6 +2891,8 @@ public partial class MainWindow : Window
     // The folder picture is looked for again once the choice is written (the library writes in the background, in order).
     private void RefreshFolderPictureSoon()
     {
+        ThumbnailService.ForgetFolder(VM.CurrentPath);   // its tile in the Icons view of the folder above
+
         Task.Run(() => LibraryService.WaitForQueued()).ContinueWith(_ => Dispatcher.InvokeAsync(() => VM.RefreshFolderPicture()));
     }
 

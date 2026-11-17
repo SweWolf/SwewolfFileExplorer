@@ -89,11 +89,12 @@ public static class ThumbnailService
                 CacheOrder.Remove(Cache[key]);
                 Cache.Remove(key);
             }
+            NoCover.RemoveWhere(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
         }
 
         foreach (var item in items.ToList())
         {
-            if (item.IsDirectory || !item.ThumbWanted) continue;
+            if (!item.ThumbWanted) continue;
             item.ThumbDoneAt = 0;
             Wanted(item);
         }
@@ -156,19 +157,61 @@ public static class ThumbnailService
                 dispatcher.InvokeAsync(() => { if (item.ThumbWanted && item.Thumb == null) item.Thumb = icon; });
         }
 
-        if (isDir || !item.ThumbWanted) return;
+        if (!item.ThumbWanted) return;
 
-        // 2. The real thumbnail, where there is one.
-        var thumb = Create(path, name, inArchive, pixels, item);
-        if (thumb == null) return;
-
+        // 2. The real thumbnail, where there is one. A folder shows its folder picture (the one under the tree: the user's choice,
+        //    a Folder.jpg / Cover.jpg ..., a cover inside a music file ...) and keeps its icon when it has none.
         string key = $"{path}|{item.DateModified.Ticks}|{item.Size}|{pixels}";
+        if (isDir && IsKnownWithoutCover(key)) return;
+        var thumb = isDir ? CreateFolderPicture(path, inArchive, pixels) : Create(path, name, inArchive, pixels, item);
+        if (thumb == null)
+        {
+            if (isDir) RememberNoCover(key);
+            return;
+        }
+
         AddToCache(key, thumb);
         dispatcher.InvokeAsync(() =>
         {
             if (!item.ThumbWanted || PixelSize != pixels) return;
             item.Thumb = thumb;
         });
+    }
+
+    // Folders without a picture are the most common case; remembering them keeps a scroll back over many folders from listing every one again.
+    private static readonly HashSet<string> NoCover = new(StringComparer.OrdinalIgnoreCase);
+
+    private static bool IsKnownWithoutCover(string key) { lock (CacheGate) return NoCover.Contains(key); }
+
+    private static void RememberNoCover(string key)
+    {
+        lock (CacheGate)
+        {
+            if (NoCover.Count > 5000) NoCover.Clear();
+            NoCover.Add(key);
+        }
+    }
+
+    /// <summary>Makes the pictures of this folder's tile again next time (the user chose or removed its folder picture).</summary>
+    public static void ForgetFolder(string folder)
+    {
+        if (string.IsNullOrEmpty(folder)) return;
+        var prefix = folder.TrimEnd('\\', '/') + "|";
+        lock (CacheGate)
+        {
+            NoCover.RemoveWhere(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+            foreach (var key in Cache.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList())
+            {
+                CacheOrder.Remove(Cache[key]);
+                Cache.Remove(key);
+            }
+        }
+    }
+
+    private static ImageSource? CreateFolderPicture(string path, bool inArchive, int pixels)
+    {
+        if (inArchive) return null;   // a folder inside a packed file: its icon
+        return FolderCoverFinder.Find(path, pixels, CancellationToken.None)?.Image;
     }
 
     private static ImageSource? Create(string path, string name, bool inArchive, int pixels, FileItemViewModel item)
