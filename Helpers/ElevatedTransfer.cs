@@ -127,6 +127,24 @@ public static class ElevatedTransfer
                     r = new TransferResult(new(), new() { (Path.GetFileName(path), ex.Message) }, false, 1);
                 }
             }
+            else if (job.Kind == "writefile")
+            {
+                // Sources[0] is the new file's path, Destination a temporary file that holds its content (made by the first copy, which
+                // may write there: the clipboard's text or picture). Never replaces.
+                var path = job.Sources[0];
+                try
+                {
+                    using (var input = new FileStream(job.Destination, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                        input.CopyTo(output);
+                    r = new TransferResult(new() { (path, path) }, new(), false, 1);
+                }
+                catch (Exception ex)
+                {
+                    Note($"writefile failed: {ex.GetType().Name}: {ex.Message}");
+                    r = new TransferResult(new(), new() { (Path.GetFileName(path), ex.Message) }, false, 1);
+                }
+            }
             else if (job.Kind == "rename")
             {
                 // Sources[0] is renamed to Destination (a full path). Never replaces: Move fails when the name is taken.

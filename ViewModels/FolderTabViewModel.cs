@@ -3570,6 +3570,38 @@ public class FolderTabViewModel : INotifyPropertyChanged
         return false;
     }
 
+    /// <summary>
+    /// New File from Clipboard in a protected folder: the content is written to a temporary file here and the elevated helper copies
+    /// it to <paramref name="path"/> (never replacing), after the usual question. False when the file was not made.
+    /// </summary>
+    internal static async Task<bool> CreateFileAsAdministratorAsync(string path, byte[] content)
+    {
+        var name = Path.GetFileName(path);
+        var folder = Path.GetDirectoryName(path) ?? "";
+        if (!ConfirmAdministrator($"You need administrator permission to create the file '{name}' here.")) return false;
+
+        var temp = Path.Combine(Path.GetTempPath(), "SwewolfFileExplorer-clipboard-" + Guid.NewGuid().ToString("N") + Path.GetExtension(name));
+        try
+        {
+            await File.WriteAllBytesAsync(temp, content);
+            bool declined = false;
+            var result = await RunWithProgressAsync(async (progress, token) =>
+            {
+                var (r, d) = await ElevatedTransfer.RunAsync(new[] { path }, temp, false, progress, token, kind: "writefile");
+                declined = d;
+                return r;
+            }, "Creating", $"'{name}'", folder);
+            if (declined) return false;
+            if (result.Done.Count > 0) return true;
+
+            var reason = result.Failed.Count > 0 ? result.Failed[0].Reason : "it was not made";
+            LogFiles.AppendError($"Create file from clipboard as administrator failed: {path}: {reason}");
+            MessageBox.Show($"Cannot create the file: {reason}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
+        }
+        finally { try { File.Delete(temp); } catch { } }
+    }
+
     /// <summary>Makes a new folder in <paramref name="parent"/> (the current folder, or a folder of the tree) and asks for its name.</summary>
     public async void CreateNewFolderIn(string parent)
     {

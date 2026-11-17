@@ -5904,7 +5904,7 @@ public partial class MainWindow : Window
     /// Makes a file of the clipboard's text (.txt) or picture (.png) in <paramref name="folder"/> at once, with a name that has the date
     /// and time, then asks for the name. OK renames it if the name was changed; Cancel sends the file to the Recycle Bin.
     /// </summary>
-    private void NewFileFromClipboard(string folder)
+    private async void NewFileFromClipboard(string folder)
     {
         if (!CanSaveIn(folder)) return;
         if (FolderTabViewModel.IsUnderBookmarks(folder))   // the Bookmarks folder only holds bookmarks
@@ -5913,7 +5913,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        var path = ClipboardFile.Create(folder, out var error);
+        var path = ClipboardFile.Create(folder, out var error, out var accessDenied, out var content, out var suggested);
+        if (path == null && accessDenied && content != null && suggested != null)
+        {
+            await NewFileFromClipboardAsAdministrator(folder, suggested, content);
+            return;
+        }
         if (path == null)
         {
             MessageBox.Show(this, $"Cannot create the file: {error}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -5957,6 +5962,31 @@ public partial class MainWindow : Window
             catch (Exception ex) { LogFiles.AppendError($"New file from clipboard: could not recycle {path}: {ex.Message}"); }
             VM.RefreshFolder(folder);
         }
+    }
+
+    /// <summary>
+    /// The folder is protected (Program Files ...): the name is asked for first (nothing exists yet, so Cancel leaves nothing behind and
+    /// there is only one permission prompt), then the elevated helper writes the clipboard's content under that name.
+    /// </summary>
+    private async Task NewFileFromClipboardAsAdministrator(string folder, string suggestedPath, byte[] content)
+    {
+        LogFiles.AppendWarning($"Creating \"{suggestedPath}\" failed: access denied (administrator permission is needed)");
+        var name = System.IO.Path.GetFileName(suggestedPath);
+        string Real(string typed) => ShellExtensions.RestoreExtension(name, typed);
+
+        var shown = ShellExtensions.DisplayName(name);
+        var dummy = System.IO.Path.Combine(folder, "\0");   // CheckNewName compares with an existing item: there is none yet
+        var dlg = new InputDialog("New File from Clipboard", "Enter a name for the new file:", shown,
+            typed => FolderTabViewModel.CheckNewName(dummy, Real(typed)),
+            keepExtension: shown == name) { Owner = this };
+        if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.InputText)) return;
+
+        var path = System.IO.Path.Combine(folder, Real(dlg.InputText).Trim());
+        if (!await FolderTabViewModel.CreateFileAsAdministratorAsync(path, content)) return;
+
+        FileUndo.Set(null);   // taking it back would need the administrator too
+        VM.RefreshFolder(folder);
+        OnSelectPathRequested(path);
     }
 
     // ── New Text Document ─────────────────────────────────────────────────────

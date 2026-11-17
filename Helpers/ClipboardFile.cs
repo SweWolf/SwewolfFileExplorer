@@ -44,9 +44,19 @@ public static class ClipboardFile
     /// Makes the file in <paramref name="folder"/> and returns its path; null with <paramref name="error"/> set if the clipboard holds
     /// nothing usable or the file cannot be written. Never replaces a file (CreateNew).
     /// </summary>
-    public static string? Create(string folder, out string error)
+    public static string? Create(string folder, out string error) => Create(folder, out error, out _, out _, out _);
+
+    /// <summary>
+    /// As <see cref="Create(string, out string)"/>. When the folder refuses the file with "access denied" (Program Files ...),
+    /// <paramref name="accessDenied"/> is true and <paramref name="bytes"/> / <paramref name="suggestedPath"/> hold what the
+    /// elevated step needs to make the same file.
+    /// </summary>
+    public static string? Create(string folder, out string error, out bool accessDenied, out byte[]? bytes, out string? suggestedPath)
     {
         error = "";
+        accessDenied = false;
+        bytes = null;
+        suggestedPath = null;
         var kind = Detect();
         if (kind == Kind.None)
         {
@@ -56,13 +66,20 @@ public static class ClipboardFile
 
         try
         {
-            byte[] bytes = kind == Kind.Image ? GetPngBytes() : new UTF8Encoding(true).GetPreamble()
+            bytes = kind == Kind.Image ? GetPngBytes() : new UTF8Encoding(true).GetPreamble()
                 .Concat(Encoding.UTF8.GetBytes(Clipboard.GetText(TextDataFormat.UnicodeText))).ToArray();
 
             var path = Path.Combine(folder, SuggestName(folder, kind));
+            suggestedPath = path;
             using (var fs = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 fs.Write(bytes, 0, bytes.Length);
             return path;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            accessDenied = bytes != null;
+            error = ex.Message;
+            return null;
         }
         catch (Exception ex)
         {
