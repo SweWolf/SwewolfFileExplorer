@@ -48,6 +48,7 @@ public static class IconHelper
 
     private const int SIID_RECYCLER = 31, SIID_RECYCLERFULL = 32;
     public const int SIID_SHIELD = 77;   // the UAC shield
+    public const int SIID_FIND = 22;   // Windows' own search icon (a magnifier)
     public const int SIID_HELP = 23, SIID_WARNING = 78, SIID_INFO = 79, SIID_ERROR = 80;
 
     /// <summary>The Recycle Bin's own icon, empty or full as Windows draws it (for the window of a delete); null if Windows has none.</summary>

@@ -107,6 +107,7 @@ public partial class SettingsWindow : Window
         TmdbKeyBox.Password                = Tmdb.GetApiKey() ?? "";
         LogInternetBox.IsChecked           = current.LogInternetCalls;
         LogWarningsBox.IsChecked           = current.LogWarnings;
+        LogSearchesBox.IsChecked           = current.LogSearches;
         MediaPlayerTab.Visibility          = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, no tab
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
         AskBeforeAdminBox.IsChecked        = current.AskBeforeAdministrator;
@@ -274,6 +275,7 @@ public partial class SettingsWindow : Window
         Tmdb.SetApiKey(tmdbKey);
         settings.LogInternetCalls = LogInternetBox.IsChecked == true;
         settings.LogWarnings      = LogWarningsBox.IsChecked == true;
+        settings.LogSearches      = LogSearchesBox.IsChecked == true;
         settings.Style = Styles[StyleBox.SelectedIndex];
         settings.FontFamily = (FontBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "";
         settings.UnreadBold   = UnreadBoldBox.IsChecked == true;

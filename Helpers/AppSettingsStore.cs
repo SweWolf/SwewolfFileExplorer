@@ -150,6 +150,9 @@ public class AppSettings
     /// asking for administrator permission) to errors.log. Errors are always written.</summary>
     public bool LogWarnings { get; set; } = false;
 
+    /// <summary>Settings > Troubleshooting > Log Searches: search.log lists every folder of the last search with the time it took (off by default).</summary>
+    public bool LogSearches { get; set; } = false;
+
     /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the
     /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
     public bool WarnHiddenNotSelected { get; set; } = true;

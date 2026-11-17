@@ -72,17 +72,19 @@ public partial class FolderTabViewModel
         SetSearchStatus("Searching...", running: true);
 
         SearchSummary summary;
+        using var log = SearchLog.Start(criteria);   // Settings > Troubleshooting > Log Searches
         try
         {
-            summary = await FileSearch.RunAsync(criteria, (items, folders) =>
+            summary = await FileSearch.RunAsync(criteria, (items, folders, current) =>
             {
                 dispatcher.InvokeAsync(() =>
                 {
                     if (version != _searchVersion) return;
                     shown += AddFound(items);
-                    SetSearchStatus($"Searching... {shown:N0} found, {folders:N0} folders searched", running: true);
+                    // The folder read the longest right now: when the search seems stuck, this is where.
+                    SetSearchStatus($"Searching... {shown:N0} found, {folders:N0} folders searched" + (current != null ? $". Looking in: {current}" : ""), running: true);
                 });
-            }, cts.Token);
+            }, cts.Token, log == null ? null : log.Folder);
         }
         catch (Exception ex)
         {
@@ -90,20 +92,30 @@ public partial class FolderTabViewModel
             if (version == _searchVersion) SetSearchStatus($"The search stopped: {ex.Message}", running: false);
             return;
         }
+        log?.Finish(summary, clock.Elapsed);
 
         // The last batches were queued before this point, so the list holds everything when this runs.
         await dispatcher.InvokeAsync(() =>
         {
             if (version != _searchVersion) return;
-            var seconds = clock.Elapsed.TotalSeconds.ToString("0.0");
-            var text = summary.Canceled ? $"Search canceled: {shown:N0} found so far ({seconds} s)"
-                     : summary.Capped ? $"{shown:N0} found: the list is full, narrow the search to see the rest ({seconds} s)"
-                     : $"Search finished: {shown:N0} found in {summary.FoldersSearched:N0} folders ({seconds} s)";
+            var took = FormatDuration(clock.Elapsed);
+            var text = summary.Canceled ? $"Search canceled: {shown:N0} found so far ({took})"
+                     : summary.Capped ? $"{shown:N0} found: the list is full, narrow the search to see the rest ({took})"
+                     : $"Search finished: {shown:N0} found in {summary.FoldersSearched:N0} folders ({took})";
             if (summary.FoldersSkipped > 0)
                 text += $". {summary.FoldersSkipped:N0} {(summary.FoldersSkipped == 1 ? "folder" : "folders")} could not be read.";
             SetSearchStatus(text, running: false);
             EnsureTags();   // the tag columns, if shown
         });
+    }
+
+    /// <summary>"12.3 s" under a minute; from a minute on whole seconds: "44 min 28 s", "1 h 5 min" (no seconds from an hour up).</summary>
+    internal static string FormatDuration(TimeSpan t)
+    {
+        if (t.TotalSeconds < 60) return $"{t.TotalSeconds:0.0} s";
+        long total = (long)Math.Round(t.TotalSeconds);
+        if (total < 3600) return $"{total / 60} min {total % 60} s";
+        return $"{total / 3600} h {total % 3600 / 60} min";
     }
 
     private int AddFound(List<FileSystemInfo> found)

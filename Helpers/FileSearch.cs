@@ -11,6 +11,9 @@ namespace SwewolfFileExplorer.Helpers;
 //
 // History
 //   2026-11-17  First version: name words / wildcards, files / folders, hidden rules, created / modified date ranges, batches, cap.
+//   2026-11-17  Progress about every 150 ms even with no results, with the folder that has been read longest (a slow folder shows);
+//               onFolder callback with the time of every folder (for the search log).
+//   2026-11-17  A term with * or ? must fit the whole name (anchored): *.ico no longer finds "MainWindow.IconView.cs".
 
 public enum SearchKinds { FilesAndFolders, FilesOnly, FoldersOnly }
 
@@ -70,7 +73,9 @@ public static class FileSearch
         {
             if (term.IndexOfAny(new[] { '*', '?' }) >= 0)
             {
-                var regex = new Regex(Regex.Escape(term).Replace("\\*", ".*").Replace("\\?", "."),
+                // With a wildcard the term must fit the WHOLE name, as in Windows: *.ico ends in .ico (it must not find "X.IconView.cs"),
+                // alpha* starts with alpha, *alpha* has it anywhere. Words without a wildcard are still "contained in the name".
+                var regex = new Regex("^" + Regex.Escape(term).Replace("\\*", ".*").Replace("\\?", ".") + "$",
                                       RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
                 terms.Add(name => regex.IsMatch(name));
             }
@@ -104,10 +109,14 @@ public static class FileSearch
     /// Runs the search. <paramref name="onBatch"/> gets the found items (a few hundred at a time, from several threads one at a
     /// time) and the number of folders looked at so far. Returns when everything is searched, the cap is reached or <paramref name="ct"/> is canceled.
     /// </summary>
-    public static Task<SearchSummary> RunAsync(SearchCriteria criteria, Action<List<FileSystemInfo>, long> onBatch, CancellationToken ct) =>
-        Task.Run(() => Run(criteria, onBatch, ct), ct);
+    public static Task<SearchSummary> RunAsync(SearchCriteria criteria, Action<List<FileSystemInfo>, long, string?> onBatch, CancellationToken ct,
+                                               Action<string, long, int>? onFolder = null) =>
+        Task.Run(() => Run(criteria, onBatch, ct, onFolder), ct);
 
-    private static SearchSummary Run(SearchCriteria c, Action<List<FileSystemInfo>, long> onBatch, CancellationToken ct)
+    // onBatch(items, folders searched so far, the folder that has been read the longest right now (null when none)): called about every
+    // 150 ms, also with no items, so a slow folder shows. onFolder(path, milliseconds, entries) is called when a folder is done (the debug log).
+    private static SearchSummary Run(SearchCriteria c, Action<List<FileSystemInfo>, long, string?> onBatch, CancellationToken ct,
+                                     Action<string, long, int>? onFolder)
     {
         var matches = NameMatcher(c.Text);
         bool wantFiles = c.Kinds != SearchKinds.FoldersOnly;
@@ -124,15 +133,29 @@ public static class FileSearch
         var clock = System.Diagnostics.Stopwatch.StartNew();
         long lastFlush = 0;
 
+        int threads = Math.Clamp(Environment.ProcessorCount, 2, 6);
+        var inflightPath = new string?[threads];   // what each worker is reading now, and since when
+        var inflightSince = new long[threads];
+
+        string? OldestInFlight()
+        {
+            string? best = null; long since = long.MaxValue;
+            for (int i = 0; i < threads; i++)
+            {
+                var p = Volatile.Read(ref inflightPath[i]);
+                if (p != null && Interlocked.Read(ref inflightSince[i]) < since) { best = p; since = inflightSince[i]; }
+            }
+            return best;
+        }
+
         void Flush(bool force)
         {
             lock (gate)
             {
-                if (batch.Count == 0 && !force) return;
                 if (!force && batch.Count < 200 && clock.ElapsedMilliseconds - lastFlush < 150) return;
                 var send = batch; batch = new List<FileSystemInfo>();
                 lastFlush = clock.ElapsedMilliseconds;
-                onBatch(send, Interlocked.Read(ref searched));
+                onBatch(send, Interlocked.Read(ref searched), force ? null : OldestInFlight());
             }
         }
 
@@ -144,7 +167,7 @@ public static class FileSearch
             ReturnSpecialDirectories = false,
         };
 
-        void Worker()
+        void Worker(int me)
         {
             while (!ct.IsCancellationRequested && !Volatile.Read(ref capped))
             {
@@ -154,18 +177,29 @@ public static class FileSearch
                     Thread.Sleep(2);   // other workers are still reading folders that may hold more
                     continue;
                 }
-                try { ReadFolder(dir); }
-                catch { Interlocked.Increment(ref skipped); }
-                finally { Interlocked.Decrement(ref outstanding); Interlocked.Increment(ref searched); }
+                long t0 = clock.ElapsedMilliseconds;
+                Interlocked.Exchange(ref inflightSince[me], t0);
+                Volatile.Write(ref inflightPath[me], dir);
+                int entries = 0;
+                try { entries = ReadFolder(dir); }
+                catch { Interlocked.Increment(ref skipped); entries = -1; }   // -1: the folder could not be read (the search log says which)
+                finally
+                {
+                    Volatile.Write(ref inflightPath[me], null);
+                    Interlocked.Decrement(ref outstanding); Interlocked.Increment(ref searched);
+                }
+                try { onFolder?.Invoke(dir, clock.ElapsedMilliseconds - t0, entries); } catch { }
                 Flush(false);
             }
         }
 
-        void ReadFolder(string dir)
+        int ReadFolder(string dir)
         {
+            int entries = 0;
             foreach (var e in new DirectoryInfo(dir).EnumerateFileSystemInfos("*", options))
             {
-                if (ct.IsCancellationRequested) return;
+                entries++;
+                if (ct.IsCancellationRequested) return entries;
 
                 bool isDir = (e.Attributes & FileAttributes.Directory) != 0;
                 bool hidden = isDir ? HiddenItems.IsHiddenByAttributes(e.Attributes) : HiddenItems.IsHiddenFile(e.Attributes, e.Name);
@@ -185,16 +219,19 @@ public static class FileSearch
 
                 lock (gate)
                 {
-                    if (found >= MaxResults) { Volatile.Write(ref capped, true); return; }
+                    if (found >= MaxResults) { Volatile.Write(ref capped, true); return entries; }
                     found++;
                     batch.Add(e);
                 }
             }
+            return entries;
         }
 
-        int threads = Math.Clamp(Environment.ProcessorCount, 2, 6);
-        var tasks = Enumerable.Range(0, threads).Select(_ => Task.Factory.StartNew(Worker, TaskCreationOptions.LongRunning)).ToArray();
+        // Progress also while every worker is stuck in a slow folder: then nobody calls Flush, so a timer does.
+        using var ticker = new Timer(_ => Flush(false), null, 300, 300);
+        var tasks = Enumerable.Range(0, threads).Select(i => Task.Factory.StartNew(() => Worker(i), TaskCreationOptions.LongRunning)).ToArray();
         Task.WaitAll(tasks);
+        ticker.Dispose();
         Flush(true);
         return new SearchSummary(found, searched, skipped, capped, ct.IsCancellationRequested);
     }

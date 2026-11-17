@@ -28,14 +28,25 @@ public partial class MainWindow
         FileListView.Focus();
     }
 
-    private void SearchCancel_Click(object sender, RoutedEventArgs e) => VM.CancelSearch();
+    private void SearchCancel_Click(object sender, RoutedEventArgs e) => SearchCancelOrClose();
 
-    /// <summary>The search bar is there only in a tab that shows search results; Cancel only while the search still runs.</summary>
+    /// <summary>Cancel while the search still runs; once it is over the same button (and Esc) closes the tab of the results.</summary>
+    private void SearchCancelOrClose()
+    {
+        if (VM.SearchRunning) VM.CancelSearch();
+        else if (VM.Tabs.Count > 1) VM.CloseTabCommand.Execute(VM.ActiveTab);   // never the last tab: that would close the program
+    }
+
+    /// <summary>The search bar is there only in a tab that shows search results.</summary>
     private void UpdateSearchBar()
     {
         SearchBar.Visibility = VM.InSearch ? Visibility.Visible : Visibility.Collapsed;
         SearchStatusText.Text = VM.SearchStatus;
-        SearchCancelButton.Visibility = VM.SearchRunning ? Visibility.Visible : Visibility.Collapsed;
+        SearchCancelButton.Content = VM.SearchRunning ? "Cancel" : "Close";
+        SearchCancelButton.ToolTip = VM.SearchRunning
+            ? "Stop looking (Esc). What was found so far stays in the list."
+            : "Close this tab of search results (Esc)";
+        SearchCancelButton.Visibility = VM.SearchRunning || VM.Tabs.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Open File Location (the list's menu in search results): the item in its own folder, in a new tab.</summary>

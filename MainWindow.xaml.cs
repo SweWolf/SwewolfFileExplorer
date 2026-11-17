@@ -1299,6 +1299,13 @@ public partial class MainWindow : Window
             ShowFilterBar(false, focusList: false);
             e.Handled = true;
         }
+        // Search results: the first Esc stops a search that is still going, the next one closes the tab (same as the button above the list).
+        else if (e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None && VM.InSearch
+                 && !FilterBox.IsKeyboardFocusWithin && !AddressBar.IsKeyboardFocusWithin)
+        {
+            SearchCancelOrClose();
+            e.Handled = true;
+        }
         // F6: into the address bar with its text selected, as in Explorer.
         else if (e.Key == Key.F6 && Keyboard.Modifiers == ModifierKeys.None)
         {
