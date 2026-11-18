@@ -731,6 +731,22 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         bool showFolders = _shared.ShowFolders;
         StatusText = "Reading folder...";
 
+        // The old folder's files must not stay in the grid while a big folder is read (it can take minutes).
+        StopWatching();   // else the watcher could bring the old folder's list back
+        _tagsCts?.Cancel();
+        CurrentItems.Clear();
+        // Same for everything that describes the old folder: the counts and links under the list and the tree, and the read status.
+        _noFolderShown = true;   // NavigateCore sets it back; HasFolder is false meanwhile (hides the tree's count line)
+        _hiddenCount = 0;
+        _packedCount = _listCount = 0;
+        ClearReadState();
+        OnPropertyChanged(nameof(HasHiddenItems));
+        OnPropertyChanged(nameof(HiddenText));
+        RaiseTreeInfoChanged();
+        RaiseTreeFileLinks();
+        RaiseAllCanExecuteChanged();   // nothing can be pasted or made while the folder is read
+        StatusText = "Reading folder...";
+
         var listing = await Task.Run(() =>
         {
             try { return ReadListing(path, showFolders, countTreeHidden: true); }
@@ -1014,7 +1030,8 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
             if (segment == ".") continue;
             current = Path.Combine(current, segment);
 
-            node.IsExpanded = true;   // loads the children the first time
+            node.EnsureChildrenLoaded();   // the children are needed at once (a click on the arrow loads them in the background)
+            node.IsExpanded = true;
             var next = node.Children.FirstOrDefault(c => NodeIs(c, current));
 
             // A hidden folder (opened from the list, or typed in the address bar): the tree shows
@@ -1344,6 +1361,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         var node = new TreeItemViewModel(name, path, icon, sortOf: _shared.GetTreeSort,
                                          isArchive: isArchive, inArchive: inArchive, showHiddenOf: _shared.ShowsHiddenInTree);
         node.InitializeLazyLoad();
+        node.EnsureChildrenLoaded();
         node.IsExpanded = true;   // its folders show at once
         return node;
     }

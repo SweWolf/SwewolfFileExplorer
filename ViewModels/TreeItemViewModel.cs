@@ -83,8 +83,48 @@ public class TreeItemViewModel : INotifyPropertyChanged
             _isExpanded = value;
             OnPropertyChanged();
             if (value && !_childrenLoaded && !string.IsNullOrEmpty(FullPath))
-                LoadChildren();
+            {
+                // A click on the arrow: a real folder is read in the background, so a folder with a huge number of entries cannot
+                // freeze the window. Code that needs the children at once calls EnsureChildrenLoaded() first.
+                if (!ChildrenInArchive && System.Windows.Application.Current != null)LoadChildrenAsync();
+                else LoadChildren();
+            }
         }
+    }
+
+    private int _loadVersion;
+
+    /// <summary>Reads the children now (on this thread) if that has not been done: for code that looks at <see cref="Children"/> right after.</summary>
+    public void EnsureChildrenLoaded()
+    {
+        if (!_childrenLoaded && !string.IsNullOrEmpty(FullPath)) LoadChildren();
+    }
+
+    /// <summary>
+    /// Expanding a real folder: shows "Loading..." at once, lists the folder on a background thread and then makes the nodes.
+    /// (2026-11-18, found by the user: a folder with an enormous number of entries froze the whole program when expanded.)
+    /// A second load, a refresh or a sync meanwhile drops this one (<see cref="_loadVersion"/>).
+    /// </summary>
+    private async void LoadChildrenAsync()
+    {
+        _childrenLoaded = true;
+        int version = ++_loadVersion;
+        Children.Clear();
+        Children.Add(new TreeItemViewModel("Loading...", "", null));
+
+        bool showHidden = ShowHidden;
+        (List<string> Folders, List<string> Archives, HashSet<string> Hidden) listing;
+        try { listing = await Task.Run(() => ListChildren(showHidden)); }
+        catch { if (version == _loadVersion) Children.Clear(); return; }
+
+        if (version != _loadVersion) return;
+        Children.Clear();
+        try
+        {
+            foreach (var child in BuildFolderChildren(null, listing))
+                Children.Add(child);
+        }
+        catch { }
     }
 
     public bool IsSelected
@@ -223,9 +263,9 @@ public class TreeItemViewModel : INotifyPropertyChanged
     /// disk about each folder separately, and listing the folder once more for each kind of packed file, took 4 seconds for
     /// the 72 folders of a cloud drive.)
     /// </summary>
-    private (List<string> Folders, List<string> Archives, HashSet<string> Hidden) ListChildren()
+    private (List<string> Folders, List<string> Archives, HashSet<string> Hidden) ListChildren(bool? showHiddenGiven = null)
     {
-        bool showHidden = ShowHidden;
+        bool showHidden = showHiddenGiven ?? ShowHidden;
         var folders  = new List<string>();
         var archives = new List<string>();
         var hidden   = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -318,6 +358,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
     public void LoadChildren()
     {
         _childrenLoaded = true;
+        _loadVersion++;   // drops a background load that is still running
         Children.Clear();
         if (string.IsNullOrEmpty(FullPath)) return;
 
@@ -339,11 +380,12 @@ public class TreeItemViewModel : INotifyPropertyChanged
     /// The nodes of the subfolders, in order: all the folders first, then the packed files, which open like folders.
     /// A node that is in <paramref name="reuse"/> is used again, so it keeps what is expanded below it.
     /// </summary>
-    private List<TreeItemViewModel> BuildFolderChildren(Dictionary<string, TreeItemViewModel>? reuse = null)
+    private List<TreeItemViewModel> BuildFolderChildren(Dictionary<string, TreeItemViewModel>? reuse = null,
+        (List<string> Folders, List<string> Archives, HashSet<string> Hidden)? listed = null)
     {
         var nodes = new List<TreeItemViewModel>();
         var needCheck = new List<TreeItemViewModel>();
-        var (folders, archives, hidden) = ListChildren();
+        var (folders, archives, hidden) = listed ?? ListChildren();
 
         foreach (var dir in SortFolders(folders))
         {
@@ -414,6 +456,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
 
         try
         {
+            _loadVersion++;   // a background load still running is out of date now
             var existing = Children.Where(c => !string.IsNullOrEmpty(c.FullPath)).ToDictionary(c => c.FullPath);
             var wanted   = BuildFolderChildren(existing);
 
