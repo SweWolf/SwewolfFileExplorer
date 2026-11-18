@@ -14,6 +14,7 @@ namespace SwewolfFileExplorer.Helpers;
 //   2026-11-17  Progress about every 150 ms even with no results, with the folder that has been read longest (a slow folder shows);
 //               onFolder callback with the time of every folder (for the search log).
 //   2026-11-17  Size limits (MinBytes / MaxBytes, files only: a size search never returns folders).
+//   2026-11-17  StopAfter (the user's limit; SearchSummary.StoppedAtLimit tells that it was that and not the built-in cap).
 //   2026-11-17  ExcludedFolders (full paths or plain names; counted in SearchSummary.ExcludedSkipped).
 //   2026-11-17  A term with * or ? must fit the whole name (anchored): *.ico no longer finds "MainWindow.IconView.cs".
 
@@ -45,6 +46,9 @@ public sealed class SearchCriteria
     /// that name, anywhere: node_modules, .git). Never applied to the folders in <see cref="Roots"/> themselves. See <see cref="FileSearch.ParseExcluded"/>.
     /// </summary>
     public List<string> ExcludedFolders { get; set; } = new();
+
+    /// <summary>Stop when this many items are found (1 to <see cref="FileSearch.MaxResults"/>); null = no limit of the user's own (only the built-in one).</summary>
+    public int? StopAfter { get; set; }
 
     public long? MinBytes { get; set; }
     public long? MaxBytes { get; set; }
@@ -83,7 +87,7 @@ public sealed class SearchCriteria
         from != null && to != null ? $"{from:d} - {to:d}" : from != null ? $"from {from:d}" : $"until {to:d}";
 }
 
-public sealed record SearchSummary(long Found, long FoldersSearched, long FoldersSkipped, bool Capped, bool Canceled, long ExcludedSkipped = 0);
+public sealed record SearchSummary(long Found, long FoldersSearched, long FoldersSkipped, bool Capped, bool Canceled, long ExcludedSkipped = 0, bool StoppedAtLimit = false);
 
 public static class FileSearch
 {
@@ -169,6 +173,9 @@ public static class FileSearch
         var queue = new ConcurrentQueue<string>();
         foreach (var root in c.Roots) queue.Enqueue(root);
         long outstanding = c.Roots.Count;   // folders queued or being read
+        // The user's own limit (Stop After Finding N Items) or the built-in one, whichever is smaller.
+        int limit = Math.Clamp(c.StopAfter ?? MaxResults, 1, MaxResults);
+        bool userLimit = c.StopAfter != null && c.StopAfter < MaxResults;
         long searched = 0, skipped = 0, found = 0, excludedSkipped = 0;
         var excludedNames = new HashSet<string>(c.ExcludedFolders.Where(x => !IsPathEntry(x)), StringComparer.OrdinalIgnoreCase);
         var excludedPaths = new HashSet<string>(c.ExcludedFolders.Where(IsPathEntry).Select(x => x.Replace('/', '\\')), StringComparer.OrdinalIgnoreCase);
@@ -273,7 +280,7 @@ public static class FileSearch
 
                 lock (gate)
                 {
-                    if (found >= MaxResults) { Volatile.Write(ref capped, true); return entries; }
+                    if (found >= limit) { Volatile.Write(ref capped, true); return entries; }
                     found++;
                     batch.Add(e);
                 }
@@ -287,7 +294,7 @@ public static class FileSearch
         Task.WaitAll(tasks);
         ticker.Dispose();
         Flush(true);
-        return new SearchSummary(found, searched, skipped, capped, ct.IsCancellationRequested, Interlocked.Read(ref excludedSkipped));
+        return new SearchSummary(found, searched, skipped, capped, ct.IsCancellationRequested, Interlocked.Read(ref excludedSkipped), capped && userLimit);
     }
 
     /// <summary>A symbolic link or junction (not followed: it could lead back up and never end). A cloud folder's reparse point is no link.</summary>

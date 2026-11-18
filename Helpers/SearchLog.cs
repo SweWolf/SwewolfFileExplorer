@@ -70,7 +70,7 @@ internal sealed class SearchLog : IDisposable
                 foreach (var f in _all.OrderByDescending(f => f.Ms).Take(25))
                     _writer.WriteLine($"{f.Ms}\t{f.Entries}\t{f.Path}");
                 _writer.WriteLine();
-                _writer.WriteLine($"{(s.Canceled ? "Canceled" : s.Capped ? "Stopped at the limit" : "Finished")}: {s.Found:N0} found, {s.FoldersSearched:N0} folders, " +
+                _writer.WriteLine($"{(s.Canceled ? "Canceled" : s.StoppedAtLimit ? "Stopped at the user's limit" : s.Capped ? "Stopped at the built-in limit" : "Finished")}: {s.Found:N0} found, {s.FoldersSearched:N0} folders, " +
                                   $"{s.FoldersSkipped:N0} could not be read, {s.ExcludedSkipped:N0} excluded folders skipped, {took.TotalSeconds:0.0} s in all, {_all.Sum(f => f.Ms) / 1000.0:0.0} s added up over all threads.");
             }
         }

@@ -39,6 +39,11 @@ public sealed class SearchWindow : Window
     private readonly Button _addExcluded = new() { Content = "Add Folder...", Padding = new Thickness(14, 4, 14, 4) };
     private readonly Button _saveExcluded = new() { Content = "Save as My Standard List", Padding = new Thickness(14, 4, 14, 4), Margin = new Thickness(8, 0, 0, 0) };
     private StackPanel? _excludedPanel;
+
+    // Stop After Finding N Items: a check box and a whole number (this run only; unchecked = only the built-in limit of 50,000).
+    private readonly CheckBox _stopAfter = new() { Content = "Stop After Finding", VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBox _stopAfterCount = new() { Text = "1000", Width = 80, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(10, 0, 0, 0), VerticalContentAlignment = VerticalAlignment.Center };
+    private static (bool On, string Text) _lastStop = (false, "1000");
     private int _kindsBeforeSize;   // what "Search for" was before a size forced Files Only
     private static (int Mode, string Text1, string Text2, int Unit) _lastSize;   // this run only
     private static int _lastKindsChoice;
@@ -161,6 +166,20 @@ public sealed class SearchWindow : Window
         exPanel.Children.Add(_excludedPanel);
         Put(exPanel, row, 1);
         row++;
+        // Stop after finding N items: below the excluded folders.
+        NewRow();
+        var stopRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
+        stopRow.Children.Add(_stopAfter);
+        stopRow.Children.Add(_stopAfterCount);
+        stopRow.Children.Add(new TextBlock { Text = "Items", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) });
+        var stopPanel = new StackPanel();
+        stopPanel.Children.Add(stopRow);
+        stopPanel.Children.Add(Hint("The search ends when this many are found: the first ones found, not the best ones. Without it a search ends at 50,000."));
+        Put(stopPanel, row, 1);
+        row++;
+        _stopAfter.Checked += (_, _) => _stopAfterCount.IsEnabled = true;
+        _stopAfter.Unchecked += (_, _) => _stopAfterCount.IsEnabled = false;
+
         _skipExcluded.Checked += (_, _) => UpdateExcludedUi();
         _skipExcluded.Unchecked += (_, _) => UpdateExcludedUi();
         _excluded.TextChanged += (_, _) => UpdateExcludedUi();
@@ -210,6 +229,10 @@ public sealed class SearchWindow : Window
             _sizeMode.SelectedIndex = _lastSize.Mode;   // (this also shows or hides the boxes)
         }
         UpdateSizeUi();
+
+        _stopAfterCount.Text = _lastStop.Text;
+        _stopAfter.IsChecked = _lastStop.On;
+        _stopAfterCount.IsEnabled = _lastStop.On;
 
         // The list always starts as Settings > Search has it; the check box is as it was left.
         _excluded.Text = AppSettingsStore.Current.SearchExcludedFolders.Replace("\n", Environment.NewLine);
@@ -392,6 +415,20 @@ public sealed class SearchWindow : Window
             c.MaxBytes = hi;
             c.Kinds = SearchKinds.FilesOnly;
         }
+        // Stop After Finding: a whole number from 1 to the built-in limit.
+        if (_stopAfter.IsChecked == true)
+        {
+            if (!int.TryParse(_stopAfterCount.Text.Trim().Replace(" ", "").Replace(",", ""), out var n) || n < 1 || n > FileSearch.MaxResults)
+            {
+                MessageBox.Show(this, $"Enter a whole number from 1 to {FileSearch.MaxResults:N0}, or uncheck Stop After Finding.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                _stopAfterCount.Focus();
+                _stopAfterCount.SelectAll();
+                return;
+            }
+            c.StopAfter = n;
+        }
+        _lastStop = (_stopAfter.IsChecked == true, _stopAfterCount.Text);
+
         // Folders to leave out (when the box is checked); the check box itself is remembered.
         bool skip = _skipExcluded.IsChecked == true;
         if (skip) c.ExcludedFolders = FileSearch.ParseExcluded(_excluded.Text);

@@ -266,6 +266,10 @@ above only works on the folder you are in.) The Search window asks:
   press **Save as My Standard List** to keep your changes there. **Add Folder...** picks a folder with the folder dialog. The folder you search in is
   never skipped, only what lies below it. The search bar says how many excluded folders were skipped.
 
+- **Stop After Finding [number] Items:** ends the search when that many items are found. They are the first ones found,
+  not the best ones, so it is for a quick look ("is there anything like this?") and not for "the 1,000 newest". The search bar says
+  "Stopped after N items". Without it a search still ends at 50,000 items.
+
 Compressed files (zip, RAR, 7z and so on) are not searched inside, but a compressed file is found by its own name.
 
 Click **Search** in the window and the results open in a **new tab** (named "Search: ..."), so the rest of
