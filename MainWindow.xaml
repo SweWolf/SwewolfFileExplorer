@@ -790,7 +790,7 @@
                     Background="{DynamicResource PaneBrush}"
                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
                 <DockPanel LastChildFill="True">
-                    <Button x:Name="SearchCancelButton" DockPanel.Dock="Right" Content="Cancel" FontSize="12" Padding="14,2" Margin="12,0,0,0"
+                    <Button x:Name="SearchCancelButton" DockPanel.Dock="Right" Content="Stop" FontSize="12" Padding="14,2" Margin="12,0,0,0"
                             ToolTip="Stop looking. What was found so far stays in the list." Click="SearchCancel_Click"/>
                     <Button x:Name="SearchAgainButton" DockPanel.Dock="Right" Content="New Search..." FontSize="12" Padding="14,2" Margin="12,0,0,0"
                             ToolTip="Search again (Ctrl+Shift+F); the results open in another tab" Click="SearchButton_Click"/>

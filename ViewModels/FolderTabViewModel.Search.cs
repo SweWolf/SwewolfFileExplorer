@@ -99,7 +99,7 @@ public partial class FolderTabViewModel
         {
             if (version != _searchVersion) return;
             var took = FormatDuration(clock.Elapsed);
-            var text = summary.Canceled ? $"Search canceled: {shown:N0} found so far ({took})"
+            var text = summary.Canceled ? $"Search stopped by user: {shown:N0} found so far ({took})"
                      : summary.StoppedAtLimit ? $"Stopped after {shown:N0} items ({took})"
                      : summary.Capped ?$"{shown:N0} found: the list is full, narrow the search to see the rest ({took})"
                      : $"Search finished: {shown:N0} found in {summary.FoldersSearched:N0} folders ({took})";

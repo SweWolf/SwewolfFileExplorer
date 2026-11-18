@@ -274,7 +274,7 @@ Compressed files (zip, RAR, 7z and so on) are not searched inside, but a compres
 
 Click **Search** in the window and the results open in a **new tab** (named "Search: ..."), so the rest of
 the program stays free to use while the search goes on. The items appear as they are found, with the
-number found shown above the list, and **Cancel** stops the search (what was found stays). A search that
+number found shown above the list, and **Stop** stops the search (what was found stays; **Esc** does the same). When a search is over, the button turns into **Close**, which closes the tab (so does a second **Esc**); it waits one second before it works, so a click meant for Stop does not close the results by accident. A search that
 finds more than 50,000 items stops there: narrow it to see the rest. Folders reached through a link
 (junction or symbolic link) are not followed.
 
