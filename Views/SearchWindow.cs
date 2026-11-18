@@ -22,7 +22,7 @@ public sealed class SearchWindow : Window
     {
         Content = "Approximate Name Matching",
         Margin = new Thickness(0, 8, 0, 0),
-        ToolTip = "Capitals, accents (å = a), spaces, dots, underscores and other punctuation are ignored, and a letter written twice counts once (mis finds Miss). Digits count. " +
+        ToolTip = "Capitals, accents (å = a, ß = s), spaces, dots, underscores and other punctuation are ignored, and a letter written twice counts once (Shuter Island finds Shutter Island).Digits count. " +
                   "A word with * or ? still has to fit the whole name, but *.jpg then also finds .jpeg (and htm / html, tif / tiff, mpg / mpeg and a few more)."
     };
     private readonly TextBox _name = new() { Padding = new Thickness(6, 4, 6, 4), VerticalContentAlignment = VerticalAlignment.Center };

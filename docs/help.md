@@ -251,9 +251,9 @@ above only works on the folder you are in.) The Search window asks:
 - **Name:** every word must be in the name, in any order and in any case. A word with `*` or `?` must fit
   the whole name, as in Windows (`*.ico` finds names that end in .ico, `alpha*` names that start with alpha, `*alpha*` names that
   have it anywhere). Quotes (`"summer holiday"`) keep words together as a phrase. Only names are searched, not what is inside the files.
-- **Approximate Name Matching** (under the Name box): capitals, accents (å, ä, ö, é become a, a, o, e), spaces, dots, underscores and other
-  punctuation are ignored, and a letter written twice or more in a row counts once, so `mis` finds `Miss_Saigon.mp3` and `svenska alvar`
-  finds `Svenska Älvar.txt`. Digits count as they are. Only the name is compared, never the extension. A word with `*` or `?` still has to
+- **Approximate Name Matching** (under the Name box): capitals, accents (å, ä, ö, é become a, a, o, e; the German ß becomes s), spaces, dots, underscores and other
+  punctuation are ignored, and a letter written twice or more in a row counts once, so `shuter island` finds `Shutter Island (2010).mkv` and
+  `svenska alvar` finds `Svenska Älvar.txt`. Digits count as they are. Only the name is compared, never the extension. A word with `*` or `?` still has to
   fit the whole name, but `*.jpg` then also finds `.jpeg` (and `htm` / `html`, `tif` / `tiff`, `mpg` / `mpeg`, `mid` / `midi`, `yml` / `yaml`,
   `aif` / `aiff`); so `mis *.jpg` means "approximately mis, and a JPEG". Letters of other alphabets (Japanese, Cyrillic ...) are not handled.
 - **Search for:** **Files and Folders**, **Files Only** or **Folders Only**; and **Visible Items Only**,

@@ -173,7 +173,7 @@ public static class FileSearch
                 case 'ø': case 'Ø': Put('o'); break;
                 case 'æ': case 'Æ': Put('a'); Put('e'); break;
                 case 'œ': case 'Œ': Put('o'); Put('e'); break;
-                case 'ß': Put('s'); Put('s'); break;
+                case 'ß': Put('s'); break;   // ß = ss, and doubled letters count once anyway: one s
                 case 'đ': case 'Đ': case 'ð': case 'Ð': Put('d'); break;
                 case 'ł': case 'Ł': Put('l'); break;
                 case 'þ': case 'Þ': Put('t'); Put('h'); break;
