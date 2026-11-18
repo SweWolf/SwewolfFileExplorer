@@ -18,6 +18,13 @@ public sealed class SearchWindow : Window
 
     private readonly TextBox _lookIn = new() { Padding = new Thickness(6, 4, 6, 4), VerticalContentAlignment = VerticalAlignment.Center };
     private readonly CheckBox _subfolders = new() { Content = "Include Subfolders", IsChecked = true, Margin = new Thickness(0, 8, 0, 0) };
+    private readonly CheckBox _approx = new()
+    {
+        Content = "Approximate Name Matching",
+        Margin = new Thickness(0, 8, 0, 0),
+        ToolTip = "Capitals, accents (å = a), spaces, dots, underscores and other punctuation are ignored, and a letter written twice counts once (mis finds Miss). Digits count. " +
+                  "A word with * or ? still has to fit the whole name, but *.jpg then also finds .jpeg (and htm / html, tif / tiff, mpg / mpeg and a few more)."
+    };
     private readonly TextBox _name = new() { Padding = new Thickness(6, 4, 6, 4), VerticalContentAlignment = VerticalAlignment.Center };
     private readonly ComboBox _kinds = new();
     private readonly ComboBox _hidden = new();
@@ -105,6 +112,8 @@ public sealed class SearchWindow : Window
         var namePanel = new StackPanel { Margin = new Thickness(0, 18, 0, 0) };
         namePanel.Children.Add(_name);
         namePanel.Children.Add(Hint("Every word must be in the name, in any order and in any case. A word with * or ? must fit the whole name (*.ico ends in .ico). Use quotes for a phrase. Only names are searched, not what is inside the files."));
+        namePanel.Children.Add(_approx);
+        namePanel.Children.Add(Hint("Ignores capitals, accents, spaces, dots and doubled letters: mis finds Miss_Saigon. Digits count."));
         Put(namePanel, row, 1);
         row++;
 
@@ -217,6 +226,7 @@ public sealed class SearchWindow : Window
         {
             _name.Text = _last.Text;
             _subfolders.IsChecked = _last.Subfolders;
+            _approx.IsChecked = _last.Approximate;
             _kinds.SelectedIndex = _lastKindsChoice;
             _hidden.SelectedIndex = (int)_last.Hidden;
             _modFrom.SelectedDate = _last.ModifiedFrom;
@@ -384,6 +394,7 @@ public sealed class SearchWindow : Window
             Roots = roots,
             Text = _name.Text.Trim(),
             Subfolders = _subfolders.IsChecked == true,
+            Approximate = _approx.IsChecked == true,
             Kinds = (SearchKinds)Math.Max(0, _kinds.SelectedIndex),
             Hidden = (SearchHidden)Math.Max(0, _hidden.SelectedIndex),
             ModifiedFrom = _modFrom.SelectedDate, ModifiedTo = _modTo.SelectedDate,

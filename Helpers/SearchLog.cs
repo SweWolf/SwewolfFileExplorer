@@ -29,7 +29,7 @@ internal sealed class SearchLog : IDisposable
             var w = new StreamWriter(File_, append: false, new UTF8Encoding(true)) { NewLine = "\r\n" };
             w.WriteLine($"Search started {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             w.WriteLine($"Look in: {string.Join("; ", c.Roots)}");
-            w.WriteLine($"Name: {c.Text}   Subfolders: {c.Subfolders}   Kinds: {c.Kinds}   Hidden: {c.Hidden}");
+            w.WriteLine($"Name: {c.Text}   Subfolders: {c.Subfolders}   Approximate: {c.Approximate}   Kinds: {c.Kinds}   Hidden: {c.Hidden}");
             if (c.ExcludedFolders.Count > 0) w.WriteLine($"Excluded folders: {string.Join(" | ", c.ExcludedFolders)}");
             w.WriteLine($"Modified:{c.ModifiedFrom:d} - {c.ModifiedTo:d}   Created: {c.CreatedFrom:d} - {c.CreatedTo:d}");
             w.WriteLine("milliseconds\tentries\tfolder");

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -14,6 +15,7 @@ namespace SwewolfFileExplorer.Helpers;
 //   2026-11-17  Progress about every 150 ms even with no results, with the folder that has been read longest (a slow folder shows);
 //               onFolder callback with the time of every folder (for the search log).
 //   2026-11-17  Size limits (MinBytes / MaxBytes, files only: a size search never returns folders).
+//   2026-11-17  Approximate name matching (Simplify; digits kept; *.ext accepts jpg / jpeg style spellings).
 //   2026-11-17  StopAfter (the user's limit; SearchSummary.StoppedAtLimit tells that it was that and not the built-in cap).
 //   2026-11-17  ExcludedFolders (full paths or plain names; counted in SearchSummary.ExcludedSkipped).
 //   2026-11-17  A term with * or ? must fit the whole name (anchored): *.ico no longer finds "MainWindow.IconView.cs".
@@ -32,6 +34,9 @@ public sealed class SearchCriteria
     public string Text { get; set; } = "";
 
     public bool Subfolders { get; set; } = true;
+
+    /// <summary>Approximate name matching: capitals, accents, punctuation and doubled letters do not matter (see <see cref="FileSearch.Simplify"/>).</summary>
+    public bool Approximate { get; set; }
     public SearchKinds Kinds { get; set; } = SearchKinds.FilesAndFolders;
     public SearchHidden Hidden { get; set; } = SearchHidden.VisibleOnly;
 
@@ -94,10 +99,15 @@ public static class FileSearch
     /// <summary>At most this many results: the list is a list of view models, and a search that finds more than this needs narrowing.</summary>
     public const int MaxResults = 50_000;
 
-    /// <summary>One name test for a search text; true for an empty text.</summary>
-    public static Func<string, bool> NameMatcher(string text)
+    /// <summary>One name test for a search text (the name, and whether it is a folder); true for an empty text.</summary>
+    /// <param name="approximate">
+    /// Approximate matching: the words and the name (without its extension, for a file) are both reduced by <see cref="Simplify"/> (no capitals,
+    /// accents or punctuation, doubled letters made one) before "is contained in" is asked. A word with * or ? is still exact, except that a
+    /// plain <c>*.ext</c> also accepts the other spellings of the extension (jpg / jpeg, htm / html ...: <see cref="SameExtension"/>).
+    /// </param>
+    public static Func<string, bool, bool> NameMatcher(string text, bool approximate = false)
     {
-        var terms = new List<Func<string, bool>>();
+        var terms = new List<Func<string, bool, bool>>();
         foreach (var term in SplitTerms(text))
         {
             if (term.IndexOfAny(new[] { '*', '?' }) >= 0)
@@ -106,15 +116,94 @@ public static class FileSearch
                 // alpha* starts with alpha, *alpha* has it anywhere. Words without a wildcard are still "contained in the name".
                 var regex = new Regex("^" + Regex.Escape(term).Replace("\\*", ".*").Replace("\\?", ".") + "$",
                                       RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
-                terms.Add(name => regex.IsMatch(name));
+
+                // Approximate: *.jpg is "an extension", and its other spellings count (a folder has none: it is tested as before).
+                if (approximate && term.Length > 2 && term.StartsWith("*.") && term.Skip(2).All(char.IsLetterOrDigit))
+                {
+                    var wanted = term[2..];
+                    terms.Add((name, isDir) => isDir ? regex.IsMatch(name) : SameExtension(Path.GetExtension(name), wanted));
+                }
+                else
+                    terms.Add((name, _) => regex.IsMatch(name));
+            }
+            else if (approximate)
+            {
+                var t = Simplify(term);
+                if (t.Length == 0) continue;   // only punctuation: nothing to look for
+                terms.Add((name, isDir) => Simplify(isDir ? name : Path.GetFileNameWithoutExtension(name)).Contains(t, StringComparison.Ordinal));
             }
             else
             {
                 var t = term;
-                terms.Add(name => name.Contains(t, StringComparison.OrdinalIgnoreCase));
+                terms.Add((name, _) => name.Contains(t, StringComparison.OrdinalIgnoreCase));
             }
         }
-        return name => { foreach (var t in terms) if (!t(name)) return false; return true; };
+        return (name, isDir) => { foreach (var t in terms) if (!t(name, isDir)) return false; return true; };
+    }
+
+    /// <summary>
+    /// The form a name is compared in by approximate matching: lower case; accents and rings gone (å ä -> a, ö -> o, é -> e; ø, æ, ß and a few
+    /// more letters that do not split are mapped by hand); everything that is not a letter or a digit (space, dot, underscore, dash ...) removed;
+    /// a letter that comes twice or more in a row (after the removal) is written once. Digits stay as they are. Letters of other alphabets
+    /// are only lower-cased (not handled further).
+    /// </summary>
+    public static string Simplify(string name)
+    {
+        var sb = new StringBuilder(name.Length);
+        char last = '\0';   // the last letter written ("" after a digit): only letters are made single
+        void Put(char c)
+        {
+            if (char.IsDigit(c)) { sb.Append(c); last = '\0'; return; }
+            if (!char.IsLetter(c)) return;
+            c = char.ToLowerInvariant(c);
+            if (c == last) return;
+            sb.Append(c);
+            last = c;
+        }
+
+        bool ascii = true;
+        foreach (var ch in name) if (ch > 127) { ascii = false; break; }
+        var source = ascii ? name : name.Normalize(NormalizationForm.FormD);   // å = a + a ring: the ring is a combining mark
+        foreach (var ch in source)
+        {
+            if (ch < 128) { Put(ch); continue; }
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark) continue;
+            switch (ch)
+            {
+                case 'ø': case 'Ø': Put('o'); break;
+                case 'æ': case 'Æ': Put('a'); Put('e'); break;
+                case 'œ': case 'Œ': Put('o'); Put('e'); break;
+                case 'ß': Put('s'); Put('s'); break;
+                case 'đ': case 'Đ': case 'ð': case 'Ð': Put('d'); break;
+                case 'ł': case 'Ł': Put('l'); break;
+                case 'þ': case 'Þ': Put('t'); Put('h'); break;
+                default: Put(ch); break;
+            }
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>The spellings of one file type that approximate matching treats as the same extension (without the dot, any case).</summary>
+    private static readonly string[][] ExtensionFamilies =
+    {
+        new[] { "jpg", "jpeg", "jpe", "jfif" },
+        new[] { "tif", "tiff" },
+        new[] { "htm", "html" },
+        new[] { "mpg", "mpeg", "mpe" },
+        new[] { "mid", "midi" },
+        new[] { "yml", "yaml" },
+        new[] { "aif", "aiff", "aifc" },
+    };
+
+    /// <summary>The extension of a file (with or without its dot) is <paramref name="wanted"/>, or another spelling of the same type (jpg and jpeg).</summary>
+    public static bool SameExtension(string actual, string wanted)
+    {
+        actual = actual.TrimStart('.');
+        if (string.Equals(actual, wanted, StringComparison.OrdinalIgnoreCase)) return true;
+        foreach (var family in ExtensionFamilies)
+            if (family.Contains(actual, StringComparer.OrdinalIgnoreCase) && family.Contains(wanted, StringComparer.OrdinalIgnoreCase))
+                return true;
+        return false;
     }
 
     /// <summary>
@@ -166,7 +255,7 @@ public static class FileSearch
     private static SearchSummary Run(SearchCriteria c, Action<List<FileSystemInfo>, long, string?> onBatch, CancellationToken ct,
                                      Action<string, long, int>? onFolder)
     {
-        var matches = NameMatcher(c.Text);
+        var matches = NameMatcher(c.Text, c.Approximate);
         bool wantFiles = c.Kinds != SearchKinds.FoldersOnly;
         bool wantDirs  = c.Kinds != SearchKinds.FilesOnly;
 
@@ -275,7 +364,7 @@ public static class FileSearch
                 if (!isDir && c.HasSizeLimit && !SizeMatches(c, e)) continue;
                 if (c.Hidden == SearchHidden.VisibleOnly && hidden) continue;
                 if (c.Hidden == SearchHidden.HiddenOnly && !hidden) continue;
-                if (!matches(e.Name)) continue;
+                if (!matches(e.Name, isDir)) continue;
                 if (!DatesMatch(c, e)) continue;
 
                 lock (gate)
