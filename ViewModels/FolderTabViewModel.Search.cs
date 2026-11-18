@@ -104,6 +104,8 @@ public partial class FolderTabViewModel
                      : $"Search finished: {shown:N0} found in {summary.FoldersSearched:N0} folders ({took})";
             if (summary.FoldersSkipped > 0)
                 text += $". {summary.FoldersSkipped:N0} {(summary.FoldersSkipped == 1 ? "folder" : "folders")} could not be read.";
+            if (summary.ExcludedSkipped > 0)
+                text += $". {summary.ExcludedSkipped:N0} excluded {(summary.ExcludedSkipped == 1 ? "folder was" : "folders were")} skipped.";
             SetSearchStatus(text, running: false);
             EnsureTags();   // the tag columns, if shown
         });

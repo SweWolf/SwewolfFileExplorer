@@ -14,6 +14,7 @@ namespace SwewolfFileExplorer.Helpers;
 //   2026-11-17  Progress about every 150 ms even with no results, with the folder that has been read longest (a slow folder shows);
 //               onFolder callback with the time of every folder (for the search log).
 //   2026-11-17  Size limits (MinBytes / MaxBytes, files only: a size search never returns folders).
+//   2026-11-17  ExcludedFolders (full paths or plain names; counted in SearchSummary.ExcludedSkipped).
 //   2026-11-17  A term with * or ? must fit the whole name (anchored): *.ico no longer finds "MainWindow.IconView.cs".
 
 public enum SearchKinds { FilesAndFolders, FilesOnly, FoldersOnly }
@@ -39,6 +40,12 @@ public sealed class SearchCriteria
     public DateTime? CreatedTo { get; set; }
 
     /// <summary>Size limits of a FILE in bytes, both ends included; null = no limit on that side. A folder has no size: with a limit set no folder is a result.</summary>
+    /// <summary>
+    /// Folders that are never entered (and never a result): a full path (that folder and everything below it) or a plain name (any folder with
+    /// that name, anywhere: node_modules, .git). Never applied to the folders in <see cref="Roots"/> themselves. See <see cref="FileSearch.ParseExcluded"/>.
+    /// </summary>
+    public List<string> ExcludedFolders { get; set; } = new();
+
     public long? MinBytes { get; set; }
     public long? MaxBytes { get; set; }
     public bool HasSizeLimit => MinBytes != null || MaxBytes != null;
@@ -47,6 +54,7 @@ public sealed class SearchCriteria
     {
         var c = (SearchCriteria)MemberwiseClone();
         c.Roots = new List<string>(Roots);
+        c.ExcludedFolders = new List<string>(ExcludedFolders);
         return c;
     }
 
@@ -75,7 +83,7 @@ public sealed class SearchCriteria
         from != null && to != null ? $"{from:d} - {to:d}" : from != null ? $"from {from:d}" : $"until {to:d}";
 }
 
-public sealed record SearchSummary(long Found, long FoldersSearched, long FoldersSkipped, bool Capped, bool Canceled);
+public sealed record SearchSummary(long Found, long FoldersSearched, long FoldersSkipped, bool Capped, bool Canceled, long ExcludedSkipped = 0);
 
 public static class FileSearch
 {
@@ -104,6 +112,25 @@ public static class FileSearch
         }
         return name => { foreach (var t in terms) if (!t(name)) return false; return true; };
     }
+
+    /// <summary>
+    /// The text of the "folders to exclude" box (one per line; semicolons also separate): quotes and spaces at the ends removed, a closing
+    /// backslash removed, empty lines and doubles dropped. An entry with a backslash, slash or colon is a full path, anything else a folder name.
+    /// </summary>
+    public static List<string> ParseExcluded(string? text)
+    {
+        var result = new List<string>();
+        foreach (var raw in (text ?? "").Split('\n', '\r', ';'))
+        {
+            var s = raw.Trim().Trim('"').Trim();
+            if (s.Length > 3) s = s.TrimEnd('\\', '/');   // "D:\" keeps its backslash: a drive root
+            if (s.Length == 0) continue;
+            if (!result.Contains(s, StringComparer.OrdinalIgnoreCase)) result.Add(s);
+        }
+        return result;
+    }
+
+    private static bool IsPathEntry(string s) => s.IndexOfAny(new[] { '\\', '/', ':' }) >= 0;
 
     private static List<string> SplitTerms(string text)
     {
@@ -142,7 +169,9 @@ public static class FileSearch
         var queue = new ConcurrentQueue<string>();
         foreach (var root in c.Roots) queue.Enqueue(root);
         long outstanding = c.Roots.Count;   // folders queued or being read
-        long searched = 0, skipped = 0, found = 0;
+        long searched = 0, skipped = 0, found = 0, excludedSkipped = 0;
+        var excludedNames = new HashSet<string>(c.ExcludedFolders.Where(x => !IsPathEntry(x)), StringComparer.OrdinalIgnoreCase);
+        var excludedPaths = new HashSet<string>(c.ExcludedFolders.Where(IsPathEntry).Select(x => x.Replace('/', '\\')), StringComparer.OrdinalIgnoreCase);
         bool capped = false;
 
         var batch = new List<FileSystemInfo>();
@@ -221,6 +250,13 @@ public static class FileSearch
                 bool isDir = (e.Attributes & FileAttributes.Directory) != 0;
                 bool hidden = isDir ? HiddenItems.IsHiddenByAttributes(e.Attributes) : HiddenItems.IsHiddenFile(e.Attributes, e.Name);
 
+                // An excluded folder is neither entered nor a result (the folders searched in are never tested: only what lies below them).
+                if (isDir && (excludedNames.Contains(e.Name) || excludedPaths.Contains(e.FullName.TrimEnd('\\'))))
+                {
+                    Interlocked.Increment(ref excludedSkipped);
+                    continue;
+                }
+
                 // A hidden folder is not entered when hidden things are not wanted: what is in it is not seen in a folder window either.
                 if (isDir && c.Subfolders && !(hidden && c.Hidden == SearchHidden.VisibleOnly) && !IsLink(e))
                 {
@@ -251,7 +287,7 @@ public static class FileSearch
         Task.WaitAll(tasks);
         ticker.Dispose();
         Flush(true);
-        return new SearchSummary(found, searched, skipped, capped, ct.IsCancellationRequested);
+        return new SearchSummary(found, searched, skipped, capped, ct.IsCancellationRequested, Interlocked.Read(ref excludedSkipped));
     }
 
     /// <summary>A symbolic link or junction (not followed: it could lead back up and never end). A cloud folder's reparse point is no link.</summary>

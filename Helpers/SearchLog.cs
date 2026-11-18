@@ -30,7 +30,8 @@ internal sealed class SearchLog : IDisposable
             w.WriteLine($"Search started {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             w.WriteLine($"Look in: {string.Join("; ", c.Roots)}");
             w.WriteLine($"Name: {c.Text}   Subfolders: {c.Subfolders}   Kinds: {c.Kinds}   Hidden: {c.Hidden}");
-            w.WriteLine($"Modified: {c.ModifiedFrom:d} - {c.ModifiedTo:d}   Created: {c.CreatedFrom:d} - {c.CreatedTo:d}");
+            if (c.ExcludedFolders.Count > 0) w.WriteLine($"Excluded folders: {string.Join(" | ", c.ExcludedFolders)}");
+            w.WriteLine($"Modified:{c.ModifiedFrom:d} - {c.ModifiedTo:d}   Created: {c.CreatedFrom:d} - {c.CreatedTo:d}");
             w.WriteLine("milliseconds\tentries\tfolder");
             return new SearchLog(w);
         }
@@ -70,7 +71,7 @@ internal sealed class SearchLog : IDisposable
                     _writer.WriteLine($"{f.Ms}\t{f.Entries}\t{f.Path}");
                 _writer.WriteLine();
                 _writer.WriteLine($"{(s.Canceled ? "Canceled" : s.Capped ? "Stopped at the limit" : "Finished")}: {s.Found:N0} found, {s.FoldersSearched:N0} folders, " +
-                                  $"{s.FoldersSkipped:N0} could not be read, {took.TotalSeconds:0.0} s in all, {_all.Sum(f => f.Ms) / 1000.0:0.0} s added up over all threads.");
+                                  $"{s.FoldersSkipped:N0} could not be read, {s.ExcludedSkipped:N0} excluded folders skipped, {took.TotalSeconds:0.0} s in all, {_all.Sum(f => f.Ms) / 1000.0:0.0} s added up over all threads.");
             }
         }
         catch { }

@@ -30,6 +30,15 @@ public sealed class SearchWindow : Window
     private readonly TextBlock _sizeAnd = new() { Text = "and", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 10, 0) };
     private readonly ComboBox _sizeUnit = new() { Width = 72, Margin = new Thickness(10, 0, 0, 0) };
     private TextBlock? _sizeNote;
+
+    // Folders to leave out: the check box (remembered) and, while it is checked, the list (filled from Settings > Search; edits count for this search
+    // only, unless "Save as My Standard List" is pressed).
+    private readonly CheckBox _skipExcluded = new() { Content = "Skip My Excluded Folders", Margin = new Thickness(0, 10, 0, 0) };
+    private readonly TextBox _excluded = new() { AcceptsReturn = true, MinHeight = 66, MaxHeight = 120, Margin = new Thickness(0, 6, 0, 0), Padding = new Thickness(6, 4, 6, 4),
+                                                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, TextWrapping = TextWrapping.NoWrap };
+    private readonly Button _addExcluded = new() { Content = "Add Folder...", Padding = new Thickness(14, 4, 14, 4) };
+    private readonly Button _saveExcluded = new() { Content = "Save as My Standard List", Padding = new Thickness(14, 4, 14, 4), Margin = new Thickness(8, 0, 0, 0) };
+    private StackPanel? _excludedPanel;
     private int _kindsBeforeSize;   // what "Search for" was before a size forced Files Only
     private static (int Mode, string Text1, string Text2, int Unit) _lastSize;   // this run only
     private static int _lastKindsChoice;
@@ -138,6 +147,26 @@ public sealed class SearchWindow : Window
         row++;
         _sizeMode.SelectionChanged += (_, _) => UpdateSizeUi();
 
+        // Excluded folders: a check box; the list (with its two buttons) shows only while it is checked.
+        NewRow();
+        var exPanel = new StackPanel();
+        exPanel.Children.Add(_skipExcluded);
+        _excludedPanel = new StackPanel { Visibility = Visibility.Collapsed };
+        _excludedPanel.Children.Add(_excluded);
+        var exButtons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
+        exButtons.Children.Add(_addExcluded);
+        exButtons.Children.Add(_saveExcluded);
+        _excludedPanel.Children.Add(exButtons);
+        _excludedPanel.Children.Add(Hint("One folder per line: a full path (D:\\TMDB) or just a name (node_modules). The folder searched in is never skipped."));
+        exPanel.Children.Add(_excludedPanel);
+        Put(exPanel, row, 1);
+        row++;
+        _skipExcluded.Checked += (_, _) => UpdateExcludedUi();
+        _skipExcluded.Unchecked += (_, _) => UpdateExcludedUi();
+        _excluded.TextChanged += (_, _) => UpdateExcludedUi();
+        _addExcluded.Click += (_, _) => AddExcludedFolder();
+        _saveExcluded.Click += (_, _) => SaveExcludedAsStandard();
+
         // The limit of what is searched
         NewRow();
         var note = new TextBlock
@@ -182,6 +211,11 @@ public sealed class SearchWindow : Window
         }
         UpdateSizeUi();
 
+        // The list always starts as Settings > Search has it; the check box is as it was left.
+        _excluded.Text = AppSettingsStore.Current.SearchExcludedFolders.Replace("\n", Environment.NewLine);
+        _skipExcluded.IsChecked = AppSettingsStore.Current.SearchSkipExcluded;
+        UpdateExcludedUi();
+
         browse.Click += (_, _) => Browse();
         search.Click += (_, _) => Accept();
         Loaded += (_, _) => { _name.Focus(); _name.SelectAll(); };
@@ -223,6 +257,37 @@ public sealed class SearchWindow : Window
         _lookIn.Text = (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && _lookIn.Text.Trim().Length > 0
             ? _lookIn.Text.TrimEnd().TrimEnd(';') + "; " + dlg.FolderName
             : dlg.FolderName;
+    }
+
+    /// <summary>The list shows while the box is checked; "Save as My Standard List" is there only when the list differs from the saved one.</summary>
+    private void UpdateExcludedUi()
+    {
+        bool on = _skipExcluded.IsChecked == true;
+        if (_excludedPanel != null) _excludedPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        var saved = string.Join("\n", FileSearch.ParseExcluded(AppSettingsStore.Current.SearchExcludedFolders));
+        var now = string.Join("\n", FileSearch.ParseExcluded(_excluded.Text));
+        _saveExcluded.IsEnabled = !string.Equals(saved, now, StringComparison.OrdinalIgnoreCase);
+        _saveExcluded.ToolTip = _saveExcluded.IsEnabled
+            ? "Keep this list in Settings > Search, so every search starts with it"
+            : "This is the list in Settings > Search already";
+        SizeToContent = SizeToContent.WidthAndHeight;   // the window grows and shrinks with the list
+    }
+
+    private void AddExcludedFolder()
+    {
+        var dlg = new OpenFolderDialog { Title = "Choose a folder to exclude" };
+        if (dlg.ShowDialog(this) != true) return;
+        var text = _excluded.Text.TrimEnd();
+        _excluded.Text = (text.Length > 0 ? text + Environment.NewLine : "") + dlg.FolderName;
+        _excluded.CaretIndex = _excluded.Text.Length;
+    }
+
+    private void SaveExcludedAsStandard()
+    {
+        var s = AppSettingsStore.Current;
+        s.SearchExcludedFolders = string.Join("\n", FileSearch.ParseExcluded(_excluded.Text));
+        AppSettingsStore.Save(AppSettingsStore.Current);
+        UpdateExcludedUi();
     }
 
     /// <summary>Shows what the chosen size mode needs. With a size "Search for" is Files Only and locked (a folder has no size); Any Size gives the old choice back.</summary>
@@ -327,6 +392,15 @@ public sealed class SearchWindow : Window
             c.MaxBytes = hi;
             c.Kinds = SearchKinds.FilesOnly;
         }
+        // Folders to leave out (when the box is checked); the check box itself is remembered.
+        bool skip = _skipExcluded.IsChecked == true;
+        if (skip) c.ExcludedFolders = FileSearch.ParseExcluded(_excluded.Text);
+        if (AppSettingsStore.Current.SearchSkipExcluded != skip)
+        {
+            AppSettingsStore.Current.SearchSkipExcluded = skip;
+            AppSettingsStore.Save(AppSettingsStore.Current);
+        }
+
         _lastSize = (mode, _size1.Text, _size2.Text, _sizeUnit.SelectedIndex);
         _lastKindsChoice = _kinds.IsEnabled ? _kinds.SelectedIndex : _kindsBeforeSize;   // not the Files Only that a size forced
 

@@ -108,6 +108,7 @@ public partial class SettingsWindow : Window
         LogInternetBox.IsChecked           = current.LogInternetCalls;
         LogWarningsBox.IsChecked           = current.LogWarnings;
         LogSearchesBox.IsChecked           = current.LogSearches;
+        SearchExcludedBox.Text             = current.SearchExcludedFolders.Replace("\n", Environment.NewLine);
         MediaPlayerTab.Visibility          = MediaPlayerLauncher.FindPlayer() != null ? Visibility.Visible : Visibility.Collapsed;   // no player, no tab
         WarnHiddenNotSelectedBox.IsChecked = current.WarnHiddenNotSelected;
         AskBeforeAdminBox.IsChecked        = current.AskBeforeAdministrator;
@@ -181,6 +182,16 @@ public partial class SettingsWindow : Window
         }
         TmdbKeyEye.Content = show ? "" : "";   // eye with a slash / eye
         TmdbKeyEye.ToolTip = show ? "Hide the API key" : "Show the API key";
+    }
+
+    /// <summary>Add Folder...: the folder picker; the chosen folder goes on a new line of the exclude list.</summary>
+    private void SearchExcludedAdd_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Choose a folder to exclude from searches" };
+        if (dlg.ShowDialog(this) != true) return;
+        var text = SearchExcludedBox.Text.TrimEnd();
+        SearchExcludedBox.Text = (text.Length > 0 ? text + Environment.NewLine : "") + dlg.FolderName;
+        SearchExcludedBox.CaretIndex = SearchExcludedBox.Text.Length;
     }
 
     private void TmdbKeyLink_Navigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
@@ -276,6 +287,7 @@ public partial class SettingsWindow : Window
         settings.LogInternetCalls = LogInternetBox.IsChecked == true;
         settings.LogWarnings      = LogWarningsBox.IsChecked == true;
         settings.LogSearches      = LogSearchesBox.IsChecked == true;
+        settings.SearchExcludedFolders = string.Join("\n", FileSearch.ParseExcluded(SearchExcludedBox.Text));   // tidied: no quotes, no doubles
         settings.Style = Styles[StyleBox.SelectedIndex];
         settings.FontFamily = (FontBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "";
         settings.UnreadBold   = UnreadBoldBox.IsChecked == true;

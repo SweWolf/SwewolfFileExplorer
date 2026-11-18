@@ -259,6 +259,13 @@ above only works on the folder you are in.) The Search window asks:
   A folder has no size, so with a size set only files are searched ("Search for" is locked to **Files Only**; **Any Size** unlocks it).
   **At Most** 0 KB finds empty files.
 
+- **Skip My Excluded Folders:** leaves folders out of the search, which can make a search on a big drive much faster (a Python
+  environment or a folder with hundreds of thousands of small files can take minutes). When it is checked, a list shows with the folders
+  to skip, one per line: a **full path** (`D:\TMDB`: that folder and everything below it) or just a **name** (`node_modules`:
+  every folder with that name, anywhere). The list starts as it is in **Tools > Settings > Search**. You can edit it for this search only, or
+  press **Save as My Standard List** to keep your changes there. **Add Folder...** picks a folder with the folder dialog. The folder you search in is
+  never skipped, only what lies below it. The search bar says how many excluded folders were skipped.
+
 Compressed files (zip, RAR, 7z and so on) are not searched inside, but a compressed file is found by its own name.
 
 Click **Search** in the window and the results open in a **new tab** (named "Search: ..."), so the rest of
