@@ -73,7 +73,11 @@ public sealed class SearchWindow : Window
         foreach (var s in new[] { "Visible Items Only", "Visible and Hidden Items", "Hidden Items Only" }) _hidden.Items.Add(s);
         _kinds.SelectedIndex = 0;
         _hidden.SelectedIndex = 0;
-        foreach (var d in new[] { _modFrom, _modTo, _creFrom, _creTo }) d.Width = 150;
+        foreach (var d in new[] { _modFrom, _modTo, _creFrom, _creTo })
+        {
+            d.Width = 150;
+            d.ToolTip = "Leave a date empty for no limit on that side. The last day is included.";
+        }
 
         var grid = new Grid { Margin = new Thickness(24), MinWidth = 640 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -92,14 +96,22 @@ public sealed class SearchWindow : Window
         var browse = new Button { Content = "Browse...", Padding = new Thickness(16, 5, 16, 5), Margin = new Thickness(8, 0, 0, 0) };
         DockPanel.SetDock(browse, Dock.Right);
         lookRow.Children.Add(browse);
-        lookRow.Children.Add(_lookIn);
+        // The hint is inside the empty box (it goes away when something is typed), not under it.
+        var lookBox = new Grid();
+        lookBox.Children.Add(_lookIn);
+        var lookPlaceholder = new TextBlock
+        {
+            Text = "All local drives. Separate several folders with ;", Opacity = 0.5, IsHitTestVisible = false,
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0)
+        };
+        lookBox.Children.Add(lookPlaceholder);
+        _lookIn.TextChanged += (_, _) => lookPlaceholder.Visibility = _lookIn.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        _lookIn.ToolTip = "The folders to search. Leave the box empty to search all local drives. Separate several folders with a semicolon (;).";
+        lookRow.Children.Add(lookBox);
         Put(lookRow, row, 1);
         row++;
         NewRow();
-        var lookHint = new StackPanel();
-        lookHint.Children.Add(_subfolders);
-        lookHint.Children.Add(Hint("Leave the box empty to search all local drives. Separate several folders with a semicolon (;)."));
-        Put(lookHint, row, 1);
+        Put(_subfolders, row, 1);
         row++;
 
         // Name
@@ -111,9 +123,9 @@ public sealed class SearchWindow : Window
         Put(nameLabel, row, 0);
         var namePanel = new StackPanel { Margin = new Thickness(0, 18, 0, 0) };
         namePanel.Children.Add(_name);
-        namePanel.Children.Add(Hint("Every word must be in the name, in any order and in any case. A word with * or ? must fit the whole name (*.ico ends in .ico). Use quotes for a phrase. Only names are searched, not what is inside the files."));
+        _name.ToolTip = "Every word must be in the name, in any order and in any case. A word with * or ? must fit the whole name (*.ico ends in .ico). " +
+                        "Use quotes for a phrase. Only names are searched, not what is inside the files.";
         namePanel.Children.Add(_approx);
-        namePanel.Children.Add(Hint("Ignores capitals, accents, spaces, dots and doubled letters: mis finds Miss_Saigon. Digits count."));
         Put(namePanel, row, 1);
         row++;
 
@@ -134,10 +146,6 @@ public sealed class SearchWindow : Window
         // Dates
         DateRow(grid, ref row, "Date Modified:", _modFrom, _modTo, 14);
         DateRow(grid, ref row, "Date Created:", _creFrom, _creTo, 8);
-        NewRow();
-        Put(Hint("Leave a date empty for no limit on that side. The last day is included."), row, 1);
-        row++;
-
         // Size
         foreach (var s in new[] { "Any Size", "At Least", "At Most", "Between" }) _sizeMode.Items.Add(s);
         foreach (var s in new[] { "KB", "MB", "GB" }) _sizeUnit.Items.Add(s);
@@ -171,7 +179,7 @@ public sealed class SearchWindow : Window
         exButtons.Children.Add(_addExcluded);
         exButtons.Children.Add(_saveExcluded);
         _excludedPanel.Children.Add(exButtons);
-        _excludedPanel.Children.Add(Hint("One folder per line: a full path (C:\\MyFolder) or just a name (node_modules). The folder searched in is never skipped."));
+        _excluded.ToolTip = "One folder per line: a full path (C:\\MyFolder) or just a name (node_modules). The folder searched in is never skipped.";
         exPanel.Children.Add(_excludedPanel);
         Put(exPanel, row, 1);
         row++;
@@ -183,7 +191,8 @@ public sealed class SearchWindow : Window
         stopRow.Children.Add(new TextBlock { Text = "Items", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) });
         var stopPanel = new StackPanel();
         stopPanel.Children.Add(stopRow);
-        stopPanel.Children.Add(Hint("The search ends when this many are found: the first ones found, not the best ones. Without it a search ends at 50,000."));
+        _stopAfter.ToolTip = _stopAfterCount.ToolTip =
+            "The search ends when this many are found: the first ones found, not the best ones. Without it a search ends at 50,000.";
         Put(stopPanel, row, 1);
         row++;
         _stopAfter.Checked += (_, _) => _stopAfterCount.IsEnabled = true;
