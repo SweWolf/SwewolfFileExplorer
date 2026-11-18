@@ -233,6 +233,11 @@ only the files whose names contain it, anywhere in the name. With several words,
 be in the name. **Esc** clears the text, and a second **Esc** closes the bar. You can also press
 **Esc** with the focus in the list or the tree to close the bar.
 
+A word with `*` or `?` has to fit the whole name, as in Windows: `file*` finds names that start with
+file, `*.txt` names that end in .txt. Quotes keep words together as a phrase. The **&asymp;** box to the
+right of the text box turns on approximate matching, as in the Search window: capitals, accents, spaces
+and punctuation are ignored and a doubled letter counts once, so `shuter island` finds `Shutter Island.mkv`.
+
 The bar also has a **Modified** choice: **Later Than** or **Earlier Than** shows a date box and a time box
 (hours and minutes, written as Windows writes the time, with AM or PM if your settings use it). The
 list shows only the items modified after or before that moment; an item modified at exactly that

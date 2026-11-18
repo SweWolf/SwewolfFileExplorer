@@ -349,8 +349,19 @@ public partial class MainWindow : Window
     {
         // Several words: every one of them must be somewhere in the name.
         _filterTerms = FilterBox.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        _filterMatcher = null;
         ApplyFilter();
     }
+
+    private void FilterApprox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (FileListView == null) return;   // raised while the window is being built
+        _filterMatcher = null;
+        ApplyFilter();
+    }
+
+    // The name test of the filter: the same as the Search window's (words contained, * and ? for the whole name, "phrases", approximate).
+    private Func<string, bool, bool>? _filterMatcher;
 
     private void FilterClear_Click(object sender, RoutedEventArgs e)
     {
@@ -425,8 +436,9 @@ public partial class MainWindow : Window
             }
             else
             {
+                var matcher = _filterMatcher ??= FileSearch.NameMatcher(FilterBox.Text, FilterApproxBox.IsChecked == true);
                 view.Filter = o => o is FileItemViewModel item
-                                   && terms.All(t => item.DisplayName.Contains(t, StringComparison.CurrentCultureIgnoreCase))
+                                   && (terms.Length == 0 || matcher(item.DisplayName, item.IsDirectory))
                                    && RatingMatches(item.Rating, mode, value)
                                    && DateMatches(item.DateModified, dateMode, day);
 

@@ -841,8 +841,11 @@
                         <ComboBoxItem Content="Earlier Than"/>
                     </ComboBox>
                     <TextBlock Text="Modified:" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="24,0,0,0" FontSize="12"/>
+                    <CheckBox x:Name="FilterApproxBox" DockPanel.Dock="Right" TabIndex="7" Content="&#x2248;" FontSize="14" MinWidth="0" Margin="6,0,0,0" VerticalAlignment="Center"
+                              ToolTip="Approximate name matching: capitals, accents, spaces, dots and other punctuation are ignored, and a letter written twice counts once (Shuter Island finds Shutter Island)."
+                              Checked="FilterApprox_Changed" Unchecked="FilterApprox_Changed"/>
                     <TextBox x:Name="FilterBox" TabIndex="0" Padding="3" MinWidth="200"
-                             ToolTip="Only the items whose name contains these letters are shown. Several words: every word must be in the name."
+                             ToolTip="Only the items whose name contains these letters are shown. Several words: every word must be in the name. * and ? are wildcards for the whole name (file* starts with file, *.txt ends in .txt)."
                              TextChanged="FilterBox_TextChanged" PreviewKeyDown="FilterBox_PreviewKeyDown"/>
                 </DockPanel>
             </Border>
