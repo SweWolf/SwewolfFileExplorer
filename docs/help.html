@@ -425,15 +425,15 @@ with a size set only files are searched (“Search for” is locked to
 the search, which can make a search on a big drive much faster (a Python
 environment or a folder with hundreds of thousands of small files can
 take minutes). When it is checked, a list shows with the folders to
-skip, one per line: a <strong>full path</strong> (<code>D:\TMDB</code>:
-that folder and everything below it) or just a <strong>name</strong>
-(<code>node_modules</code>: every folder with that name, anywhere). The
-list starts as it is in <strong>Tools &gt; Settings &gt;
-Search</strong>. You can edit it for this search only, or press
-<strong>Save as My Standard List</strong> to keep your changes there.
-<strong>Add Folder…</strong> picks a folder with the folder dialog. The
-folder you search in is never skipped, only what lies below it. The
-search bar says how many excluded folders were skipped.</p></li>
+skip, one per line: a <strong>full path</strong>
+(<code>C:\MyFolder</code>: that folder and everything below it) or just
+a <strong>name</strong> (<code>node_modules</code>: every folder with
+that name, anywhere). The list starts as it is in <strong>Tools &gt;
+Settings &gt; Search</strong>. You can edit it for this search only, or
+press <strong>Save as My Standard List</strong> to keep your changes
+there. <strong>Add Folder…</strong> picks a folder with the folder
+dialog. The folder you search in is never skipped, only what lies below
+it. The search bar says how many excluded folders were skipped.</p></li>
 <li><p><strong>Stop After Finding [number] Items:</strong> ends the
 search when that many items are found. They are the first ones found,
 not the best ones, so it is for a quick look (“is there anything like
@@ -1315,6 +1315,15 @@ the top of the tree.</li>
 selected. Nothing is played or opened.</li>
 <li>A <strong>workspace or session file</strong> (<code>.json</code>):
 it is opened.</li>
+</ul>
+<p>The switches of Windows Explorer that matter most also work:</p>
+<ul>
+<li><code>/select,&quot;path&quot;</code>: the item’s folder opens with the item
+selected, <strong>also for a picture or a folder</strong>, and nothing
+is opened. If the item is gone, its folder opens.</li>
+<li><code>/root,&quot;folder&quot;</code>: the folder is the top of the tree.</li>
+<li><code>/e</code>, <code>/n</code> and <code>/separate</code> are
+accepted and ignored.</li>
 </ul>
 <h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
 <table>

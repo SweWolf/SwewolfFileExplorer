@@ -162,7 +162,7 @@ public sealed class SearchWindow : Window
         exButtons.Children.Add(_addExcluded);
         exButtons.Children.Add(_saveExcluded);
         _excludedPanel.Children.Add(exButtons);
-        _excludedPanel.Children.Add(Hint("One folder per line: a full path (D:\\TMDB) or just a name (node_modules). The folder searched in is never skipped."));
+        _excludedPanel.Children.Add(Hint("One folder per line: a full path (C:\\MyFolder) or just a name (node_modules). The folder searched in is never skipped."));
         exPanel.Children.Add(_excludedPanel);
         Put(exPanel, row, 1);
         row++;

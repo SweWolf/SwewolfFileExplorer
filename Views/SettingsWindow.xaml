@@ -175,7 +175,7 @@
                            Text="One folder per line. In the Search window the check box Skip My Excluded Folders leaves these out of a search, which can make a search on a big drive much faster."/>
                 <TextBox x:Name="SearchExcludedBox" Margin="0,8,0,0" MinHeight="150" AcceptsReturn="True" TextWrapping="NoWrap"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
-                         ToolTip="A full path, for example D:\TMDB (that folder and everything below it is skipped), or just a name, for example node_modules (every folder with that name, anywhere, is skipped)."/>
+                         ToolTip="A full path, for example C:\MyFolder (that folder and everything below it is skipped), or just a name, for example node_modules (every folder with that name, anywhere, is skipped)."/>
                 <Button x:Name="SearchExcludedAddButton" Content="Add Folder..." HorizontalAlignment="Left" Padding="16,5" Margin="0,8,0,0"
                         Click="SearchExcludedAdd_Click"/>
                 <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left" Opacity="0.75"

@@ -261,7 +261,7 @@ above only works on the folder you are in.) The Search window asks:
 
 - **Skip My Excluded Folders:** leaves folders out of the search, which can make a search on a big drive much faster (a Python
   environment or a folder with hundreds of thousands of small files can take minutes). When it is checked, a list shows with the folders
-  to skip, one per line: a **full path** (`D:\TMDB`: that folder and everything below it) or just a **name** (`node_modules`:
+  to skip, one per line: a **full path** (`C:\MyFolder`: that folder and everything below it) or just a **name** (`node_modules`:
   every folder with that name, anywhere). The list starts as it is in **Tools > Settings > Search**. You can edit it for this search only, or
   press **Save as My Standard List** to keep your changes there. **Add Folder...** picks a folder with the folder dialog. The folder you search in is
   never skipped, only what lies below it. The search bar says how many excluded folders were skipped.
@@ -803,6 +803,12 @@ their own icons. A mistake in the file is written to the log file and the normal
 - A **folder:** the explorer opens with that folder as the top of the tree.
 - Any **other file:** its folder opens with the file selected. Nothing is played or opened.
 - A **workspace or session file** (`.json`): it is opened.
+
+The switches of Windows Explorer that matter most also work:
+
+- `/select,"path"`: the item's folder opens with the item selected, **also for a picture or a folder**, and nothing is opened. If the item is gone, its folder opens.
+- `/root,"folder"`: the folder is the top of the tree.
+- `/e`, `/n` and `/separate` are accepted and ignored.
 
 ## Keyboard Shortcuts
 
