@@ -1822,9 +1822,22 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// The path of a file on the disk to hand to another program: the file itself, or for a file inside an archive
     /// a copy unpacked to the temporary folder. Null (after a message) if it cannot be unpacked.
     /// </summary>
+    private const long WebDirectLimit = 50L * 1024 * 1024;
+
     public static string? RealPathOf(FileItemViewModel item)
     {
         if (!item.IsInArchive) return item.FullPath;
+
+        // Here the window waits for the download (opening a file, dragging out), so only a small file from a web server is fetched; a
+        // folder or a big file would freeze the window for minutes: Copy (Ctrl+C) downloads with a progress window and Cancel.
+        if (WebFolder.IsWebPath(item.FullPath) && (item.IsDirectory || item.Size > WebDirectLimit))
+        {
+            MessageBox.Show(item.IsDirectory
+                    ? $"'{item.Name}' is a folder on a web server. Use Copy (Ctrl+C) and paste it into a folder: it is then downloaded with a progress window that can be canceled."
+                    : $"'{item.Name}' is big ({DriveRow.FormatSize(item.Size)}) and is on a web server. Use Copy (Ctrl+C) and paste it into a folder: it is then downloaded with a progress window that can be canceled.",
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return null;
+        }
 
         try
         {
@@ -3777,24 +3790,86 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// Puts the selected items on the Windows clipboard. What is in an archive is unpacked to the
     /// temporary folder first, as the clipboard can only hold files on the disk.
     /// </summary>
-    private void PutOnClipboard(bool cut)
+    private async void PutOnClipboard(bool cut)
     {
-        var paths = new List<string>();
-        foreach (var item in _selectedItems)
+        try
         {
-            var path = RealPathOf(item);
-            if (path == null) return;   // it said why
-            paths.Add(path);
+            var items = _selectedItems.ToList();
+
+            // Files and folders of a web server are downloaded first, in the background, with a progress window and Cancel
+            // (found by the user 2026-11-19: a folder of big files was downloaded on the window thread and froze the program).
+            Dictionary<string, string>? downloaded = null;
+            var web = items.Where(i => WebFolder.IsWebPath(i.FullPath)).Select(i => i.FullPath).ToList();
+            if (web.Count > 0)
+            {
+                downloaded = await DownloadFromWebAsync(web);
+                if (downloaded == null) return;   // canceled, or nothing could be downloaded (it said why)
+            }
+
+            var paths = new List<string>();
+            foreach (var item in items)
+            {
+                string? path;
+                if (downloaded != null && WebFolder.IsWebPath(item.FullPath)) downloaded.TryGetValue(item.FullPath, out path);
+                else path = RealPathOf(item);
+                if (path == null) { if (downloaded == null) return; continue; }   // it said why
+                paths.Add(path);
+            }
+
+            if (paths.Count > 0) PutPathsOnClipboard(paths, cut);
+        }
+        catch (Exception ex)
+        {
+            LogFiles.AppendError($"Copy to the clipboard failed: {ex}");
+            MessageBox.Show($"The files could not be copied: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Downloads web items to the temporary folder with the usual progress window. Returns web path to temporary path for what was
+    /// done; null when the user canceled or nothing worked. What failed is listed in one message (the others go on).
+    /// </summary>
+    private async Task<Dictionary<string, string>?> DownloadFromWebAsync(List<string> webPaths)
+    {
+        var thing = webPaths.Count == 1 ? $"'{WebFolder.NameOf(webPaths[0])}'" : $"{webPaths.Count} items";
+        var result = await RunWithProgressAsync((progress, token) => WebFolder.DownloadManyAsync(webPaths, progress, token),
+                                                "Copying", thing, "", heading: $"Downloading {thing} from the server");
+        if (result.Canceled)
+        {
+            StatusText = "Copy canceled: nothing was put on the clipboard.";
+            return null;
         }
 
-        PutPathsOnClipboard(paths, cut);
+        if (result.Failed.Count > 0)
+        {
+            foreach (var (name, reason) in result.Failed) LogFiles.AppendError($"Download of '{name}' failed: {reason}");
+            var lines = string.Join("\n", result.Failed.Take(10).Select(f => $"{f.Name}: {f.Reason}"));
+            MessageBox.Show($"These could not be downloaded:\n\n{lines}" + (result.Failed.Count > 10 ? $"\n... and {result.Failed.Count - 10} more" : ""),
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        return result.Done.Count == 0 ? null : result.Done.ToDictionary(d => d.From, d => d.To);
     }
 
     /// <summary>The same for a folder of the tree (its right-click menu).</summary>
-    public void PutFolderOnClipboard(string folder, bool cut)
+    public async void PutFolderOnClipboard(string folder, bool cut)
     {
         var path = folder;
-        if (!Directory.Exists(path) && !File.Exists(path))
+        if (WebFolder.IsWebPath(folder))
+        {
+            try
+            {
+                var got = await DownloadFromWebAsync(new List<string> { folder });
+                if (got == null || !got.TryGetValue(folder, out path)) return;
+            }
+            catch (Exception ex)
+            {
+                LogFiles.AppendError($"Copy of '{folder}' failed: {ex}");
+                MessageBox.Show($"The folder could not be copied: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+        else if (!Directory.Exists(path) && !File.Exists(path))
         {
             try { path = ArchiveSupport.ExtractToTemp(folder); }
             catch (Exception ex)

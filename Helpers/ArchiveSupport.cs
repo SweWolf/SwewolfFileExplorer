@@ -614,6 +614,26 @@ public static class ArchiveSupport
         }
     }
 
+    /// <summary>Where <see cref="ExtractToTemp"/> already put this path (still there), else null.</summary>
+    public static string? TryGetExtracted(string path)
+    {
+        lock (Extracted)
+            return Extracted.TryGetValue(path, out var known) && (File.Exists(known) || Directory.Exists(known)) ? known : null;
+    }
+
+    /// <summary>A new place in its own temporary folder for a file or folder of <paramref name="path"/> (nothing is made but the folder above it).</summary>
+    public static string NewTempTarget(string path)
+    {
+        string folder = Path.Combine(TempFolder, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        return Path.Combine(folder, SafeFileName(Path.GetFileName(path.TrimEnd('\\', '/'))));
+    }
+
+    public static void RememberExtracted(string path, string target)
+    {
+        lock (Extracted) Extracted[path] = target;
+    }
+
     /// <summary>Writes bytes to a file in the temporary folder (removed with the rest when the app ends) and returns its path.</summary>
     public static string SaveToTemp(string fileName, byte[] data)
     {

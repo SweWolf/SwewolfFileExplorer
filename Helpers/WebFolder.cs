@@ -377,7 +377,7 @@ public static class WebFolder
     public static void ExtractTo(string path, string destination)
     {
         var entry = GetEntry(path);
-        bool isFolder = entry != null ? entry.IsDirectory : Parent(path) == null;
+        bool isFolder = entry != null ? entry.IsDirectory : Run(() => LooksLikeFolderAsync(path));
 
         if (!isFolder)
         {
@@ -419,26 +419,151 @@ public static class WebFolder
         return 0;
     }
 
-    private static async Task DownloadToAsync(string path, Stream target)
+    private static async Task DownloadToAsync(string path, Stream target, CancellationToken cancel = default, Action<int>? onRead = null)
     {
         var uri = RequestUri(path, folder: false);
         try
         {
-            using var response = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+            using var response = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancel).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) throw new ArchiveException(StatusText(response.StatusCode, uri));
-            using var source = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            using var source = await response.Content.ReadAsStreamAsync(cancel).ConfigureAwait(false);
             // A stall of 60 s with no data ends the download.
             var buffer = new byte[81920];
             while (true)
             {
-                using var stall = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-                int read = await source.ReadAsync(buffer, stall.Token).ConfigureAwait(false);
+                using var stall = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+                stall.CancelAfter(TimeSpan.FromSeconds(60));
+                int read;
+                try { read = await source.ReadAsync(buffer, stall.Token).ConfigureAwait(false); }
+                catch (OperationCanceledException) when (!cancel.IsCancellationRequested) { throw new ArchiveException($"The server stopped sending '{NameOf(path)}'."); }
                 if (read == 0) break;
-                await target.WriteAsync(buffer.AsMemory(0, read)).ConfigureAwait(false);
+                await target.WriteAsync(buffer.AsMemory(0, read), cancel).ConfigureAwait(false);
+                onRead?.Invoke(read);
             }
         }
-        catch (OperationCanceledException) { throw new ArchiveException($"The server stopped sending '{NameOf(path)}'."); }
         catch (HttpRequestException ex) { throw new ArchiveException($"Cannot download '{NameOf(path)}': {ex.InnerException?.Message ?? ex.Message}"); }
+    }
+
+    // ── Copying in the background, with progress and Cancel ─────────────────
+
+    /// <summary>
+    /// Downloads files and folders to the temporary folder (the same places <see cref="ArchiveSupport.ExtractToTemp"/> uses) on the calling
+    /// thread's task, with <paramref name="progress"/> (bytes and files) and Cancel. An item that fails does not stop the others:
+    /// the result has what was done (web path to temporary path) and what failed with a readable reason.
+    /// </summary>
+    public static async Task<TransferResult> DownloadManyAsync(List<string> paths, TransferProgress progress, CancellationToken cancel)
+    {
+        var done = new List<(string From, string To)>();
+        var failed = new List<(string Name, string Reason)>();
+        progress.ItemWord = "File";
+        progress.Preparing = true;
+
+        // First what there is: every file of every folder, so the bar and "File 3 of 12" are true.
+        var files = new List<(string Path, long Size)>();
+        var plan = new List<(string Root, string Target, bool Folder)>();
+        foreach (var root in paths)
+        {
+            try
+            {
+                cancel.ThrowIfCancellationRequested();
+                var entry = GetEntry(root);
+                bool folder = entry != null ? entry.IsDirectory : await LooksLikeFolderAsync(root).ConfigureAwait(false);
+                string target = ArchiveSupport.NewTempTarget(root);
+                plan.Add((root, target, folder));
+                if (folder) await CollectAsync(root, files, cancel).ConfigureAwait(false);
+                else files.Add((root, entry?.Size ?? 0));
+            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex) { failed.Add((NameOf(root), ex.Message)); }
+        }
+        progress.FileTotal = files.Count;
+        progress.BytesTotal = files.Sum(f => Math.Max(0, f.Size));
+        progress.Preparing = false;
+
+        foreach (var (root, target, folder) in plan)
+        {
+            if (cancel.IsCancellationRequested) break;
+            try
+            {
+                if (folder) await DownloadFolderAsync(root, target, progress, cancel).ConfigureAwait(false);
+                else await DownloadFileAsync(root, target, progress, cancel).ConfigureAwait(false);
+                ArchiveSupport.RememberExtracted(root, target);
+                done.Add((root, target));
+            }
+            catch (OperationCanceledException) { RemoveQuietly(target); break; }
+            catch (Exception ex)
+            {
+                RemoveQuietly(target);
+                failed.Add((NameOf(root), ex.Message));
+            }
+        }
+
+        // What was started and not finished is gone: no half copies are left in the temporary folder.
+        if (cancel.IsCancellationRequested) foreach (var (_, target, _) in plan) if (!done.Any(d => d.To == target)) RemoveQuietly(target);
+        return new TransferResult(done, failed, cancel.IsCancellationRequested, paths.Count);
+    }
+
+    /// <summary>The folder above does not list this path (the server does not list it, or it is the top): it is a folder if it lists itself.</summary>
+    private static async Task<bool> LooksLikeFolderAsync(string path)
+    {
+        if (Parent(path) == null) return true;
+        try { await ListCachedAsync(path).ConfigureAwait(false); return true; }
+        catch { return false; }
+    }
+
+    private static async Task CollectAsync(string folder, List<(string Path, long Size)> files, CancellationToken cancel)
+    {
+        foreach (var child in await ListCachedAsync(folder).ConfigureAwait(false))
+        {
+            cancel.ThrowIfCancellationRequested();
+            if (child.IsDirectory) await CollectAsync(child.FullPath, files, cancel).ConfigureAwait(false);
+            else files.Add((child.FullPath, child.Size));
+        }
+    }
+
+    private static async Task DownloadFolderAsync(string folder, string target, TransferProgress progress, CancellationToken cancel)
+    {
+        Directory.CreateDirectory(target);
+        foreach (var child in await ListCachedAsync(folder).ConfigureAwait(false))
+        {
+            cancel.ThrowIfCancellationRequested();
+            string to = Path.Combine(target, SafeName(child.Name));
+            if (child.IsDirectory) await DownloadFolderAsync(child.FullPath, to, progress, cancel).ConfigureAwait(false);
+            else await DownloadFileAsync(child.FullPath, to, progress, cancel).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task DownloadFileAsync(string path, string target, TransferProgress progress, CancellationToken cancel)
+    {
+        progress.CurrentName = NameOf(path);
+        progress.FileIndex++;
+        using var file = File.Create(target);
+        await DownloadToAsync(path, file, cancel, n => progress.BytesDone += n).ConfigureAwait(false);
+    }
+
+    private static void RemoveQuietly(string target)
+    {
+        try
+        {
+            if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
+            else if (File.Exists(target)) File.Delete(target);
+        }
+        catch { /* the temporary folder is cleaned when the program ends */ }
+    }
+
+    private static async Task<List<VirtualEntry>> ListCachedAsync(string folderPath)
+    {
+        string key = Normalize(folderPath);
+        lock (CacheLock)
+            if (Cache.TryGetValue(key, out var hit) && DateTime.UtcNow - hit.At < CacheTime) return hit.Entries;
+
+        var entries = await ListAsync(key).ConfigureAwait(false);
+        lock (CacheLock)
+        {
+            if (Cache.Count > 200) Cache.Clear();
+            Cache[key] = (DateTime.UtcNow, entries);
+        }
+        return entries;
     }
 
     private static string SafeName(string name)
