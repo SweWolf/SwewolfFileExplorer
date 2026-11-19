@@ -146,7 +146,7 @@ public static class ArchiveSupport
     private static string Clean(string path) => path.Replace('\\', '/').Trim('/');
 
     /// <summary>True if the path is an archive file, a folder in one, or a file in one.</summary>
-    public static bool IsInside(string path) => Locate(path, out _) != null;
+    public static bool IsInside(string path) => WebFolder.IsWebPath(path) || Locate(path, out _) != null;   // a web folder is shown like an archive (Helpers/WebFolder.cs)
 
     /// <summary>
     /// The archive file on the disk that a path is, or is inside (for an archive inside an archive: the outer one, the file that really
@@ -195,6 +195,8 @@ public static class ArchiveSupport
     /// <summary>True if the path is a folder the app can show: the top of an archive, or a folder inside one.</summary>
     public static bool FolderExists(string path, out string? error)
     {
+        if (WebFolder.IsWebPath(path)) return WebFolder.TryList(path, out error);
+
         var location = Locate(path, out error);
         if (location == null) return false;
 
@@ -214,6 +216,8 @@ public static class ArchiveSupport
     /// <summary>What is in a folder of an archive (folders, files, and archives inside the archive as files).</summary>
     public static List<VirtualEntry> List(string folderPath)
     {
+        if (WebFolder.IsWebPath(folderPath)) return WebFolder.List(folderPath);
+
         var location = Locate(folderPath, out var error)
             ?? throw new ArchiveException(error ?? $"'{folderPath}' is not in an archive.");
 
@@ -230,6 +234,8 @@ public static class ArchiveSupport
     /// <summary>True if the folder has a folder or a packed file in it (the tree shows an expand arrow for it).</summary>
     public static bool HasSubfolders(string folderPath)
     {
+        if (WebFolder.IsWebPath(folderPath)) return true;   // asking the server for every folder of the tree would be slow: the arrow goes when the folder turns out to be empty
+
         try
         {
             return List(folderPath).Any(e => e.IsDirectory || e.IsArchive);
@@ -243,6 +249,8 @@ public static class ArchiveSupport
     /// <summary>The entry at a path inside an archive: its size and date. Null if there is none (or the path is the top of an archive).</summary>
     public static VirtualEntry? GetEntry(string path)
     {
+        if (WebFolder.IsWebPath(path)) return WebFolder.GetEntry(path);
+
         try
         {
             var location = Locate(path, out _, asEntry: true);
@@ -343,6 +351,8 @@ public static class ArchiveSupport
     /// <summary>Forget what was read of the archive that holds this path, so the next look reads the file again.</summary>
     public static void Invalidate(string path)
     {
+        if (WebFolder.IsWebPath(path)) { WebFolder.Invalidate(path); return; }
+
         var location = Locate(path, out _);
         if (location == null) return;
 
@@ -520,6 +530,7 @@ public static class ArchiveSupport
 
     /// <summary>The content of a file inside an archive, in memory. For pictures: do not use it for a big video.</summary>
     public static Stream OpenRead(string path) =>
+        WebFolder.IsWebPath(path) ? WebFolder.OpenRead(path) :
         WithEntry(path, (reader, entry) =>
         {
             var memory = new MemoryStream((int)Math.Min(entry.Length, int.MaxValue / 2));
@@ -539,6 +550,8 @@ public static class ArchiveSupport
     /// <summary>Writes a file or a whole folder of an archive to <paramref name="destination"/> (which must not exist yet).</summary>
     public static void ExtractTo(string path, string destination)
     {
+        if (WebFolder.IsWebPath(path)) { WebFolder.ExtractTo(path, destination); return; }
+
         var entry = GetEntry(path);
         bool isFolder = entry == null || entry.IsDirectory;
 
@@ -656,6 +669,8 @@ public static class ArchiveSupport
     /// <summary>The date of a folder or archive: from the disk, or from the archive for a folder inside one.</summary>
     public static DateTime GetDate(string path, bool created)
     {
+        if (WebFolder.IsWebPath(path)) return WebFolder.GetEntry(path)?.Modified ?? DateTime.MinValue;
+
         if (File.Exists(path) || Directory.Exists(path))
             return created ? Directory.GetCreationTime(path) : Directory.GetLastWriteTime(path);
 

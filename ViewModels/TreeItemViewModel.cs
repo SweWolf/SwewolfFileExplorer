@@ -492,7 +492,8 @@ public class TreeItemViewModel : INotifyPropertyChanged
             Children.Add(item);
         }
 
-        // A zip inside the zip.
+        // A zip inside the zip (not on a web server: there a .zip is a file to copy).
+        if (WebFolder.IsWebPath(FullPath)) return;
         foreach (var archive in SortEntries(entries.Where(e => e.IsArchive)))
         {
             var item = new TreeItemViewModel(archive.Name, archive.FullPath, IconHelper.TreeIconForName(archive.Name, false),

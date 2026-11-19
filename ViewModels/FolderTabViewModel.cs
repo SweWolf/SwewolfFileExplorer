@@ -844,8 +844,22 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         if (string.IsNullOrWhiteSpace(path)) return;
         if (_playlistDirty && !IsSamePath(path, _currentPath) && !ConfirmLeavePlaylist()) return;   // unsaved changes of a playlist
 
+        // A web folder (http://98.71.240.223/file/Burda): read from the server, shown like a packed file (Helpers/WebFolder.cs).
+        path = WebFolder.Complete(path);
+        bool web = WebFolder.IsWebPath(path);
+        if (web)
+        {
+            path = WebFolder.Normalize(path);
+            if (!WebFolder.TryList(path, out var webError))
+            {
+                StatusText = $"Cannot open the web folder: {webError}";
+                MessageBox.Show(webError ?? "The web folder cannot be opened.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+
         // shell:sendto, shell:startup, shell:appdata ... : Windows' names for its special folders, as in Explorer's address bar.
-        if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+        if (!web && path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
         {
             if (!KnownFolders.TryResolveShellPath(path, out var resolved, out var shellError)) { StatusText = shellError; return; }
             path = resolved;
@@ -853,7 +867,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
 
         // %APPDATA%, %TEMP%, %USERPROFILE% ...: Windows' variables, also with a path after them (%APPDATA%\Microsoft).
         // A name that does not exist stays as typed and ends as "Path not found". A folder really named like that wins.
-        if (path.Contains('%') && !Directory.Exists(path))
+        if (!web && path.Contains('%') && !Directory.Exists(path))
         {
             var expanded = Environment.ExpandEnvironmentVariables(path);
             try
@@ -867,7 +881,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
             path = expanded;
         }
 
-        if (!Directory.Exists(path) && !PlaylistFile.IsPlaylist(path))   // a playlist is shown like a folder
+        if (!web && !Directory.Exists(path) && !PlaylistFile.IsPlaylist(path))   // a playlist is shown like a folder
         {
             // A packed file, or a folder inside one, is a folder here: it is entered, not opened.
             if (!ArchiveSupport.FolderExists(path, out var archiveError))
@@ -892,6 +906,14 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
             ClearTreeRoot();
         if (_pendingRoot != null && !IsSameOrSubPath(_pendingRoot, path))
             _pendingRoot = null;   // the user went somewhere else: the saved root is no longer wanted
+
+        // A web folder is the top of the tree of its own: the address typed is the root (Up stops there; type a shorter address to go higher).
+        if (web && RootPath == null)
+        {
+            RootPath = path;
+            RebuildTree();
+            OnPropertyChanged(nameof(HasTreeRoot));
+        }
 
         if (addToHistory && !string.IsNullOrEmpty(_currentPath))
         {
@@ -1021,14 +1043,17 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>Goes down the tree from <paramref name="node"/> (the folder <paramref name="current"/>) to <paramref name="path"/>.</summary>
     private TreeItemViewModel WalkDown(TreeItemViewModel node, string current, string path)
     {
-        var segments = Path.GetRelativePath(current, path).Split(
-            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
-            StringSplitOptions.RemoveEmptyEntries);
+        bool web = WebFolder.IsWebPath(current);
+        var segments = web
+            ? WebFolder.Normalize(path)[WebFolder.Normalize(current).Length..].Split('/', StringSplitOptions.RemoveEmptyEntries)
+            : Path.GetRelativePath(current, path).Split(
+                new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var segment in segments)
         {
             if (segment == ".") continue;
-            current = Path.Combine(current, segment);
+            current = web ? WebFolder.Combine(current, segment) : Path.Combine(current, segment);
 
             node.EnsureChildrenLoaded();   // the children are needed at once (a click on the arrow loads them in the background)
             node.IsExpanded = true;
@@ -1069,6 +1094,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>The folder's name, or the drive for a root such as C:\.</summary>
     private static string GetTabTitle(string path)
     {
+        if (WebFolder.IsWebPath(path)) return WebFolder.NameOf(path);
         var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         return string.IsNullOrEmpty(name) ? path : name;
     }
@@ -1115,6 +1141,13 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
             return;
         }
 
+        if (WebFolder.IsWebPath(_currentPath))
+        {
+            var webParent = WebFolder.Parent(_currentPath);
+            if (webParent != null) Navigate(webParent);
+            return;
+        }
+
         var parent = Directory.GetParent(_currentPath);
         if (parent != null) Navigate(parent.FullName);
     }
@@ -1127,7 +1160,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     // folder, and nothing above them in the tree.
     private bool CanGoUp() =>
         !string.IsNullOrEmpty(_currentPath) && !_noFolderShown
-        && (Directory.GetParent(_currentPath) != null || IsDriveRoot(_currentPath))
+        && (WebFolder.IsWebPath(_currentPath) ? WebFolder.Parent(_currentPath) != null : Directory.GetParent(_currentPath) != null || IsDriveRoot(_currentPath))
         && !(RootPath != null && IsSamePath(_currentPath, RootPath));
 
     // ── Workspaces and sessions: what a tab remembers ────────────────────────
@@ -1279,7 +1312,12 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         if (string.IsNullOrEmpty(path)) return false;
 
         string root;
-        if (Directory.Exists(path))
+        if (WebFolder.IsWebPath(path))
+        {
+            if (!ArchiveSupport.FolderExists(path, out _)) return false;
+            root = WebFolder.Normalize(path);
+        }
+        else if (Directory.Exists(path))
         {
             root = Path.GetFullPath(path);
             if (root.Length > 3) root = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);   // C:\ keeps its slash
@@ -1334,13 +1372,18 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     private TreeItemViewModel BuildRootNode(string path)
     {
         string trimmed = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        string name = Path.GetFileName(trimmed);
+        string name = WebFolder.IsWebPath(path) ? WebFolder.NameOf(path) : Path.GetFileName(trimmed);
         if (string.IsNullOrEmpty(name)) name = path;   // a drive: C:\
 
         bool isArchive, inArchive;
         System.Windows.Media.ImageSource? icon;
 
-        if (Directory.Exists(path))
+        if (WebFolder.IsWebPath(path))
+        {
+            isArchive = false; inArchive = true;   // read-only, its children come from the server
+            icon = IconHelper.TreeIconForName(name, true);
+        }
+        else if (Directory.Exists(path))
         {
             isArchive = inArchive = false;
             icon = IconHelper.TreeIcon(path);
@@ -1743,7 +1786,8 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
             // In the order they are stored in the archive: the list is not sorted until the user picks a column.
             foreach (var entry in ArchiveSupport.List(path))
             {
-                if ((entry.IsDirectory || entry.IsArchive) && !_shared.ShowFolders) continue;   // the folders (and packed files) are in the tree
+                bool onWeb = WebFolder.IsWebPath(path);   // a .zip on a web server is a plain file: it is not opened as a folder
+                if ((entry.IsDirectory || (entry.IsArchive && !onWeb)) && !_shared.ShowFolders) continue;   // the folders (and packed files) are in the tree
 
                 bool hidden = !entry.IsDirectory && HiddenItems.IsHiddenInArchive(entry.Name);
                 if (hidden) _hiddenCount++;
@@ -2658,6 +2702,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     private void UpdateReadState(string path)
     {
+        if (WebFolder.IsWebPath(path)) return;   // a web folder has no read marks, ratings or other library data
         int version = ++_readVersion;
         int startEpoch = _markEpoch;   // a rating set after this point is newer than what this read finds
         var dispatcher = Application.Current.Dispatcher;
@@ -2794,7 +2839,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>Files were opened (or marked): they stop being bold at once, the library remembers it in the background.</summary>
     public void MarkRead(IEnumerable<FileItemViewModel> items, bool read)
     {
-        var files = items.Where(i => !i.IsDirectory && !ArchiveSupport.IsArchiveName(i.Name)).ToList();
+        var files = items.Where(i => !i.IsDirectory && !ArchiveSupport.IsArchiveName(i.Name) && !WebFolder.IsWebPath(i.FullPath)).ToList();
         if (files.Count == 0) return;
 
         foreach (var item in files) item.SetUnread(!read && !item.IsHidden);
@@ -4518,6 +4563,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     }
 
     private static string NormalizePath(string path) =>
+        WebFolder.IsWebPath(path) ? WebFolder.Normalize(path) :
         Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     private static bool IsSamePath(string? a, string? b) =>
@@ -4529,8 +4575,9 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     {
         var f = NormalizePath(folder);
         var p = NormalizePath(path);
+        char separator = WebFolder.IsWebPath(f) ? '/' : Path.DirectorySeparatorChar;
         return p.Equals(f, StringComparison.OrdinalIgnoreCase) ||
-               p.StartsWith(f + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+               p.StartsWith(f + separator, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetUniqueDestPath(string destDir, string name) => FileTransfer.GetUniqueDestPath(destDir, name);
