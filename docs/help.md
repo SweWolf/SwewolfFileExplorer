@@ -15,6 +15,7 @@ archives like folders, and shows a preview, a plot or the prompt of an AI pictur
 - [The File List](#the-file-list)
   - [Columns](#columns)
   - [Sorting](#sorting)
+  - [Icons View](#icons-view)
   - [Filtering the List](#filtering-the-list)
   - [Searching](#searching)
   - [Typing a Name](#typing-a-name)
@@ -24,10 +25,12 @@ archives like folders, and shows a preview, a plot or the prompt of an AI pictur
 - [Checking a File on VirusTotal](#checking-a-file-on-virustotal)
 - [The Info Panel](#the-info-panel)
 - [Opening Files](#opening-files)
+- [Web Folders](#web-folders)
 - [Ripping an Audio CD](#ripping-an-audio-cd)
 - [Right-Click Menus](#right-click-menus)
 - [Copying, Moving and Deleting](#copying-moving-and-deleting)
   - [Undo](#undo)
+  - [Folders That Need Administrator Permission](#folders-that-need-administrator-permission)
 - [Renaming](#renaming)
 - [Creating Things](#creating-things)
 - [Shortcuts](#shortcuts)
@@ -83,7 +86,7 @@ From top to bottom:
 - **The menu bar:** Tools, Workspace, Session and Help.
 - **The tab strip:** one tab per folder you have open.
 - **The toolbar:** Back, Forward, Up, the address bar, **Go**, Refresh, and the buttons
-  **Tree**, **Folders**, **.ext**, **New Folder**, **Play**, **Filter** and **Search**.
+  **Tree**, **Folders**, **.ext**, **Icons** (new in version 1.1.0), **New Folder**, **Play**, **Filter** and **Search**.
 - **The folder tree** on the left, with its own header (Up, Sort By, and an **x** that hides the tree).
 - **The file list** in the middle.
 - **The info panel** under the list: the line "File 14/17", and below it details, a preview picture and more.
@@ -154,6 +157,11 @@ Click **This PC** in the tree to see your drives in a list of their own, as in W
 (see below). Double-click a drive to open it. Right-click a drive for **Open**, **Open in New Tab**, **Open in Windows
 Explorer**, the two tracking data items (**Store Tracking Data (Read Marks, Folder Options, Ratings...) Locally on This Drive** and **Clean Up Tracking Data**), **Properties** and **More Options**. A drive that you connect or remove
 shows up or goes by itself within a couple of seconds; **F5** does it at once and also reads the free space again.
+
+**CD and DVD drives** (new in version 1.1.0) have **Eject** in their right-click menu (in the tree and in this list). On an audio CD,
+**Look Up This Disc Again** asks MusicBrainz for the titles and the cover again. A disc is also checked again by itself once a
+day when you use it. Nothing that writes (cut, delete, rename, paste, new folder) is shown in the menus for a disc, because it is
+read-only.
 
 ### Where the Tracking Data Is Kept
 
@@ -226,6 +234,20 @@ uses the one of the nearest folder above it that has one. In the column menu:
 
 Click a column header to sort by it, and click again to turn the order around. A sort you choose is remembered for that folder.
 
+### Icons View
+
+*(New in version 1.1.0.)* The **Icons** button in the toolbar (after **.ext**) shows the files as tiles with a picture instead of as a
+list with columns. Pictures show themselves, music shows its cover, and videos and documents show the thumbnail that Windows makes
+(or a frame of the video if Windows has none). A folder shows its folder picture, if it has one. The pictures appear as you scroll,
+so a folder with thousands of files opens at once. Everything else works as in the list: selection, sorting, the filter, the menus,
+drag and drop and the info panel.
+
+- **Size:** hold **Ctrl** and turn the mouse wheel over the list, or press **Ctrl+Plus**, **Ctrl+Minus** and **Ctrl+0**. The size is remembered.
+- **Sorting:** there are no column headers in this view, so the right-click menu of the list starts with **Sort By**.
+- **Arrow keys, Home, End, Page Up and Page Down** move between the tiles.
+
+Press **Icons** again to go back to the list.
+
 ### Filtering the List
 
 Click **Filter** or press **Ctrl+F** to show the filter bar above the list. What you type shows
@@ -248,7 +270,7 @@ the minutes, and Page Up and Page Down the hours. **Any Date** turns the date fi
 
 ### Searching
 
-Click **Search** or press **Ctrl+Shift+F** to look for files and folders in other folders too. (The **Filter** bar
+*(New in version 1.1.0.)* Click **Search** or press **Ctrl+Shift+F** to look for files and folders in other folders too. (The **Filter** bar
 above only works on the folder you are in.) The Search window asks:
 
 - **Look in:** the folder to search. It starts with the folder you are in. Leave it empty to search all
@@ -306,6 +328,10 @@ letter again to go on to the next name that starts with it.
 
 Files and folders with the Hidden or System attribute are not listed. The line "N hidden items
 (click to show)" under the list shows them for the folder you are in, faded.
+
+**Hide** and **Unhide** (new in version 1.1.0) are in the right-click menu of the list, under the two Rename items. They set or
+clear the Hidden attribute of the selected files and folders (the System attribute is not touched). The item says **Unhide** when
+every selected item is hidden already. **Ctrl+Z** takes it back.
 
 When you select every file shown (**Ctrl+A**) and the folder has hidden items that are not shown, a red
 **Warning: N hidden items not selected** appears next to that link: a copy or move of the selection leaves
@@ -396,7 +422,15 @@ write or change the plot. The text is saved in the `.nfo` file next to the file,
 when it does not exist. An existing `.nfo` file is changed carefully: only the plot changes.
 
 When the `.nfo` file exists, the right-click menu of the plot area also has **View/Edit NFO File**, which
-opens the whole file in the text editor, as a double-click on the `.nfo` file does.
+opens the whole file in the text editor, as a double-click on the `.nfo` file does, and **View NFO File as a Web Page**
+(new in version 1.1.0), which shows its details (title, year, ratings, poster, cast, links, file information and everything else
+in it) as a page in your web browser. The `.nfo` file itself is never changed.
+
+**Download NFO File...** (new in version 1.1.0) is in the same menu. It looks up a movie or TV show on The Movie Database (TMDB)
+and saves its details as a hidden `.nfo` file next to your video; for a TV show it also saves `tvshow.nfo` and a poster. You
+need your own free TMDB API key, which you enter in **Tools > Settings > Scrapers**; if it is missing, the program offers to open
+that tab. The window asks for the name, the year and the type, or you can give an IMDb ID. **Include Adult** is off unless you
+check it.
 
 ## Opening Files
 
@@ -410,6 +444,20 @@ opens the whole file in the text editor, as a double-click on the `.nfo` file do
 **Open With...** in the right-click menu lets you choose another program. It is not shown for
 programs and scripts, or for folders. **Edit** is shown for the types that have an edit command
 (for example `.bat` and `.cmd` files), and opens the file in its editor.
+
+## Web Folders
+
+*(New in version 1.1.0.)* Type a web address that starts with `http://` or `https://` in the address bar (a bare address such as
+`192.168.1.20/files` gets `http://`) and press **Enter**. If the server shows a plain file listing (a page headed "Index of", as
+Apache, nginx and IIS make), it opens like a folder: its folders are in the tree and its files in the list, with size and date.
+
+- The address you type becomes the top of the tree. **Up** stops there; type a shorter address to go higher.
+- Web folders are read-only, like archives: cut, delete, rename, paste and new folder are off.
+- **Copy**, **Open** and **drag** of a file or folder download it first (to a temporary folder). The window waits while it downloads;
+  there is no progress window or Cancel yet.
+- Pictures open in the picture viewer, and music and videos in the player, after the download.
+- A listing is remembered for a minute; **F5** asks the server again.
+- A user name and password are not supported. A server that asks for one gives a message.
 
 ## Ripping an Audio CD
 
@@ -517,6 +565,22 @@ Point at the button to see the names.
 - Nothing is overwritten and nothing is guessed. If something cannot be undone (it is gone, its old name is taken
   again, the Recycle Bin has been emptied) it is left as it is and listed afterwards.
 - A paste where a name was taken (Replace, Keep Both) or that included a folder merge cannot be undone.
+
+### Folders That Need Administrator Permission
+
+*(New in version 1.1.0.)* In a folder such as one under `C:\Program Files`, Windows refuses copy, delete and rename for an ordinary
+program. When that happens, the program offers to do just those items as the administrator. Windows asks for your permission
+(the shield question), and the work runs in a second copy of the program with the usual progress window and **Cancel**.
+
+- It works for **Paste**, drag and drop, **Move/Copy to Folder**, **Delete**, **Rename**, **New Folder**, **New Text Document**
+  and **New File from Clipboard** (that one asks for the name first). A paste from a remote desktop clipboard is first saved in a
+  temporary folder and then moved in the same way.
+- The administrator step never overwrites: a name that is taken gets a number. **Undo** is not offered after it.
+- If you answer no to Windows' question, nothing is done and the items are listed as not copied or deleted.
+- **Tools > Settings > Security > Administrator Permission** has a check box that shows a message box of the program first, before
+  Windows asks. It is off: Windows' own question is the only one.
+- A file that another program has open is not an administrator problem: the program names that program and offers **Try Again** or
+  **Skip**. A move to another drive checks this before it copies, so no stray copy is left behind.
 
 ## Renaming
 
@@ -769,7 +833,7 @@ Windows' own **More Options** menu is not covered: Windows asks for itself there
 
 ## Settings
 
-Open **Tools > Settings**. The window has four tabs: **General**, **Files**, **Menus** and **Security**. Among other things you can choose:
+Open **Tools > Settings**. The window has the tabs **General**, **Files**, **Menus**, **Search**, **Security**, **Scrapers** and **Troubleshooting**, and a **Media Player** tab when the player is found. Among other things you can choose:
 
 - **Appearance, Style:** Light, Dark, System (follows Windows) or Cyber Cyan.
 - **Font:** the font of the file list and the folder tree (the size is set with Ctrl + mouse wheel).
@@ -785,6 +849,11 @@ Open **Tools > Settings**. The window has four tabs: **General**, **Files**, **M
 - **Folder Tree** (Menus tab): whether a right-click selects the folder.
 - **Security:** your own VirusTotal API key (see [Checking a File on VirusTotal](#checking-a-file-on-virustotal)); ask before a program is started (and, separately, one inside a compressed file), which file types count as programs, and forgetting the "Don't Ask Again" choices (see Starting Programs).
 - **Terminal Menu:** which of the three terminals are in the menus.
+- **Folder Tree Menu** and **File List Menu** (Menus tab, new in version 1.1.0): one check box for each item of the right-click menus;
+  a checked item is shown (all are shown at first). Open, Cut, Copy, Paste, Delete, Rename, Properties and **More Options** are always shown.
+- **Search** tab (new in version 1.1.0): the standard list of folders to leave out of searches (see [Searching](#searching)).
+- **Scrapers** tab (new in version 1.1.0): your own free TMDB API key for **Download NFO File...**.
+- **Troubleshooting** tab: what is written to the log files (see below).
 - **When the Program Is Started Again** (General tab): what happens when you start the program while it is already running (from a shortcut, or from another SweWolf program that opens a folder or file here). **Use the Running Window** (the default) brings the running window to the front; a folder you named opens in a new tab there, a file opens in a new tab with the file selected, a picture opens in the picture viewer, and a workspace or session file opens as usual. **Start a New Window** opens another window, as older versions did. **Ask** shows the question "What do you want to do?" (Use the Running Window / Open a New Window / Cancel); it asks every time, also when you named a folder or file. If a session is on in the running window, you are always asked first (Open a New Window / Use the Running Window / Cancel), because a session records every change to the tabs; the default is Open a New Window. If you start the program with a session file (for example from a shortcut made in the Session Manager), the window that has that session on comes to the front, with no question and whatever the setting says; if no window has it, the session opens in a new window. If the running window cannot take the request at that moment (it is still starting, a dialog is open, or it does not answer), a new window opens anyway. The running window is the one with the same program file in the same place.
 - **Updates:** **Check for a New Version at Startup** (on by default). A moment after the program starts it asks GitHub whether a newer version has been released. If there is one, **Version x.y.z Available** appears at the right end of the menu bar; click it to open the release page in your web browser. Nothing is downloaded or installed, and nothing happens when you are offline. **Help > About** also tells you whether you have the latest version.
 - **Media Player** (its own tab, the last one; only shown when the player is found): preload SweWolf Media Player in the background at startup (on by default; only shown when the player is found). The first start of the player can be slow while your antivirus program scans its files; the preload does that once, with no window, so videos open fast later.
@@ -864,8 +933,16 @@ The switches of Windows Explorer that matter most also work:
 ## Log Files
 
 Errors are written to `errors.log` in
-`%AppData%\SweWolfSoftware\SwewolfFileExplorer\Logs`. **Help > Open Log File** and
-**Help > Open Log Folder** open them. Nothing but errors is logged, and the file stays small.
+`%AppData%\SweWolfSoftware\SwewolfFileExplorer\Logs`. **Help > Open Log File** opens it and
+**Help > Open Log Folder** shows the folder in a new tab. Errors are always logged, and the file stays small.
+
+**Tools > Settings > Troubleshooting** has three check boxes, all off normally:
+
+- **Log Warnings:** things the program handled by itself, for example "access denied" before it asked for administrator
+  permission. They start with "Warning:".
+- **Log Searches:** a file `search.log`, made new for every search, with what was searched, how long it took, and the folders that
+  could not be read.
+- **Log All Internet Calls:** `internet.log`, what the program asked the internet for (TMDB, MusicBrainz, web folders and so on).
 
 ## Troubleshooting
 
@@ -891,6 +968,14 @@ SweWolf Media Player was not found next to the program or in `..\SwewolfMediaPla
 **File Info Viewer was not found.**
 File Info Viewer is a sibling program. It must be in the same folder as this program or in `..\FileInfoViewer`. The message
 gives the download address (https://github.com/SweWolf/FileInfoViewer) and offers to open it in your browser.
+
+**A web address shows no files, or the wrong dates.**
+The program reads the server's "Index of" page. If the listing looks wrong, save the page's source and keep it: the layout of that
+server may need to be taught to the program. Turn on **Log All Internet Calls** to see what was asked.
+
+**Windows asks for permission when I copy, delete or rename.**
+The folder is protected (for example under `C:\Program Files`). Say yes to continue as the administrator, or no to cancel. See
+[Folders That Need Administrator Permission](#folders-that-need-administrator-permission).
 
 **A drive I connected does not show.**
 Press **F5**, or wait a few seconds. The drives are checked all the time.

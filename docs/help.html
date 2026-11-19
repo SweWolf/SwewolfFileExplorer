@@ -45,6 +45,7 @@ AI picture under the list.</p>
 <ul>
 <li><a href="#columns">Columns</a></li>
 <li><a href="#sorting">Sorting</a></li>
+<li><a href="#icons-view">Icons View</a></li>
 <li><a href="#filtering-the-list">Filtering the List</a></li>
 <li><a href="#searching">Searching</a></li>
 <li><a href="#typing-a-name">Typing a Name</a></li>
@@ -56,12 +57,15 @@ AI picture under the list.</p>
 VirusTotal</a></li>
 <li><a href="#the-info-panel">The Info Panel</a></li>
 <li><a href="#opening-files">Opening Files</a></li>
+<li><a href="#web-folders">Web Folders</a></li>
 <li><a href="#ripping-an-audio-cd">Ripping an Audio CD</a></li>
 <li><a href="#right-click-menus">Right-Click Menus</a></li>
 <li><a href="#copying-moving-and-deleting">Copying, Moving and
 Deleting</a>
 <ul>
 <li><a href="#undo">Undo</a></li>
+<li><a href="#folders-that-need-administrator-permission">Folders That
+Need Administrator Permission</a></li>
 </ul></li>
 <li><a href="#renaming">Renaming</a></li>
 <li><a href="#creating-things">Creating Things</a></li>
@@ -159,8 +163,9 @@ Help.</li>
 open.</li>
 <li><strong>The toolbar:</strong> Back, Forward, Up, the address bar,
 <strong>Go</strong>, Refresh, and the buttons <strong>Tree</strong>,
-<strong>Folders</strong>, <strong>.ext</strong>, <strong>New
-Folder</strong>, <strong>Play</strong>, <strong>Filter</strong> and
+<strong>Folders</strong>, <strong>.ext</strong>, <strong>Icons</strong>
+(new in version 1.1.0), <strong>New Folder</strong>,
+<strong>Play</strong>, <strong>Filter</strong> and
 <strong>Search</strong>.</li>
 <li><strong>The folder tree</strong> on the left, with its own header
 (Up, Sort By, and an <strong>x</strong> that hides the tree).</li>
@@ -262,6 +267,13 @@ Tracking Data</strong>), <strong>Properties</strong> and <strong>More
 Options</strong>. A drive that you connect or remove shows up or goes by
 itself within a couple of seconds; <strong>F5</strong> does it at once
 and also reads the free space again.</p>
+<p><strong>CD and DVD drives</strong> (new in version 1.1.0) have
+<strong>Eject</strong> in their right-click menu (in the tree and in
+this list). On an audio CD, <strong>Look Up This Disc Again</strong>
+asks MusicBrainz for the titles and the cover again. A disc is also
+checked again by itself once a day when you use it. Nothing that writes
+(cut, delete, rename, paste, new folder) is shown in the menus for a
+disc, because it is read-only.</p>
 <h3 id="where-the-tracking-data-is-kept">Where the Tracking Data Is
 Kept</h3>
 <p>What the program remembers about your files (read marks, ratings,
@@ -366,6 +378,28 @@ gives all folders below this one the same.</li>
 <h3 id="sorting">Sorting</h3>
 <p>Click a column header to sort by it, and click again to turn the
 order around. A sort you choose is remembered for that folder.</p>
+<h3 id="icons-view">Icons View</h3>
+<p><em>(New in version 1.1.0.)</em> The <strong>Icons</strong> button in
+the toolbar (after <strong>.ext</strong>) shows the files as tiles with
+a picture instead of as a list with columns. Pictures show themselves,
+music shows its cover, and videos and documents show the thumbnail that
+Windows makes (or a frame of the video if Windows has none). A folder
+shows its folder picture, if it has one. The pictures appear as you
+scroll, so a folder with thousands of files opens at once. Everything
+else works as in the list: selection, sorting, the filter, the menus,
+drag and drop and the info panel.</p>
+<ul>
+<li><strong>Size:</strong> hold <strong>Ctrl</strong> and turn the mouse
+wheel over the list, or press <strong>Ctrl+Plus</strong>,
+<strong>Ctrl+Minus</strong> and <strong>Ctrl+0</strong>. The size is
+remembered.</li>
+<li><strong>Sorting:</strong> there are no column headers in this view,
+so the right-click menu of the list starts with <strong>Sort
+By</strong>.</li>
+<li><strong>Arrow keys, Home, End, Page Up and Page Down</strong> move
+between the tiles.</li>
+</ul>
+<p>Press <strong>Icons</strong> again to go back to the list.</p>
 <h3 id="filtering-the-list">Filtering the List</h3>
 <p>Click <strong>Filter</strong> or press <strong>Ctrl+F</strong> to
 show the filter bar above the list. What you type shows only the files
@@ -397,10 +431,10 @@ filter off. The <strong>Rating</strong> choice filters by your rating:
 Only</strong>, with a number box (1 to 10). All the filters work
 together.</p>
 <h3 id="searching">Searching</h3>
-<p>Click <strong>Search</strong> or press <strong>Ctrl+Shift+F</strong>
-to look for files and folders in other folders too. (The
-<strong>Filter</strong> bar above only works on the folder you are in.)
-The Search window asks:</p>
+<p><em>(New in version 1.1.0.)</em> Click <strong>Search</strong> or
+press <strong>Ctrl+Shift+F</strong> to look for files and folders in
+other folders too. (The <strong>Filter</strong> bar above only works on
+the folder you are in.) The Search window asks:</p>
 <ul>
 <li><p><strong>Look in:</strong> the folder to search. It starts with
 the folder you are in. Leave it empty to search all local drives, and
@@ -502,6 +536,12 @@ starts with it.</p>
 <p>Files and folders with the Hidden or System attribute are not listed.
 The line “N hidden items (click to show)” under the list shows them for
 the folder you are in, faded.</p>
+<p><strong>Hide</strong> and <strong>Unhide</strong> (new in version
+1.1.0) are in the right-click menu of the list, under the two Rename
+items. They set or clear the Hidden attribute of the selected files and
+folders (the System attribute is not touched). The item says
+<strong>Unhide</strong> when every selected item is hidden already.
+<strong>Ctrl+Z</strong> takes it back.</p>
 <p>When you select every file shown (<strong>Ctrl+A</strong>) and the
 folder has hidden items that are not shown, a red <strong>Warning: N
 hidden items not selected</strong> appears next to that link: a copy or
@@ -624,7 +664,20 @@ changed carefully: only the plot changes.</p>
 <p>When the <code>.nfo</code> file exists, the right-click menu of the
 plot area also has <strong>View/Edit NFO File</strong>, which opens the
 whole file in the text editor, as a double-click on the
-<code>.nfo</code> file does.</p>
+<code>.nfo</code> file does, and <strong>View NFO File as a Web
+Page</strong> (new in version 1.1.0), which shows its details (title,
+year, ratings, poster, cast, links, file information and everything else
+in it) as a page in your web browser. The <code>.nfo</code> file itself
+is never changed.</p>
+<p><strong>Download NFO File…</strong> (new in version 1.1.0) is in the
+same menu. It looks up a movie or TV show on The Movie Database (TMDB)
+and saves its details as a hidden <code>.nfo</code> file next to your
+video; for a TV show it also saves <code>tvshow.nfo</code> and a poster.
+You need your own free TMDB API key, which you enter in <strong>Tools
+&gt; Settings &gt; Scrapers</strong>; if it is missing, the program
+offers to open that tab. The window asks for the name, the year and the
+type, or you can give an IMDb ID. <strong>Include Adult</strong> is off
+unless you check it.</p>
 <h2 id="opening-files">Opening Files</h2>
 <ul>
 <li><strong>Pictures</strong> open in the picture viewer.</li>
@@ -645,6 +698,31 @@ another program. It is not shown for programs and scripts, or for
 folders. <strong>Edit</strong> is shown for the types that have an edit
 command (for example <code>.bat</code> and <code>.cmd</code> files), and
 opens the file in its editor.</p>
+<h2 id="web-folders">Web Folders</h2>
+<p><em>(New in version 1.1.0.)</em> Type a web address that starts with
+<code>http://</code> or <code>https://</code> in the address bar (a bare
+address such as <code>192.168.1.20/files</code> gets
+<code>http://</code>) and press <strong>Enter</strong>. If the server
+shows a plain file listing (a page headed “Index of”, as Apache, nginx
+and IIS make), it opens like a folder: its folders are in the tree and
+its files in the list, with size and date.</p>
+<ul>
+<li>The address you type becomes the top of the tree.
+<strong>Up</strong> stops there; type a shorter address to go
+higher.</li>
+<li>Web folders are read-only, like archives: cut, delete, rename, paste
+and new folder are off.</li>
+<li><strong>Copy</strong>, <strong>Open</strong> and
+<strong>drag</strong> of a file or folder download it first (to a
+temporary folder). The window waits while it downloads; there is no
+progress window or Cancel yet.</li>
+<li>Pictures open in the picture viewer, and music and videos in the
+player, after the download.</li>
+<li>A listing is remembered for a minute; <strong>F5</strong> asks the
+server again.</li>
+<li>A user name and password are not supported. A server that asks for
+one gives a message.</li>
+</ul>
 <h2 id="ripping-an-audio-cd">Ripping an Audio CD</h2>
 <p>While an audio CD is shown (open the CD drive), a
 <strong>Rip</strong> button appears in the toolbar, to the right of
@@ -806,6 +884,34 @@ be undone (it is gone, its old name is taken again, the Recycle Bin has
 been emptied) it is left as it is and listed afterwards.</li>
 <li>A paste where a name was taken (Replace, Keep Both) or that included
 a folder merge cannot be undone.</li>
+</ul>
+<h3 id="folders-that-need-administrator-permission">Folders That Need
+Administrator Permission</h3>
+<p><em>(New in version 1.1.0.)</em> In a folder such as one under
+<code>C:\Program Files</code>, Windows refuses copy, delete and rename
+for an ordinary program. When that happens, the program offers to do
+just those items as the administrator. Windows asks for your permission
+(the shield question), and the work runs in a second copy of the program
+with the usual progress window and <strong>Cancel</strong>.</p>
+<ul>
+<li>It works for <strong>Paste</strong>, drag and drop,
+<strong>Move/Copy to Folder</strong>, <strong>Delete</strong>,
+<strong>Rename</strong>, <strong>New Folder</strong>, <strong>New Text
+Document</strong> and <strong>New File from Clipboard</strong> (that one
+asks for the name first). A paste from a remote desktop clipboard is
+first saved in a temporary folder and then moved in the same way.</li>
+<li>The administrator step never overwrites: a name that is taken gets a
+number. <strong>Undo</strong> is not offered after it.</li>
+<li>If you answer no to Windows’ question, nothing is done and the items
+are listed as not copied or deleted.</li>
+<li><strong>Tools &gt; Settings &gt; Security &gt; Administrator
+Permission</strong> has a check box that shows a message box of the
+program first, before Windows asks. It is off: Windows’ own question is
+the only one.</li>
+<li>A file that another program has open is not an administrator
+problem: the program names that program and offers <strong>Try
+Again</strong> or <strong>Skip</strong>. A move to another drive checks
+this before it copies, so no stray copy is left behind.</li>
 </ul>
 <h2 id="renaming">Renaming</h2>
 <p><strong>F2</strong> or <strong>Rename…</strong> renames the selected
@@ -1237,9 +1343,12 @@ you press OK.</li>
 <p>Windows’ own <strong>More Options</strong> menu is not covered:
 Windows asks for itself there.</p>
 <h2 id="settings">Settings</h2>
-<p>Open <strong>Tools &gt; Settings</strong>. The window has four tabs:
-<strong>General</strong>, <strong>Files</strong>, <strong>Menus</strong>
-and <strong>Security</strong>. Among other things you can choose:</p>
+<p>Open <strong>Tools &gt; Settings</strong>. The window has the tabs
+<strong>General</strong>, <strong>Files</strong>,
+<strong>Menus</strong>, <strong>Search</strong>,
+<strong>Security</strong>, <strong>Scrapers</strong> and
+<strong>Troubleshooting</strong>, and a <strong>Media Player</strong>
+tab when the player is found. Among other things you can choose:</p>
 <ul>
 <li><strong>Appearance, Style:</strong> Light, Dark, System (follows
 Windows) or Cyber Cyan.</li>
@@ -1270,6 +1379,17 @@ inside a compressed file), which file types count as programs, and
 forgetting the “Don’t Ask Again” choices (see Starting Programs).</li>
 <li><strong>Terminal Menu:</strong> which of the three terminals are in
 the menus.</li>
+<li><strong>Folder Tree Menu</strong> and <strong>File List
+Menu</strong> (Menus tab, new in version 1.1.0): one check box for each
+item of the right-click menus; a checked item is shown (all are shown at
+first). Open, Cut, Copy, Paste, Delete, Rename, Properties and
+<strong>More Options</strong> are always shown.</li>
+<li><strong>Search</strong> tab (new in version 1.1.0): the standard
+list of folders to leave out of searches (see <a href="#searching">Searching</a>).</li>
+<li><strong>Scrapers</strong> tab (new in version 1.1.0): your own free
+TMDB API key for <strong>Download NFO File…</strong>.</li>
+<li><strong>Troubleshooting</strong> tab: what is written to the log
+files (see below).</li>
 <li><strong>When the Program Is Started Again</strong> (General tab):
 what happens when you start the program while it is already running
 (from a shortcut, or from another SweWolf program that opens a folder or
@@ -1511,9 +1631,22 @@ accepted and ignored.</li>
 <h2 id="log-files">Log Files</h2>
 <p>Errors are written to <code>errors.log</code> in
 <code>%AppData%\SweWolfSoftware\SwewolfFileExplorer\Logs</code>.
-<strong>Help &gt; Open Log File</strong> and <strong>Help &gt; Open Log
-Folder</strong> open them. Nothing but errors is logged, and the file
-stays small.</p>
+<strong>Help &gt; Open Log File</strong> opens it and <strong>Help &gt;
+Open Log Folder</strong> shows the folder in a new tab. Errors are
+always logged, and the file stays small.</p>
+<p><strong>Tools &gt; Settings &gt; Troubleshooting</strong> has three
+check boxes, all off normally:</p>
+<ul>
+<li><strong>Log Warnings:</strong> things the program handled by itself,
+for example “access denied” before it asked for administrator
+permission. They start with “Warning:”.</li>
+<li><strong>Log Searches:</strong> a file <code>search.log</code>, made
+new for every search, with what was searched, how long it took, and the
+folders that could not be read.</li>
+<li><strong>Log All Internet Calls:</strong> <code>internet.log</code>,
+what the program asked the internet for (TMDB, MusicBrainz, web folders
+and so on).</li>
+</ul>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p><strong>The file list does not show a folder I made in another
 program.</strong> Press <strong>F5</strong>. The list follows changes by
@@ -1538,6 +1671,16 @@ a sibling program. It must be in the same folder as this program or in
 <code>..\FileInfoViewer</code>. The message gives the download address
 (https://github.com/SweWolf/FileInfoViewer) and offers to open it in
 your browser.</p>
+<p><strong>A web address shows no files, or the wrong dates.</strong>
+The program reads the server’s “Index of” page. If the listing looks
+wrong, save the page’s source and keep it: the layout of that server may
+need to be taught to the program. Turn on <strong>Log All Internet
+Calls</strong> to see what was asked.</p>
+<p><strong>Windows asks for permission when I copy, delete or
+rename.</strong> The folder is protected (for example under
+<code>C:\Program Files</code>). Say yes to continue as the
+administrator, or no to cancel. See <a href="#folders-that-need-administrator-permission">Folders That Need
+Administrator Permission</a>.</p>
 <p><strong>A drive I connected does not show.</strong> Press
 <strong>F5</strong>, or wait a few seconds. The drives are checked all
 the time.</p>
