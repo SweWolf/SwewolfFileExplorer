@@ -17,7 +17,6 @@ A Windows file manager with tabs, a folder tree, bookmarks and an information pa
 - **Undo** (**Ctrl+Z** or the button in the information line): delete, rename, move, copy and new folder or file, one step back. Nothing is overwritten or guessed
 - **Drag and drop** to and from other programs, with the right-button menu (**Copy Here**, **Move Here**, **Create Shortcut Here**). A file dropped on a program starts it, after a security question
 - **Archives as folders**: zip, cbz, RAR, cbr, 7z, cab, tar and gz are read in place, also inside each other. 7-Zip is used for the formats that .NET cannot read
-- **Web folders**: type an `http://` or `https://` address and a server's "Index of" listing opens as a read-only folder; copying downloads
 - **Audio CDs**: titles, artists and the cover come from MusicBrainz, and **Rip** saves the tracks as MP3, FLAC or M4A (checked by reading each track twice). **Eject** is in the drive's menu
 - **Pictures**: a full-screen viewer with slide show, zoom, rotation that can be saved, and next-folder browsing. It shows JPEG, PNG, GIF (animated), WebP, SVG, Photoshop (PSD, PSB), JPEG XL and the previews inside NEF and DNG photos
 - **Video and music** play in **SweWolf Media Player** when it is found (in the same folder as the Explorer, or in a sibling folder called `SwewolfMediaPlayer`). Otherwise Windows' own program is used. The **Play bar** plays a whole list (slide show, repeat, demo, intro or random order), and M3U playlists open like folders and can be edited. Tracks of an audio CD (`.cda`) play too

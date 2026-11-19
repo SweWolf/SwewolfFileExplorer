@@ -57,7 +57,6 @@ AI picture under the list.</p>
 VirusTotal</a></li>
 <li><a href="#the-info-panel">The Info Panel</a></li>
 <li><a href="#opening-files">Opening Files</a></li>
-<li><a href="#web-folders">Web Folders</a></li>
 <li><a href="#ripping-an-audio-cd">Ripping an Audio CD</a></li>
 <li><a href="#right-click-menus">Right-Click Menus</a></li>
 <li><a href="#copying-moving-and-deleting">Copying, Moving and
@@ -698,31 +697,6 @@ another program. It is not shown for programs and scripts, or for
 folders. <strong>Edit</strong> is shown for the types that have an edit
 command (for example <code>.bat</code> and <code>.cmd</code> files), and
 opens the file in its editor.</p>
-<h2 id="web-folders">Web Folders</h2>
-<p><em>(New in version 1.1.0.)</em> Type a web address that starts with
-<code>http://</code> or <code>https://</code> in the address bar (a bare
-address such as <code>192.168.1.20/files</code> gets
-<code>http://</code>) and press <strong>Enter</strong>. If the server
-shows a plain file listing (a page headed “Index of”, as Apache, nginx
-and IIS make), it opens like a folder: its folders are in the tree and
-its files in the list, with size and date.</p>
-<ul>
-<li>The address you type becomes the top of the tree.
-<strong>Up</strong> stops there; type a shorter address to go
-higher.</li>
-<li>Web folders are read-only, like archives: cut, delete, rename, paste
-and new folder are off.</li>
-<li><strong>Copy</strong>, <strong>Open</strong> and
-<strong>drag</strong> of a file or folder download it first (to a
-temporary folder). The window waits while it downloads; there is no
-progress window or Cancel yet.</li>
-<li>Pictures open in the picture viewer, and music and videos in the
-player, after the download.</li>
-<li>A listing is remembered for a minute; <strong>F5</strong> asks the
-server again.</li>
-<li>A user name and password are not supported. A server that asks for
-one gives a message.</li>
-</ul>
 <h2 id="ripping-an-audio-cd">Ripping an Audio CD</h2>
 <p>While an audio CD is shown (open the CD drive), a
 <strong>Rip</strong> button appears in the toolbar, to the right of
@@ -1644,8 +1618,8 @@ permission. They start with “Warning:”.</li>
 new for every search, with what was searched, how long it took, and the
 folders that could not be read.</li>
 <li><strong>Log All Internet Calls:</strong> <code>internet.log</code>,
-what the program asked the internet for (TMDB, MusicBrainz, web folders
-and so on).</li>
+what the program asked the internet for (TMDB, MusicBrainz and so
+on).</li>
 </ul>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p><strong>The file list does not show a folder I made in another
@@ -1671,11 +1645,6 @@ a sibling program. It must be in the same folder as this program or in
 <code>..\FileInfoViewer</code>. The message gives the download address
 (https://github.com/SweWolf/FileInfoViewer) and offers to open it in
 your browser.</p>
-<p><strong>A web address shows no files, or the wrong dates.</strong>
-The program reads the server’s “Index of” page. If the listing looks
-wrong, save the page’s source and keep it: the layout of that server may
-need to be taught to the program. Turn on <strong>Log All Internet
-Calls</strong> to see what was asked.</p>
 <p><strong>Windows asks for permission when I copy, delete or
 rename.</strong> The folder is protected (for example under
 <code>C:\Program Files</code>). Say yes to continue as the

@@ -25,7 +25,6 @@ archives like folders, and shows a preview, a plot or the prompt of an AI pictur
 - [Checking a File on VirusTotal](#checking-a-file-on-virustotal)
 - [The Info Panel](#the-info-panel)
 - [Opening Files](#opening-files)
-- [Web Folders](#web-folders)
 - [Ripping an Audio CD](#ripping-an-audio-cd)
 - [Right-Click Menus](#right-click-menus)
 - [Copying, Moving and Deleting](#copying-moving-and-deleting)
@@ -444,20 +443,6 @@ check it.
 **Open With...** in the right-click menu lets you choose another program. It is not shown for
 programs and scripts, or for folders. **Edit** is shown for the types that have an edit command
 (for example `.bat` and `.cmd` files), and opens the file in its editor.
-
-## Web Folders
-
-*(New in version 1.1.0.)* Type a web address that starts with `http://` or `https://` in the address bar (a bare address such as
-`192.168.1.20/files` gets `http://`) and press **Enter**. If the server shows a plain file listing (a page headed "Index of", as
-Apache, nginx and IIS make), it opens like a folder: its folders are in the tree and its files in the list, with size and date.
-
-- The address you type becomes the top of the tree. **Up** stops there; type a shorter address to go higher.
-- Web folders are read-only, like archives: cut, delete, rename, paste and new folder are off.
-- **Copy**, **Open** and **drag** of a file or folder download it first (to a temporary folder). The window waits while it downloads;
-  there is no progress window or Cancel yet.
-- Pictures open in the picture viewer, and music and videos in the player, after the download.
-- A listing is remembered for a minute; **F5** asks the server again.
-- A user name and password are not supported. A server that asks for one gives a message.
 
 ## Ripping an Audio CD
 
@@ -942,7 +927,7 @@ Errors are written to `errors.log` in
   permission. They start with "Warning:".
 - **Log Searches:** a file `search.log`, made new for every search, with what was searched, how long it took, and the folders that
   could not be read.
-- **Log All Internet Calls:** `internet.log`, what the program asked the internet for (TMDB, MusicBrainz, web folders and so on).
+- **Log All Internet Calls:** `internet.log`, what the program asked the internet for (TMDB, MusicBrainz and so on).
 
 ## Troubleshooting
 
@@ -968,10 +953,6 @@ SweWolf Media Player was not found next to the program or in `..\SwewolfMediaPla
 **File Info Viewer was not found.**
 File Info Viewer is a sibling program. It must be in the same folder as this program or in `..\FileInfoViewer`. The message
 gives the download address (https://github.com/SweWolf/FileInfoViewer) and offers to open it in your browser.
-
-**A web address shows no files, or the wrong dates.**
-The program reads the server's "Index of" page. If the listing looks wrong, save the page's source and keep it: the layout of that
-server may need to be taught to the program. Turn on **Log All Internet Calls** to see what was asked.
 
 **Windows asks for permission when I copy, delete or rename.**
 The folder is protected (for example under `C:\Program Files`). Say yes to continue as the administrator, or no to cancel. See
