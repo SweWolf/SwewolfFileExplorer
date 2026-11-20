@@ -397,14 +397,14 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     {
         // Bookmarks: the shortcuts in the Bookmarks folder, read in the background (a disk that is not connected must not hold up the start).
         var bookmarks = _bookmarksNode = new TreeItemViewModel("Bookmarks", BookmarkStore.Folder, null, isVirtual: true, sortOf: _shared.GetTreeSort,
-                                                               showHiddenOf: _shared.ShowsHiddenInTree) { IsBookmarksRoot = true, IconShape = "bookmark" };
+                                                               showHiddenOf: ShowsHiddenInTree) { IsBookmarksRoot = true, IconShape = "bookmark" };
         try { Directory.CreateDirectory(BookmarkStore.Folder); } catch { /* a click then says it is not there */ }
         bookmarks.IsExpanded = true;
         TreeItems.Add(bookmarks);
         ReloadBookmarks();
 
         // Quick Access
-        var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree) { IconShape = "star" };
+        var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: ShowsHiddenInTree) { IconShape = "star" };
         quickAccess.IsExpanded = true;
         // The order of Explorer's Quick Access. Downloads is asked of Windows (it is often moved to another drive, and .NET
         // has no entry for it): the folder in the user profile does not have to exist.
@@ -418,7 +418,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         TreeItems.Add(quickAccess);
 
         // This PC
-        var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree) { IconShape = "pc" };
+        var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: ShowsHiddenInTree) { IconShape = "pc" };
         thisPC.IsExpanded = true;
 
         foreach (var drive in ReadDrives().Drives)
@@ -525,7 +525,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     private TreeItemViewModel MakeDriveNode(DriveEntry drive)
     {
         var item = new TreeItemViewModel(drive.Label, drive.Root, IconHelper.TreeIcon(drive.Root),
-                                         sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
+                                         sortOf: _shared.GetTreeSort, showHiddenOf: ShowsHiddenInTree);
         item.InitializeLazyLoad();
         return item;
     }
@@ -651,7 +651,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         if (entry.IsGroup)
         {
             var group = new TreeItemViewModel(entry.Name, entry.Path, IconHelper.TreeIconForName("folder", true), isVirtual: true,
-                                              sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree) { Bookmark = entry };
+                                              sortOf: _shared.GetTreeSort, showHiddenOf: ShowsHiddenInTree) { Bookmark = entry };
             foreach (var child in entry.Children) if (IsTreeBookmark(child)) group.Children.Add(MakeBookmarkNode(child));
             return group;
         }
@@ -667,7 +667,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
 
         // A folder, which opens up like any folder of the tree (faded when it is not there: a disk that is not connected).
         var folder = new TreeItemViewModel(entry.Name, entry.Target, IconHelper.TreeIconForName("folder", true), sortOf: _shared.GetTreeSort,
-                                           showHiddenOf: _shared.ShowsHiddenInTree, isHidden: !entry.Available) { Bookmark = entry };
+                                           showHiddenOf: ShowsHiddenInTree, isHidden: !entry.Available) { Bookmark = entry };
         if (entry.Available) folder.InitializeLazyLoad();
         return folder;
     }
@@ -678,7 +678,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     private void AddQuickAccessPath(TreeItemViewModel parent, string name, string? path)
     {
         if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
-        var item = new TreeItemViewModel(name, path, IconHelper.TreeIcon(path), sortOf: _shared.GetTreeSort, showHiddenOf: _shared.ShowsHiddenInTree);
+        var item = new TreeItemViewModel(name, path, IconHelper.TreeIcon(path), sortOf: _shared.GetTreeSort, showHiddenOf: ShowsHiddenInTree);
         item.InitializeLazyLoad();
         parent.Children.Add(item);
     }
@@ -1063,9 +1063,9 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
             // the hidden folders of its parent from now on, so the folder has a node.
             if (next == null && TreeItemViewModel.IsHiddenFolder(current))
             {
-                _shared.TreeShownHidden.Add(SharedState.Key(node.FullPath));
+                _treeShownHidden.Add(SharedState.Key(node.FullPath));
                 node.SyncChildren();   // at once: a new tab has no listener yet
-                TreeHiddenChanged?.Invoke(node.FullPath);
+                RaiseTreeInfoChanged();
                 next = node.Children.FirstOrDefault(c => NodeIs(c, current));
             }
 
@@ -1402,7 +1402,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         }
 
         var node = new TreeItemViewModel(name, path, icon, sortOf: _shared.GetTreeSort,
-                                         isArchive: isArchive, inArchive: inArchive, showHiddenOf: _shared.ShowsHiddenInTree);
+                                         isArchive: isArchive, inArchive: inArchive, showHiddenOf: ShowsHiddenInTree);
         node.InitializeLazyLoad();
         node.EnsureChildrenLoaded();
         node.IsExpanded = true;   // its folders show at once
@@ -1527,7 +1527,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         get
         {
             if (_treeCounts is not { } c) return "";
-            bool shown    = _shared.ShowsHiddenInTree(_currentPath);
+            bool shown    = ShowsHiddenInTree(_currentPath);
             int  folders  = c.Folders  + (shown ? c.HiddenFolders  : 0);
             int  archives = c.Archives + (shown ? c.HiddenArchives : 0);
             var  text     = $"{folders} {(folders == 1 ? "subfolder" : "subfolders")}";
@@ -1542,24 +1542,34 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         get
         {
             string what = _treeHiddenCount == 1 ? "hidden folder" : "hidden folders";
-            return _shared.ShowsHiddenInTree(_currentPath) ? $"Showing {_treeHiddenCount} {what}" : $"{_treeHiddenCount} {what}";
+            return ShowsHiddenInTree(_currentPath) ? $"Showing {_treeHiddenCount} {what}" : $"{_treeHiddenCount} {what}";
         }
     }
 
     /// <summary>Shows the hidden subfolders of the current folder in the tree, or hides them again.</summary>
     public RelayCommand ToggleTreeHiddenCommand { get; private set; } = null!;
 
-    /// <summary>Raised with the folder whose hidden subfolders are now shown or hidden in the tree.</summary>
-    public event Action<string>? TreeHiddenChanged;
+    /// <summary>
+    /// The folders whose hidden and system subfolders THIS tab's tree shows (2026-11-20, the user: a new tab starts with everything hidden;
+    /// before, the set was shared by all tabs). A folder is in here until the user hides them again; not kept between runs.
+    /// </summary>
+    private readonly HashSet<string> _treeShownHidden = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True if this tab's tree shows the hidden subfolders of <paramref name="path"/>.</summary>
+    public bool ShowsHiddenInTree(string path)
+    {
+        try { return _treeShownHidden.Contains(SharedState.Key(path)); }
+        catch { return false; }   // not a path
+    }
 
     private void ToggleTreeHidden()
     {
         if (!Directory.Exists(_currentPath)) return;
 
         var key = SharedState.Key(_currentPath);
-        if (!_shared.TreeShownHidden.Remove(key)) _shared.TreeShownHidden.Add(key);
+        if (!_treeShownHidden.Remove(key)) _treeShownHidden.Add(key);
 
-        TreeHiddenChanged?.Invoke(_currentPath);   // every tab's tree, as the setting is shared
+        SyncTreeHidden(_currentPath);
     }
 
     /// <summary>Adds or removes the nodes of the hidden subfolders of <paramref name="path"/> in this tab's tree.</summary>

@@ -491,8 +491,9 @@ public partial class MainWindow
         if (!string.IsNullOrEmpty(folder))
         {
             var shared = VM.Shared;
+            var tab = VM.ActiveTab;
             var root = VM.TreeRootPath;
-            next = await Task.Run(() => NextFolderFinder.Find(folder, shared.GetTreeSort, shared.ShowsHiddenInTree, CancellationToken.None, root,
+            next = await Task.Run(() => NextFolderFinder.Find(folder, shared.GetTreeSort, tab.ShowsHiddenInTree, CancellationToken.None, root,
                                                               name => ThumbnailLoader.IsImage(name) || MediaPlayerLauncher.IsMedia(name)));
         }
 

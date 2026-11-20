@@ -227,8 +227,7 @@ public class MainViewModel : INotifyPropertyChanged
         tab.TypedFileRequested += path => { if (tab == _activeTab) TypedFileRequested?.Invoke(path); };
         // The tree sort order is shared: the other tabs' trees show the same folder in the same order.
         tab.TreeSortChanged += path => { foreach (var t in Tabs) t.ResortTree(path); };
-        // So is whether the tree shows the hidden folders of a folder.
-        tab.TreeHiddenChanged += path => { foreach (var t in Tabs) t.SyncTreeHidden(path); };
+        // Whether the tree shows the hidden folders of a folder is per tab (a new tab starts with them hidden).
         Tabs.Add(tab);
         return tab;
     }

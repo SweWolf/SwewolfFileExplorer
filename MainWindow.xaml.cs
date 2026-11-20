@@ -3489,9 +3489,10 @@ public partial class MainWindow : Window
         // At the end of the list the viewer can go on to the next folder with pictures (tree order, same drive).
         // The search runs on a background thread, where VM (it reads the DataContext) must not be used: take what it needs here.
         var shared = VM.Shared;
+        var tab    = VM.ActiveTab;
         var root   = VM.TreeRootPath;   // with a root for the tree there is no next folder above it
         viewer.FindNextFolder = (folder, cancel) =>
-            NextFolderFinder.Find(folder, shared.GetTreeSort, shared.ShowsHiddenInTree, cancel, root);
+            NextFolderFinder.Find(folder, shared.GetTreeSort, tab.ShowsHiddenInTree, cancel, root);
         viewer.OpenFolder = folder =>
         {
             VM.Navigate(folder);   // the list, the tree and the address bar follow
