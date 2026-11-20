@@ -212,6 +212,12 @@
                     <TextBlock Text="&#xE74A;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                 </Button>
 
+                <Button Command="{Binding UserRefreshCommand}"
+                        ToolTip="{Binding RefreshTip}"
+                        Padding="6,4">
+                    <TextBlock Text="&#xE72C;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                </Button>
+
                 <Separator/>
 
                 <!-- Address bar. The Fluent text box draws a thicker line along its bottom edge and shows no focus in a toolbar:
@@ -267,14 +273,6 @@
                         </ContextMenu>
                     </Button.ContextMenu>
                     <TextBlock Text="&#xE72A;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
-                </Button>
-
-                <Separator/>
-
-                <Button Command="{Binding UserRefreshCommand}"
-                        ToolTip="{Binding RefreshTip}"
-                        Padding="6,4">
-                    <TextBlock Text="&#xE72C;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                 </Button>
 
                 <Separator/>
