@@ -47,6 +47,9 @@ public class AppSettings
 
     /// <summary>The program's own list of file type names and icons (embedded in the EXE) is used. Off = only the user's FileTypes.json and Windows.</summary>
     public bool UseOwnFileTypeNames { get; set; } = true;
+
+    /// <summary>The Title column of a video takes the title from its .nfo file when it has one (else the title inside the video file). On to begin with.</summary>
+    public bool TitleFromNfo { get; set; } = true;
     public bool UseOwnFileTypeIcons { get; set; } = true;
 
     /// <summary>The picture of the current folder is shown under the tree (the "x" on it hides it; a button in the status line brings it back).</summary>

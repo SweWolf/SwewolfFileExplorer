@@ -168,6 +168,50 @@ public static class NfoPoster
         return null;
     }
 
+    /// <summary>
+    /// The title and the year of the video from its .nfo file (<c>&lt;title&gt;</c> directly under the root; <c>&lt;year&gt;</c>, else the first four
+    /// digits of <c>&lt;premiered&gt;</c>, <c>&lt;releasedate&gt;</c> or <c>&lt;aired&gt;</c>). Empty strings for what the file does not say or when there is no .nfo.
+    /// </summary>
+    public static (string Title, string Year) TitleAndYear(string mediaPath)
+    {
+        foreach (var nfo in NfoFilesOf(mediaPath))
+        {
+            try
+            {
+                if (!File.Exists(nfo)) continue;
+                var info = new FileInfo(nfo);
+                if (info.Length is 0 or > 2 * 1024 * 1024) continue;
+
+                var text = TextFiles.ReadAllText(nfo);
+                var doc = TryParse(text);
+
+                string Value(string tag)
+                {
+                    if (doc?.Root != null)
+                        return System.Net.WebUtility.HtmlDecode(doc.Root.Element(tag)?.Value ?? "").Trim();
+                    var m = Regex.Match(text, $@"<{tag}>(?<v>.*?)</{tag}>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                    return m.Success ? System.Net.WebUtility.HtmlDecode(m.Groups["v"].Value).Trim() : "";
+                }
+
+                string title = Regex.Replace(Value("title"), @"\s+", " ");
+                string year = Regex.Match(Value("year"), @"^\d{4}$").Value;
+                if (year.Length == 0)
+                    foreach (var tag in new[] { "premiered", "releasedate", "aired" })
+                    {
+                        var m = Regex.Match(Value(tag), @"^\s*(\d{4})");
+                        if (m.Success) { year = m.Groups[1].Value; break; }
+                    }
+
+                if (title.Length > 0 || year.Length > 0) return (title, year);
+            }
+            catch
+            {
+                // an .nfo that cannot be read says nothing
+            }
+        }
+        return ("", "");
+    }
+
     // Each line trimmed, runs of spaces made one, no empty lines at the ends and no more than one in a row.
     private static string? Tidy(string? text)
     {

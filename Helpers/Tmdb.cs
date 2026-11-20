@@ -27,7 +27,8 @@ public static class Tmdb
     public enum Kind { Unknown, Movie, Tv }
 
     /// <summary>One search hit. <see cref="IsTv"/> says which kind it is.</summary>
-    public sealed record Result(bool IsTv, int Id, string Title, string? Year, string Overview);
+    public sealed record Result(bool IsTv, int Id, string Title, string? Year, string Overview,
+                                string? PosterPath = null, string? OriginalTitle = null, string? Language = null);
 
     // ── The key ──────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ public static class Tmdb
 
     private static async Task<JsonElement> GetAsync(string path, string query, CancellationToken ct)
     {
-        var key = GetApiKey() ?? throw new InvalidOperationException("There is no TMDB API key. Add it in Tools > Settings > Scrapers.");
+        var key = GetApiKey() ?? throw new TmdbFatalException("There is no TMDB API key. Add it in Tools > Settings > Scrapers.");
         bool token = key.Contains('.');
         var url = $"{Api}{path}?language=en-US{(query.Length > 0 ? "&" + query : "")}{(token ? "" : "&api_key=" + Uri.EscapeDataString(key))}";
 
@@ -131,11 +132,11 @@ public static class Tmdb
                 outcome = ((int)response.StatusCode).ToString();
 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                    throw new InvalidOperationException("TMDB did not accept the API key. Check it in Tools > Settings > Scrapers.");
+                    throw new TmdbFatalException("TMDB did not accept the API key. Check it in Tools > Settings > Scrapers.");
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     throw new InvalidOperationException("TMDB has no entry for this.");
                 if ((int)response.StatusCode == 429)
-                    throw new InvalidOperationException("TMDB says there were too many requests. Try again in a moment.");
+                    throw new TmdbFatalException("TMDB says there were too many requests. Try again in a moment.");
                 response.EnsureSuccessStatusCode();
 
                 using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
@@ -143,7 +144,7 @@ public static class Tmdb
                     outcome += $", {found.GetArrayLength()} results";
                 return doc.RootElement.Clone();
             }
-            catch (HttpRequestException ex) { outcome = "failed: " + ex.Message; throw new InvalidOperationException($"TMDB could not be reached: {ex.Message}"); }
+            catch (HttpRequestException ex) { outcome = "failed: " + ex.Message; throw new TmdbFatalException($"TMDB could not be reached: {ex.Message}"); }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested) { outcome = "no answer within 20 s"; throw new InvalidOperationException("TMDB did not answer in time."); }
             catch (JsonException) { outcome += ", answer could not be read"; throw new InvalidOperationException("TMDB gave an answer that could not be read."); }
         }
@@ -180,13 +181,13 @@ public static class Tmdb
             // primary_release_year = the main release date only; "year" also matches any other release date (festivals, other countries).
             var json = await GetAsync("/search/movie", q + (hasYear ? "&primary_release_year=" + year : ""), ct);
             foreach (var r in json.GetProperty("results").EnumerateArray())
-                results.Add(new Result(false, r.GetProperty("id").GetInt32(), Str(r, "title"), YearOf(Str(r, "release_date")), Str(r, "overview")));
+                results.Add(ResultOf(r, tv: false));
         }
         if (kind != Kind.Movie)
         {
             var json = await GetAsync("/search/tv", q + (hasYear ? "&first_air_date_year=" + year : ""), ct);
             foreach (var r in json.GetProperty("results").EnumerateArray())
-                results.Add(new Result(true, r.GetProperty("id").GetInt32(), Str(r, "name"), YearOf(Str(r, "first_air_date")), Str(r, "overview")));
+                results.Add(ResultOf(r, tv: true));
         }
         return results;
     }
@@ -213,17 +214,60 @@ public static class Tmdb
         if (json.TryGetProperty("movie_results", out var movies) && movies.GetArrayLength() > 0)
         {
             var r = movies[0];
-            movie = new Result(false, r.GetProperty("id").GetInt32(), Str(r, "title"), YearOf(Str(r, "release_date")), Str(r, "overview"));
+            movie = ResultOf(r, tv: false);
         }
         if (json.TryGetProperty("tv_results", out var shows) && shows.GetArrayLength() > 0)
         {
             var r = shows[0];
-            tv = new Result(true, r.GetProperty("id").GetInt32(), Str(r, "name"), YearOf(Str(r, "first_air_date")), Str(r, "overview"));
+            tv = ResultOf(r, tv: true);
         }
         if (movie == null && tv == null && json.TryGetProperty("tv_episode_results", out var eps) && eps.GetArrayLength() > 0)
             throw new InvalidOperationException($"{imdbId} is the IMDb ID of a single TV episode. Enter the IMDb ID of the TV show instead.");
 
         return kind == Kind.Tv ? tv ?? movie : movie ?? tv;
+    }
+
+    // One hit of a search (or of "find by IMDb ID"), with what the pick list shows: the poster, the original title and its language.
+    private static Result ResultOf(JsonElement r, bool tv)
+    {
+        var poster = Str(r, "poster_path");
+        var original = Str(r, tv ? "original_name" : "original_title");
+        return new Result(tv, r.GetProperty("id").GetInt32(),
+                          Str(r, tv ? "name" : "title"), YearOf(Str(r, tv ? "first_air_date" : "release_date")), Str(r, "overview"),
+                          poster.Length > 0 ? poster : null, original.Length > 0 ? original : null, LanguageName(Str(r, "original_language")));
+    }
+
+    /// <summary>"fr" gives "French"; a code Windows does not know is returned as it is; empty gives null.</summary>
+    private static string? LanguageName(string code)
+    {
+        if (code.Length == 0) return null;
+        try { return System.Globalization.CultureInfo.GetCultureInfo(code).EnglishName; }
+        catch (System.Globalization.CultureNotFoundException) { return code; }
+    }
+
+    /// <summary>The length of a movie in minutes (TMDB's details have it, the search does not); null for a TV show or when TMDB has none.</summary>
+    public static async Task<int?> RuntimeAsync(Result hit, CancellationToken ct)
+    {
+        if (hit.IsTv) return null;
+        var json = await GetAsync($"/movie/{hit.Id}", "", ct);
+        return json.TryGetProperty("runtime", out var p) && p.ValueKind == JsonValueKind.Number && p.GetInt32() > 0 ? p.GetInt32() : null;
+    }
+
+    /// <summary>The picture of a hit (92 px wide, TMDB's smallest), or null. Logged in internet.log like every web call.</summary>
+    public static async Task<byte[]?> SmallPosterAsync(Result hit, CancellationToken ct)
+    {
+        if (hit.PosterPath == null) return null;
+        var address = ImageBase + "w92" + hit.PosterPath;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        string outcome = "failed";
+        try
+        {
+            var download = await FileDownloader.GetBytesAsync(address, 1024 * 1024, 15, "poster", ct);
+            outcome = $"ok, {download.Bytes.Length:N0} bytes";
+            return download.Bytes;
+        }
+        catch (InvalidOperationException) { return null; }
+        finally { LogFiles.AppendInternet($"GET\timage.tmdb.org\t{address}\t{outcome}\t{watch.ElapsedMilliseconds} ms"); }
     }
 
     private static string Str(JsonElement e, string name) =>
@@ -464,4 +508,40 @@ public static class Tmdb
         }
         finally { try { File.Delete(temp); } catch { } }
     }
+    /// <summary>
+    /// Downloads the poster named in the .nfo into the folder as a hidden poster.jpg (poster.png for a PNG): the name Jellyfin and Kodi use,
+    /// and one the folder picture already looks for. A poster that is there already is never replaced. Returns null when it is done (or
+    /// nothing is to be done), else the reason it was not.
+    /// </summary>
+    public static async Task<string?> SaveFolderPosterAsync(string folder, string nfo)
+    {
+        foreach (var existing in new[] { "poster.jpg", "poster.jpeg", "poster.png" })
+            if (File.Exists(Path.Combine(folder, existing))) return null;
+
+        var address = NfoPoster.Addresses(nfo).FirstOrDefault(a => a.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+        if (address == null) return null;   // the .nfo names no poster on the web
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        string outcome = "failed";
+        try
+        {
+            var download = await FileDownloader.GetBytesAsync(address, 30L * 1024 * 1024, 30, "poster");
+            outcome = $"ok, {download.Bytes.Length:N0} bytes";
+            var name = download.ContentType == "image/png" ? "poster.png" : "poster.jpg";
+            FileDownloader.WriteNew(Path.Combine(folder, name), download.Bytes, hidden: true);
+            return null;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            outcome = "failed: " + ex.Message;
+            return ex.Message;
+        }
+        finally { LogFiles.AppendInternet($"GET	image.tmdb.org	{address}	{outcome}	{watch.ElapsedMilliseconds} ms"); }
+    }
+}
+
+/// <summary>A problem that makes every further TMDB call pointless (no key, a refused key, no network, too many requests): a batch stops at it.</summary>
+public sealed class TmdbFatalException : InvalidOperationException
+{
+    public TmdbFatalException(string message) : base(message) { }
 }

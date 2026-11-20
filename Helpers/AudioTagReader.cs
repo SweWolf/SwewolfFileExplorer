@@ -8,7 +8,7 @@ namespace SwewolfFileExplorer.Helpers;
 /// </summary>
 public record AudioTags(string Artist, string Title, uint TrackNumber,
                         TimeSpan Duration = default, int BitrateKbps = 0, int Width = 0, int Height = 0,
-                        string ProductName = "", string ProductVersion = "", DateTime? DateTaken = null, string Comment = "");
+                        string ProductName = "", string ProductVersion = "", DateTime? DateTaken = null, string Comment = "", string Year = "");
 
 /// <summary>
 /// Reads the tags of a music file with TagLibSharp (mp3, m4a, flac, ogg, opus, wma, wav, ...), for the
@@ -57,6 +57,19 @@ public static class AudioTagReader
         // A picture's Date Taken (EXIF), in the same pass: the file is opened a second time, which is cheap next to the picture's own reading.
         if (GpsReader.CanHaveDateTaken(path) && GpsReader.ReadDateTaken(path) is { } taken)
             tags = tags == null ? new AudioTags("", "", 0, DateTaken: taken) : tags with { DateTaken = taken };
+
+        // A video: the year always comes from its .nfo file (the production / release year as the scraper wrote it), and the title
+        // when the setting says so. Other kinds of file have no .nfo of this kind.
+        if (MediaPlayerLauncher.IsVideo(path))
+        {
+            var (nfoTitle, nfoYear) = NfoPoster.TitleAndYear(path);
+            if (nfoYear.Length > 0 || (nfoTitle.Length > 0 && AppSettingsStore.Current.TitleFromNfo))
+            {
+                tags ??= new AudioTags("", "", 0);
+                if (nfoYear.Length > 0) tags = tags with { Year = nfoYear };
+                if (nfoTitle.Length > 0 && AppSettingsStore.Current.TitleFromNfo) tags = tags with { Title = nfoTitle };
+            }
+        }
         return tags;
     }
 

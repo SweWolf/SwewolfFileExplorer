@@ -33,6 +33,12 @@ public partial class MainWindow
         var ask = new DownloadNfoWindow(path) { Owner = this };
         if (ask.ShowDialog() != true) return;
 
+        if (ask.BatchAll)
+        {
+            await RunNfoBatchAsync(path, folder, ask.Kind, ask.IncludeAdult);
+            return;
+        }
+
         Tmdb.Result chosen;
         bool byId = ask.Id != null || ask.ImdbId != null;
         if (ask.ImdbId != null)
@@ -83,7 +89,8 @@ public partial class MainWindow
             chosen = hits[0];
             if (hits.Count > 1 || search.YearIgnored)   // a single hit is also shown when the year was dropped to find it
             {
-                var pick = new PickTmdbResultWindow(hits, search.YearIgnored ? $"Nothing was found for {ask.Year}, so these are from all years. Which one is it?" : null) { Owner = this };
+                double? fileMinutes = folder ? null : await Task.Run(() => TmdbBatch.VideoMinutes(path));
+                var pick = new PickTmdbResultWindow(hits, search.YearIgnored ? $"Nothing was found for {ask.Year}, so these are from all years. Which one is it?" : null, fileMinutes) { Owner = this };
                 if (pick.ShowDialog() != true || pick.Chosen == null) return;
                 chosen = pick.Chosen;
             }
@@ -117,7 +124,7 @@ public partial class MainWindow
         if (folder)
         {
             Mouse.OverrideCursor = Cursors.Wait;
-            try { posterProblem = await SaveFolderPosterAsync(path, target); }
+            try { posterProblem = await Tmdb.SaveFolderPosterAsync(path, target); }
             finally { Mouse.OverrideCursor = null; }
         }
 
@@ -135,33 +142,46 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Downloads the poster named in the .nfo into the folder as a hidden poster.jpg (poster.png for a PNG): the name Jellyfin and Kodi use,
-    /// and one the folder picture already looks for. A poster that is there already is never replaced. Returns null when it is done (or
-    /// nothing is to be done), else the reason it was not.
+    /// "Look up all ... in this folder": every video (or, for TV shows, every folder) without an .nfo file is looked up and saved when exactly one
+    /// TMDB hit matches its title (and year) (<see cref="TmdbBatch"/>). A progress window with Cancel; one message at the end.
     /// </summary>
-    private static async Task<string?> SaveFolderPosterAsync(string folder, string nfo)
+    private async Task RunNfoBatchAsync(string path, bool folder, Tmdb.Kind kind, bool includeAdult)
     {
-        foreach (var existing in new[] { "poster.jpg", "poster.jpeg", "poster.png" })
-            if (File.Exists(System.IO.Path.Combine(folder, existing))) return null;
+        // A selected folder in the list is one item among its neighbours: "all folders in this folder" means the folder it lies in
+        // (the TV Shows folder), not the season folders inside the selected show.
+        if (folder && System.IO.Path.GetDirectoryName(path.TrimEnd('\\', '/')) is { Length: > 0 } parent)
+            path = parent;
 
-        var address = NfoPoster.Addresses(nfo).FirstOrDefault(a => a.StartsWith("http", StringComparison.OrdinalIgnoreCase));
-        if (address == null) return null;   // the .nfo names no poster on the web
+        Mouse.OverrideCursor = Cursors.Wait;
+        List<TmdbBatch.Item> items;
+        try { items = await Task.Run(() => TmdbBatch.ItemsFor(path, folder, kind)); }
+        finally { Mouse.OverrideCursor = null; }
 
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-        string outcome = "failed";
-        try
+        if (items.Count == 0)
         {
-            var download = await FileDownloader.GetBytesAsync(address, 30L * 1024 * 1024, 30, "poster");
-            outcome = $"ok, {download.Bytes.Length:N0} bytes";
-            var name = download.ContentType == "image/png" ? "poster.png" : "poster.jpg";
-            FileDownloader.WriteNew(System.IO.Path.Combine(folder, name), download.Bytes, hidden: true);
-            return null;
+            MessageBox.Show(this, "There is nothing to look up: everything of that kind in this folder has an .nfo file already.",
+                            "Download NFO Files", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+
+        var outcome = WaitWindow.RunWithProgress(this, "Download NFO Files", "Looking up on The Movie Database...", items.Count, "items",
+            (ct, progress, _) => TmdbBatch.RunAsync(items, kind, includeAdult, progress, ct));
+        if (outcome == null)
         {
-            outcome = "failed: " + ex.Message;
-            return ex.Message;
+            MessageBox.Show(this, "The lookup stopped unexpectedly.", "Download NFO Files", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
         }
-        finally { LogFiles.AppendInternet($"GET\timage.tmdb.org\t{address}\t{outcome}\t{watch.ElapsedMilliseconds} ms"); }
+
+        // The list, the plot, the previews and the tiles are read again for what was saved.
+        var selected = FileListView.SelectedItems.OfType<FileItemViewModel>().Select(i => i.FullPath).ToList();
+        string shown = folder ? path : System.IO.Path.GetDirectoryName(path) ?? "";
+        ThumbnailService.InvalidateFolder(shown, VM.ActiveTab.CurrentItems);
+        VM.RefreshCommand.Execute(null);
+        ReselectInList(selected);
+        UpdateInfoPanel();
+        if (outcome.Posters > 0) VM.RefreshFolderPicture();
+
+        MessageBox.Show(this, TmdbBatch.SummaryText(outcome, items.Count), "Download NFO Files", MessageBoxButton.OK,
+                        outcome.Fatal != null ? MessageBoxImage.Warning : MessageBoxImage.Information);
     }
 }

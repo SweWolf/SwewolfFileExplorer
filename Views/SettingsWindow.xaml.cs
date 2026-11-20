@@ -92,6 +92,7 @@ public partial class SettingsWindow : Window
         HideShellExtensionsBox.IsChecked   = current.HideShellExtensions;
         HideKnownExtensionsBox.IsChecked   = current.HideKnownExtensions;
         OwnFileTypesBox.IsChecked          = current.UseOwnFileTypeNames;
+        TitleFromNfoBox.IsChecked          = current.TitleFromNfo;
         OwnFileIconsBox.IsEnabled          = FileTypeOverrides.IsWindows11;
         OwnFileIconsBox.IsChecked          = FileTypeOverrides.IsWindows11 && current.UseOwnFileTypeIcons;
         if (!FileTypeOverrides.IsWindows11) OwnFileIconsBox.ToolTip = "These icons are the ones of Windows 11, so this choice is only available there. On this Windows the icons are as Windows Explorer shows them.";
@@ -297,6 +298,7 @@ public partial class SettingsWindow : Window
         settings.HideShellExtensions = HideShellExtensionsBox.IsChecked == true;
         settings.HideKnownExtensions = HideKnownExtensionsBox.IsChecked == true;
         settings.UseOwnFileTypeNames = OwnFileTypesBox.IsChecked == true;
+        settings.TitleFromNfo = TitleFromNfoBox.IsChecked == true;
         if (FileTypeOverrides.IsWindows11) settings.UseOwnFileTypeIcons = OwnFileIconsBox.IsChecked == true;   // on Windows 10 the saved choice is left alone
         FileTypeOverrides.SetBuiltIn(settings.UseOwnFileTypeNames, settings.UseOwnFileTypeIcons);   // forgets the names and icons found so far
         settings.UseRegisteredTypeNames = RegisteredTypeNamesBox.IsChecked == true;

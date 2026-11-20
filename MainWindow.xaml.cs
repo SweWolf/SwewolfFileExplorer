@@ -76,6 +76,7 @@ public partial class MainWindow : Window
             new ColumnInfo(SortColumn.Size,         "Size",          SizeColumn),
             new ColumnInfo(SortColumn.Artist,       "Artist",        ArtistColumn, visible: false),
             new ColumnInfo(SortColumn.Title,        "Title",         TitleColumn, visible: false),
+            new ColumnInfo(SortColumn.Year,         "Year",          YearColumn, visible: false),
             new ColumnInfo(SortColumn.TrackNumber,  "#",             TrackColumn, visible: false, menuTitle: "# (Track Number)"),
             new ColumnInfo(SortColumn.Length,       "Length",        LengthColumn, visible: false),
             new ColumnInfo(SortColumn.Bitrate,      "Bitrate",       BitrateColumn, visible: false),
@@ -620,7 +621,7 @@ public partial class MainWindow : Window
     // The columns that need the files to be read (tags, length, bitrate, size in pixels).
     private static bool IsTagColumn(SortColumn key) =>
         key is SortColumn.Artist or SortColumn.Title or SortColumn.TrackNumber or SortColumn.Length or SortColumn.Bitrate or SortColumn.Dimensions
-            or SortColumn.ProductName or SortColumn.ProductVersion or SortColumn.DateTaken or SortColumn.Comment;
+            or SortColumn.ProductName or SortColumn.ProductVersion or SortColumn.DateTaken or SortColumn.Comment or SortColumn.Year;
 
     private void ApplySort(SortColumn key, bool ascending)
     {
@@ -1410,6 +1411,7 @@ public partial class MainWindow : Window
             SortColumn.ProductName  => item.ProductName,
             SortColumn.ProductVersion => item.ProductVersion,
             SortColumn.Comment      => item.Comment,
+            SortColumn.Year         => item.Year,
             SortColumn.Artist      => item.Artist,
             SortColumn.Title        => item.Title,
             SortColumn.TrackNumber  => item.TrackText,

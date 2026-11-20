@@ -5,7 +5,7 @@ using SwewolfFileExplorer.ViewModels;
 namespace SwewolfFileExplorer.Helpers;
 
 /// <summary>The column the list is sorted by. None: not sorted, the items stay in the order they were read (the order inside a zip).</summary>
-public enum SortColumn { Name, DateModified, DateCreated, Type, Size, Artist, Title, TrackNumber, Length, Bitrate, Dimensions, ProductName, ProductVersion, Comment, Rating, Expectation, DateTaken, Location, None }
+public enum SortColumn { Name, DateModified, DateCreated, Type, Size, Artist, Title, TrackNumber, Length, Bitrate, Dimensions, ProductName, ProductVersion, Comment, Year, Rating, Expectation, DateTaken, Location, None }
 
 /// <summary>
 /// Sorts the file list like Windows Explorer: folders always stay above files,
@@ -44,6 +44,7 @@ public class FileItemComparer : IComparer
             SortColumn.Dimensions   => a.Pixels.CompareTo(b.Pixels),   // by the number of pixels
             SortColumn.Location       => StrCmpLogicalW(a.Location, b.Location),
             SortColumn.Comment        =>StrCmpLogicalW(a.Comment, b.Comment),
+            SortColumn.Year           => StrCmpLogicalW(a.Year, b.Year),
             SortColumn.ProductName    => StrCmpLogicalW(a.ProductName, b.ProductName),
             SortColumn.ProductVersion => StrCmpLogicalW(a.ProductVersion, b.ProductVersion),   // 1.10 after 1.9
             // By number (10 is more than 9); no value counts as zero.

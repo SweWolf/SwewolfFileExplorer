@@ -76,6 +76,9 @@ public class FileItemViewModel : INotifyPropertyChanged
     /// <summary>The comment inside the file (an MP4's ©cmt, an MP3's COMM ...), on one line.</summary>
     public string Comment { get; private set; } = "";
 
+    /// <summary>The year of a video, from its .nfo file; empty when it has none.</summary>
+    public string Year { get; private set; } = "";
+
     /// <summary>"3:45", or "1:02:03" from an hour up.</summary>
     public string LengthText => Duration < TimeSpan.FromSeconds(0.5) ? ""
         : Duration.TotalHours >= 1 ? $"{(int)Duration.TotalHours}:{Duration.Minutes:00}:{Duration.Seconds:00}"
@@ -106,6 +109,8 @@ public class FileItemViewModel : INotifyPropertyChanged
         ProductVersion = tags.ProductVersion;
         DateTaken      = tags.DateTaken;
         Comment        = tags.Comment;
+        Year           = tags.Year;
+        OnPropertyChanged(nameof(Year));
         OnPropertyChanged(nameof(Comment));
         OnPropertyChanged(nameof(DateTakenText));
         OnPropertyChanged(nameof(ProductName));
