@@ -373,6 +373,13 @@
                     </StackPanel>
                 </Button>
 
+                <!-- "..." as in Windows Explorer: Select All, Select None, Invert Selection (menu made in code) -->
+                <Button x:Name="MoreButton" Click="MoreButton_Click"
+                        ToolTip="More Options: Select All, Select None, Invert Selection"
+                        Padding="6,4">
+                    <TextBlock Text="&#xE712;" FontSize="12" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" VerticalAlignment="Center"/>
+                </Button>
+
             </ToolBar>
         </ToolBarTray>
 
