@@ -51,18 +51,40 @@ public static class SingleInstance
         }
     }
 
-    /// <summary>True if this is the first instance (it now owns the name for as long as the program runs).</summary>
-    public static bool TryBecomeOwner()
+    private const int MaxSlots = 4;
+    private static string? _pipeName;   // the pipe this instance answers on (null: not an owner)
+
+    private static string SlotName(int slot) => slot == 1 ? Name : $"{Name}.{slot}";
+
+    private static bool TryClaim(int slot)
     {
         try
         {
-            var mutex = new Mutex(true, "Local\\" + Name, out bool createdNew);
+            var mutex = new Mutex(true, "Local\\" + SlotName(slot), out bool createdNew);
             if (!createdNew) { mutex.Dispose(); return false; }
             _mutex = mutex;
+            _pipeName = SlotName(slot);
             return true;
         }
-        catch { return false; }   // e.g. owned by an elevated instance: this one is just another window
+        catch { return false; }   // e.g. owned by an elevated instance
     }
+
+    /// <summary>True if this is the first instance (it now owns the name for as long as the program runs).</summary>
+    public static bool TryBecomeOwner() => TryClaim(1);
+
+    /// <summary>
+    /// A start that found the first window stuck (crashed and hanging, or busy) and opens a new window anyway claims the next free place, so
+    /// that the start after this one finds this window instead of the stuck one (found by the user 2026-11-19: a crashed instance made
+    /// every later start a new window that no other start could find).
+    /// </summary>
+    public static void TryBecomeSuccessor()
+    {
+        if (_mutex != null) return;
+        for (int slot = 2; slot <= MaxSlots; slot++) if (TryClaim(slot)) return;
+    }
+
+    /// <summary>True when the last <see cref="TryHandOver"/> found no window that could take the request (all stuck, busy or unreachable).</summary>
+    public static bool NoReadyWindow { get; private set; }
 
     // ── The new start's side ─────────────────────────────────────────────
 
@@ -73,29 +95,48 @@ public static class SingleInstance
     /// </summary>
     public static HandOverResult TryHandOver(StartupTarget target, Func<string?, bool?> ask)
     {
+        NoReadyWindow = false;
+        bool declined = false;
+        for (int slot = 1; slot <= MaxSlots; slot++)
+        {
+            var result = TryHandOverTo(SlotName(slot), slot == 1 ? 1500 : 300, target, ask, out var state);
+            if (state == SlotState.Done) return result;
+            // NoServer / NotReady: stuck, busy or nobody there (a pipe that is not there looks like a time-out); the next window may be fine
+            if (state == SlotState.Declined) { declined = true; break; }
+        }
+        NoReadyWindow = !declined;
+        return HandOverResult.NotHandedOver;
+    }
+
+    private enum SlotState { Done, NoServer, NotReady, Declined }
+
+    private static HandOverResult TryHandOverTo(string pipe, int connectMs, StartupTarget target, Func<string?, bool?> ask, out SlotState state)
+    {
+        state = SlotState.NoServer;
         try
         {
-            using var client = new NamedPipeClientStream(".", Name, PipeDirection.InOut, PipeOptions.CurrentUserOnly);
-            client.Connect(1500);   // the owner may still be starting its server
+            using var client = new NamedPipeClientStream(".", pipe, PipeDirection.InOut, PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous);
+            client.Connect(connectMs);   // the owner may still be starting its server
 
-            using var writer = new StreamWriter(client, new UTF8Encoding(false), 4096, leaveOpen: true) { AutoFlush = true };
+            state = SlotState.NotReady;
+            var writer = new StreamWriter(client, new UTF8Encoding(false), 4096, leaveOpen: true) { AutoFlush = true };   // not disposed: a hung server must not block us here
             using var reader = new StreamReader(client, new UTF8Encoding(false), false, 4096, leaveOpen: true);
 
             // First "are you ready, and is a session on?" (nothing is changed by it); the user is asked after that when needed.
-            var probe = Exchange(writer, reader, new { cmd = "probe" }, 2000);
-            if (Status(probe) != "ready") { FailureReason = probe == null ? "no answer to the question \"are you ready\" within 2 seconds" : "the running window said it is busy (see its own log line)"; return HandOverResult.NotHandedOver; }
+            var probe = Exchange(writer, reader, new { cmd = "probe" }, 3000);
+            if (Status(probe) != "ready") { FailureReason = probe == null ? "no answer to the question \"are you ready\" within 3 seconds (the running window may have crashed)" : "the running window said it is busy (see its own log line)"; return HandOverResult.NotHandedOver; }
 
             string? session = null;
             if (probe!.RootElement.TryGetProperty("session", out var s) && s.ValueKind == JsonValueKind.String) session = s.GetString();
 
             var answer = ask(session);
-            if (answer == null) return HandOverResult.Canceled;
-            if (answer == false) return HandOverResult.NotHandedOver;
+            if (answer == null) { state = SlotState.Done; return HandOverResult.Canceled; }
+            if (answer == false) { state = SlotState.Declined; return HandOverResult.NotHandedOver; }
 
-            var reply = Exchange(writer, reader, new { cmd = "open", file = target.TabSetFile, folder = target.Folder, image = target.Image, select = target.SelectFile }, 2000);
+            var reply = Exchange(writer, reader, new { cmd = "open", file = target.TabSetFile, folder = target.Folder, image = target.Image, select = target.SelectFile }, 3000);
             if (Status(reply) != "accepted")
             {
-                FailureReason = reply == null ? "no answer from the running window within 2 seconds" : "the running window said it is busy (see its own log line)";
+                FailureReason = reply == null ? "no answer from the running window within 3 seconds" : "the running window said it is busy (see its own log line)";
                 return HandOverResult.NotHandedOver;
             }
 
@@ -105,7 +146,8 @@ public static class SingleInstance
             }
             catch { }
 
-            writer.WriteLine("{\"cmd\":\"go\"}");
+            Send(writer, "{\"cmd\":\"go\"}", 1000);
+            state = SlotState.Done;
             return HandOverResult.HandedOver;
         }
         catch (Exception ex)   // no server, no answer, access denied: a normal new window
@@ -120,10 +162,18 @@ public static class SingleInstance
 
     private static JsonDocument? Exchange(StreamWriter writer, StreamReader reader, object message, int timeoutMs)
     {
-        writer.WriteLine(JsonSerializer.Serialize(message, Json));
+        // Written with a time limit: a window that has crashed and hangs never reads, and a plain WriteLine would then block this start for ever
+        // (found 2026-11-19 with a suspended copy: the new start never got its window).
+        if (!Send(writer, JsonSerializer.Serialize(message, Json), timeoutMs)) return null;
         var read = reader.ReadLineAsync();
         if (!read.Wait(timeoutMs) || read.Result == null) return null;
         try { return JsonDocument.Parse(read.Result); } catch { return null; }
+    }
+
+    private static bool Send(StreamWriter writer, string line, int timeoutMs)
+    {
+        try { return writer.WriteLineAsync(line).Wait(timeoutMs); }
+        catch { return false; }
     }
 
     private static string? Status(JsonDocument? doc) =>
@@ -137,9 +187,9 @@ public static class SingleInstance
     /// </summary>
     public static void StartServer(Window main, Func<string?> sessionName, Action<StartupTarget> handle)
     {
-        if (_mutex == null) return;   // not the owner: nobody sends us anything
+        if (_pipeName == null) return;   // not the owner: nobody sends us anything
         var dispatcher = main.Dispatcher;
-        var thread = new Thread(() => ServerLoop(Name, CancellationToken.None, main, dispatcher, sessionName, handle)) { IsBackground = true, Name = "Single instance pipe" };
+        var thread = new Thread(() => ServerLoop(_pipeName, CancellationToken.None, main, dispatcher, sessionName, handle)) { IsBackground = true, Name = "Single instance pipe" };
         thread.Start();
     }
 
@@ -184,21 +234,21 @@ public static class SingleInstance
     {
         try
         {
-            using var client = new NamedPipeClientStream(".", SessionPipeName(sessionFile), PipeDirection.InOut, PipeOptions.CurrentUserOnly);
+            using var client = new NamedPipeClientStream(".", SessionPipeName(sessionFile), PipeDirection.InOut, PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous);
             try { client.Connect(400); }
             catch (Exception) { return SessionHandOver.NotRunning; }   // nobody has this session on
 
-            using var writer = new StreamWriter(client, new UTF8Encoding(false), 4096, leaveOpen: true) { AutoFlush = true };
+            var writer = new StreamWriter(client, new UTF8Encoding(false), 4096, leaveOpen: true) { AutoFlush = true };   // not disposed: a hung server must not block us here
             using var reader = new StreamReader(client, new UTF8Encoding(false), false, 4096, leaveOpen: true);
 
-            if (Status(Exchange(writer, reader, new { cmd = "probe" }, 2000)) != "ready") return SessionHandOver.Busy;
+            if (Status(Exchange(writer, reader, new { cmd = "probe" }, 3000)) != "ready") return SessionHandOver.Busy;
 
             // Nothing to open: the window only comes to the front.
-            var reply = Exchange(writer, reader, new { cmd = "open" }, 2000);
+            var reply = Exchange(writer, reader, new { cmd = "open" }, 3000);
             if (Status(reply) != "accepted") return SessionHandOver.Busy;
 
             try { if (reply!.RootElement.TryGetProperty("pid", out var pid)) AllowSetForegroundWindow(pid.GetInt32()); } catch { }
-            writer.WriteLine("{\"cmd\":\"go\"}");
+            Send(writer, "{\"cmd\":\"go\"}", 1000);
             return SessionHandOver.HandedOver;
         }
         catch (Exception ex)
@@ -299,8 +349,8 @@ public static class SingleInstance
                 var hwnd = new WindowInteropHelper(main).Handle;
                 if (hwnd == IntPtr.Zero) return ("the window has no handle", null);
                 return (IsWindowEnabled(hwnd) ? "" : "a dialog is open", sessionName());
-            });
-            if (!op.Task.Wait(1000)) { reason = "the window did not answer within 1 second (it was busy)"; return false; }
+            }, DispatcherPriority.Send);   // ahead of everything queued: a window with lots of work queued (icons, tags, thumbnails) still answers
+            if (!op.Task.Wait(2000)) { reason = "the window did not answer within 2 seconds (it was busy)"; return false; }
             (reason, session) = op.Task.Result;
             return reason.Length == 0;
         }

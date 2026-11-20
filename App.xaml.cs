@@ -122,6 +122,9 @@ public partial class App : Application
             }
             ShutdownMode = modeBefore;
 
+            // No window could take it (one may have crashed and hang): this window takes the next place, so the next start finds it.
+            if (SingleInstance.NoReadyWindow) SingleInstance.TryBecomeSuccessor();
+
             // Said in the log (Help > Open Log File), so "it opened a new window" can be explained.
             if (result == SingleInstance.HandOverResult.NotHandedOver && SingleInstance.FailureReason != null)
                 LogFiles.AppendError($"Started again: a new window was opened because {SingleInstance.FailureReason}.");
