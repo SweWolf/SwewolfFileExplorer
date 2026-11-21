@@ -1567,7 +1567,7 @@
                     <StackPanel x:Name="ScrollButtons" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,2,0">
                         <Button x:Name="NewFileButton" Content="N" FontWeight="Bold" FontSize="12" Height="20" MinHeight="0" MinWidth="34" Padding="6,0" Margin="0,0,3,0"
                                 Focusable="False" Click="NewFile_Click"
-                                ToolTip="Go to the Next New File (the unread file created right after the newest file you have already opened)"/>
+                                ToolTip="Go to the Next New File (the unread file created right after the newest file you have already read)"/>
                         <Button x:Name="JumpLastButton" Content="J" FontWeight="Bold" FontSize="12" Height="20" MinHeight="0" MinWidth="34" Padding="6,0" Margin="0,0,20,0"
                                 Focusable="False" Click="JumpLastButton_Click" ToolTip="Jump to Last Opened File"/>
                         <Button x:Name="ScrollTopButton" Height="20" MinHeight="0" MinWidth="34" Padding="6,0" Margin="0,0,3,0"
