@@ -93,7 +93,15 @@ public sealed class SearchWindow : Window
         NewRow();
         Put(Label("Look in:"), row, 0);
         var lookRow = new DockPanel();
-        var browse = new Button { Content = "Browse...", Padding = new Thickness(16, 5, 16, 5), Margin = new Thickness(8, 0, 0, 0) };
+        // Three dots, square (as wide as it is high), to the right of the box.
+        var browse = new Button
+        {
+            Content = "...", Padding = new Thickness(0), Margin = new Thickness(6, 0, 0, 0),
+            ToolTip = "Browse for folder\nHold Shift to add the folder to the ones already in the box"
+        };
+        browse.VerticalAlignment = VerticalAlignment.Center;
+        browse.SetBinding(WidthProperty,  new System.Windows.Data.Binding(nameof(ActualHeight)) { Source = _lookIn });   // the size of the text box
+        browse.SetBinding(HeightProperty, new System.Windows.Data.Binding(nameof(ActualHeight)) { Source = _lookIn });
         DockPanel.SetDock(browse, Dock.Right);
         lookRow.Children.Add(browse);
         // The hint is inside the empty box (it goes away when something is typed), not under it.
