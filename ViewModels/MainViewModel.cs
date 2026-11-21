@@ -739,7 +739,6 @@ public class MainViewModel : INotifyPropertyChanged
     }
 
     public void Navigate(string? path, bool addToHistory = true) => _activeTab.Navigate(path, addToHistory);
-    public void OfferMoveAfterSmartRename(string path)            => _activeTab.OfferMoveAfterSmartRename(path);
     public string? SmartMoveSuggestion(string path)               => _activeTab.SmartMoveSuggestion(path);
     /// <summary>The Bookmarks folder changed (one was added, renamed or removed): every tab's tree reads it again.</summary>
     public void ReloadBookmarks() { foreach (var tab in Tabs) tab.ReloadBookmarks(); }

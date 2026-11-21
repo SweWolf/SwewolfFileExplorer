@@ -4468,7 +4468,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// what is remembered about the file follows).
     /// </summary>
     /// <summary>
-    /// The folder to suggest for a video that was just renamed with Use Smart Name (see <see cref="OfferMoveAfterSmartRename"/>),
+    /// The folder to suggest for a video that was just renamed with Use Smart Name,
     /// or null when nothing is to be offered (setting off, not a video, already in the Videos folder, no year or episode in the name).
     /// The window then shows the ordinary Move/Copy to Folder box with this folder filled in (MainWindow.MoveCopyTo).
     /// </summary>
@@ -4487,54 +4487,6 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         return target.Value.FolderName.Length > 0
             ? Path.Combine(videos, target.Value.Subfolder, target.Value.FolderName)   // a show: TV Shows\Show Name
             : Path.Combine(videos, target.Value.Subfolder);                           // a movie: Movies
-    }
-
-    // The first version of the offer, with a window of its own (MoveFolderDialog). Not used since 2026-11-20: the offer now opens the
-    // ordinary Move/Copy to Folder box (SmartMoveSuggestion). Kept for a few days in case the user wants the old window back; then delete it.
-    public async void OfferMoveAfterSmartRename(string path)
-    {
-        var suggested = SmartMoveSuggestion(path);
-        if (suggested == null) return;
-
-        var dir        = Path.GetDirectoryName(path)!;
-        var name       = Path.GetFileName(path);
-        var chosen     = Views.MoveFolderDialog.Ask(Application.Current?.MainWindow, name, dir, suggested);
-        if (chosen == null) return;
-
-        try { Directory.CreateDirectory(chosen); }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"The folder could not be made: {ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        // Subtitles, poster ... : do they follow? (Cancel: the file stays where it is.)
-        if (!AskAboutRelated(new[] { (path, Path.Combine(chosen, name)) }, null, rename: false, out var relatedMoves, out var notDone))
-            return;
-
-        TransferResult result;
-        _pasting = true;
-        BeginFileWork();
-        try { result = await RunTransferAsync(new List<string> { path }, chosen, move: true); }
-        finally { _pasting = false; EndFileWork(); }
-
-        if (result.Failed.Count > 0)
-            MessageBox.Show($"The file could not be moved: {result.Failed[0].Reason}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-
-        LibraryService.Move(result.RenamedOld);
-        LibraryService.Move(result.Done);
-        var movedFrom = new HashSet<string>(result.Done.Select(m => m.From), StringComparer.OrdinalIgnoreCase);
-        var followers = relatedMoves.Where(r => movedFrom.Contains(r.Owner)).ToList();
-        var followersDone = followers.Count > 0 || notDone.Count > 0 ? MoveRelated(followers, notDone, rename: false) : new List<(string From, string To)>();
-
-        if (result.Done.Count > 0)
-        {
-            var pairs = result.Done.Concat(followersDone).ToList();
-            FileUndo.Set(result.RenamedOld.Count == 0 && pairs.All(p => FileTransfer.SameDrive(p.From, p.To)) ? new PairsUndo("Move", pairs) : null);
-        }
-
-        Refresh();
-        RefreshTreeFolder(chosen);
     }
 
     /// <summary>
