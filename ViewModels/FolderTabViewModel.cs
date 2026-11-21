@@ -4467,23 +4467,37 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// when the new name has neither a year nor an episode. The move is the same as a Cut and Paste (progress window, related files,
     /// what is remembered about the file follows).
     /// </summary>
-    public async void OfferMoveAfterSmartRename(string path)
+    /// <summary>
+    /// The folder to suggest for a video that was just renamed with Use Smart Name (see <see cref="OfferMoveAfterSmartRename"/>),
+    /// or null when nothing is to be offered (setting off, not a video, already in the Videos folder, no year or episode in the name).
+    /// The window then shows the ordinary Move/Copy to Folder box with this folder filled in (MainWindow.MoveCopyTo).
+    /// </summary>
+    public string? SmartMoveSuggestion(string path)
     {
-        if (!AppSettingsStore.Current.SuggestMoveAfterSmartRename || _pasting) return;
-        if (!File.Exists(path) || !MediaPlayerLauncher.IsVideo(path)) return;
+        if (!AppSettingsStore.Current.SuggestMoveAfterSmartRename || _pasting) return null;
+        if (!File.Exists(path) || !MediaPlayerLauncher.IsVideo(path)) return null;
 
         var videos = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
-        if (string.IsNullOrEmpty(videos)) return;
-        if (IsSameOrSubPath(videos, path)) return;   // it is in the Videos folder already: nothing to suggest
+        if (string.IsNullOrEmpty(videos)) return null;
+        if (IsSameOrSubPath(videos, path)) return null;   // it is in the Videos folder already: nothing to suggest
 
         var target = SmartName.MoveTarget(Path.GetFileNameWithoutExtension(path));
-        if (target == null) return;
+        if (target == null) return null;
+
+        return target.Value.FolderName.Length > 0
+            ? Path.Combine(videos, target.Value.Subfolder, target.Value.FolderName)   // a show: TV Shows\Show Name
+            : Path.Combine(videos, target.Value.Subfolder);                           // a movie: Movies
+    }
+
+    // The first version of the offer, with a window of its own (MoveFolderDialog). Not used since 2026-11-20: the offer now opens the
+    // ordinary Move/Copy to Folder box (SmartMoveSuggestion). Kept for a few days in case the user wants the old window back; then delete it.
+    public async void OfferMoveAfterSmartRename(string path)
+    {
+        var suggested = SmartMoveSuggestion(path);
+        if (suggested == null) return;
 
         var dir        = Path.GetDirectoryName(path)!;
         var name       = Path.GetFileName(path);
-        var suggested  = target.Value.FolderName.Length > 0
-            ? Path.Combine(videos, target.Value.Subfolder, target.Value.FolderName)   // a show: TV Shows\Show Name
-            : Path.Combine(videos, target.Value.Subfolder);                           // a movie: Movies
         var chosen     = Views.MoveFolderDialog.Ask(Application.Current?.MainWindow, name, dir, suggested);
         if (chosen == null) return;
 

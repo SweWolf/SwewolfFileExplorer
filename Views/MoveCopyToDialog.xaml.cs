@@ -28,7 +28,8 @@ public partial class MoveCopyToDialog : Window
     public bool OpenInNewTab { get; private set; }
 
     /// <param name="showOpenInTab">False hides the "open in a new tab" checkbox (the picture viewer covers the screen: a tab opened behind it would not be seen).</param>
-    public MoveCopyToDialog(IReadOnlyList<string> sources, bool showOpenInTab = true)
+    /// <param name="suggestedFolder">A folder to fill in the Folder box (the smart-rename offer); Move is chosen as always.</param>
+    public MoveCopyToDialog(IReadOnlyList<string> sources, bool showOpenInTab = true, string? suggestedFolder = null)
     {
         _sources = sources;
         InitializeComponent();
@@ -41,7 +42,14 @@ public partial class MoveCopyToDialog : Window
 
         ShowSelected();
         UpdateButtons();
-        Loaded += (_, _) => { if (_folders.Count > 0) FolderList.Focus(); else FolderBox.Focus(); };
+        if (!string.IsNullOrEmpty(suggestedFolder))
+        {
+            MoveRadio.IsChecked = true;   // always Move here
+            FolderBox.Text = suggestedFolder;
+            Loaded += (_, _) => { FolderBox.Focus(); FolderBox.CaretIndex = FolderBox.Text.Length; };
+        }
+        else
+            Loaded += (_, _) => { if (_folders.Count > 0) FolderList.Focus(); else FolderBox.Focus(); };
     }
 
     /// <summary>"Selected: photo.jpg" or "Selected: 5 items (photo.jpg, ...)", with the full paths in the tooltip.</summary>

@@ -5208,7 +5208,7 @@ public partial class MainWindow : Window
     /// Asks where to (a typed or browsed folder, or one from the user's list; Move is pre-selected) and then moves or copies the items there
     /// with the same code as Paste and drag and drop: progress window, questions about names that are taken, related files, the library follows.
     /// </summary>
-    private async void MoveCopyTo(List<string> items, bool inArchive)
+    private async void MoveCopyTo(List<string> items, bool inArchive, string? suggestedFolder = null)
     {
         if (inArchive)
         {
@@ -5224,7 +5224,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var dialog = new MoveCopyToDialog(items) { Owner = this };
+        var dialog = new MoveCopyToDialog(items, suggestedFolder: suggestedFolder) { Owner = this };
         if (dialog.ShowDialog() != true) return;
 
         try { System.IO.Directory.CreateDirectory(dialog.FolderPath); }
@@ -6187,7 +6187,11 @@ public partial class MainWindow : Window
                 var newPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(item.FullPath)!, Real(dlg.InputText).Trim());
                 bool samePath = string.Equals(newPath, item.FullPath, StringComparison.OrdinalIgnoreCase);   // already named so: just the move
                 if (System.IO.File.Exists(newPath) && (samePath || !System.IO.File.Exists(item.FullPath)))   // the rename did happen
-                    VM.OfferMoveAfterSmartRename(newPath);
+                {
+                    // The ordinary Move/Copy to Folder box, with the suggested folder filled in and Move chosen.
+                    var suggested = VM.SmartMoveSuggestion(newPath);
+                    if (suggested != null) MoveCopyTo(new List<string> { newPath }, inArchive: false, suggestedFolder: suggested);
+                }
             }
         }
         else if (isNew)
