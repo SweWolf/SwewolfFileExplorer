@@ -2760,6 +2760,11 @@ public partial class MainWindow : Window
 
         string path = item.FullPath;
 
+        // The previous picture goes at once: while the new one is read (seconds on a busy computer) the old one would look like
+        // the same picture shown again. A hint appears if the reading takes more than a moment (BeginLoadingHint).
+        ThumbnailImage.Source = null;
+        ShowPreviewFrame(false);
+
         // A folder in the list (the Folders button): its folder picture, the one the tree pane shows when the folder is open
         // (a chosen picture, Folder.jpg / poster.jpg, an album cover ...). Not inside an archive (that can cost a 7-Zip run) or in Bookmarks.
         if (item.IsDirectory)
@@ -2768,10 +2773,13 @@ public partial class MainWindow : Window
             ShowPreviewFrame(false);
             if (item.IsInArchive || FolderTabViewModel.IsUnderBookmarks(path)) return;
 
+            BeginLoadingHint(version);
             var cover = await Task.Run(() => FolderCoverFinder.Find(path, ThumbnailDecodeWidth, CancellationToken.None));
-            if (version != _thumbnailVersion || cover == null) return;   // another item was selected meanwhile, or the folder has none
+            if (version != _thumbnailVersion) return;   // another item was selected meanwhile
+            if (cover == null) { ShowPreviewFrame(false); return; }   // the folder has none (also hides the hint)
 
             ThumbnailImage.Source = cover.Image;
+            ShowPreviewFrame(false);
             _previewItem   = item;   // a click opens it in the viewer, as for the picture under the tree
             _previewSource = new PreviewPicture(cover.Image, cover.Path, cover.Data, false);
             return;
@@ -2780,6 +2788,7 @@ public partial class MainWindow : Window
         // A picture: off the UI thread, as a large photo takes a moment to decode and the arrow keys must stay responsive.
         if (ThumbnailLoader.IsImage(path))
         {
+            BeginLoadingHint(version);
             var bitmap = await Task.Run(() => ThumbnailLoader.Load(path, ThumbnailDecodeWidth));
             if (version != _thumbnailVersion) return;   // another item was selected meanwhile
 
@@ -2795,6 +2804,7 @@ public partial class MainWindow : Window
         if (!item.IsInArchive && (MediaPlayerLauncher.IsVideo(path) || DiscImage.IsVideoDisc(path) || AudioTagReader.HasTags(path) || AudioTagReader.IsCdTrackName(path)))
         {
             _mediaPreviewItem = item;
+            BeginLoadingHint(version);
             var found = await Task.Run(() =>
             {
                 LibraryService.WaitForQueued();   // a choice that was just made is written first
@@ -2811,6 +2821,7 @@ public partial class MainWindow : Window
         // A Windows theme pack (a CAB with the wallpapers in it): its first picture says what the theme looks like.
         if (!item.IsInArchive && ThemePackPreview.Applies(path))
         {
+            BeginLoadingHint(version);
             var found = await Task.Run(() => ThemePackPreview.Find(path, ThumbnailDecodeWidth));
             if (version != _thumbnailVersion) return;
 
@@ -2825,8 +2836,22 @@ public partial class MainWindow : Window
     }
 
     /// <summary>A thin frame with the text "No Preview Picture" in the empty preview of a video or music file.</summary>
+    private bool _previewLoading;
+
+    /// <summary>Shows "Loading Preview Picture..." if the preview of this selection is still being read after 0.3 s
+    /// (no flicker for pictures that come at once). Any end state goes through <see cref="ShowPreviewFrame"/>, which hides it.</summary>
+    private async void BeginLoadingHint(int version)
+    {
+        _previewLoading = true;
+        await Task.Delay(300);
+        if (_previewLoading && version == _thumbnailVersion && ThumbnailImage.Source == null)
+            PreviewLoadingText.Visibility = Visibility.Visible;
+    }
+
     private void ShowPreviewFrame(bool show)
     {
+        _previewLoading = false;
+        PreviewLoadingText.Visibility = Visibility.Collapsed;
         PreviewBox.BorderThickness = new Thickness(show ? 1 : 0);
         PreviewBox.SetResourceReference(Border.BorderBrushProperty, "LineBrush");
         PreviewEmptyText.Visibility = show ? Visibility.Visible : Visibility.Collapsed;

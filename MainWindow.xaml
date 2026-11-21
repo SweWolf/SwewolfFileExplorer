@@ -1460,6 +1460,12 @@
                                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
                                                IsHitTestVisible="False"/>
+                                    <!-- Shown while the preview of the selected item is being read (after a short delay) -->
+                                    <TextBlock x:Name="PreviewLoadingText" Text="Loading Preview Picture..." Visibility="Collapsed"
+                                               FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                                               IsHitTestVisible="False"/>
                                 </Grid>
                             </Border>
                         </Grid>
