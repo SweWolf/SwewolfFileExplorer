@@ -127,7 +127,7 @@ public static class NextFolderFinder
             .Select(d => new Node(d.FullName, d.Name, d.CreationTime, d.LastWriteTime, false, false));
 
         var archives = info.EnumerateFiles()
-            .Where(f => ArchiveSupport.IsArchiveName(f.Name) && (showHidden || !HiddenItems.IsHiddenByAttributes(f.Attributes)))
+            .Where(f => ArchiveSupport.IsTreeArchiveName(f.Name) && (showHidden || !HiddenItems.IsHiddenByAttributes(f.Attributes)))
             .Select(f => new Node(f.FullName, f.Name, f.CreationTime, f.LastWriteTime, true, false));
 
         var (column, ascending) = Safe(() => sortOf(folder), (SortColumn.Name, true));

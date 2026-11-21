@@ -62,7 +62,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
     public bool IsPlaylist { get; init; }
 
     /// <summary>A file the tree lists next to the folders: a packed file or a playlist.</summary>
-    public static bool IsTreeFile(string name) => ArchiveSupport.IsArchiveName(name) || PlaylistFile.IsPlaylistName(name);
+    public static bool IsTreeFile(string name) => ArchiveSupport.IsTreeArchiveName(name) || PlaylistFile.IsPlaylistName(name);
 
     /// <summary>A hidden or system folder, in the tree only because the user asked for the hidden folders: shown faded.</summary>
     public bool IsHidden { get; }

@@ -223,6 +223,12 @@ public class MainViewModel : INotifyPropertyChanged
         tab.ClipboardFileRequested += folder => { if (tab == _activeTab) ClipboardFileRequested?.Invoke(folder); };
         tab.BookmarksPasteRequested += folder => { if (tab == _activeTab) BookmarksPasteRequested?.Invoke(folder); };
         tab.RipRequested += (folder, tracks) => RipRequested?.Invoke(folder, tracks);
+        // A disc image (.iso) that is not played: a new tab with the image as the root of its tree.
+        tab.DiscImageBrowseRequested += path =>
+        {
+            OpenNewTab(path, activate: true);
+            ActiveTab.SetTreeRoot(path);
+        };
         tab.AddressPasteRequested += text => { if (tab == _activeTab) AddressPasteRequested?.Invoke(text); };
         tab.TypedFileRequested += path => { if (tab == _activeTab) TypedFileRequested?.Invoke(path); };
         // The tree sort order is shared: the other tabs' trees show the same folder in the same order.

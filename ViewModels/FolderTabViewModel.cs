@@ -2599,11 +2599,28 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
 
     public void OpenItem(FileItemViewModel item)
     {
-        // A video DVD image plays in SweWolf Media Player (it is still browsable from the tree or the address bar); any other .iso opens like a folder.
-        if (!item.IsDirectory && !item.IsInArchive && DiscImage.IsIsoName(item.Name) && DiscImage.IsDvdVideo(item.FullPath)
-            && MediaPlayerLauncher.Open(item.FullPath, null) == LaunchResult.Started)
+        // A disc image is a file of the list, not a node of the tree. A video DVD image plays in SweWolf Media Player (when it is
+        // installed, else in the program Windows has for .iso files); any other image is browsed in a new tab where the image is the
+        // root of the tree.
+        if (!item.IsDirectory && !item.IsInArchive && DiscImage.IsIsoName(item.Name))
         {
+            if (DiscImage.IsDvdVideo(item.FullPath))
+            {
+                if (MediaPlayerLauncher.Open(item.FullPath, null) == LaunchResult.Started)
+                {
+                    LibraryService.SetLastOpened(item.FullPath);   // the player marks it read
+                    return;
+                }
+                if (OpenFile(item.FullPath))   // no player: the associated program
+                {
+                    MarkRead(new[] { item }, read: true);
+                    LibraryService.SetLastOpened(item.FullPath);
+                }
+                return;
+            }
+            MarkRead(new[] { item }, read: true);
             LibraryService.SetLastOpened(item.FullPath);
+            DiscImageBrowseRequested?.Invoke(item.FullPath);
             return;
         }
 
@@ -2843,7 +2860,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     private void ApplyReadState(FolderInfo info)
     {
         foreach (var item in CurrentItems)
-            if (!item.IsDirectory && !ArchiveSupport.IsArchiveName(item.Name))
+            if (!item.IsDirectory && !ArchiveSupport.IsTreeArchiveName(item.Name))
                 item.SetUnread(!item.IsHidden && !info.ReadNames.Contains(item.Name));
 
         FolderStatusText = info.State switch
@@ -2871,7 +2888,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// <summary>Files were opened (or marked): they stop being bold at once, the library remembers it in the background.</summary>
     public void MarkRead(IEnumerable<FileItemViewModel> items, bool read)
     {
-        var files = items.Where(i => !i.IsDirectory && !ArchiveSupport.IsArchiveName(i.Name) && !WebFolder.IsWebPath(i.FullPath)).ToList();
+        var files = items.Where(i => !i.IsDirectory && !ArchiveSupport.IsTreeArchiveName(i.Name) && !WebFolder.IsWebPath(i.FullPath)).ToList();
         if (files.Count == 0) return;
 
         foreach (var item in files) item.SetUnread(!read && !item.IsHidden);
@@ -4023,6 +4040,9 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
 
     /// <summary>A file (not a packed file or playlist) was typed or pasted in the address bar and Enter pressed: the window shows it in its folder, then opens it (Shift: only shows it).</summary>
     public event Action<string>? TypedFileRequested;
+
+    /// <summary>A disc image (.iso) that is not played in the player is to be browsed: a new tab with it as the tree root.</summary>
+    public event Action<string>? DiscImageBrowseRequested;
 
     /// <summary>Ctrl+V found a picture or text and not files, and the user said yes: the window asks for the name and makes the file in this folder.</summary>
     public event Action<string>? ClipboardFileRequested;

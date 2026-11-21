@@ -158,7 +158,7 @@ public static class LibraryService
                 foreach (var f in directory.EnumerateFiles())
                 {
                     if (HiddenItems.IsHiddenFile(f.Attributes, f.Name)) continue;
-                    if (ArchiveSupport.IsArchiveName(f.Name)) children.Add(f.FullName);
+                    if (ArchiveSupport.IsTreeArchiveName(f.Name)) children.Add(f.FullName);
                     else files.Add(f.Name);
                 }
             }

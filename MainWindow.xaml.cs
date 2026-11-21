@@ -3351,7 +3351,8 @@ public partial class MainWindow : Window
         }
 
         // Search results: a folder (or a packed file) opens in a new tab, so the results stay where they are.
-        if (VM.InSearch && (item.IsDirectory || ArchiveSupport.IsArchiveName(item.Name)))
+        // (A disc image is not one of them: it is a file, and goes the way it does in a folder: player, associated program or its own tab.)
+        if (VM.InSearch && (item.IsDirectory || ArchiveSupport.IsTreeArchiveName(item.Name)))
         {
             VM.OpenNewTab(item.FullPath, activate: true);
             return;
@@ -4012,7 +4013,7 @@ public partial class MainWindow : Window
 
             // Only the change that makes sense: unread files can be marked read, read files unread (both for a mixed selection).
             var files = FileListView.SelectedItems.OfType<FileItemViewModel>()
-                .Where(i => !i.IsDirectory && !ArchiveSupport.IsArchiveName(i.Name)).ToList();
+                .Where(i => !i.IsDirectory && !ArchiveSupport.IsTreeArchiveName(i.Name)).ToList();
             if (mi.Header is "Mark as Read")   mi.Visibility = files.Count == 0 || files.Any(i => i.IsUnread)  ? Visibility.Visible : Visibility.Collapsed;
             if (mi.Header is "Mark as Unread") mi.Visibility = files.Count == 0 || files.Any(i => !i.IsUnread) ? Visibility.Visible : Visibility.Collapsed;
         }

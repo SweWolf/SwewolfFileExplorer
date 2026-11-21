@@ -59,6 +59,9 @@ public static class ArchiveSupport
     private static bool HasExtension(string name, string[] extensions) =>
         extensions.Contains(Path.GetExtension(name), StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>A packed file that is a node of the tree. A disc image (.iso) is not: it is a file of the list, and is browsed in a tab of its own.</summary>
+    public static bool IsTreeArchiveName(string name) => IsArchiveName(name) && !DiscImage.IsIsoName(name);
+
     public static bool IsArchiveName(string name) => HasExtension(name, ZipExtensions) || HasExtension(name, SevenZipExtensions);
 
     // ── Where a path points ──────────────────────────────────────────────────
