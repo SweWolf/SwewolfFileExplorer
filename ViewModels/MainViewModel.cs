@@ -185,6 +185,7 @@ public class MainViewModel : INotifyPropertyChanged
             _activeTab.RememberSelectionForLeaving();   // the list is shared: its selection is gone once the other tab's items are shown
             _activeTab.SetActive(false);   // the folder of the tab we leave is no longer watched
             _activeTab = value;
+            _activeTab.LoadIfDeferred();   // a tab restored from a workspace or session is filled the first time it is shown
 
             // Every binding (address bar, list, tree, commands) now reads the new tab.
             OnPropertyChanged(string.Empty);
@@ -284,10 +285,11 @@ public class MainViewModel : INotifyPropertyChanged
 
         var old   = Tabs.ToList();
         var added = new List<FolderTabViewModel>();
-        foreach (var state in data.Tabs)
+        int activeIndex = Math.Clamp(data.ActiveTab, 0, data.Tabs.Count - 1);
+        for (int i = 0; i < data.Tabs.Count; i++)
         {
             var tab = AddTab(null);
-            tab.Restore(state);
+            tab.Restore(data.Tabs[i], deferLoad: i != activeIndex);   // only the tab on screen is filled now; the others when first shown
             added.Add(tab);
         }
 

@@ -687,6 +687,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
 
     public void Navigate(string? path, bool addToHistory = true)
     {
+        _deferredPath = null;   // somebody opens a folder here: a restored tab that was waiting for its first visit is filled by that
         _navVersion++;   // a slow listing that is still being read for an earlier click is no longer wanted
         NavigateCore(path, addToHistory, null);
     }
@@ -1211,7 +1212,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// Fills in a tab from a saved state. The folder is opened if it is there; if not, the tab says "currently unavailable"
     /// and keeps the path (and root and file) for the next time. Call on a tab made with a null start path, or on any tab.
     /// </summary>
-    public void Restore(TabState state)
+    public void Restore(TabState state, bool deferLoad = false)
     {
         if (string.IsNullOrWhiteSpace(state.Path))
         {
@@ -1219,7 +1220,8 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         }
         else if (IsAvailable(state.Path))
         {
-            Navigate(state.Path, addToHistory: false);
+            if (deferLoad) DeferLoad(state.Path);
+            else Navigate(state.Path, addToHistory: false);
         }
         else
         {
@@ -1229,13 +1231,36 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         if (!string.IsNullOrWhiteSpace(state.Root))
         {
             _pendingRoot = state.Root;
-            ApplyPendingRoot();
+            if (_deferredPath == null) ApplyPendingRoot();   // a deferred tab does it when it is loaded
         }
 
         LastSelectedPath = state.SelectedFile;
         _pendingSelect   = state.SelectedFile;
 
         if (!string.IsNullOrWhiteSpace(state.Name)) SetCustomTitle(state.Name);   // the name the user gave the tab
+    }
+
+    // A tab restored from a workspace or session that is not the one on screen is not filled until it is shown for the first time:
+    // reading every folder and expanding the tree for each of them made a workspace with big folders take 15 s to open (2026-11-21).
+    // Until then the tab has its name and its path (so a session saves it as it was), and an empty list.
+    private string? _deferredPath;
+
+    private void DeferLoad(string path)
+    {
+        _deferredPath = path;
+        FolderPath    = path;
+        _baseTitle    = GetTabTitle(path);
+        UpdateTitle();
+    }
+
+    /// <summary>Opens the folder of a tab that was restored without being filled. Called just before the tab is shown. Does nothing for any other tab.</summary>
+    public void LoadIfDeferred()
+    {
+        var path = _deferredPath;
+        if (path == null) return;
+        _deferredPath = null;
+        Navigate(path, addToHistory: false);
+        ApplyPendingRoot();
     }
 
     /// <summary>A tab for a folder that is not there now: empty, with a note, and the path kept (Go or F5 tries again).</summary>
