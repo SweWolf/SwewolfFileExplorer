@@ -2599,6 +2599,14 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
 
     public void OpenItem(FileItemViewModel item)
     {
+        // A video DVD image plays in SweWolf Media Player (it is still browsable from the tree or the address bar); any other .iso opens like a folder.
+        if (!item.IsDirectory && !item.IsInArchive && DiscImage.IsIsoName(item.Name) && DiscImage.IsDvdVideo(item.FullPath)
+            && MediaPlayerLauncher.Open(item.FullPath, null) == LaunchResult.Started)
+        {
+            LibraryService.SetLastOpened(item.FullPath);
+            return;
+        }
+
         // A packed file opens like a folder (a real one, or a zip inside a zip).
         if (item.IsDirectory || ArchiveSupport.IsArchiveName(item.Name) || PlaylistFile.IsPlaylistName(item.Name))
         {

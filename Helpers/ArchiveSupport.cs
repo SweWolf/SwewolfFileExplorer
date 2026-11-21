@@ -25,16 +25,16 @@ internal sealed record RawEntry(string Name, string FullName, bool IsDirectory, 
 /// A path into an archive is the path of the archive file followed by the path inside it, for example
 /// <c>D:\Photos\Trip.zip\Day 1\Beach.jpg</c>; an archive inside an archive works the same way
 /// (<c>D:\Photos\All.zip\Trip.zip\Day 1</c>). Everything that is a path in the app can be one of these.
-/// Zip files (.zip, .cbz) are read with .NET; RAR, 7z, CAB, GZ and TAR files (.rar, .cbr, .7z, .cab, .gz, .tar, .tgz) with 7-Zip, if it is installed.
+/// Zip files (.zip, .cbz) are read with .NET; RAR, 7z, CAB, GZ, TAR and ISO files (.rar, .cbr, .7z, .cab, .gz, .tar, .tgz, .iso) with 7-Zip, if it is installed.
 /// </summary>
 public static class ArchiveSupport
 {
     private static readonly string[] ZipExtensions = { ".zip", ".cbz" };
-    private static readonly string[] SevenZipExtensions = { ".rar", ".cbr", ".7z", ".cab", ".gz", ".tar", ".tgz" };
+    private static readonly string[] SevenZipExtensions = { ".rar", ".cbr", ".7z", ".cab", ".gz", ".tar", ".tgz", ".iso" };
     private static readonly char[] Separators = { '\\', '/' };
 
     /// <summary>The file name patterns of the archives, for a file system search (it applies them much faster than a loop does).</summary>
-    public static readonly string[] FilePatterns = { "*.zip", "*.cbz", "*.rar", "*.cbr", "*.7z", "*.cab", "*.gz", "*.tar", "*.tgz" };
+    public static readonly string[] FilePatterns = { "*.zip", "*.cbz", "*.rar", "*.cbr", "*.7z", "*.cab", "*.gz", "*.tar", "*.tgz", "*.iso" };
 
     /// <summary>
     /// How the names in a zip are read when the zip does not say they are UTF-8. Older tools (and Windows' own
