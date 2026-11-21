@@ -4028,6 +4028,12 @@ public partial class MainWindow : Window
                 mi.Visibility = discRoot != null && CdDiscInfo.IsAudioCdFolder(discRoot) ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        // Mount / Eject Disc Image: one .iso file on the disk selected. The text says what a click does (mounted already: Eject).
+        string? isoPath = FileListView.SelectedItems.Count == 1 && FileListView.SelectedItem is FileItemViewModel { IsDirectory: false, IsInArchive: false } isoItem
+                          && DiscImage.IsIsoName(isoItem.Name) && System.IO.File.Exists(isoItem.FullPath) ? isoItem.FullPath : null;
+        CtxMountItem.Visibility = isoPath != null ? Visibility.Visible : Visibility.Collapsed;
+        if (isoPath != null) CtxMountItem.Header = DiscImageMount.IsMounted(isoPath) ? "Eject Disc Image" : "Mount Disc Image";
+
         // Search results: "Open File Location" shows the item in its own folder (a new tab). Not offered anywhere else.
         CtxOpenLocation.Visibility = VM.InSearch && _menuMode != ListMenuMode.Empty && FileListView.SelectedItems.Count == 1 ? Visibility.Visible : Visibility.Collapsed;
 
@@ -4334,6 +4340,30 @@ public partial class MainWindow : Window
     {
         var items = FileListView.SelectedItems.OfType<FileItemViewModel>().Where(i => !i.IsInArchive).Select(i => i.FullPath).ToList();
         if (items.Count > 0) VM.SetHiddenAttribute(items, hide: CtxHideItem.Header as string != "Unhide");
+    }
+
+    /// <summary>Mount Disc Image / Eject Disc Image (the header says which). A mounted image opens in a new tab as a drive.</summary>
+    private async void CtxMount_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileListView.SelectedItem is not FileItemViewModel { IsDirectory: false, IsInArchive: false } item || !DiscImage.IsIsoName(item.Name)) return;
+        string iso = item.FullPath;
+        bool eject = CtxMountItem.Header as string == "Eject Disc Image";
+
+        Mouse.OverrideCursor = Cursors.Wait;
+        string? root = null, error = null;
+        try
+        {
+            if (eject) error = await Task.Run(() => DiscImageMount.Eject(iso));
+            else root = await Task.Run(() => { var r = DiscImageMount.Mount(iso, out var err); error = err; return r; });
+        }
+        finally { Mouse.OverrideCursor = null; }
+
+        VM.SyncDrivesNow();   // the drive appears in (or leaves) This PC and the tree at once
+        if (error != null)
+            MessageBox.Show(this, (eject ? "The disc image could not be ejected.\n\n" : "The disc image could not be mounted.\n\n") + error,
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        else if (!eject && root != null)
+            VM.OpenNewTab(root, activate: true);
     }
 
     private void CtxCopyPath_Click(object sender, RoutedEventArgs e) => VM.CopyPathCommand.Execute(null);

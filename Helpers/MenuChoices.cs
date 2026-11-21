@@ -25,6 +25,7 @@ public static class MenuChoices
         new("Open in New Tab", "Open in New Tab"),
         new("Open in Windows Explorer", "Open in Windows Explorer"),
         new("Send to", "Send to"),
+        new("Mount Disc Image / Eject Disc Image", "Mount Disc Image", "Eject Disc Image"),
         new("Add to Bookmarks", "Add to Bookmarks"),
         new("Send to VirusTotal", "Send to VirusTotal"),
         new("Copy as Path", "Copy as Path"),

@@ -1132,6 +1132,8 @@
                                   ToolTip="Open this folder in Windows' own File Explorer (a selected file is shown selected in its folder)"/>
                         <MenuItem Header="Send to"    x:Name="SendToMenu" PreviewMouseRightButtonUp="SendToMenu_RightClick"
                                   ToolTip="Right-click to edit this menu"/>
+                        <MenuItem Header="Mount Disc Image" x:Name="CtxMountItem" Click="CtxMount_Click" Visibility="Collapsed"
+                                  ToolTip="Mount: the disc image (.iso) becomes a read-only DVD drive with a drive letter of its own, and opens in a new tab. Eject: take that drive away again."/>
                         <MenuItem Header="Add to Bookmarks" Click="CtxBookmark_Click" InputGestureText="Ctrl+D"
                                   ToolTip="Keep a shortcut to the selected folders and files (or to this folder) in the Bookmarks at the top of the tree"/>
                         <!-- Send to VirusTotal: a group of its own (one file only; the icon is set in code) -->
