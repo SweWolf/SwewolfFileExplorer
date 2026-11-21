@@ -102,7 +102,7 @@ public partial class MainWindow
             Row("Size", cdTrack ? "" : size);   // a CD track's 44-byte stub says nothing
             Row("Date Modified", cdTrack ? "" : modified);   // nor does its date (always 1994-12-31)
         }
-        else if (MediaPlayerLauncher.IsVideo(item.FullPath))
+        else if (MediaPlayerLauncher.IsVideo(item.FullPath) || DiscImage.IsVideoDisc(item.FullPath))
         {
             Row("Type", item.TypeName);
             Row("Title", tags?.Title);   // the title in the video file itself (mkv, mp4 ...)

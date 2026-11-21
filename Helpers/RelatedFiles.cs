@@ -17,7 +17,7 @@ public static class RelatedFiles
     private static readonly char[] Separators = { '.', '-', ' ', '_' };
 
     /// <summary>Only video and music files have related files.</summary>
-    public static bool HasRelated(string path) => MediaPlayerLauncher.IsMedia(path);
+    public static bool HasRelated(string path) => MediaPlayerLauncher.IsMedia(path) || DiscImage.IsVideoDisc(path);
 
     /// <summary>The full paths of the files that belong to the video or music file <paramref name="mediaPath"/>.</summary>
     public static List<string> Find(string mediaPath)

@@ -221,7 +221,7 @@ public static class ThumbnailService
 
         // Video and music files: exactly the picture the info panel shows (the user's choice, the picture inside the file, a poster
         // file beside it, the poster of its .nfo, then a frame from Windows or ffmpeg): one logic for both places.
-        if (MediaPlayerLauncher.IsMedia(path))
+        if (MediaPlayerLauncher.IsMedia(path) || DiscImage.IsVideoDisc(path))
             return PreviewPictureFinder.Find(path, pixels)?.Image;
 
         // Documents ...: what Windows shows in its own thumbnails (cached by Windows on the disk).

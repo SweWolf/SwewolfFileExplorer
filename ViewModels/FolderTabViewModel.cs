@@ -2638,7 +2638,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         // Video and music play in SweWolf Media Player, which marks them read after 60 seconds of playing (the explorer
         // does not know how long it was watched). A file from an archive is remembered under its path in the archive.
         // A video DVD image (.iso with a VIDEO_TS folder) goes to the player too, which reads it as a disc with its menus.
-        if (MediaPlayerLauncher.IsMedia(item.Name) || (!item.IsInArchive && DiscImage.IsIsoName(item.Name) && DiscImage.IsDvdVideo(path)))
+        if (MediaPlayerLauncher.IsMedia(item.Name))
         {
             var result = MediaPlayerLauncher.Open(path, item.IsInArchive ? item.FullPath : null);
             if (result != LaunchResult.UseDefaultProgram)

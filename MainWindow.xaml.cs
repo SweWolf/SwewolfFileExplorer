@@ -2536,7 +2536,7 @@ public partial class MainWindow : Window
         else if (item.IsDirectory)
             ShowPlotFor(!item.IsInArchive && PlotFolderOk(item.FullPath) ? item.FullPath : null, isFolder: true);
         else
-            ShowPlotFor(!item.IsInArchive && (MediaPlayerLauncher.IsVideo(item.FullPath) || AudioTagReader.HasTags(item.FullPath)) ? item.FullPath : null, isFolder: false);
+            ShowPlotFor(!item.IsInArchive && (MediaPlayerLauncher.IsVideo(item.FullPath) || DiscImage.IsVideoDisc(item.FullPath) || AudioTagReader.HasTags(item.FullPath)) ? item.FullPath : null, isFolder: false);
     }
 
     // A real folder (not a drive, an archive, a playlist or the Bookmarks folder) can hold a tvshow.nfo.
@@ -2792,7 +2792,7 @@ public partial class MainWindow : Window
         // A video or music file: the user's choice, a picture built into the file, a picture file next to it, for a video a
         // frame Windows makes (PreviewPictureFinder). Not inside an archive.
         // (A track of an audio CD too: the preview is the album's front cover, from MusicBrainz, kept on this computer.)
-        if (!item.IsInArchive && (MediaPlayerLauncher.IsVideo(path) || AudioTagReader.HasTags(path) || AudioTagReader.IsCdTrackName(path)))
+        if (!item.IsInArchive && (MediaPlayerLauncher.IsVideo(path) || DiscImage.IsVideoDisc(path) || AudioTagReader.HasTags(path) || AudioTagReader.IsCdTrackName(path)))
         {
             _mediaPreviewItem = item;
             var found = await Task.Run(() =>
@@ -2838,7 +2838,7 @@ public partial class MainWindow : Window
     private FileItemViewModel? PreviewMenuTarget() =>
         FileListView.SelectedItems.Count == 1
         && FileListView.SelectedItems[0] is FileItemViewModel { IsDirectory: false, IsInArchive: false } item
-        && (MediaPlayerLauncher.IsVideo(item.FullPath) || AudioTagReader.HasTags(item.FullPath))
+        && (MediaPlayerLauncher.IsVideo(item.FullPath) || DiscImage.IsVideoDisc(item.FullPath) || AudioTagReader.HasTags(item.FullPath))
             ? item : null;
 
     private void PreviewBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)

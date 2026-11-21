@@ -14,6 +14,24 @@ public static class DiscImage
 
     public static bool IsIsoName(string name) => Path.GetExtension(name).Equals(".iso", StringComparison.OrdinalIgnoreCase);
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> VideoDiscCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A video DVD image: for the places that treat it as a video (the plot, the preview picture, the details, the files that belong to it).
+    /// The answer is kept per file (path, size and date), so the image is only looked into once.
+    /// </summary>
+    public static bool IsVideoDisc(string path)
+    {
+        if (!IsIsoName(path)) return false;
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists) return false;
+            return VideoDiscCache.GetOrAdd($"{path}|{info.Length}|{info.LastWriteTimeUtc.Ticks}", _ => IsDvdVideo(path));
+        }
+        catch { return false; }
+    }
+
     /// <summary>True when the image has a VIDEO_TS folder in its root. Never throws; an unreadable file is "no".</summary>
     public static bool IsDvdVideo(string path)
     {

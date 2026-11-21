@@ -111,7 +111,8 @@ public static class PreviewPictureFinder
 
     public static PreviewPicture? Find(string path, int decodeWidth)
     {
-        bool isVideo = MediaPlayerLauncher.IsVideo(path);
+        bool isDisc  = DiscImage.IsVideoDisc(path);   // a video DVD image: a picture beside it, but no picture inside it and no frame
+        bool isVideo = MediaPlayerLauncher.IsVideo(path) || isDisc;
 
         // 1. The user's own choice.
         var choice = LibraryStore.GetPreviewChoice(path);
@@ -123,6 +124,7 @@ public static class PreviewPictureFinder
         // of the site the file came from (found with Bula (2022).mkv: a "MKVKING.COM" logo inside the mkv hid the poster of its .nfo).
         // For a song the cover inside the file comes first, as before.
         if (isVideo && Beside(path, decodeWidth) is { } wanted) return wanted;
+        if (isDisc) return null;
 
         // 2. A picture inside the file.
         if (AudioTagReader.ReadCover(path) is { } cover && ThumbnailLoader.LoadBytes(cover, decodeWidth) is { } inside)
