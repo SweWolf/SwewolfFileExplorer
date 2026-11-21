@@ -13,6 +13,10 @@ public partial class PictureViewerWindow
     private FileSystemWatcher? _newestWatcher;
     private string? _newestFolder;                  // the folder the watcher is on
     private bool _newestOn;
+
+    /// <summary>True while "Show Newest Picture Automatically" is on. Then the viewer is a preview, not a reading: the Explorer does not
+    /// mark the pictures shown as read and does not remember them as the last opened file.</summary>
+    public bool NewestOn => _newestOn;
     private bool _newestBusy;                       // a newest picture is being waited for
     private string? _newestCandidate;               // the last picture the watcher reported (set on a thread-pool thread)
     private string? _newestKey;                     // name, time and size of the picture last shown, so the same one is not loaded again

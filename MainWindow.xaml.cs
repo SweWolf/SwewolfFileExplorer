@@ -3521,7 +3521,8 @@ public partial class MainWindow : Window
         viewer.PictureChanged += path =>
         {
             SelectInList(path);      // the list follows the viewer
-            VM.MarkPathRead(path);   // a picture shown here is a picture opened
+            // A picture shown here is a picture opened, except in "Show Newest Picture Automatically": that is a preview, not a reading.
+            if (!viewer.NewestOn) VM.MarkPathRead(path);
         };
         return viewer;
     }
