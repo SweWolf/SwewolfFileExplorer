@@ -2656,6 +2656,34 @@ public partial class MainWindow : Window
 
     // ── Scroll the list to the very top / bottom (buttons at the right end of the info line) ──
 
+    private void JumpLastButton_Click(object sender, RoutedEventArgs e) => JumpToLastOpened(ListMenuFolder());
+
+    /// <summary>
+    /// "N": among the files already opened (read), find the newest creation date; select the unread file whose creation date
+    /// comes next (the oldest unread file created at or after that date). Does nothing but say so when there is none.
+    /// </summary>
+    private void NewFile_Click(object sender, RoutedEventArgs e)
+    {
+        var files = VM.CurrentItems.Where(i => !i.IsDirectory).ToList();
+        var read = files.Where(i => !i.IsUnread).ToList();
+
+        // Nothing read yet: the oldest unread file is "next".
+        DateTime from = read.Count == 0 ? DateTime.MinValue : read.Max(i => i.DateCreated);
+
+        var next = files.Where(i => i.IsUnread && i.DateCreated >= from)
+                        .OrderBy(i => i.DateCreated).ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                        .FirstOrDefault();
+        if (next == null)
+        {
+            FlashTitle($"{BaseTitle} - No new files: nothing unread is newer than the newest file you have opened");
+            return;
+        }
+
+        FileListView.SelectedItem = next;
+        FileListView.ScrollIntoView(next);
+        FileListView.Focus();
+    }
+
     private void ScrollTop_Click(object sender, RoutedEventArgs e) => ScrollList(top: true);
 
     private void ScrollBottom_Click(object sender, RoutedEventArgs e) => ScrollList(top: false);

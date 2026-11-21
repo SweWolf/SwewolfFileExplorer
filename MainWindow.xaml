@@ -1565,6 +1565,11 @@
 
                     <!-- Scroll the file list to the very top / bottom (MainWindow.ScrollList): at the right end of the info line -->
                     <StackPanel x:Name="ScrollButtons" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,2,0">
+                        <Button x:Name="NewFileButton" Content="N" FontWeight="Bold" FontSize="12" Height="20" MinHeight="0" MinWidth="34" Padding="6,0" Margin="0,0,3,0"
+                                Focusable="False" Click="NewFile_Click"
+                                ToolTip="Go to the Next New File (the unread file created right after the newest file you have already opened)"/>
+                        <Button x:Name="JumpLastButton" Content="J" FontWeight="Bold" FontSize="12" Height="20" MinHeight="0" MinWidth="34" Padding="6,0" Margin="0,0,20,0"
+                                Focusable="False" Click="JumpLastButton_Click" ToolTip="Jump to Last Opened File"/>
                         <Button x:Name="ScrollTopButton" Height="20" MinHeight="0" MinWidth="34" Padding="6,0" Margin="0,0,3,0"
                                 Focusable="False" Click="ScrollTop_Click" ToolTip="Scroll the List to the Top">
                             <Path Width="10" Height="10" Stretch="Fill" Data="M0,0 H10 V1.5 H0 Z M5,3.5 L10,10 H0 Z"
