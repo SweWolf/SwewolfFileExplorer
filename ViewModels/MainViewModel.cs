@@ -573,7 +573,8 @@ public class MainViewModel : INotifyPropertyChanged
 
     private void UserRefresh()
     {
-        FileUndo.Clear();   // the user looks at the folder again: the Undo of the last file operation is over
+        if (ActiveTab.InSearch) { ActiveTab.RerunSearch(); return; }   // a search tab: F5 runs the same search again
+        FileUndo.Clear();  // the user looks at the folder again: the Undo of the last file operation is over
         ThumbnailService.InvalidateFolder(CurrentPath, ActiveTab.CurrentItems);   // F5 also makes the tiles' pictures again
         if (FileTypeOverrides.ReloadIfChanged())
         {

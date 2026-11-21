@@ -4728,7 +4728,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     }
 
     /// <summary>"Refresh "C64Music" (F5)".</summary>
-    public string RefreshTip => HasFolder && !string.IsNullOrEmpty(_currentPath) ? $"Refresh \"{NameForTip(_currentPath)}\" (F5)" : "Refresh (F5)";
+    public string RefreshTip => _searchMode ? "Run This Search Again (F5)" : HasFolder && !string.IsNullOrEmpty(_currentPath) ? $"Refresh \"{NameForTip(_currentPath)}\" (F5)" : "Refresh (F5)";
 
     /// <summary>
     /// A folder's name for a tooltip: the last part of its path; a drive as the tree calls it ("New D (D:)", from the drives under This PC:

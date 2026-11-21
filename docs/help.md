@@ -316,7 +316,7 @@ Open, rename, copy, rate, drag, preview and everything else works as in a folder
 - Opening a folder in the results opens it in another tab, so the results stay.
 - **Open File Location** in the right-click menu shows an item in its own folder, in a new tab.
 - Paste and New Folder are off (there is no folder). Click a folder in the tree to leave the results.
-- Results are not read again by F5. **New Search...** in the bar above the list starts another search in a new tab.
+- **F5** (or the Refresh button) runs the same search again in the same tab: the list is cleared and filled again, and a search that is still going is restarted. **New Search...** in the bar above the list starts another search in a new tab.
 
 ### Typing a Name
 

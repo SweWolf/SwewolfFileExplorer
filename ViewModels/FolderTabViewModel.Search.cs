@@ -58,8 +58,16 @@ public partial class FolderTabViewModel
         SortChanged?.Invoke();
 
         OnPropertyChanged(nameof(InSearch));
+        OnPropertyChanged(nameof(RefreshTip));
         RaiseAllCanExecuteChanged();
         _ = RunSearchAsync(criteria);
+    }
+
+    /// <summary>F5 / the Refresh button in a search tab (2026-11-21, asked by the user): the same search is run again, in the same tab. A search that is still going is stopped first; the results are cleared and filled again, the sort starts over (no sort).</summary>
+    public void RerunSearch()
+    {
+        if (!_searchMode || _searchCriteria == null) return;
+        StartSearch(_searchCriteria);
     }
 
     private async Task RunSearchAsync(SearchCriteria criteria)
@@ -156,6 +164,7 @@ public partial class FolderTabViewModel
         _searchCriteria = null;
         SetSearchStatus("", running: false);
         OnPropertyChanged(nameof(InSearch));
+        OnPropertyChanged(nameof(RefreshTip));
     }
 
     /// <summary>Takes deleted items (and what was inside deleted folders) out of the results.</summary>
