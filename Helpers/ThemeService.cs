@@ -20,6 +20,7 @@ public static class ThemeService
         ["SplitterBrush"]    = ("#EEEEEE", "#333333", "#1C1C1C"),
         ["CloseHoverBrush"]   = ("#C42B1C", "#C42B1C", "#C42B1C"),   // a close button under the mouse: red in every style, as in Windows
         ["ClosePressedBrush"] = ("#A52313", "#A52313", "#A52313"),
+        ["MenuSeparatorBrush"] = ("#9A9A9A", "#808080", "#4F8FA3"),   // the lines between groups in menus: the theme's own were hard to see (user, 2026-11-22)
         ["OnAccentBrush"]    =("#FFFFFF", "#000000", "#000000"),   // text on a pressed-in toggle button (the accent is dark in Light, light in Dark)
     };
 
