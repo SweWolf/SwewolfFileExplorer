@@ -80,7 +80,7 @@ public sealed class DriveRow : INotifyPropertyChanged
         System.IO.DriveType.Fixed     => "Local Disk",
         System.IO.DriveType.Removable => "Removable Disk",
         System.IO.DriveType.Network   => "Network Drive",
-        System.IO.DriveType.CDRom     => "CD Drive",
+        System.IO.DriveType.CDRom     => "DVD/CD Drive",
         System.IO.DriveType.Ram       => "RAM Disk",
         _                             => "Drive"
     };
