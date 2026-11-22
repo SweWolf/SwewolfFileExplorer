@@ -55,7 +55,26 @@ public sealed class DriveRow : INotifyPropertyChanged
         return $"{number} {units[unit]}";
     }
 
-    /// <summary>The "Type" column: the words Explorer uses for a drive.</summary>
+    /// <summary>
+    /// The "Type" column: the words Explorer uses for a drive, except that Google Drive for desktop (a virtual drive that Windows reports as a
+    /// fixed FAT32 disk, with the volume name "Google Drive") is called "Cloud Drive" and not "Local Disk" (the user, 2026-11-21). OneDrive and
+    /// Dropbox are folders, not drives, so they never show here.
+    /// </summary>
+    public static string TypeNameOf(System.IO.DriveType type, string? volumeLabel = null, string? fileSystem = null) =>
+        IsCloudDrive(type, volumeLabel, fileSystem) ? "Cloud Drive" : TypeNameOf(type);
+
+    /// <summary>True for a cloud drive (today: Google Drive for desktop). Names and numbers only, no disk access.</summary>
+    public static bool IsCloudDrive(System.IO.DriveType type, string? volumeLabel, string? fileSystem) =>
+        type == System.IO.DriveType.Fixed && string.Equals(volumeLabel?.Trim(), "Google Drive", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(fileSystem, "FAT32", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>True when the drive is a cloud drive. Reads the volume name and file system, so call it only for a drive that is ready.</summary>
+    public static bool IsCloudDrive(System.IO.DriveInfo drive)
+    {
+        try { return IsCloudDrive(drive.DriveType, drive.VolumeLabel, drive.DriveFormat); }
+        catch { return false; }
+    }
+
     public static string TypeNameOf(System.IO.DriveType type) => type switch
     {
         System.IO.DriveType.Fixed     => "Local Disk",

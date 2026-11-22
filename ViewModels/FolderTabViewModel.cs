@@ -503,7 +503,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
                 long total = -1, free = -1;
                 string fileSystem = "";
                 try { total = drive.TotalSize; free = drive.AvailableFreeSpace; fileSystem = drive.DriveFormat; } catch { /* sizes are left empty */ }
-                result.Add(new DriveEntry(drive.RootDirectory.FullName, label, DriveRow.TypeNameOf(drive.DriveType), fileSystem, total, free,
+                result.Add(new DriveEntry(drive.RootDirectory.FullName, label, DriveRow.TypeNameOf(drive.DriveType, volume, fileSystem), fileSystem, total, free,
                     TrackingTextOf(drive.RootDirectory.FullName)));
             }
             catch { notReady = true; }   // gone between the two calls

@@ -397,9 +397,11 @@ public sealed class SearchWindow : Window
             roots.Add(Path.GetFullPath(p));
         }
 
-        if (roots.Count == 0)   // empty: every local drive
+        // Empty: every local drive. A cloud drive (Google Drive) is left out: it only shows files that are on other drives or online
+        // (the user's decision, 2026-11-21); to search it, name it in the box.
+        if (roots.Count == 0)
             foreach (var d in DriveInfo.GetDrives())
-                try { if (d.DriveType == DriveType.Fixed && d.IsReady) roots.Add(d.RootDirectory.FullName); } catch { }
+                try { if (d.DriveType == DriveType.Fixed && d.IsReady && !Helpers.DriveRow.IsCloudDrive(d)) roots.Add(d.RootDirectory.FullName); } catch { }
         if (roots.Count == 0)
         {
             MessageBox.Show(this, "No local drive was found to search.", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
