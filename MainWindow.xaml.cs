@@ -2556,8 +2556,25 @@ public partial class MainWindow : Window
             return;
         }
 
-        var plot = await Task.Run(() => NfoPoster.Plot(path));
+        var (plot, aiWithoutNfo) = await Task.Run(() =>
+        {
+            var p = NfoPoster.Plot(path);
+            // A file an AI program made (it carries a prompt) and that has no .nfo: no plot area, not even the hint (the prompt
+            // is shown instead). With an .nfo beside it the plot shows as for any other video.
+            bool ai = !isFolder && p == null && AiInfoReader.CanHave(path)
+                      && !NfoPoster.NfoFilesOf(path).Any(System.IO.File.Exists)
+                      && AiInfoReader.Read(path) != null;
+            return (p, ai);
+        });
         if (version != _plotVersion) return;
+
+        if (aiWithoutNfo)
+        {
+            _plotPath = null;
+            PlotArea.Visibility = Visibility.Collapsed;
+            LayoutInfoColumns();
+            return;
+        }
 
         _plotPath = path;
         _plotIsFolder = isFolder;
