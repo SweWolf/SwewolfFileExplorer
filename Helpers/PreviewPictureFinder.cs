@@ -14,7 +14,8 @@ public sealed record PreviewPicture(BitmapSource Image, string? File, byte[]? By
 /// Finds the preview picture of a video or music file, first match wins:
 ///   1. what the user chose in the library database (a picture, or "none": then there is no preview picture at all),
 ///   2. a picture built into the file (the cover of a music file; the cover of an mp4 / mkv),
-///   3. a picture file in the same folder: &lt;name&gt;-poster.png / .jpg / .jpeg, then &lt;name&gt;.png / .jpg / .jpeg
+///   3. a picture file in the same folder: &lt;name&gt;-poster.png / .jpg / .jpeg, then &lt;name&gt;.png / .jpg / .jpeg,
+///      then &lt;name&gt;-poster.webp, &lt;name&gt;.webp, and last &lt;name&gt;-poster.gif, &lt;name&gt;.gif
 ///      (TeraTool looked for the same names), and the poster named in its .nfo file;
 ///      for a VIDEO steps 3 comes before step 2 (the picture inside a downloaded video is often an advertisement),
 ///   4. for a video: the thumbnail Windows makes (<see cref="ShellThumbnail"/>); where Windows has none, a frame made with
@@ -23,7 +24,7 @@ public sealed record PreviewPicture(BitmapSource Image, string? File, byte[]? By
 /// </summary>
 public static class PreviewPictureFinder
 {
-    private static readonly string[] SideNames = { "-poster.png", "-poster.jpg", "-poster.jpeg", ".png", ".jpg", ".jpeg" };
+    private static readonly string[] SideNames = { "-poster.png", "-poster.jpg", "-poster.jpeg", ".png", ".jpg", ".jpeg", "-poster.webp", ".webp", "-poster.gif", ".gif" };   // WebP and GIF after the others, GIF last (2026-11-22 / 23)
 
     /// <summary>The picture files next to <paramref name="path"/> that count, in the order they are tried.</summary>
     public static IEnumerable<string> SideFiles(string path)
