@@ -774,7 +774,7 @@ public class MainViewModel : INotifyPropertyChanged
     public void DropFiles(string folder, List<string> files, bool move) => _activeTab.PasteInto(folder, files, move);
 
     /// <summary>The same, for a caller that wants to know what was done (null: nothing).</summary>
-    public Task<Helpers.TransferResult?> DropFilesAsync(string folder, List<string> files, bool move) => _activeTab.PasteIntoAsync(folder, files, move);
+    public Task<Helpers.TransferResult?> DropFilesAsync(string folder, List<string> files, bool move, bool relatedAlreadyAsked = false) => _activeTab.PasteIntoAsync(folder, files, move, relatedAlreadyAsked);
     public void DeleteFolder(string path)                         => _activeTab.DeleteFolder(path);
     public void RenameFolder(string path, string name)            => _activeTab.RenameFolder(path, name);
     public void CreateFolderIn(string path)                       => _activeTab.CreateNewFolderIn(path);

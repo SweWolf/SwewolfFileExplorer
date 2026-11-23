@@ -5310,7 +5310,7 @@ public partial class MainWindow : Window
     /// Asks where to (a typed or browsed folder, or one from the user's list; Move is pre-selected) and then moves or copies the items there
     /// with the same code as Paste and drag and drop: progress window, questions about names that are taken, related files, the library follows.
     /// </summary>
-    private async void MoveCopyTo(List<string> items, bool inArchive, string? suggestedFolder = null)
+    private async void MoveCopyTo(List<string> items, bool inArchive, string? suggestedFolder = null, bool relatedAlreadyAsked = false)
     {
         if (inArchive)
         {
@@ -5338,7 +5338,7 @@ public partial class MainWindow : Window
 
         // Audio CD tracks among the items are ripped there by RipDroppedTracks (a moment later, from the dispatcher): the box says whether to open the folder then.
         _openFolderAfterRip = dialog.OpenInNewTab;
-        var result = await VM.DropFilesAsync(dialog.FolderPath, items, dialog.IsMove);
+        var result = await VM.DropFilesAsync(dialog.FolderPath, items, dialog.IsMove, relatedAlreadyAsked);
         _ = Dispatcher.BeginInvoke(new Action(() => _openFolderAfterRip = false), System.Windows.Threading.DispatcherPriority.ContextIdle);   // not for a later drag (nothing to wait for)
 
         // "Open This Folder in a New Tab When Finished": only when something was done and the user did not cancel.
@@ -6292,7 +6292,8 @@ public partial class MainWindow : Window
                 {
                     // The ordinary Move/Copy to Folder box, with the suggested folder filled in and Move chosen.
                     var suggested = VM.SmartMoveSuggestion(newPath);
-                    if (suggested != null) MoveCopyTo(new List<string> { newPath }, inArchive: false, suggestedFolder: suggested);
+                    // The rename just asked whether the files that belong to the video follow; the move does not ask that again.
+                    if (suggested != null) MoveCopyTo(new List<string> { newPath }, inArchive: false, suggestedFolder: suggested, relatedAlreadyAsked: true);
                 }
             }
         }

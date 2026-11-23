@@ -3168,8 +3168,10 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// </summary>
     /// <param name="media">Each video or music file with the path it is going to get.</param>
     /// <param name="alsoMoving">Paths that are moved anyway (cut together): they are not asked about.</param>
+    /// <param name="assumeYes">The user has been asked about these files already (the rename that comes just before a move offer): they all
+    /// follow, with no second question.</param>
     private static bool AskAboutRelated(IReadOnlyList<(string Media, string NewMedia)> media, ISet<string>? alsoMoving, bool rename,
-                                        out List<RelatedMove> related, out List<NotDone> notDone, bool copy = false)
+                                        out List<RelatedMove> related, out List<NotDone> notDone, bool copy = false, bool assumeYes = false)
     {
         related = new List<RelatedMove>();
         notDone = new List<NotDone>();
@@ -3213,6 +3215,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         }
 
         if (willMove.Count == 0 && skipped.Count == 0) return true;   // nothing to ask about
+        if (assumeYes) { related = willMove; notDone = skipped; return true; }
 
         // Only the names of the files that would follow; the new names are made by the same pattern as the video's.
         var list = RelatedFiles.Describe(willMove.Select(m => Path.GetFileName(m.From)).ToList(),
@@ -4091,7 +4094,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     /// <see cref="PasteInto"/> for a caller that must know how it went (the picture viewer's Move/Copy to Folder): the result of the
     /// transfer, or null when nothing was done (the user canceled a question, or another paste is going on).
     /// </summary>
-    public async Task<TransferResult?> PasteIntoAsync(string destination, List<string>? dropped = null, bool dropMove = false)
+    public async Task<TransferResult?> PasteIntoAsync(string destination, List<string>? dropped = null, bool dropMove = false, bool relatedAlreadyAsked = false)
     {
         if (_pasting) return null;
 
@@ -4126,7 +4129,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
                 .Select(s => (Media: s, NewMedia: GetUniqueDestPath(destination, Path.GetFileName(s))))
                 .ToList();
 
-            if (media.Count > 0 && !AskAboutRelated(media, new HashSet<string>(sources, StringComparer.OrdinalIgnoreCase), rename: false, out relatedMoves, out notDone, copy: !isCut))
+            if (media.Count > 0 && !AskAboutRelated(media, new HashSet<string>(sources, StringComparer.OrdinalIgnoreCase), rename: false, out relatedMoves, out notDone, copy: !isCut, assumeYes: relatedAlreadyAsked))
                 return null;
         }
 
