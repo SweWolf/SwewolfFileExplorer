@@ -125,6 +125,9 @@ separate sizes, and both are remembered.
   **Close Tabs to the Right** and **Duplicate Tab**. The tab you clicked stays and becomes the active one;
   **Ctrl+Shift+T** brings the closed tabs back, one at a time. **Duplicate Tab** opens the same folder (with the
   same tree root and tab name) in a new tab next to it.
+- Right-click the **+** button to see your bookmarked folders, listed by their full path in alphabetical order.
+  Click one to open it in a new tab. A folder that is not available (for example a disk that is not connected) is grey.
+  The last item, **Bookmark the Current Folder**, adds the folder of the active tab to your bookmarks (**Ctrl+D** does the same).
 
 The active tab is shown in bold, with a colored line on top.
 

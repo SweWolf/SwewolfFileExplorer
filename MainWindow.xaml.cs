@@ -1116,6 +1116,73 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>
+    /// A right-click on the "+" button: the folders that are bookmarks (no files, packed files or playlists, no groups), each once, by
+    /// full path (segment by segment, so folders with the same parent stand together), then "Bookmark the Current Folder". A click opens
+    /// the folder in a new tab. The bookmarks come from the nodes the tree already holds (nothing is read from the disk here: a disk that
+    /// is not connected would make the menu wait); a folder that is not there is grey. No limit: the menu scrolls when it is long.
+    /// </summary>
+    private void NewTabButton_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+
+        var node = VM.ActiveTab.BookmarksNode ?? VM.Tabs.Select(t => t.BookmarksNode).FirstOrDefault(n => n != null);
+        var folders = new List<BookmarkEntry>();
+        if (node != null) CollectBookmarkFolders(node, folders);
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        folders = folders.Where(f => seen.Add(f.Target!.TrimEnd('\\'))).ToList();
+        folders.Sort((a, b) => ComparePathParts(a.Target!, b.Target!));
+
+        var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
+        foreach (var f in folders)
+        {
+            var path = f.Target!;
+            var item = new MenuItem
+            {
+                Header = path.Replace("_", "__"),   // an underscore would be taken as an access key
+                IsEnabled = f.Available,
+                ToolTip = f.Available ? null : "This folder is not available (a disk that is not connected?)",
+            };
+            item.Click += (_, _) => VM.OpenNewTab(path, activate: true);
+            menu.Items.Add(item);
+        }
+
+        if (folders.Count > 0) menu.Items.Add(new Separator());
+        var add = new MenuItem
+        {
+            Header = "Bookmark the Current Folder", InputGestureText = "Ctrl+D", IsEnabled = VM.HasFolder,
+            ToolTip = "Add the folder shown in this tab to your bookmarks",
+        };
+        add.Click += (_, _) => AddBookmarks(new[] { VM.CurrentPath });
+        menu.Items.Add(add);
+
+        menu.IsOpen = true;
+    }
+
+    private static void CollectBookmarkFolders(TreeItemViewModel parent, List<BookmarkEntry> into)
+    {
+        foreach (var child in parent.Children)
+        {
+            if (child.Bookmark is not { } b) continue;
+            if (b.IsGroup) CollectBookmarkFolders(child, into);
+            else if (b.Target != null && !b.IsFile) into.Add(b);
+        }
+    }
+
+    /// <summary>Compares two paths one folder name at a time, so a folder comes right before its subfolders ("C:\" then "C:\A" then "C:\A\B" then "C:\A B").</summary>
+    private static int ComparePathParts(string a, string b)
+    {
+        var pa = a.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+        var pb = b.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < Math.Min(pa.Length, pb.Length); i++)
+        {
+            int c = string.Compare(pa[i], pb[i], StringComparison.CurrentCultureIgnoreCase);
+            if (c != 0) return c;
+        }
+        return pa.Length.CompareTo(pb.Length);
+    }
+
     /// <summary>F2 with a tab clicked (the tab strip has the focus) renames that tab, as F2 renames a file in the list.</summary>
     private void TabStrip_KeyDown(object sender, KeyEventArgs e)
     {

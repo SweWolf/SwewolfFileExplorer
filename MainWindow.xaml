@@ -172,7 +172,8 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <Button Content="+" Command="{Binding NewTabCommand}" ToolTip="New Tab (Ctrl+T)"
+                <Button Content="+" Command="{Binding NewTabCommand}" ToolTip="New Tab (Ctrl+T). Right-click for your bookmarked folders"
+                        PreviewMouseRightButtonUp="NewTabButton_PreviewMouseRightButtonUp"
                         Margin="4,4,0,0" Padding="8,2" FontSize="14"
                         Background="Transparent" BorderThickness="0" Focusable="False"/>
             </StackPanel>
