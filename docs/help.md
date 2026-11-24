@@ -249,9 +249,11 @@ Press **Icons** again to go back to the list.
 
 ### Filtering the List
 
-Click **Filter** or press **Ctrl+F** to show the filter bar above the list. What you type shows
+Click **Filter** or press **Ctrl+F** to show the filter bar above the list. (With the bar already open,
+**Ctrl+F** only moves the focus back to the text box and selects the text; the **Filter** button closes the bar.) What you type shows
 only the files whose names contain it, anywhere in the name. With several words, every word must
-be in the name. **Esc** clears the text, and a second **Esc** closes the bar. You can also press
+be in the name. The **Clear** button empties all the filter fields, and the **X** at the right end closes
+the bar. **Esc** clears the text, and a second **Esc** closes the bar. You can also press
 **Esc** with the focus in the list or the tree to close the bar.
 
 A word with `*` or `?` has to fit the whole name, as in Windows: `file*` finds names that start with

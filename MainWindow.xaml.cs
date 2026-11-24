@@ -289,7 +289,9 @@ public partial class MainWindow : Window
 
     private void FilterToggle_Click(object sender, RoutedEventArgs e) => ShowFilterBar(FilterToggle.IsChecked == true);
 
-    private void ToggleFilterBar() => ShowFilterBar(FilterBar.Visibility != Visibility.Visible);
+    // Ctrl+F opens the bar, or, when it is open already, goes back to the text box and selects the text (it never closes the bar:
+    // closing clears the filter). Closing is the X, Esc, or the toolbar's Filter button.
+    private void ToggleFilterBar() => ShowFilterBar(true);
 
     /// <summary>Shows or hides the bar. Hiding it clears the filter, so no file stays hidden without the bar saying so.</summary>
     private void ShowFilterBar(bool show, bool focusList = true)
@@ -363,6 +365,8 @@ public partial class MainWindow : Window
 
     // The name test of the filter: the same as the Search window's (words contained, * and ? for the whole name, "phrases", approximate).
     private Func<string, bool, bool>? _filterMatcher;
+
+    private void FilterClose_Click(object sender, RoutedEventArgs e) => ShowFilterBar(false);
 
     private void FilterClear_Click(object sender, RoutedEventArgs e)
     {

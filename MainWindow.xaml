@@ -807,8 +807,29 @@
                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
                 <DockPanel LastChildFill="True">
                     <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
-                    <Button x:Name="FilterClearButton" DockPanel.Dock="Right" TabIndex="6" Content="&#x2715;" FontSize="11" Padding="7,2" Margin="6,0,0,0"
-                            ToolTip="Clear the filter (Esc)" Click="FilterClear_Click"/>
+                    <!-- Flat, and red under the mouse: a close button, as everywhere else. It hides the bar; Clear empties the fields. -->
+                    <Button x:Name="FilterCloseButton" DockPanel.Dock="Right" TabIndex="8" Padding="8,3" Margin="10,0,0,0" Focusable="False"
+                            ToolTip="Close the Filter Bar (Ctrl+F)" Click="FilterClose_Click">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Box" Background="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Box" Property="Background" Value="{DynamicResource CloseHoverBrush}"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Box" Property="Background" Value="{DynamicResource ClosePressedBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <TextBlock Text="&#x2715;" FontSize="11" FontFamily="Segoe UI"/>
+                    </Button>
+                    <Button x:Name="FilterClearButton" DockPanel.Dock="Right" TabIndex="6" Content="Clear" FontSize="12" Padding="10,2" Margin="6,0,0,0"
+                            ToolTip="Clear all the filter fields, so every item shows again" Click="FilterClear_Click"/>
                     <TextBlock x:Name="FilterCountText" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12"
                                Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
                     <!-- The rating filter: right of the name box. The value box is only used by the three comparisons. -->
