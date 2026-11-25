@@ -145,7 +145,9 @@ Music and Videos) and **This PC**.
   [What You Have Read](#what-you-have-read-ratings-and-tags)), its **Rating** and **Expectation**
   when it has them, its **Tags**, and a picture of the folder when it has one. Right-click the folder
   picture for **Choose Folder Picture...**, **No Folder Picture** or **Use Automatic Folder Picture**. Its small **x** hides it,
-  and a small button brings it back.
+  and a small button brings it back. While the picture is hidden, or the whole tree is hidden, and nothing is selected
+  in the file list, the folder picture is shown in the details pane instead, where the preview of a file goes. Click it to
+  open it in the picture viewer.
 - **Set as Tree Root:** right-click a folder in the tree to make it the top of the tree (also
   possible for an archive). Up and Backspace then stop there. **Reset Tree Root** brings back the normal tree.
 - Press **F8**, or click **Tree** in the toolbar, to hide and show the tree.

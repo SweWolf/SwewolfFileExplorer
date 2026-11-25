@@ -98,6 +98,11 @@ public partial class MainWindow : Window
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(MainViewModel.ShowTree))
                 UpdateTreePane();
 
+            // The folder's picture goes to the preview while nothing is selected and the one under the tree is not shown.
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(MainViewModel.ShowTree) or nameof(MainViewModel.ShowFolderPicture)
+                    or nameof(MainViewModel.FolderPicture) or nameof(MainViewModel.HasFolderPicture))
+                ShowFolderPreview();
+
             // Entering a playlist opens the Play bar (it is what a playlist is for); leaving it does not close it.
             if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName is nameof(MainViewModel.InPlaylist) or nameof(MainViewModel.PlaylistDirty))
                 UpdatePlaylistBar();
@@ -2241,11 +2246,36 @@ public partial class MainWindow : Window
                               : !VM.HasFolder      ? ""   // This PC, Quick Access: nothing to count
                               :                      $"{count} {Word(count, onlyFiles)}";   // also "0 files"
             ShowThumbnail(null);
+            if (selected.Count == 0) ShowFolderPreview();
             ShowPlot(null);
             ShowAiInfo(null);
             ShowWebOrigin(null);
             ShowGps(null);
         }
+    }
+
+    // The preview shows the picture of the folder shown when nothing is selected and the picture under the tree is not there
+    // (the tree pane is hidden, or the folder picture was closed with its "x").
+    private bool _previewIsFolder;
+
+    private void ShowFolderPreview()
+    {
+        bool treePictureShown = VM.ShowTree && VM.ShowFolderPicture;
+        var picture = VM.FolderPicture;
+        bool nothingSelected = FileListView.SelectedItems.Count == 0;
+        if (_previewIsFolder && (treePictureShown || picture == null || !nothingSelected))
+        {
+            _previewIsFolder = false;   // ShowThumbnail clears the flag when a file takes the place, so here it is still the folder's picture
+            ThumbnailImage.Source = null;
+        }
+        if (treePictureShown || picture == null || FileListView.SelectedItems.Count != 0 || !VM.ShowInfoPanel || !VM.HasFolder) return;
+
+        ++_thumbnailVersion;   // a preview still being read for an earlier selection must not replace this
+        ThumbnailImage.Source = picture;
+        ShowPreviewFrame(false);
+        _previewItem   = null;
+        _previewSource = null;
+        _previewIsFolder = true;
     }
 
     private int _aiInfoVersion;
@@ -2889,6 +2919,7 @@ public partial class MainWindow : Window
     private async void ShowThumbnail(FileItemViewModel? item)
     {
         int version = ++_thumbnailVersion;
+        _previewIsFolder  = false;
         _previewItem      = null;
         _previewSource    = null;
         _mediaPreviewItem = null;
@@ -3297,6 +3328,11 @@ public partial class MainWindow : Window
     /// </summary>
     private void ThumbnailImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ClickCount == 1 && _previewIsFolder && _previewItem == null && ThumbnailImage.Source != null)
+        {
+            FolderPicture_MouseLeftButtonDown(sender, e);   // the picture of the folder, as under the tree
+            return;
+        }
         if (e.ClickCount != 1 || _previewItem == null || ThumbnailImage.Source == null) return;
         e.Handled = true;
 
