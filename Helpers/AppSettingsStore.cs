@@ -90,6 +90,13 @@ public class AppSettings
     /// </summary>
     public bool HideKnownExtensions { get; set; }
 
+    /// <summary>
+    /// The folder tree always shows the extension of the files it lists (packed files such as .zip, and .m3u playlists), as before. On by
+    /// default. Off, the tree follows the same hiding rules as the list (the special shell types, and the known types when
+    /// <see cref="HideKnownExtensions"/> is on), except that a node keeps its extension when another node would get the same name.
+    /// </summary>
+    public bool AlwaysShowExtensionsInTree { get; set; } = true;
+
     // The Play bar (slideshow). TeraTool's defaults: every file 10 seconds, at the end go to the next folder, ask first with a 10 second time-out.
     /// <summary>0 = Slide Show / Continues Playing, 1 = Single Play (a picture opens and stays).</summary>
     public int PlayMode { get; set; }

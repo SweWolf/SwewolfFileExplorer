@@ -354,6 +354,11 @@ The **.ext** button in the toolbar shows or hides the extensions of known file t
 `.jpg` and so on). The same choice is in **Tools > Settings**. Extensions of special Windows file
 types such as `.lnk` are never shown (this can be turned off in the settings).
 
+The folder tree lists packed files (`.zip` and others) and playlists (`.m3u`) next to the folders, and always shows
+their extension, so you can tell they are files. To hide it there too, uncheck **Always Show Extensions for Files in the Folder
+Tree** in **Tools > Settings > Files**. The tree then follows the same rules as the list. A file keeps its extension if a
+folder or another file would get the same name.
+
 ## Checking a File on VirusTotal
 
 Right-click a file and choose **Send to VirusTotal** (it has a group of its own in the menu, below
@@ -832,7 +837,7 @@ Open **Tools > Settings**. The window has the tabs **General**, **Files**, **Men
 - **Drag and Drop:** turn off dropping files into the program.
 - **Hidden Files** (Files tab): the extensions that count as hidden, extra extensions to hide inside archives, and the warning when
   all files are selected but hidden items are not.
-- **File Names** (Files tab): hide extensions of known file types, show the registered name of file types in the Type column, the
+- **File Names** (Files tab): hide extensions of known file types, always show extensions for files in the folder tree, show the registered name of file types in the Type column, the
   offer to move renamed videos, and two check boxes, **Use SweWolf File Explorer's Own Definition of Icons (Recommended)** (Windows 11 only) and
   **Use SweWolf File Explorer's Own Definition of File Type Names (Recommended)**. They give common file types (for example mp3, wav,
   mkv, jpg) a friendlier name and icon. Your own choices are in `FileTypes.json` (see below).

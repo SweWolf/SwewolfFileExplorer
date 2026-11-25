@@ -91,6 +91,7 @@ public partial class SettingsWindow : Window
         HiddenExtensionsInArchivesBox.Text = current.HiddenExtensionsInArchives;
         HideShellExtensionsBox.IsChecked   = current.HideShellExtensions;
         HideKnownExtensionsBox.IsChecked   = current.HideKnownExtensions;
+        AlwaysShowTreeExtensionsBox.IsChecked = current.AlwaysShowExtensionsInTree;
         OwnFileTypesBox.IsChecked          = current.UseOwnFileTypeNames;
         TitleFromNfoBox.IsChecked          = current.TitleFromNfo;
         OwnFileIconsBox.IsEnabled          = FileTypeOverrides.IsWindows11;
@@ -297,6 +298,7 @@ public partial class SettingsWindow : Window
         settings.HiddenExtensionsInArchives = string.Join(";", HiddenItems.Parse(HiddenExtensionsInArchivesBox.Text));
         settings.HideShellExtensions = HideShellExtensionsBox.IsChecked == true;
         settings.HideKnownExtensions = HideKnownExtensionsBox.IsChecked == true;
+        settings.AlwaysShowExtensionsInTree = AlwaysShowTreeExtensionsBox.IsChecked == true;
         settings.UseOwnFileTypeNames = OwnFileTypesBox.IsChecked == true;
         settings.TitleFromNfo = TitleFromNfoBox.IsChecked == true;
         if (FileTypeOverrides.IsWindows11) settings.UseOwnFileTypeIcons = OwnFileIconsBox.IsChecked == true;   // on Windows 10 the saved choice is left alone

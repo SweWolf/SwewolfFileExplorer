@@ -607,6 +607,7 @@ public class MainViewModel : INotifyPropertyChanged
                 item.RefreshDisplayName();
                 if (!item.IsDirectory) item.TypeName = IconHelper.GetTypeNameForName(item.Name);   // the "registered type names" setting may have changed
             }
+        foreach (var tab in Tabs) TreeItemViewModel.RelabelAll(tab.TreeItems);   // the tree's packed files and playlists follow the extension settings too
         OnPropertyChanged(nameof(ShowExtensions));
         DisplayNamesChanged?.Invoke();
     }

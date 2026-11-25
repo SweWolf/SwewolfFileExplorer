@@ -18,7 +18,47 @@ public class TreeItemViewModel : INotifyPropertyChanged
     public string Name
     {
         get => _name;
-        private set { if (_name == value) return; _name = value; OnPropertyChanged(); }
+        private set { if (_name == value) return; _name = value; OnPropertyChanged(); OnPropertyChanged(nameof(DisplayName)); }
+    }
+
+    private bool _keepExtension;   // another node would show the same name without its extension: this one keeps it
+
+    /// <summary>
+    /// The text the tree shows. <see cref="Name"/> is the real name; a packed file or playlist is shown without its extension when
+    /// Settings > File Names > "Always Show Extensions for Files in the Folder Tree" is off and the list's rules hide that extension.
+    /// </summary>
+    public string DisplayName =>
+        (IsArchive || IsPlaylist) && !_keepExtension && !AppSettingsStore.Current.AlwaysShowExtensionsInTree
+            ? ShellExtensions.DisplayName(_name) : _name;
+
+    /// <summary>Works out again which of the children keep their extension (a folder "Trip" next to "Trip.zip"), then their texts.</summary>
+    public void RelabelChildren()
+    {
+        var shown = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in Children)
+        {
+            if (string.IsNullOrEmpty(c.FullPath)) continue;
+            var label = (c.IsArchive || c.IsPlaylist) ? ShellExtensions.DisplayName(c._name) : c._name;
+            shown[label] = shown.GetValueOrDefault(label) + 1;
+        }
+        foreach (var c in Children)
+        {
+            if (string.IsNullOrEmpty(c.FullPath)) continue;
+            var label = (c.IsArchive || c.IsPlaylist) ? ShellExtensions.DisplayName(c._name) : c._name;
+            c._keepExtension = shown[label] > 1;
+            c.OnPropertyChanged(nameof(DisplayName));
+        }
+    }
+
+    /// <summary>The setting changed: every node already made shows its text again.</summary>
+    public static void RelabelAll(IEnumerable<TreeItemViewModel> nodes)
+    {
+        foreach (var n in nodes.ToList())
+        {
+            n.RelabelChildren();
+            n.OnPropertyChanged(nameof(DisplayName));
+            RelabelAll(n.Children);
+        }
     }
 
     /// <summary>Changes the text of the node (a drive that is an audio CD gets the album's name once it is known).</summary>
@@ -123,6 +163,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
         {
             foreach (var child in BuildFolderChildren(null, listing))
                 Children.Add(child);
+            RelabelChildren();
         }
         catch { }
     }
@@ -366,6 +407,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
         {
             if (ChildrenInArchive) LoadArchiveChildren();
             else                   LoadFolderChildren();
+            RelabelChildren();
         }
         catch { }
     }
@@ -476,6 +518,7 @@ public class TreeItemViewModel : INotifyPropertyChanged
                 if (at >= 0) Children.Move(at, i);
                 else         Children.Insert(i, wanted[i]);
             }
+            RelabelChildren();
         }
         catch { }
     }
