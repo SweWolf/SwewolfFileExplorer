@@ -107,8 +107,41 @@ public static class FileSearch
     /// </param>
     public static Func<string, bool, bool> NameMatcher(string text, bool approximate = false)
     {
-        var terms = new List<Func<string, bool, bool>>();
-        foreach (var term in SplitTerms(text))
+        // Groups of terms: every term of a group must fit (AND); a capital OR on its own starts the next group, and one group is enough (as in
+        // Windows Explorer). A quoted OR is an ordinary word. A group with no usable term is dropped; no group at all matches everything.
+        var groups = new List<List<Func<string, bool, bool>>> { new() };
+        foreach (var (term, quoted) in SplitTerms(text))
+        {
+            if (!quoted && term == "OR") { groups.Add(new()); continue; }
+            var one = BuildTerm(term, quoted, approximate);
+            if (one != null) groups[^1].Add(one);
+        }
+        groups.RemoveAll(g => g.Count == 0);
+        if (groups.Count == 0) return (_, _) => true;
+        return (name, isDir) =>
+        {
+            foreach (var g in groups)
+            {
+                bool all = true;
+                foreach (var t in g) if (!t(name, isDir)) { all = false; break; }
+                if (all) return true;
+            }
+            return false;
+        };
+    }
+
+    /// <summary>One search word as a test, or null when there is nothing to look for in it (only punctuation, an empty <c>ext:</c>).</summary>
+    private static Func<string, bool, bool>? BuildTerm(string term, bool quoted, bool approximate)
+    {
+        // ext:jpg (also ext:.jpg): files with that extension; a folder has none. Approximate matching accepts the other spellings (jpeg).
+        if (!quoted && term.StartsWith("ext:", StringComparison.OrdinalIgnoreCase))
+        {
+            var wanted = term[4..].TrimStart('.');
+            if (wanted.Length == 0) return null;
+            return (name, isDir) => !isDir && (approximate ? SameExtension(Path.GetExtension(name), wanted)
+                                                           : string.Equals(Path.GetExtension(name).TrimStart('.'), wanted, StringComparison.OrdinalIgnoreCase));
+        }
+
         {
             if (term.IndexOfAny(new[] { '*', '?' }) >= 0)
             {
@@ -121,24 +154,18 @@ public static class FileSearch
                 if (approximate && term.Length > 2 && term.StartsWith("*.") && term.Skip(2).All(char.IsLetterOrDigit))
                 {
                     var wanted = term[2..];
-                    terms.Add((name, isDir) => isDir ? regex.IsMatch(name) : SameExtension(Path.GetExtension(name), wanted));
+                    return (name, isDir) => isDir ? regex.IsMatch(name) : SameExtension(Path.GetExtension(name), wanted);
                 }
-                else
-                    terms.Add((name, _) => regex.IsMatch(name));
+                return (name, _) => regex.IsMatch(name);
             }
-            else if (approximate)
+            if (approximate)
             {
                 var t = Simplify(term);
-                if (t.Length == 0) continue;   // only punctuation: nothing to look for
-                terms.Add((name, isDir) => Simplify(isDir ? name : Path.GetFileNameWithoutExtension(name)).Contains(t, StringComparison.Ordinal));
+                if (t.Length == 0) return null;   // only punctuation: nothing to look for
+                return (name, isDir) => Simplify(isDir ? name : Path.GetFileNameWithoutExtension(name)).Contains(t, StringComparison.Ordinal);
             }
-            else
-            {
-                var t = term;
-                terms.Add((name, _) => name.Contains(t, StringComparison.OrdinalIgnoreCase));
-            }
+            return (name, _) => name.Contains(term, StringComparison.OrdinalIgnoreCase);
         }
-        return (name, isDir) => { foreach (var t in terms) if (!t(name, isDir)) return false; return true; };
     }
 
     /// <summary>
@@ -225,21 +252,22 @@ public static class FileSearch
 
     private static bool IsPathEntry(string s) => s.IndexOfAny(new[] { '\\', '/', ':' }) >= 0;
 
-    private static List<string> SplitTerms(string text)
+    /// <summary>The words of a search text; a word that was in quotes says so (so a quoted OR or "ext:jpg" is plain text).</summary>
+    private static List<(string Text, bool Quoted)> SplitTerms(string text)
     {
-        var terms = new List<string>();
+        var terms = new List<(string, bool)>();
         var sb = new StringBuilder();
-        bool quoted = false;
+        bool quoted = false, wasQuoted = false;
         foreach (char ch in text ?? "")
         {
-            if (ch == '"') { quoted = !quoted; if (!quoted) Flush(); continue; }
+            if (ch == '"') { quoted = !quoted; wasQuoted = true; if (!quoted) Flush(); continue; }
             if (char.IsWhiteSpace(ch) && !quoted) { Flush(); continue; }
             sb.Append(ch);
         }
         Flush();
         return terms;
 
-        void Flush() { if (sb.Length > 0) terms.Add(sb.ToString()); sb.Clear(); }
+        void Flush() { if (sb.Length > 0) terms.Add((sb.ToString(), wasQuoted)); sb.Clear(); wasQuoted = false; }
     }
 
     /// <summary>

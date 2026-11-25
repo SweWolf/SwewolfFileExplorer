@@ -262,7 +262,8 @@ the bar. **Esc** clears the text, and a second **Esc** closes the bar. You can a
 **Esc** with the focus in the list or the tree to close the bar.
 
 A word with `*` or `?` has to fit the whole name, as in Windows: `file*` finds names that start with
-file, `*.txt` names that end in .txt. Quotes keep words together as a phrase. The **&asymp;** box to the
+file, `*.txt` names that end in .txt. Quotes keep words together as a phrase. **OR** (in capitals) and **ext:** work
+as in the Search window: `cat OR dog` shows names with either word, and `ext:jpg OR ext:png` shows those two kinds of files. The **&asymp;** box to the
 right of the text box turns on approximate matching, as in the Search window: capitals, accents, spaces
 and punctuation are ignored and a doubled letter counts once, so `shuter island` finds `Shutter Island.mkv`.
 
@@ -284,6 +285,10 @@ above only works on the folder you are in.) The Search window asks:
 - **Name:** every word must be in the name, in any order and in any case. A word with `*` or `?` must fit
   the whole name, as in Windows (`*.ico` finds names that end in .ico, `alpha*` names that start with alpha, `*alpha*` names that
   have it anywhere). Quotes (`"summer holiday"`) keep words together as a phrase. Only names are searched, not what is inside the files.
+  As in Windows Explorer, **OR** (in capitals, on its own) finds names that fit either side: `cat OR dog`, and `big cat OR dog` means
+  "big and cat" or "dog". **ext:** finds files with that extension (`ext:jpg`, also `ext:.jpg`), and folders never match it, so
+  `holiday ext:jpg OR ext:png` finds the pictures with holiday in the name. With Approximate Name Matching on, `ext:jpg` also finds `.jpeg`.
+  A lowercase `or`, or `OR` and `ext:` inside quotes, are ordinary text.
 - **Approximate Name Matching** (under the Name box): capitals, accents (å, ä, ö, é become a, a, o, e; the German ß becomes s), spaces, dots, underscores and other
   punctuation are ignored, and a letter written twice or more in a row counts once, so `shuter island` finds `Shutter Island (2010).mkv` and
   `svenska alvar` finds `Svenska Älvar.txt`. Digits count as they are. Only the name is compared, never the extension. A word with `*` or `?` still has to

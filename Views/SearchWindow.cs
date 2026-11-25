@@ -133,7 +133,7 @@ public sealed class SearchWindow : Window
         var namePanel = new StackPanel { Margin = new Thickness(0, 18, 0, 0) };
         namePanel.Children.Add(_name);
         _name.ToolTip = "Every word must be in the name, in any order and in any case. A word with * or ? must fit the whole name (*.ico ends in .ico). " +
-                        "Use quotes for a phrase. Only names are searched, not what is inside the files.";
+                        "Use quotes for a phrase. OR (capitals) between words finds either (cat OR dog), and ext:jpg finds files with that extension (ext:jpg OR ext:png). Only names are searched, not what is inside the files.";
         namePanel.Children.Add(_approx);
         Put(namePanel, row, 1);
         row++;

@@ -864,7 +864,7 @@
                               ToolTip="Approximate name matching: capitals, accents, spaces, dots and other punctuation are ignored, and a letter written twice counts once (Shuter Island finds Shutter Island)."
                               Checked="FilterApprox_Changed" Unchecked="FilterApprox_Changed"/>
                     <TextBox x:Name="FilterBox" TabIndex="0" Padding="3" MinWidth="200"
-                             ToolTip="Only the items whose name contains these letters are shown. Several words: every word must be in the name. * and ? are wildcards for the whole name (file* starts with file, *.txt ends in .txt)."
+                             ToolTip="Only the items whose name contains these letters are shown. Several words: every word must be in the name. * and ? are wildcards for the whole name (file* starts with file, *.txt ends in .txt). OR (capitals) between words shows either (cat OR dog), and ext:jpg shows files with that extension."
                              TextChanged="FilterBox_TextChanged" PreviewKeyDown="FilterBox_PreviewKeyDown"/>
                 </DockPanel>
             </Border>
