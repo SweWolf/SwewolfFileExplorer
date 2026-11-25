@@ -3724,7 +3724,31 @@ public partial class MainWindow : Window
         FileListView.SelectedItem = item;
         FileListView.ScrollIntoView(item);
         FileListView.Focus();
+        KeepInViewWhileSettling(item);
         return item;
+    }
+
+    /// <summary>
+    /// The list is still changing right after a folder is opened (the sort is applied, the window is maximized, the info panel and the
+    /// columns are fitted, the list is read again), so a single ScrollIntoView can end up with the item outside the visible part.
+    /// Scroll to it again after the layout has settled, a few times, as long as it is still the selected item.
+    /// </summary>
+    private void KeepInViewWhileSettling(FileItemViewModel item)
+    {
+        void Again()
+        {
+            if (!ReferenceEquals(FileListView.SelectedItem, item) || !FileListView.Items.Contains(item)) return;
+            FileListView.UpdateLayout();
+            FileListView.ScrollIntoView(item);
+        }
+
+        Dispatcher.BeginInvoke(Again, System.Windows.Threading.DispatcherPriority.ContextIdle);
+        foreach (var ms in new[] { 250, 700, 1500 })
+        {
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ms) };
+            timer.Tick += (_, _) => { timer.Stop(); Again(); };
+            timer.Start();
+        }
     }
 
     /// <summary>The address bar's item (file or folder) is shown in its folder and selected, without being opened (Shift+Enter, and the Go arrow's menu).</summary>

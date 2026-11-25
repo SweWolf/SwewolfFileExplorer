@@ -559,8 +559,7 @@
                 <!-- Under the tree: has the current folder been read? (as in TeraTool) -->
                 <Border DockPanel.Dock="Bottom" Padding="10,6"
                         Background="{DynamicResource PaneBrush}"
-                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
-                        Visibility="{Binding ShowFolderInfoRow, Converter={StaticResource BoolToVisibility}}">
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0">
                     <StackPanel Orientation="Horizontal">
                         <!-- Only while the folder picture is hidden: brings it back. A small picture (frame, hill, sun) says what it is. -->
                         <Button Command="{Binding ShowFolderPictureCommand}" Focusable="False" Padding="3" Margin="0,0,8,0" VerticalAlignment="Center"
@@ -601,8 +600,7 @@
                 <!-- Under the tree: the hidden subfolders of the current folder (docked before the tree, which fills the rest) -->
                 <Border DockPanel.Dock="Bottom" Padding="10,6"
                         Background="{DynamicResource PaneBrush}"
-                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0"
-                        Visibility="{Binding HasTreeInfo, Converter={StaticResource BoolToVisibility}}">
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,1,0">
                     <WrapPanel>
                         <TextBlock FontSize="12" Text="{Binding TreeCountsText}" Margin="0,0,5,0"
                                    ToolTip="How many subfolders and archive files (zip, rar, 7z ...) the current folder has"/>

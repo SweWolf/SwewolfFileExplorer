@@ -1551,7 +1551,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     {
         get
         {
-            if (_treeCounts is not { } c) return "";
+            if (_treeCounts is not { } c || !HasFolder) return "";   // This PC, Quick Access: the tab still remembers the old counts, which are not shown
             bool shown    = ShowsHiddenInTree(_currentPath);
             int  folders  = c.Folders  + (shown ? c.HiddenFolders  : 0);
             int  archives = c.Archives + (shown ? c.HiddenArchives : 0);
