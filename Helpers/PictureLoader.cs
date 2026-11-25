@@ -66,6 +66,10 @@ public static class PictureLoader
                 && JxlSupport.ToBitmap(bytes) is { } jxlPicture)
                 return new LoadedPicture(jxlPicture);
 
+            // Animated WebP: Windows' codec shows only the first frame, so SkiaSharp decodes the frames.
+            if (WebpAnimation.IsAnimated(bytes) && WebpAnimation.Load(bytes) is { } webpAnimation)
+                return webpAnimation;
+
             using var stream = new MemoryStream(bytes);
             var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
             if (decoder.Frames.Count == 0) return null;
