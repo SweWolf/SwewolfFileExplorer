@@ -295,7 +295,8 @@
 
                 <!-- Pressed = the extensions of known file types are shown (.txt, .jpg ...): Windows' "Hide extensions for known file types", the other way round -->
                 <ToggleButton IsChecked="{Binding ShowExtensions}"
-                              ToolTip="Show File Name Extensions (.txt, .jpg ...) of Known File Types"
+                              ToolTip="Show File Name Extensions (.txt, .jpg ...) of Known File Types&#10;Right-click for more choices"
+                              PreviewMouseRightButtonUp="ExtButton_PreviewMouseRightButtonUp"
                               Padding="6,4">
                     <TextBlock Text=".ext" FontSize="12"/>
                 </ToggleButton>

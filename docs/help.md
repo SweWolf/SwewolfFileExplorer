@@ -352,7 +352,8 @@ The line under the list says what is selected: "File 14/17" for one item, and fo
 
 The **.ext** button in the toolbar shows or hides the extensions of known file types (`.txt`,
 `.jpg` and so on). The same choice is in **Tools > Settings**. Extensions of special Windows file
-types such as `.lnk` are never shown (this can be turned off in the settings).
+types such as `.lnk` are never shown (this can be turned off in the settings). Right-click the **.ext** button for
+check marks for that choice and for the folder tree (below).
 
 The folder tree lists packed files (`.zip` and others) and playlists (`.m3u`) next to the folders, and always shows
 their extension, so you can tell they are files. To hide it there too, uncheck **Always Show Extensions for Files in the Folder

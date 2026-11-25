@@ -1122,6 +1122,32 @@ public partial class MainWindow : Window
     /// the folder in a new tab. The bookmarks come from the nodes the tree already holds (nothing is read from the disk here: a disk that
     /// is not connected would make the menu wait); a folder that is not there is grey. No limit: the menu scrolls when it is long.
     /// </summary>
+    /// <summary>Right-click on the ".ext" button: the two other extension choices of Settings > File Names, as check marks.</summary>
+    private void ExtButton_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        var settings = AppSettingsStore.Current;
+
+        MenuItem Choice(string header, bool isOn, Action<bool> set)
+        {
+            var item = new MenuItem { Header = header, IsCheckable = true, IsChecked = isOn, StaysOpenOnClick = false };
+            item.Click += (_, _) =>
+            {
+                set(item.IsChecked);
+                AppSettingsStore.Save(settings);
+                VM.ExtensionSettingChanged();   // every tab and the tree follow at once
+            };
+            return item;
+        }
+
+        var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
+        menu.Items.Add(Choice("Hide Extensions for Special Shell and System File Types (Recommended)",
+            settings.HideShellExtensions, on => settings.HideShellExtensions = on));
+        menu.Items.Add(Choice("Always Show Extensions for Files in the Folder Tree",
+            settings.AlwaysShowExtensionsInTree, on => settings.AlwaysShowExtensionsInTree = on));
+        menu.IsOpen = true;
+    }
+
     private void NewTabButton_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
