@@ -86,7 +86,7 @@ From top to bottom:
 - **The tab strip:** one tab per folder you have open.
 - **The toolbar:** Back, Forward, Up, the address bar, **Go**, Refresh, and the buttons
   **Tree**, **Folders**, **.ext**, **Icons** (new in version 1.1.0), **New Folder**, **Play**, **Filter** and **Search**.
-- **The folder tree** on the left, with its own header (Up, Sort By, and an **x** that hides the tree).
+- **The folder tree** on the left, with its own header (Sort By, and an **x** that hides the tree).
 - **The file list** in the middle.
 - **The info panel** under the list: the line "File 14/17", and below it details, a preview picture and more.
 

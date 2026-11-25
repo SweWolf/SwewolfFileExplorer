@@ -404,18 +404,11 @@
                         BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,1" Padding="4,3">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <Button Grid.Column="0" Command="{Binding UpCommand}"
-                                ToolTip="{Binding UpTip}"
-                                Padding="6,2" Margin="0,1,6,0" VerticalAlignment="Top">
-                            <TextBlock Text="&#xE74A;" FontSize="16" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
-                        </Button>
-
-                        <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                        <WrapPanel Grid.Column="0" VerticalAlignment="Center">
                             <TextBlock Text="Sort By" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"/>
                             <ComboBox Width="100" Margin="0,1,4,1" FontSize="12"
                                       ToolTip="Sort the subfolders of the current folder by"
@@ -433,7 +426,7 @@
                         </WrapPanel>
 
                         <!-- Flat, and red under the mouse: a close button, as in Windows. -->
-                        <Button Grid.Column="2" Command="{Binding ToggleTreeCommand}"
+                        <Button Grid.Column="1" Command="{Binding ToggleTreeCommand}"
                                 ToolTip="Hide the Folder Tree (F8)"
                                 Padding="8,3" Margin="6,1,0,0" VerticalAlignment="Top" Focusable="False">
                             <Button.Template>
