@@ -75,11 +75,9 @@ SwewolfFileExplorer.exe /select,"D:\Music\song.mp3"  opens the folder and select
 
 [MIT License](LICENSE)
 
----
+## Support
 
-## Donations
-
-All of my software is completely free to use. If this application was useful to you and you'd like to support future updates, you can buy me a coffee on Ko-fi—no pressure at all!
+All of my software is completely free to use. If this application is useful to you and you would like to support future updates, you can [buy me a coffee on Ko-fi](https://ko-fi.com/swewolfsoftware). No pressure at all!
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/swewolfsoftware)
 
