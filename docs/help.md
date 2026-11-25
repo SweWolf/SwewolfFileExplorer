@@ -23,7 +23,7 @@ archives like folders, and shows a preview, a plot or the prompt of an AI pictur
   - [Hidden Items](#hidden-items)
   - [File Name Extensions](#file-name-extensions)
 - [Checking a File on VirusTotal](#checking-a-file-on-virustotal)
-- [The Info Panel](#the-info-panel)
+- [The Details Pane](#the-details-pane)
 - [Opening Files](#opening-files)
 - [Ripping an Audio CD](#ripping-an-audio-cd)
 - [Right-Click Menus](#right-click-menus)
@@ -88,9 +88,9 @@ From top to bottom:
   **Tree**, **Folders**, **.ext**, **Icons** (new in version 1.1.0), **New Folder**, **Play**, **Filter** and **Search**.
 - **The folder tree** on the left, with its own header (Sort By, and an **x** that hides the tree).
 - **The file list** in the middle.
-- **The info panel** under the list: the line "File 14/17", and below it details, a preview picture and more.
+- **The details pane** under the list: the line "File 14/17", and below it details, a preview picture and more.
 
-The window always starts maximized. The tree and the info panel can be made bigger or smaller by
+The window always starts maximized. The tree and the details pane can be made bigger or smaller by
 dragging the line next to them.
 
 ### The Address Bar
@@ -242,7 +242,7 @@ Click a column header to sort by it, and click again to turn the order around. A
 list with columns. Pictures show themselves, music shows its cover, and videos and documents show the thumbnail that Windows makes
 (or a frame of the video if Windows has none). A folder shows its folder picture, if it has one. The pictures appear as you scroll,
 so a folder with thousands of files opens at once. Everything else works as in the list: selection, sorting, the filter, the menus,
-drag and drop and the info panel.
+drag and drop and the details pane.
 
 - **Size:** hold **Ctrl** and turn the mouse wheel over the list, or press **Ctrl+Plus**, **Ctrl+Minus** and **Ctrl+0**. The size is remembered.
 - **Sorting:** there are no column headers in this view, so the right-click menu of the list starts with **Sort By**.
@@ -384,7 +384,7 @@ flagged this file"), with an offer to open the full report.
   Each user needs their own key.
 - The key is saved encrypted for your Windows user, not as plain text. Clear the box to remove it.
 
-## The Info Panel
+## The Details Pane
 
 The line under the list says which item is selected ("File 14/17"), how many are selected ("7 of 62 files selected"), or how many items there are. Two small buttons at the right end scroll the list to the top and to the bottom. After **Ctrl+D** a note
 appears here with the link **Go to Bookmarks now?**
@@ -411,8 +411,8 @@ Below it:
 - **A map pin** when a picture or video says where it was taken. Click the pin to see the place on a
   map in your browser. Right-click the pin to choose another map site, or to copy the coordinates.
 
-The line between the list and the panel can be dragged to make the panel taller. The **x** at the
-far right hides the whole panel, and the small **i** button in the info line brings it back.
+The line between the list and the pane can be dragged to make the pane taller. The **x** at the
+far right hides the whole pane, and the small **i** button in the info line brings it back.
 
 ### Preview Pictures of Videos and Music
 
@@ -788,7 +788,7 @@ with the drive. Any other drive can be told to do the same (see
   folders. A rating is a whole number; an expectation may have decimals. An empty box removes the value.
 - **Tags of a folder:** **Set Tags...** in the tree menu writes the tags to the `desktop.ini` of the folder, the way Windows does.
   They are shown under the tree.
-- **Where a file came from** (the web addresses of a download) is remembered as described under [The Info Panel](#the-info-panel).
+- **Where a file came from** (the web addresses of a download) is remembered as described under [The Details Pane](#the-details-pane).
 
 Renaming, moving and deleting in this program keeps all of this correct. Changes made by other programs are not seen.
 

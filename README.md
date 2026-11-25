@@ -1,8 +1,8 @@
 # SweWolf File Explorer
 
-A Windows file manager with tabs, a folder tree, bookmarks and an information panel. It copies, moves and deletes in the background with a progress window and **Cancel**, takes back your last file operation with **Ctrl+Z**, looks inside zip, RAR and 7z files like folders, and remembers what you have read, rated and tagged.
+A Windows file manager with tabs, a folder tree, bookmarks and a details pane. It copies, moves and deletes in the background with a progress window and **Cancel**, takes back your last file operation with **Ctrl+Z**, looks inside zip, RAR and 7z files like folders, and remembers what you have read, rated and tagged.
 
-![SweWolf File Explorer showing a folder of videos with tabs, the folder tree and the information panel](Assets/Screenshot.png)
+![SweWolf File Explorer showing a folder of videos with tabs, the folder tree and the details pane](Assets/Screenshot.png)
 
 ---
 
@@ -20,7 +20,7 @@ A Windows file manager with tabs, a folder tree, bookmarks and an information pa
 - **Audio CDs**: titles, artists and the cover come from MusicBrainz, and **Rip** saves the tracks as MP3, FLAC or M4A (checked by reading each track twice). **Eject** is in the drive's menu
 - **Pictures**: a full-screen viewer with slide show, zoom, rotation that can be saved, and next-folder browsing. It shows JPEG, PNG, GIF (animated), WebP, SVG, Photoshop (PSD, PSB), JPEG XL and the previews inside NEF and DNG photos
 - **Video and music** play in **SweWolf Media Player** when it is found (in the same folder as the Explorer, or in a sibling folder called `SwewolfMediaPlayer`). Otherwise Windows' own program is used. The **Play bar** plays a whole list (slide show, repeat, demo, intro or random order), and M3U playlists open like folders and can be edited. Tracks of an audio CD (`.cda`) play too
-- **Information panel**: a preview, details of the file, the plot from a Kodi or Jellyfin `.nfo` file (which you can edit, view as a web page, or download from TMDB with your own free key), prompt and seed of AI pictures (ComfyUI, Automatic1111, Wan2GP), a map pin for pictures and videos with a position, and where a downloaded file came from
+- **Details pane**: a preview, details of the file, the plot from a Kodi or Jellyfin `.nfo` file (which you can edit, view as a web page, or download from TMDB with your own free key), prompt and seed of AI pictures (ComfyUI, Automatic1111, Wan2GP), a map pin for pictures and videos with a position, and where a downloaded file came from
 - **Read marks, ratings and tags**: unread files are shown in bold, you give files and folders a rating (1 to 10) and an expectation, folders can have tags. This is kept in SQLite files, and on a USB drive it travels with the drive
 - **Columns and sorting per folder**, with columns that fit their text, and extra columns such as length, bitrate, dimensions and product version
 - **Filter** the list as you type (**Ctrl+F**), **type-ahead** in the list and the tree, and a forgiving address bar that understands quotes, `d:/folder`, `%APPDATA%` and `shell:startup`

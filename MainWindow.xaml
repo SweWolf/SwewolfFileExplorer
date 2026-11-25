@@ -1486,7 +1486,7 @@
                         <!-- The "x" far right, beyond the seed: hides the whole panel under the info line (the preview picture, the details, the
                              plot ...). A small button at the right end of the info line brings it back (as for the folder picture under the tree). -->
                         <Button x:Name="InfoCloseButton" Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right" Focusable="False" Padding="6,2" Margin="8,0,0,0"
-                                ToolTip="Hide the Panel (a button at the right end of the line above shows it again)" Click="InfoClose_Click">
+                                ToolTip="Hide the Details Pane (a button at the right end of the line above shows it again)" Click="InfoClose_Click">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Box" Background="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}">
@@ -1600,7 +1600,7 @@
                          above the preview picture; wraps onto a second line in a narrow window. Phase 1 plays pictures (see docs/slideshow-and-play-modes-plan.md). -->
                     <!-- Only there while the panel under this line is hidden: shows it again -->
                     <Button x:Name="InfoPanelShowButton" HorizontalAlignment="Right" VerticalAlignment="Center" Focusable="False" Padding="6,2" Margin="0,0,2,0"
-                            Visibility="Collapsed" ToolTip="Show the Panel under This Line (the preview picture and the details)" Click="InfoPanelShow_Click">
+                            Visibility="Collapsed" ToolTip="Show the Details Pane under This Line (the preview picture and the details)" Click="InfoPanelShow_Click">
                         <TextBlock Text="&#xE946;" FontSize="13" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
                     </Button>
 
