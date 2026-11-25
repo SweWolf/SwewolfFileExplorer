@@ -166,7 +166,7 @@ public class AppSettings
     /// <summary>Settings > Search: the standard folders to leave out of searches, one per line: a full path (that folder and all below it) or a plain name (any folder with that name).</summary>
     public string SearchExcludedFolders { get; set; } = "";
 
-    /// <summary>The check box "Skip My Excluded Folders" of the Search window: remembered from one search to the next.</summary>
+    /// <summary>The check box "Exclude Folders from the Search" of the Search window: remembered from one search to the next.</summary>
     public bool SearchSkipExcluded { get; set; } = false;
 
     /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the

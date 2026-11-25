@@ -40,7 +40,8 @@ public sealed class SearchWindow : Window
 
     // Folders to leave out: the check box (remembered) and, while it is checked, the list (filled from Settings > Search; edits count for this search
     // only, unless "Save as My Standard List" is pressed).
-    private readonly CheckBox _skipExcluded = new() { Content = "Skip My Excluded Folders", Margin = new Thickness(0, 10, 0, 0) };
+    private readonly CheckBox _skipExcluded = new() { Content = "Exclude Folders from the Search (list visible when checked)", Margin = new Thickness(0, 10, 0, 0),
+        ToolTip = "Leave out the folders in the list that appears when this is checked.\nThe list starts as your standard list from Tools > Settings > Search. Changes made here count for this search only, unless you click Save as My Standard List." };
     private readonly TextBox _excluded = new() { AcceptsReturn = true, MinHeight = 66, MaxHeight = 120, Margin = new Thickness(0, 6, 0, 0), Padding = new Thickness(6, 4, 6, 4),
                                                  VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, TextWrapping = TextWrapping.NoWrap };
     private readonly Button _addExcluded = new() { Content = "Add Folder...", Padding = new Thickness(14, 4, 14, 4) };
@@ -206,6 +207,8 @@ public sealed class SearchWindow : Window
         _stopAfter.Checked += (_, _) => _stopAfterCount.IsEnabled = true;
         _stopAfter.Unchecked += (_, _) => _stopAfterCount.IsEnabled = false;
 
+        _subfolders.Checked += (_, _) => UpdateExcludedUi();
+        _subfolders.Unchecked += (_, _) => UpdateExcludedUi();
         _skipExcluded.Checked += (_, _) => UpdateExcludedUi();
         _skipExcluded.Unchecked += (_, _) => UpdateExcludedUi();
         _excluded.TextChanged += (_, _) => UpdateExcludedUi();
@@ -312,7 +315,10 @@ public sealed class SearchWindow : Window
     /// <summary>The list shows while the box is checked; "Save as My Standard List" is there only when the list differs from the saved one.</summary>
     private void UpdateExcludedUi()
     {
-        bool on = _skipExcluded.IsChecked == true;
+        // Without subfolders nothing is entered, so there is nothing to exclude: the box and the list are hidden (the box keeps its state).
+        bool deep = _subfolders.IsChecked == true;
+        _skipExcluded.Visibility = deep ? Visibility.Visible : Visibility.Collapsed;
+        bool on = deep && _skipExcluded.IsChecked == true;
         if (_excludedPanel != null) _excludedPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         var saved = string.Join("\n", FileSearch.ParseExcluded(AppSettingsStore.Current.SearchExcludedFolders));
         var now = string.Join("\n", FileSearch.ParseExcluded(_excluded.Text));
@@ -461,7 +467,7 @@ public sealed class SearchWindow : Window
 
         // Folders to leave out (when the box is checked); the check box itself is remembered.
         bool skip = _skipExcluded.IsChecked == true;
-        if (skip) c.ExcludedFolders = FileSearch.ParseExcluded(_excluded.Text);
+        if (skip && c.Subfolders) c.ExcludedFolders =FileSearch.ParseExcluded(_excluded.Text);
         if (AppSettingsStore.Current.SearchSkipExcluded != skip)
         {
             AppSettingsStore.Current.SearchSkipExcluded = skip;

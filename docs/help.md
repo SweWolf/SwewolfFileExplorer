@@ -297,7 +297,7 @@ above only works on the folder you are in.) The Search window asks:
   A folder has no size, so with a size set only files are searched ("Search for" is locked to **Files Only**; **Any Size** unlocks it).
   **At Most** 0 KB finds empty files.
 
-- **Skip My Excluded Folders:** leaves folders out of the search, which can make a search on a big drive much faster (a Python
+- **Exclude Folders from the Search:** leaves folders out of the search, which can make a search on a big drive much faster (a Python
   environment or a folder with hundreds of thousands of small files can take minutes). When it is checked, a list shows with the folders
   to skip, one per line: a **full path** (`C:\MyFolder`: that folder and everything below it) or just a **name** (`node_modules`:
   every folder with that name, anywhere). The list starts as it is in **Tools > Settings > Search**. You can edit it for this search only, or

@@ -176,7 +176,7 @@
         <GroupBox Header="Standard Folders to Exclude from Searches" Padding="8" Margin="0,8,0,0">
             <StackPanel>
                 <TextBlock TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left"
-                           Text="One folder per line. In the Search window the check box Skip My Excluded Folders leaves these out of a search, which can make a search on a big drive much faster."/>
+                           Text="One folder per line. In the Search window the check box Exclude Folders from the Search leaves these out of a search, which can make a search on a big drive much faster."/>
                 <TextBox x:Name="SearchExcludedBox" Margin="0,8,0,0" MinHeight="150" AcceptsReturn="True" TextWrapping="NoWrap"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                          ToolTip="A full path, for example C:\MyFolder (that folder and everything below it is skipped), or just a name, for example node_modules (every folder with that name, anywhere, is skipped)."/>
