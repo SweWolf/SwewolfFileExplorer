@@ -773,6 +773,19 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         // (A real item that is literally named 'x', with the quotes, is left alone.)
         if (cleaned.Length >= 2 && IsSingleQuote(cleaned[0]) && IsSingleQuote(cleaned[^1]) && !File.Exists(cleaned) && !Directory.Exists(cleaned))
             cleaned = cleaned[1..^1].Trim();
+
+        // A path copied from a web browser: file:///D:/My%20Folder (a network share is file://server/share). The prefix goes, the %20 style
+        // escapes are decoded, and what is left is read as an ordinary path (the forward slashes are tidied later, as for any typed path).
+        if (cleaned.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            var rest = cleaned[5..];
+            if (rest.StartsWith("///")) rest = rest[3..];                       // file:///D:/x  or  file:///D:/x
+            else if (rest.StartsWith("//")) rest = "//" + rest[2..];           // file://server/share: a network path
+            else rest = rest.TrimStart('/');
+            try { rest = Uri.UnescapeDataString(rest); } catch (UriFormatException) { }
+            if (rest.StartsWith("//")) rest = rest.Replace('/', '\\');          // network path: backslashes (a leading // is not tidied later)
+            cleaned = rest.Trim();
+        }
         return cleaned;
     }
 
