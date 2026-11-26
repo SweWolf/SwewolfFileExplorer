@@ -1,4 +1,4 @@
-<Window x:Class="SwewolfFileExplorer.MainWindow"
+﻿<Window x:Class="SwewolfFileExplorer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:SwewolfFileExplorer.ViewModels"
@@ -614,6 +614,7 @@
                           FontSize="{Binding TreeFontSize}"
                           FontFamily="{Binding ContentFontFamily}"
                           PreviewMouseWheel="Tree_PreviewMouseWheel"
+                          PreviewMouseDoubleClick="NavigationTree_PreviewMouseDoubleClick"
                           ContextMenuOpening="NavigationTree_ContextMenuOpening"
                           PreviewMouseRightButtonDown="NavigationTree_PreviewMouseRightButtonDown"
                           AllowDrop="True" DragOver="NavigationTree_DragOver" Drop="NavigationTree_Drop"

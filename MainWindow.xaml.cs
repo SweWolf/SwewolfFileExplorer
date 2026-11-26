@@ -5381,7 +5381,35 @@ public partial class MainWindow : Window
 
     private void TreeCtxOpen_Click(object sender, RoutedEventArgs e)
     {
-        if (_treeMenuNode != null) VM.Navigate(_treeMenuNode.FullPath);
+        if (_treeMenuNode != null) OpenTreeNode(_treeMenuNode);
+    }
+
+    /// <summary>
+    /// Open (menu item and double-click) on a node of the tree. A playlist is a file: it plays in SweWolf Media Player (else in the program
+    /// Windows has for it, no question). It is already shown as a folder when it is selected, so navigating there would look as if nothing happened.
+    /// </summary>
+    private void OpenTreeNode(TreeItemViewModel node)
+    {
+        var path = node.FullPath;
+        if (node.IsPlaylist && System.IO.File.Exists(path))
+        {
+            if (MediaPlayerLauncher.Open(path, null) == LaunchResult.Started) return;
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true }); return; }
+            catch (Exception) { /* no program for it: show it as a folder instead */ }
+        }
+        VM.Navigate(path);
+    }
+
+    private void NavigationTree_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left) return;
+        DependencyObject? d = e.OriginalSource as DependencyObject;
+        while (d != null && d is not TreeViewItem) d = d is Visual or System.Windows.Media.Media3D.Visual3D ? System.Windows.Media.VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d);
+        if (d is TreeViewItem { DataContext: TreeItemViewModel { IsPlaylist: true } node })
+        {
+            e.Handled = true;
+            OpenTreeNode(node);
+        }
     }
 
     private void TreeCtxOpenInNewTab_Click(object sender, RoutedEventArgs e)
