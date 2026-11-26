@@ -600,7 +600,7 @@
                                    ToolTip="How many subfolders and archive files (zip, rar, 7z ...) the current folder has"/>
                         <TextBlock FontSize="12" Visibility="{Binding HasTreeHiddenFolders, Converter={StaticResource BoolToVisibility}}"
                                    ToolTip="Click to show or hide the hidden and system subfolders of the current folder in the tree">
-                            <Hyperlink Command="{Binding ToggleTreeHiddenCommand}">
+                            <Hyperlink Command="{Binding ToggleTreeHiddenCommand}" Click="TreeHiddenLink_Click">
                                 <Run Text="{Binding TreeHiddenText, Mode=OneWay}"/>
                             </Hyperlink>
                         </TextBlock>
@@ -1521,7 +1521,7 @@
                         <TextBlock FontSize="12" Margin="68,0,16,0"
                                    Visibility="{Binding HasHiddenItems, Converter={StaticResource BoolToVisibility}}"
                                    ToolTip="Click to show or hide the hidden and system items of this folder">
-                            <Hyperlink Command="{Binding ToggleHiddenCommand}">
+                            <Hyperlink Command="{Binding ToggleHiddenCommand}" Click="ListHiddenLink_Click">
                                 <Run Text="{Binding HiddenText, Mode=OneWay}"/>
                             </Hyperlink>
                         </TextBlock>

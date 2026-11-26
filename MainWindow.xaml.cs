@@ -5400,6 +5400,46 @@ public partial class MainWindow : Window
         VM.Navigate(path);
     }
 
+    // ── The "N hidden items (click to show)" links: what they show must come into view ──────────────
+
+    /// <summary>The link under the list: when the hidden items were just shown, the first of them is scrolled into view.</summary>
+    private void ListHiddenLink_Click(object sender, RoutedEventArgs e)
+    {
+        // Hyperlink raises Click first and then runs its command, so look at the result after the command and the new list have been laid out.
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            var first = FileListView.Items.OfType<FileItemViewModel>().FirstOrDefault(i => i.IsHidden);
+            if (first == null) return;   // hidden again, or none: hidden items are only in the list while they are shown
+            FileListView.UpdateLayout();
+            FileListView.ScrollIntoView(first);
+        }), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>The link under the tree: when the hidden folders were just shown, the first of them is scrolled into view.</summary>
+    private void TreeHiddenLink_Click(object sender, RoutedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (NavigationTree.SelectedItem is not TreeItemViewModel current) return;
+            var first = current.Children.FirstOrDefault(c => c.IsHidden);
+            if (first == null) return;   // hidden again, or none
+            NavigationTree.UpdateLayout();
+            FindTreeContainer(NavigationTree, first)?.BringIntoView();
+        }), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>The TreeViewItem of a node, looked for only through expanded nodes (what is not expanded has no container and is not on screen).</summary>
+    private static TreeViewItem? FindTreeContainer(ItemsControl parent, TreeItemViewModel target)
+    {
+        foreach (var item in parent.Items)
+        {
+            if (parent.ItemContainerGenerator.ContainerFromItem(item) is not TreeViewItem container) continue;
+            if (ReferenceEquals(item, target)) return container;
+            if (container.IsExpanded && FindTreeContainer(container, target) is { } found) return found;
+        }
+        return null;
+    }
+
     private void NavigationTree_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left) return;
