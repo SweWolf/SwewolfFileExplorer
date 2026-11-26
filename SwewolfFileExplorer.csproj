@@ -15,13 +15,13 @@
     <SelfContained>false</SelfContained>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <StartupObject>SwewolfFileExplorer.Program</StartupObject>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationIcon>Resourses\fluent_file_explorer.ico</ApplicationIcon>
     <!-- What Explorer shows in the EXE's Properties > Details: File description, Product name, Comments, Copyright. -->
     <AssemblyTitle>SweWolf File Explorer</AssemblyTitle>
     <Product>SweWolf File Explorer</Product>
-    <Description>A file manager with tabs, a folder tree, bookmarks, an information panel and archives as folders.</Description>
+    <Description>A file manager with tabs, a folder tree, bookmarks, a details pane and archives as folders.</Description>
     <Company>SweWolf Software</Company>
     <Copyright>SweWolf Software</Copyright>
     <Authors>SweWolf</Authors>

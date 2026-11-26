@@ -164,8 +164,8 @@ open.</li>
 <strong>Go</strong>, Refresh, and the buttons <strong>Tree</strong>,
 <strong>Folders</strong>, <strong>.ext</strong>, <strong>Icons</strong>
 (new in version 1.1.0), <strong>New Folder</strong>,
-<strong>Play</strong>, <strong>Filter</strong> and
-<strong>Search</strong>.</li>
+<strong>Play</strong>, <strong>Filter</strong>, <strong>Search</strong>
+and <strong>…</strong> (new in version 1.2.0).</li>
 <li><strong>The folder tree</strong> on the left, with its own header
 (Sort By, and an <strong>x</strong> that hides the tree).</li>
 <li><strong>The file list</strong> in the middle.</li>
@@ -221,12 +221,13 @@ the active one; <strong>Ctrl+Shift+T</strong> brings the closed tabs
 back, one at a time. <strong>Duplicate Tab</strong> opens the same
 folder (with the same tree root and tab name) in a new tab next to
 it.</li>
-<li>Right-click the <strong>+</strong> button to see your bookmarked
-folders, listed by their full path in alphabetical order. Click one to
-open it in a new tab. A folder that is not available (for example a disk
-that is not connected) is grey. The last item, <strong>Bookmark the
-Current Folder</strong>, adds the folder of the active tab to your
-bookmarks (<strong>Ctrl+D</strong> does the same).</li>
+<li>Right-click the <strong>+</strong> button (new in version 1.2.0) to
+see your bookmarked folders, listed by their full path in alphabetical
+order. Click one to open it in a new tab. A folder that is not available
+(for example a disk that is not connected) is grey. The last item,
+<strong>Bookmark the Current Folder</strong>, adds the folder of the
+active tab to your bookmarks (<strong>Ctrl+D</strong> does the
+same).</li>
 </ul>
 <p>The active tab is shown in bold, with a colored line on top.</p>
 <h2 id="the-folder-tree">The Folder Tree</h2>
@@ -425,8 +426,8 @@ tree to close the bar.</p>
 name, as in Windows: <code>file*</code> finds names that start with
 file, <code>*.txt</code> names that end in .txt. Quotes keep words
 together as a phrase. <strong>OR</strong> (in capitals) and
-<strong>ext:</strong> work as in the Search window:
-<code>cat OR dog</code> shows names with either word, and
+<strong>ext:</strong> (new in version 1.2.0) work as in the Search
+window: <code>cat OR dog</code> shows names with either word, and
 <code>ext:jpg OR ext:png</code> shows those two kinds of files. The
 <strong>≈</strong> box to the right of the text box turns on approximate
 matching, as in the Search window: capitals, accents, spaces and
@@ -462,10 +463,10 @@ fit the whole name, as in Windows (<code>*.ico</code> finds names that
 end in .ico, <code>alpha*</code> names that start with alpha,
 <code>*alpha*</code> names that have it anywhere). Quotes
 (<code>&quot;summer holiday&quot;</code>) keep words together as a phrase. Only
-names are searched, not what is inside the files. As in Windows
-Explorer, <strong>OR</strong> (in capitals, on its own) finds names that
-fit either side: <code>cat OR dog</code>, and
-<code>big cat OR dog</code> means “big and cat” or “dog”.
+names are searched, not what is inside the files. <em>(New in version
+1.2.0.)</em> As in Windows Explorer, <strong>OR</strong> (in capitals,
+on its own) finds names that fit either side: <code>cat OR dog</code>,
+and <code>big cat OR dog</code> means “big and cat” or “dog”.
 <strong>ext:</strong> finds files with that extension
 (<code>ext:jpg</code>, also <code>ext:.jpg</code>), and folders never
 match it, so <code>holiday ext:jpg OR ext:png</code> finds the pictures
@@ -582,6 +583,10 @@ the focus is (except in a text box, where it selects the text). The line
 under the list says what is selected: “File 14/17” for one item, and for
 several “7 of 62 files selected” (or “items”, when the list also has
 folders).</p>
+<p><em>(New in version 1.2.0.)</em> The <strong>…</strong> button at the
+right end of the toolbar has <strong>Select All</strong>, <strong>Select
+None</strong> and <strong>Invert Selection</strong>, as in Windows
+Explorer.</p>
 <h3 id="file-name-extensions">File Name Extensions</h3>
 <p>The <strong>.ext</strong> button in the toolbar shows or hides the
 extensions of known file types (<code>.txt</code>, <code>.jpg</code> and
@@ -715,6 +720,15 @@ You need your own free TMDB API key, which you enter in <strong>Tools
 offers to open that tab. The window asks for the name, the year and the
 type, or you can give an IMDb ID. <strong>Include Adult</strong> is off
 unless you check it.</p>
+<p><em>(New in version 1.2.0.)</em> Besides the single lookup, the
+window offers <strong>Look Up All Video Files in This Folder That Have
+No .nfo File Yet</strong> (for TV shows: all the folders in this
+folder), which does the whole folder in one go. Only a certain answer is
+saved: exactly one hit on TMDB must have the same title (and the same
+year, when the name has one; a year off by one is accepted, and the
+length settles a tie). Everything else is skipped and listed afterwards.
+Subfolders are not searched. The pick list now also shows the poster,
+the original title, the language and the length.</p>
 <h2 id="opening-files">Opening Files</h2>
 <ul>
 <li><strong>Pictures</strong> open in the picture viewer.</li>
@@ -724,7 +738,8 @@ found (in the same folder as this program, or in a sibling folder called
 <code>SwewolfMediaPlayer</code>), the program Windows has for the file
 opens it.</li>
 <li><strong>Archives</strong> (zip, RAR and so on) are opened like
-folders.</li>
+folders. A video DVD image (<code>.iso</code>) plays in the player; see
+<a href="#archives">Archives</a>.</li>
 <li><strong>Everything else</strong> opens in the program Windows has
 for it, started in the folder of the file.</li>
 <li>A <code>.nfo</code> file opens in a text editor (Visual Studio Code
@@ -987,6 +1002,22 @@ first.</li>
 </ul>
 <p>Inside a zip the files are shown in the order they are stored; other
 archives are sorted by name.</p>
+<p><strong>Disc images (<code>.iso</code>)</strong> <em>(new in version
+1.2.0)</em> can be looked into too, read-only and through 7-Zip. An
+<code>.iso</code> file is a file in the list, not a node of the tree.
+<strong>Enter</strong> on a video DVD image (one with a
+<code>VIDEO_TS</code> folder) plays it in SweWolf Media Player (or the
+program Windows has for it, if the player is not found).
+<strong>Enter</strong> on any other image opens it in a new tab, with
+the image as the root of the tree; this also works from search results.
+A video DVD image is treated as a video: the plot comes from its
+<code>.nfo</code> file, a poster beside it is its preview picture, the
+details pane shows video details, and its related files follow a rename
+or move.</p>
+<p><strong>Mount Disc Image</strong> in the right-click menu of an
+<code>.iso</code> file makes Windows show it as a drive, which opens in
+a new tab. For a mounted image the item says <strong>Eject Disc
+Image</strong>, which removes the drive again.</p>
 <h2 id="playlists">Playlists</h2>
 <p><code>.m3u</code> and <code>.m3u8</code> files are shown in the tree
 after the folders. Open one and its files are shown in the list, in the
@@ -1214,8 +1245,9 @@ afterwards.</p>
 10 seconds the first choice is made for you; move the mouse or press a
 key to stop the count.</p>
 <p>The viewer shows many kinds of pictures: JPEG, PNG, GIF (animated),
-BMP, WebP, TIFF, icons, SVG, JPEG XL, Photoshop (<code>.psd</code>) and
-the pictures inside RAW files (NEF, DNG).</p>
+BMP, WebP (animated too, new in version 1.2.0), TIFF, icons, SVG, JPEG
+XL, Photoshop (<code>.psd</code>) and the pictures inside RAW files
+(NEF, DNG).</p>
 <h2 id="the-play-bar">The Play Bar</h2>
 <p>Click <strong>Play</strong> in the toolbar, or press
 <strong>Ctrl+P</strong>, to show the Play bar under the info line. It
@@ -1263,6 +1295,12 @@ the tree. <strong>Mark as Read</strong> and <strong>Mark as
 Unread</strong> in the menus change it, also for whole folders.</li>
 <li><strong>Jump to Last Opened File</strong> goes to the file you
 opened last in a folder.</li>
+<li><strong>The N and J buttons</strong> <em>(new in version 1.2.0)</em>
+at the right end of the info line: <strong>J</strong> does the same as
+<strong>Jump to Last Opened File</strong>, and <strong>N</strong> goes
+to the next new file, the unread file created right after the newest
+file you have already read. Handy for a folder that another program
+keeps filling.</li>
 <li><strong>Rating and Expectation</strong> (<strong>Ctrl+R</strong> and
 <strong>Ctrl+E</strong>): your own numbers from 1 to 10 for files and
 folders. A rating is a whole number; an expectation may have decimals.

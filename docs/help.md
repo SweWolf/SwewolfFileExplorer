@@ -85,7 +85,7 @@ From top to bottom:
 - **The menu bar:** Tools, Workspace, Session and Help.
 - **The tab strip:** one tab per folder you have open.
 - **The toolbar:** Back, Forward, Up, the address bar, **Go**, Refresh, and the buttons
-  **Tree**, **Folders**, **.ext**, **Icons** (new in version 1.1.0), **New Folder**, **Play**, **Filter** and **Search**.
+  **Tree**, **Folders**, **.ext**, **Icons** (new in version 1.1.0), **New Folder**, **Play**, **Filter**, **Search** and **...** (new in version 1.2.0).
 - **The folder tree** on the left, with its own header (Sort By, and an **x** that hides the tree).
 - **The file list** in the middle.
 - **The details pane** under the list: the line "File 14/17", and below it details, a preview picture and more.
@@ -125,7 +125,7 @@ separate sizes, and both are remembered.
   **Close Tabs to the Right** and **Duplicate Tab**. The tab you clicked stays and becomes the active one;
   **Ctrl+Shift+T** brings the closed tabs back, one at a time. **Duplicate Tab** opens the same folder (with the
   same tree root and tab name) in a new tab next to it.
-- Right-click the **+** button to see your bookmarked folders, listed by their full path in alphabetical order.
+- Right-click the **+** button (new in version 1.2.0) to see your bookmarked folders, listed by their full path in alphabetical order.
   Click one to open it in a new tab. A folder that is not available (for example a disk that is not connected) is grey.
   The last item, **Bookmark the Current Folder**, adds the folder of the active tab to your bookmarks (**Ctrl+D** does the same).
 
@@ -262,7 +262,7 @@ the bar. **Esc** clears the text, and a second **Esc** closes the bar. You can a
 **Esc** with the focus in the list or the tree to close the bar.
 
 A word with `*` or `?` has to fit the whole name, as in Windows: `file*` finds names that start with
-file, `*.txt` names that end in .txt. Quotes keep words together as a phrase. **OR** (in capitals) and **ext:** work
+file, `*.txt` names that end in .txt. Quotes keep words together as a phrase. **OR** (in capitals) and **ext:** (new in version 1.2.0) work
 as in the Search window: `cat OR dog` shows names with either word, and `ext:jpg OR ext:png` shows those two kinds of files. The **&asymp;** box to the
 right of the text box turns on approximate matching, as in the Search window: capitals, accents, spaces
 and punctuation are ignored and a doubled letter counts once, so `shuter island` finds `Shutter Island.mkv`.
@@ -285,7 +285,7 @@ above only works on the folder you are in.) The Search window asks:
 - **Name:** every word must be in the name, in any order and in any case. A word with `*` or `?` must fit
   the whole name, as in Windows (`*.ico` finds names that end in .ico, `alpha*` names that start with alpha, `*alpha*` names that
   have it anywhere). Quotes (`"summer holiday"`) keep words together as a phrase. Only names are searched, not what is inside the files.
-  As in Windows Explorer, **OR** (in capitals, on its own) finds names that fit either side: `cat OR dog`, and `big cat OR dog` means
+  *(New in version 1.2.0.)* As in Windows Explorer, **OR** (in capitals, on its own) finds names that fit either side: `cat OR dog`, and `big cat OR dog` means
   "big and cat" or "dog". **ext:** finds files with that extension (`ext:jpg`, also `ext:.jpg`), and folders never match it, so
   `holiday ext:jpg OR ext:png` finds the pictures with holiday in the name. With Approximate Name Matching on, `ext:jpg` also finds `.jpeg`.
   A lowercase `or`, or `OR` and `ext:` inside quotes, are ordinary text.
@@ -354,6 +354,9 @@ can turn the warning off.
 **Ctrl+A** selects all the items of the list, wherever the focus is (except in a text box, where it selects the text).
 The line under the list says what is selected: "File 14/17" for one item, and for several "7 of 62 files selected"
 (or "items", when the list also has folders).
+
+*(New in version 1.2.0.)* The **...** button at the right end of the toolbar has **Select All**, **Select None** and
+**Invert Selection**, as in Windows Explorer.
 
 ### File Name Extensions
 
@@ -449,12 +452,18 @@ need your own free TMDB API key, which you enter in **Tools > Settings > Scraper
 that tab. The window asks for the name, the year and the type, or you can give an IMDb ID. **Include Adult** is off unless you
 check it.
 
+*(New in version 1.2.0.)* Besides the single lookup, the window offers **Look Up All Video Files in This Folder That Have No .nfo File Yet**
+(for TV shows: all the folders in this folder), which does the whole folder in one go. Only a certain answer is saved: exactly
+one hit on TMDB must have the same title (and the same year, when the name has one; a year off by one is accepted, and the
+length settles a tie). Everything else is skipped and listed afterwards. Subfolders are not searched. The pick list now also
+shows the poster, the original title, the language and the length.
+
 ## Opening Files
 
 - **Pictures** open in the picture viewer.
 - **Music and videos** open in SweWolf Media Player; so do the `.cda` tracks of an audio CD. If the player is not found
   (in the same folder as this program, or in a sibling folder called `SwewolfMediaPlayer`), the program Windows has for the file opens it.
-- **Archives** (zip, RAR and so on) are opened like folders.
+- **Archives** (zip, RAR and so on) are opened like folders. A video DVD image (`.iso`) plays in the player; see [Archives](#archives).
 - **Everything else** opens in the program Windows has for it, started in the folder of the file.
 - A `.nfo` file opens in a text editor (Visual Studio Code if you have it, otherwise Notepad).
 
@@ -638,6 +647,16 @@ archive works too, and the address bar takes such paths.
 
 Inside a zip the files are shown in the order they are stored; other archives are sorted by name.
 
+**Disc images (`.iso`)** *(new in version 1.2.0)* can be looked into too, read-only and through 7-Zip. An `.iso` file is a file
+in the list, not a node of the tree. **Enter** on a video DVD image (one with a `VIDEO_TS` folder) plays it in SweWolf Media Player
+(or the program Windows has for it, if the player is not found). **Enter** on any other image opens it in a new tab, with
+the image as the root of the tree; this also works from search results. A video DVD image is treated as a video: the plot
+comes from its `.nfo` file, a poster beside it is its preview picture, the details pane shows video details, and its related
+files follow a rename or move.
+
+**Mount Disc Image** in the right-click menu of an `.iso` file makes Windows show it as a drive, which opens in a new tab.
+For a mounted image the item says **Eject Disc Image**, which removes the drive again.
+
 ## Playlists
 
 `.m3u` and `.m3u8` files are shown in the tree after the folders. Open one and its files are
@@ -755,7 +774,7 @@ A picture you delete or move to the Trash folder in the viewer can also be taken
 At the end of the list you can **Go to Next Folder**, **Start from Beginning** or **Close**. After 10
 seconds the first choice is made for you; move the mouse or press a key to stop the count.
 
-The viewer shows many kinds of pictures: JPEG, PNG, GIF (animated), BMP, WebP, TIFF, icons, SVG, JPEG XL, Photoshop (`.psd`) and
+The viewer shows many kinds of pictures: JPEG, PNG, GIF (animated), BMP, WebP (animated too, new in version 1.2.0), TIFF, icons, SVG, JPEG XL, Photoshop (`.psd`) and
 the pictures inside RAW files (NEF, DNG).
 
 ## The Play Bar
@@ -791,6 +810,9 @@ with the drive. Any other drive can be told to do the same (see
   choose bold, italic or both in the settings). A folder is **Unread**, **Partly Read** or **Read**, and the
   status is shown under the tree. **Mark as Read** and **Mark as Unread** in the menus change it, also for whole folders.
 - **Jump to Last Opened File** goes to the file you opened last in a folder.
+- **The N and J buttons** *(new in version 1.2.0)* at the right end of the info line: **J** does the same as
+  **Jump to Last Opened File**, and **N** goes to the next new file, the unread file created right after the newest
+  file you have already read. Handy for a folder that another program keeps filling.
 - **Rating and Expectation** (**Ctrl+R** and **Ctrl+E**): your own numbers from 1 to 10 for files and
   folders. A rating is a whole number; an expectation may have decimals. An empty box removes the value.
 - **Tags of a folder:** **Set Tags...** in the tree menu writes the tags to the `desktop.ini` of the folder, the way Windows does.
