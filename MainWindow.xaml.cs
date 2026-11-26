@@ -5222,12 +5222,13 @@ public partial class MainWindow : Window
         bool realFolder   = System.IO.Directory.Exists(path);
         ShowTerminalItems(TreeTerminalSeparator, TerminalItems(TreeTerminalItem, TreePowerShellItem, TreeCommandItem), realFolder ? path : null);
         bool canChange    = CanChangeFolder(path);   // a drive cannot be cut, deleted or renamed
+        bool fileNode     = (_treeMenuNode.IsArchive || _treeMenuNode.IsPlaylist) && System.IO.File.Exists(path);   // a packed file or playlist of the tree is a file: its menu works as a file's
         // Only for a file node of the tree (a packed file or a playlist) that lies on the disk, never a folder.
         ShowFileInfoItem(TreeFileInfoItem, (_treeMenuNode.IsArchive || _treeMenuNode.IsPlaylist) && System.IO.File.Exists(path));
         ShowVirusTotalItem(TreeVirusTotalSeparator, TreeVirusTotalItem, (_treeMenuNode.IsArchive || _treeMenuNode.IsPlaylist) && System.IO.File.Exists(path));
 
         // Read the SendTo folder each time, so new shortcuts show up at once (as in the list's menu). Not for a drive.
-        FillSendToMenu(TreeSendToMenu, canChange ? SendToHelper.GetEntries() : new(), TreeSendToItem_Click);
+        FillSendToMenu(TreeSendToMenu, canChange || fileNode ? SendToHelper.GetEntries() : new(), TreeSendToItem_Click);
 
         var menu = (ContextMenu)sender;
         bool readOnly = realFolder && ReadOnlyVolume.Is(path);
@@ -5237,12 +5238,12 @@ public partial class MainWindow : Window
             {
                 "Set as Tree Root"  => !(VM.HasTreeRoot && SharedState.Key(path).Equals(SharedState.Key(VM.TreeRootPath!), StringComparison.OrdinalIgnoreCase)),
                 "Reset Tree Root"    => VM.HasTreeRoot,
-                "Send to"    => canChange,
+                "Send to"    => canChange || fileNode,
                 "Open in Windows Explorer" => realFolder || System.IO.File.Exists(path),   // a packed file is shown selected in its folder
-                "Add to Bookmarks" => realFolder,   // not inside a compressed file
+                "Add to Bookmarks" => realFolder || fileNode,   // not inside a compressed file
                 "Set Tags..." => canChange,   // a folder on the disk, not a drive
-                "Cut"        => canChange,
-                "Create Shortcut..." => realFolder,   // a drive too
+                "Cut"        => canChange || fileNode,
+                "Create Shortcut..." => realFolder || fileNode,   // a drive too
                 "Create Playlist..." => realFolder,
                 "Paste"      => realFolder && (FileClipboard.HasFiles() || ClipboardFile.Detect() == ClipboardFile.Kind.Image),
                 "Delete"     => CanRenameOrDelete(path),
@@ -5251,7 +5252,7 @@ public partial class MainWindow : Window
                 "New Text Document..." => realFolder && !FolderTabViewModel.IsUnderBookmarks(path),
                 "New File from Clipboard" => realFolder && !FolderTabViewModel.IsUnderBookmarks(path) && ClipboardFile.Detect() != ClipboardFile.Kind.None,
                 "Properties" => realFolder || System.IO.File.Exists(path),   // what is in an archive is not on the disk
-                "More Options" => realFolder,
+                "More Options" => realFolder || fileNode,
                 _            => true
             };
 
@@ -6110,7 +6111,7 @@ public partial class MainWindow : Window
 
     private void ShowWindowsMenuForFolder(string folder)
     {
-        if (System.IO.Directory.Exists(folder))
+        if (System.IO.Directory.Exists(folder) || System.IO.File.Exists(folder))
             ShellContextMenu.ShowFor(new[] { folder }, AfterWindowsMenu);
     }
 
