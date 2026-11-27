@@ -33,13 +33,13 @@ public sealed class SearchWindow : Window
     {
         Padding = new Thickness(6, 4, 6, 4), VerticalContentAlignment = VerticalAlignment.Center,
         ToolTip = "Words that must be inside the file, in any order and any case. OR (capitals) between words finds either, and quotes keep words together. " +
-                  "Text files only for now (a text file's letters å ä ö are found however they are coded, also as &aring; in HTML and XML). " +
+                  "Text files, Word / Excel / PowerPoint and OpenDocument files, and the prompts of AI pictures are searched (å ä ö are found however a file codes them, also as &aring; in HTML and XML). " +
                   "A content search finds files only, and files over 50 MB are not read."
     };
     private readonly CheckBox _contentAllTypes = new()
     {
         Content = "Look in All File Types", Margin = new Thickness(0, 8, 0, 0), Visibility = Visibility.Collapsed,
-        ToolTip = "Without this, only known text file types are looked into (txt, md, log, cs, xml, html, json, csv, ini, srt, nfo and more).\n" +
+        ToolTip = "Without this, only known file types are looked into (text files such as txt, md, log, cs, xml, html, json, csv, ini, srt and nfo, Office files and PNG pictures).\n" +
                   "With it every file that looks like text is read, which can take much longer.\n" +
                   "If the Name box names a file type (*.log, *.m*, ext:log), that type is looked into whatever this says (not for *.*)."
     };

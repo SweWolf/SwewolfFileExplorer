@@ -19,8 +19,14 @@ namespace SwewolfFileExplorer.Helpers;
 // Words: all words must be in the file (anywhere); a capital OR on its own gives another way to match; "quoted words" are one word. * and ? are
 // ordinary characters here (they are only wildcards in a name).
 //
+// Other sources (added 2026-11-27, second step): Microsoft Office and OpenDocument files (docx xlsx pptx and their macro / template forms, odt ods
+// odp: zip files with XML inside; the text nodes of the document parts are read, paragraphs end in a line break; numbers of a sheet are not
+// searched, its text cells are) and the prompt, negative prompt and seed of an AI picture or video (AiInfoReader: PNG from ComfyUI / Automatic1111 /
+// Fooocus, MP4 from Wan2GP). The old binary .doc / .xls / .ppt and encrypted Office files are not read. Words may be in different parts of one file.
+//
 // History
-//   2026-11-27  First version.
+//   2026-11-27  First version (text files).
+//   2026-11-27  Office / OpenDocument files and AI prompts.
 
 public enum ContentResult { NoMatch, Match, TooBig, NotText, NotOnThisComputer }
 
@@ -73,7 +79,21 @@ public sealed class ContentMatcher
         "opf", "ncx", "gitignore", "gitattributes", "editorconfig", "vbs", "wsf", "hta", "manifest"
     };
 
-    public static bool IsKnownTextFile(string name) => TextExtensions.Contains(Path.GetExtension(name).TrimStart('.'));
+    /// <summary>Office and OpenDocument files: a zip with XML inside.</summary>
+    private static readonly HashSet<string> OfficeExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "docx", "docm", "dotx", "dotm", "xlsx", "xlsm", "xltx", "xltm", "pptx", "pptm", "potx", "potm", "ppsx", "odt", "ods", "odp", "ott", "ots", "otp"
+    };
+
+    /// <summary>Files that can hold the prompt of an AI picture or video (see <see cref="AiInfoReader"/>); only png is looked into without a named type.</summary>
+    private static bool IsAiExtension(string ext) => ext is "png" or "mp4" or "m4v" or "mov";
+
+    /// <summary>Files that are looked into when the user has not named a file type: plain text, Office / OpenDocument and PNG (its AI prompt).</summary>
+    public static bool IsKnownTextFile(string name)
+    {
+        var ext = Path.GetExtension(name).TrimStart('.');
+        return TextExtensions.Contains(ext) || OfficeExtensions.Contains(ext) || ext.Equals("png", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>Extensions whose text has XML / HTML entities in it.</summary>
     private static readonly HashSet<string> MarkupExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -95,6 +115,11 @@ public sealed class ContentMatcher
         if (length > MaxFileBytes) return ContentResult.TooBig;
         try
         {
+            var ext = Path.GetExtension(path).TrimStart('.').ToLowerInvariant();
+            var found = new bool[_needles.Length];
+            if (OfficeExtensions.Contains(ext)) return CheckOffice(path, ext, found, ct) ? ContentResult.Match : ContentResult.NoMatch;
+            if (IsAiExtension(ext)) return CheckAi(path, found, ct) ? ContentResult.Match : ContentResult.NoMatch;
+
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.SequentialScan);
             var head = new byte[HeadBytes];
             int n = stream.Read(head, 0, head.Length);
@@ -105,14 +130,77 @@ public sealed class ContentMatcher
             using var reader = new StreamReader(stream, enc, detectEncodingFromByteOrderMarks: false, bufferSize: 65536);
             bool markup = MarkupExtensions.Contains(Path.GetExtension(path).TrimStart('.')) || LooksLikeMarkup(head, n, enc);
             bool json = path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".jsonc", StringComparison.OrdinalIgnoreCase);
-            return Scan(reader, markup, json, ct) ? ContentResult.Match : ContentResult.NoMatch;
+            return Scan(reader, markup, json, found, ct) ? ContentResult.Match : ContentResult.NoMatch;
         }
         catch { return ContentResult.NoMatch; }
     }
 
-    private bool Scan(StreamReader reader, bool markup, bool json, CancellationToken ct)
+    /// <summary>The prompt, negative prompt and seed of an AI picture / video, as lines of text.</summary>
+    private bool CheckAi(string path, bool[] found, CancellationToken ct)
     {
-        var found = new bool[_needles.Length];
+        var info = AiInfoReader.Read(path);
+        if (info == null || info.IsEmpty) return false;
+        var text = string.Join("\n", new[] { info.Prompt, info.Negative, info.Seed }.Where(s => !string.IsNullOrEmpty(s)));
+        return Scan(new StringReader(text), markup: false, json: false, found, ct);
+    }
+
+    private const int MaxOfficeChars = 32 * 1024 * 1024;   // one document part: a safeguard against a zip that unpacks to far more than it says
+
+    /// <summary>Document parts that hold text, per kind of file (zip entry names, lower case).</summary>
+    private static bool IsTextPart(string ext, string entry)
+    {
+        entry = entry.ToLowerInvariant();
+        if (ext.StartsWith("od") || ext.StartsWith("ot")) return entry == "content.xml";                      // OpenDocument
+        if (ext.StartsWith("do")) return entry.StartsWith("word/") && entry.EndsWith(".xml") && !entry.Contains("/_rels/")
+            && (entry.Contains("/document") || entry.Contains("/header") || entry.Contains("/footer") || entry.Contains("/footnotes")
+                || entry.Contains("/endnotes") || entry.Contains("/comments"));                               // Word
+        if (ext.StartsWith("xl")) return entry == "xl/sharedstrings.xml";                                    // Excel: the text cells
+        if (ext.StartsWith("pp") || ext.StartsWith("po")) return entry.EndsWith(".xml") && (entry.StartsWith("ppt/slides/slide") || entry.StartsWith("ppt/notesslides/notesslide"));
+        return false;
+    }
+
+    private bool CheckOffice(string path, string ext, bool[] found, CancellationToken ct)
+    {
+        using var zip = System.IO.Compression.ZipFile.OpenRead(path);
+        foreach (var entry in zip.Entries)
+        {
+            if (ct.IsCancellationRequested) return false;
+            if (!IsTextPart(ext, entry.FullName)) continue;
+            string text;
+            try { using var stream = entry.Open(); text = ExtractXmlText(stream); }
+            catch { continue; }   // a damaged part: the others are still looked at
+            if (Scan(new StringReader(text), markup: false, json: false, found, ct)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>All the text of an XML part; a paragraph, a table row or cell, a shared string or a line break ends in a line break.</summary>
+    private static string ExtractXmlText(Stream stream)
+    {
+        var sb = new StringBuilder();
+        var settings = new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Ignore, XmlResolver = null, CheckCharacters = false };
+        using var xml = System.Xml.XmlReader.Create(stream, settings);
+        while (xml.Read() && sb.Length < MaxOfficeChars)
+        {
+            switch (xml.NodeType)
+            {
+                case System.Xml.XmlNodeType.Text:
+                case System.Xml.XmlNodeType.CDATA:
+                case System.Xml.XmlNodeType.SignificantWhitespace:
+                    sb.Append(xml.Value);
+                    break;
+                case System.Xml.XmlNodeType.EndElement:
+                case System.Xml.XmlNodeType.Element when xml.IsEmptyElement:
+                    if (xml.LocalName is "p" or "h" or "tr" or "row" or "si" or "table-row" or "table-cell" or "br" or "line-break" or "tab" or "tc" or "c")
+                        sb.Append('\n');
+                    break;
+            }
+        }
+        return sb.ToString();
+    }
+
+    private bool Scan(TextReader reader, bool markup, bool json, bool[] found, CancellationToken ct)
+    {
         var buffer = new char[ChunkChars];
         string carry = "";
         while (!ct.IsCancellationRequested)
