@@ -11,14 +11,20 @@ namespace SwewolfFileExplorer.Helpers;
 /// </summary>
 public static class TextBoxMenu
 {
-    /// <summary>Adds the menu (Cut, Copy, Paste, Select All, Clear) and the select-all-on-Tab behavior. A read-only box keeps its own menu.</summary>
-    public static void Attach(TextBox box)
+    /// <summary>All the text is selected (the caret is at its end) when the box gets the keyboard focus, e.g. with the Tab key; not when a click with the mouse gives it the focus.</summary>
+    public static void SelectAllOnTab(TextBox box)
     {
         box.GotKeyboardFocus += (_, _) =>
         {
             // Not while the mouse button is down: that is a click, and the caret goes where the click was.
             if (Mouse.LeftButton != MouseButtonState.Pressed) box.SelectAll();
         };
+    }
+
+    /// <summary>Adds the menu (Cut, Copy, Paste, Select All, Clear) and the select-all-on-Tab behavior. A read-only box keeps its own menu.</summary>
+    public static void Attach(TextBox box)
+    {
+        SelectAllOnTab(box);
 
         if (box.IsReadOnly) return;
 

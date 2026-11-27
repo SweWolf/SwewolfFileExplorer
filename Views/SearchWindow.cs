@@ -306,6 +306,9 @@ public sealed class SearchWindow : Window
         _skipExcluded.IsChecked = AppSettingsStore.Current.SearchSkipExcluded;
         UpdateExcludedUi();
 
+        // Tab into a text box selects all its text (a click with the mouse does not).
+        foreach (var box in new[] { _lookIn, _name, _content, _size1, _size2, _excluded, _stopAfterCount }) TextBoxMenu.SelectAllOnTab(box);
+
         browse.Click += (_, _) => Browse();
         search.Click += (_, _) => Accept();
         Loaded += (_, _) => { _name.Focus(); _name.SelectAll(); };
