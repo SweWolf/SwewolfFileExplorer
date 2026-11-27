@@ -27,6 +27,8 @@ namespace SwewolfFileExplorer.Helpers;
 // History
 //   2026-11-27  First version (text files).
 //   2026-11-27  Office / OpenDocument files and AI prompts.
+//   2026-11-27  Drawings (odg), OpenOffice 1.x (sxw sxc sxi ...), flat OpenDocument (fodt fods fodp fodg: one XML file) and RTF (own reader:
+//               \'hh in the file's code page, \u with its fallback, groups for fonts / styles / pictures / field codes / generator skipped).
 
 public enum ContentResult { NoMatch, Match, TooBig, NotText, NotOnThisComputer }
 
@@ -82,8 +84,13 @@ public sealed class ContentMatcher
     /// <summary>Office and OpenDocument files: a zip with XML inside.</summary>
     private static readonly HashSet<string> OfficeExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        "docx", "docm", "dotx", "dotm", "xlsx", "xlsm", "xltx", "xltm", "pptx", "pptm", "potx", "potm", "ppsx", "odt", "ods", "odp", "ott", "ots", "otp"
+        "docx", "docm", "dotx", "dotm", "xlsx", "xlsm", "xltx", "xltm", "pptx", "pptm", "potx", "potm", "ppsx",
+        "odt", "ods", "odp", "odg", "ott", "ots", "otp", "otg",          // OpenDocument (LibreOffice, OpenOffice)
+        "sxw", "sxc", "sxi", "sxd", "stw", "stc", "sti", "std"           // OpenOffice 1.x / StarOffice: the same layout, content.xml
     };
+
+    /// <summary>"Flat" OpenDocument: the whole document is one XML file, not a zip.</summary>
+    private static readonly HashSet<string> FlatXmlExtensions = new(StringComparer.OrdinalIgnoreCase) { "fodt", "fods", "fodp", "fodg" };
 
     /// <summary>Files that can hold the prompt of an AI picture or video (see <see cref="AiInfoReader"/>); only png is looked into without a named type.</summary>
     private static bool IsAiExtension(string ext) => ext is "png" or "mp4" or "m4v" or "mov";
@@ -92,7 +99,8 @@ public sealed class ContentMatcher
     public static bool IsKnownTextFile(string name)
     {
         var ext = Path.GetExtension(name).TrimStart('.');
-        return TextExtensions.Contains(ext) || OfficeExtensions.Contains(ext) || ext.Equals("png", StringComparison.OrdinalIgnoreCase);
+        return TextExtensions.Contains(ext) || OfficeExtensions.Contains(ext) || FlatXmlExtensions.Contains(ext)
+            || ext.Equals("rtf", StringComparison.OrdinalIgnoreCase) || ext.Equals("png", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Extensions whose text has XML / HTML entities in it.</summary>
@@ -118,6 +126,19 @@ public sealed class ContentMatcher
             var ext = Path.GetExtension(path).TrimStart('.').ToLowerInvariant();
             var found = new bool[_needles.Length];
             if (OfficeExtensions.Contains(ext)) return CheckOffice(path, ext, found, ct) ? ContentResult.Match : ContentResult.NoMatch;
+            if (FlatXmlExtensions.Contains(ext))
+            {
+                string flat;
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.SequentialScan))
+                    flat = ExtractXmlText(fs);
+                return Scan(new StringReader(flat), markup: false, json: false, found, ct) ? ContentResult.Match : ContentResult.NoMatch;
+            }
+            if (ext == "rtf")
+            {
+                var rtf = File.ReadAllBytes(path);
+                if (rtf.Length > 5 && rtf[0] == '{' && rtf[1] == '\\' && rtf[2] == 'r' && rtf[3] == 't' && rtf[4] == 'f')   // a misnamed file is read as text below
+                    return Scan(new StringReader(ExtractRtfText(rtf)), markup: false, json: false, found, ct) ? ContentResult.Match : ContentResult.NoMatch;
+            }
             if (IsAiExtension(ext)) return CheckAi(path, found, ct) ? ContentResult.Match : ContentResult.NoMatch;
 
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.SequentialScan);
@@ -150,7 +171,7 @@ public sealed class ContentMatcher
     private static bool IsTextPart(string ext, string entry)
     {
         entry = entry.ToLowerInvariant();
-        if (ext.StartsWith("od") || ext.StartsWith("ot")) return entry == "content.xml";                      // OpenDocument
+        if (ext.StartsWith("od") || ext.StartsWith("ot") || ext.StartsWith("sx") || ext.StartsWith("st")) return entry == "content.xml";   // OpenDocument, OpenOffice 1.x
         if (ext.StartsWith("do")) return entry.StartsWith("word/") && entry.EndsWith(".xml") && !entry.Contains("/_rels/")
             && (entry.Contains("/document") || entry.Contains("/header") || entry.Contains("/footer") || entry.Contains("/footnotes")
                 || entry.Contains("/endnotes") || entry.Contains("/comments"));                               // Word
@@ -196,6 +217,147 @@ public sealed class ContentMatcher
                     break;
             }
         }
+        return sb.ToString();
+    }
+
+    // ---- RTF -----------------------------------------------------------------------------------------------------------------------------------
+
+    /// <summary>Groups whose content is not text (the first control word of the group names it); a group that starts with \* (a destination that
+    /// is not known) is skipped too.</summary>
+    private static readonly HashSet<string> RtfSkipGroups = new(StringComparer.Ordinal)
+    {
+        "fonttbl", "colortbl", "stylesheet", "info", "pict", "object", "objdata", "objclass", "themedata", "colorschememapping", "datastore", "latentstyles",
+        "xmlnstbl", "rsidtbl", "listtable", "listoverridetable", "revtbl", "mmathpr", "fldinst", "bkmkstart", "bkmkend", "generator", "filetbl",
+        "pgptbl", "template", "wgrffmtfilter", "private", "userprops", "nonshppict", "shpinst", "falt", "panose"
+    };
+
+    private static Encoding RtfEncoding(byte[] b)
+    {
+        try
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);   // the old code pages (1252, 1250, 932 ...); registering twice is harmless
+            var head = Encoding.ASCII.GetString(b, 0, Math.Min(b.Length, 4096));
+            var m = Regex.Match(head, @"\\ansicpg(\d+)");
+            return Encoding.GetEncoding(m.Success ? int.Parse(m.Groups[1].Value) : 1252);
+        }
+        catch { return Encoding.Latin1; }
+    }
+
+    /// <summary>
+    /// The text of an RTF file: control words and groups are dropped (fonts, styles, pictures, field codes, the generator ...), \par and the like
+    /// become line breaks, \'e5 is a byte of the file's code page, \u228? is a Unicode letter (the fallback after it is skipped).
+    /// </summary>
+    internal static string ExtractRtfText(byte[] b)
+    {
+        var enc = RtfEncoding(b);
+        var sb = new StringBuilder();
+        var stack = new Stack<(bool Skip, int Uc)>();
+        bool skip = false;
+        int uc = 1;
+        var pending = new List<byte>();   // bytes of the code page, decoded together (two bytes can make one letter)
+
+        void Flush()
+        {
+            if (pending.Count == 0) return;
+            if (!skip) sb.Append(enc.GetString(pending.ToArray()));
+            pending.Clear();
+        }
+        void Put(string s) { Flush(); if (!skip) sb.Append(s); }
+
+        int i = 0;
+        while (i < b.Length && sb.Length < MaxOfficeChars)
+        {
+            byte c = b[i];
+            if (c == '{')
+            {
+                Flush();
+                stack.Push((skip, uc));
+                i++;
+                // the first token of the group tells what it is
+                if (i + 1 < b.Length && b[i] == '\\')
+                {
+                    if (b[i + 1] == '*') skip = true;
+                    else
+                    {
+                        int j = i + 1, start = j;
+                        while (j < b.Length && ((b[j] >= 'a' && b[j] <= 'z') || (b[j] >= 'A' && b[j] <= 'Z'))) j++;
+                        if (j > start && RtfSkipGroups.Contains(Encoding.ASCII.GetString(b, start, j - start))) skip = true;
+                    }
+                }
+                continue;
+            }
+            if (c == '}')
+            {
+                Flush();
+                if (stack.Count > 0) (skip, uc) = stack.Pop();
+                i++;
+                continue;
+            }
+            if (c == '\\')
+            {
+                i++;
+                if (i >= b.Length) break;
+                byte d = b[i];
+                if (d == '\'')   // \'hh
+                {
+                    if (i + 2 < b.Length && Uri.IsHexDigit((char)b[i + 1]) && Uri.IsHexDigit((char)b[i + 2]))
+                    {
+                        if (!skip) pending.Add(Convert.ToByte(Encoding.ASCII.GetString(b, i + 1, 2), 16));
+                        i += 3;
+                    }
+                    else i++;
+                    continue;
+                }
+                Flush();
+                if (d == '\\' || d == '{' || d == '}') { if (!skip) sb.Append((char)d); i++; continue; }
+                if (d == '~') { Put("\u00A0"); i++; continue; }
+                if (d == '_') { Put("-"); i++; continue; }
+                if (d == '\r' || d == '\n') { Put("\n"); i++; continue; }
+                if (!((d >= 'a' && d <= 'z') || (d >= 'A' && d <= 'Z'))) { i++; continue; }   // another control symbol (\- \* ...): nothing to show
+
+                int s = i;
+                while (i < b.Length && ((b[i] >= 'a' && b[i] <= 'z') || (b[i] >= 'A' && b[i] <= 'Z'))) i++;
+                string name = Encoding.ASCII.GetString(b, s, i - s);
+                int param = 0; bool hasParam = false;
+                int p0 = i;
+                if (i < b.Length && b[i] == '-') i++;
+                while (i < b.Length && b[i] >= '0' && b[i] <= '9') i++;
+                if (i > p0 && int.TryParse(Encoding.ASCII.GetString(b, p0, i - p0), out param)) hasParam = true;
+                if (i < b.Length && b[i] == ' ') i++;   // the space that ends a control word belongs to it
+
+                switch (name)
+                {
+                    case "par": case "line": case "sect": case "page": case "row": Put("\n"); break;
+                    case "tab": case "cell": case "emspace": case "enspace": Put(" "); break;
+                    case "emdash": Put("\u2014"); break;
+                    case "endash": Put("\u2013"); break;
+                    case "bullet": Put("\u2022"); break;
+                    case "lquote": Put("\u2018"); break;
+                    case "rquote": Put("\u2019"); break;
+                    case "ldblquote": Put("\u201C"); break;
+                    case "rdblquote": Put("\u201D"); break;
+                    case "uc": if (hasParam) uc = Math.Max(0, param); break;
+                    case "bin": if (hasParam && param > 0) i = (int)Math.Min((long)b.Length, (long)i + param); break;
+                    case "u":
+                        if (hasParam)
+                        {
+                            Put(((char)(param < 0 ? param + 65536 : param)).ToString());
+                            for (int k = 0; k < uc && i < b.Length; k++)   // the stand-in for readers that do not know \u
+                            {
+                                if (b[i] == '\\' && i + 1 < b.Length && b[i + 1] == '\'') i += 4;
+                                else if (b[i] == '\\' || b[i] == '{' || b[i] == '}') break;
+                                else i++;
+                            }
+                        }
+                        break;
+                }
+                continue;
+            }
+            if (c == '\r' || c == '\n') { i++; continue; }   // line breaks in the file itself mean nothing
+            pending.Add(c);
+            i++;
+        }
+        Flush();
         return sb.ToString();
     }
 

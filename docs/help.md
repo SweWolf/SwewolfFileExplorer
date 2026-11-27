@@ -292,9 +292,9 @@ above only works on the folder you are in.) The Search window asks:
 - **Content:** words that must be inside the file, in any order and in any case. **OR** and quotes work as in the Name box
   (`cat OR dog`, `"summer holiday"`); `*` and `?` are ordinary characters here. A content search finds files only, so **Search for** is
   locked to Files Only. It reads **text files**, **Word, Excel and PowerPoint files** (docx, xlsx, pptx and their macro and template forms) and
-  **OpenDocument files** (odt, ods, odp), and **the prompt, negative prompt and seed of AI pictures and videos** (PNG from ComfyUI, Automatic1111, Forge and
+  **LibreOffice and OpenOffice files** (odt, ods, odp, odg, their templates, the flat XML forms fodt, fods, fodp and fodg, and the old sxw, sxc and sxi), **RTF files** (rtf), and **the prompt, negative prompt and seed of AI pictures and videos** (PNG from ComfyUI, Automatic1111, Forge and
   Fooocus; MP4 from Wan2GP). Without anything else only the known types (text files such as txt, md, log, cs, xml, html, json, csv,
-  ini, srt and nfo, the Office files and PNG pictures) are looked into. In an Office file the text of the document, its headers, footers and notes is read
+  ini, srt and nfo, the Office, LibreOffice and RTF files and PNG pictures) are looked into. In an Office file the text of the document, its headers, footers and notes is read
   (an Excel sheet: its text cells, not its numbers), and the words may be in different parts of the file. Old Word, Excel and PowerPoint files (doc, xls, ppt)
   and password-protected files are not read. Check **Look in All File Types** (it shows when the box has text) to read every file that looks like
   text, or name the file type in the Name box: `*.mp3`, `*.m*` and `ext:log` all do (`*.*` does not, as it means every type). Letters like å, ä and ö are found however the file codes them: UTF-8,
