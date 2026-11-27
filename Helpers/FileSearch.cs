@@ -33,9 +33,16 @@ public sealed class SearchCriteria
     /// <summary>Words that must all be in the name (any case). "quoted words" count as one; * and ? are wildcards. Empty: every name matches.</summary>
     public string Text { get; set; } = "";
 
+    /// <summary>
+    /// Words that must be inside the file (text files; see <see cref="ContentMatcher"/>). Empty: no content search. A content search finds files only.
+    /// Without <see cref="ContentAllTypes"/> (and with no ext: word in <see cref="Text"/>) only the known plain-text file types are looked into.
+    /// </summary>
+    public string Content { get; set; } = "";
+    public bool ContentAllTypes { get; set; }
+
     public bool Subfolders { get; set; } = true;
 
-    /// <summary>Approximate name matching: capitals, accents, punctuation and doubled letters do not matter (see <see cref="FileSearch.Simplify"/>).</summary>
+    /// <summary>Approximate name matching (and approximate content matching): capitals, accents, punctuation and doubled letters do not matter (see <see cref="FileSearch.Simplify"/>).</summary>
     public bool Approximate { get; set; }
     public SearchKinds Kinds { get; set; } = SearchKinds.FilesAndFolders;
     public SearchHidden Hidden { get; set; } = SearchHidden.VisibleOnly;
@@ -72,6 +79,7 @@ public sealed class SearchCriteria
     {
         var parts = new List<string>();
         if (Text.Trim().Length > 0) parts.Add(Text.Trim());
+        if (Content.Trim().Length > 0) parts.Add("containing " + Content.Trim());
         if (ModifiedFrom != null || ModifiedTo != null) parts.Add("modified " + Range(ModifiedFrom, ModifiedTo));
         if (CreatedFrom != null || CreatedTo != null) parts.Add("created " + Range(CreatedFrom, CreatedTo));
         if (HasSizeLimit)
@@ -92,7 +100,7 @@ public sealed class SearchCriteria
         from != null && to != null ? $"{from:d} - {to:d}" : from != null ? $"from {from:d}" : $"until {to:d}";
 }
 
-public sealed record SearchSummary(long Found, long FoldersSearched, long FoldersSkipped, bool Capped, bool Canceled, long ExcludedSkipped = 0, bool StoppedAtLimit = false);
+public sealed record SearchSummary(long Found, long FoldersSearched, long FoldersSkipped, bool Capped, bool Canceled, long ExcludedSkipped = 0, bool StoppedAtLimit = false, long ContentSkipped = 0);
 
 public static class FileSearch
 {
@@ -253,7 +261,7 @@ public static class FileSearch
     private static bool IsPathEntry(string s) => s.IndexOfAny(new[] { '\\', '/', ':' }) >= 0;
 
     /// <summary>The words of a search text; a word that was in quotes says so (so a quoted OR or "ext:jpg" is plain text).</summary>
-    private static List<(string Text, bool Quoted)> SplitTerms(string text)
+    internal static List<(string Text, bool Quoted)> SplitTerms(string text)
     {
         var terms = new List<(string, bool)>();
         var sb = new StringBuilder();
@@ -284,8 +292,11 @@ public static class FileSearch
                                      Action<string, long, int>? onFolder)
     {
         var matches = NameMatcher(c.Text, c.Approximate);
+        var content = ContentMatcher.Create(c.Content, c.Approximate);   // null: no content search
+        bool anyType = c.ContentAllTypes || HasExtTerm(c.Text);          // a file type named by the user is looked into whatever it is
+        long contentSkipped = 0;
         bool wantFiles = c.Kinds != SearchKinds.FoldersOnly;
-        bool wantDirs  = c.Kinds != SearchKinds.FilesOnly;
+        bool wantDirs  = c.Kinds != SearchKinds.FilesOnly && content == null;   // a folder has no content
 
         var queue = new ConcurrentQueue<string>();
         foreach (var root in c.Roots) queue.Enqueue(root);
@@ -395,6 +406,15 @@ public static class FileSearch
                 if (!matches(e.Name, isDir)) continue;
                 if (!DatesMatch(c, e)) continue;
 
+                // Content last: it is the only test that reads the file.
+                if (content != null)
+                {
+                    if (isDir || (!anyType && !ContentMatcher.IsKnownTextFile(e.Name))) continue;
+                    var r = content.Check(e.FullName, ((FileInfo)e).Length, e.Attributes, ct);
+                    if (r is ContentResult.TooBig or ContentResult.NotOnThisComputer) Interlocked.Increment(ref contentSkipped);
+                    if (r != ContentResult.Match) continue;
+                }
+
                 lock (gate)
                 {
                     if (found >= limit) { Volatile.Write(ref capped, true); return entries; }
@@ -411,7 +431,24 @@ public static class FileSearch
         Task.WaitAll(tasks);
         ticker.Dispose();
         Flush(true);
-        return new SearchSummary(found, searched, skipped, capped, ct.IsCancellationRequested, Interlocked.Read(ref excludedSkipped), capped && userLimit);
+        return new SearchSummary(found, searched, skipped, capped, ct.IsCancellationRequested, Interlocked.Read(ref excludedSkipped), capped && userLimit, Interlocked.Read(ref contentSkipped));
+    }
+
+    /// <summary>
+    /// The name text names a file type (the user has said what kind of files to look in): an <c>ext:</c> word, or a word that ends in an extension,
+    /// with or without wildcards (<c>*.mp3</c>, <c>*.m*</c>, <c>report.txt</c>). Not when the whole extension is only stars (<c>*.*</c>), and
+    /// not in quotes. Used by the content search: a named type is looked into whatever it is.
+    /// </summary>
+    public static bool HasExtTerm(string? text) => SplitTerms(text ?? "").Any(t => !t.Quoted && NamesFileType(t.Text));
+
+    private static bool NamesFileType(string term)
+    {
+        if (term.Length > 4 && term.StartsWith("ext:", StringComparison.OrdinalIgnoreCase)) return term[4..].Trim('.', '*').Length > 0 || term[4..].Contains('?');
+        int dot = term.LastIndexOf('.');
+        if (dot < 0 || dot == term.Length - 1) return false;
+        var ext = term[(dot + 1)..];
+        if (ext.All(c => c == '*')) return false;                       // *.* : every type
+        return ext.All(c => char.IsLetterOrDigit(c) || c == '*' || c == '?');
     }
 
     /// <summary>A symbolic link or junction (not followed: it could lead back up and never end). A cloud folder's reparse point is no link.</summary>

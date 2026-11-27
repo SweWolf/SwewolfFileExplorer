@@ -113,6 +113,8 @@ public partial class FolderTabViewModel
                      : $"Search finished: {shown:N0} found in {summary.FoldersSearched:N0} folders ({took})";
             if (summary.FoldersSkipped > 0)
                 text += $". {summary.FoldersSkipped:N0} {(summary.FoldersSkipped == 1 ? "folder" : "folders")} could not be read.";
+            if (summary.ContentSkipped > 0)
+                text += $". {summary.ContentSkipped:N0} {(summary.ContentSkipped == 1 ? "file was" : "files were")} not read (over 50 MB, or not on this computer).";
             if (summary.ExcludedSkipped > 0)
                 text += $". {summary.ExcludedSkipped:N0} excluded {(summary.ExcludedSkipped == 1 ? "folder was" : "folders were")} skipped.";
             SetSearchStatus(text, running: false);

@@ -20,12 +20,29 @@ public sealed class SearchWindow : Window
     private readonly CheckBox _subfolders = new() { Content = "Include Subfolders", IsChecked = true, Margin = new Thickness(0, 8, 0, 0) };
     private readonly CheckBox _approx = new()
     {
-        Content = "Approximate Name Matching",
+        Content = "Approximate Matching",
         Margin = new Thickness(0, 8, 0, 0),
-        ToolTip = "Capitals, accents (å = a, ß = s), spaces, dots, underscores and other punctuation are ignored, and a letter written twice counts once (Shuter Island finds Shutter Island).Digits count. " +
-                  "A word with * or ? still has to fit the whole name, but *.jpg then also finds .jpeg (and htm / html, tif / tiff, mpg / mpeg and a few more)."
+        ToolTip = "Capitals, accents (å = a, ß = s), spaces, dots, underscores and other punctuation are ignored, and a letter written twice counts once (Shuter Island finds Shutter Island). Digits count. " +
+                  "A word with * or ? still has to fit the whole name, but *.jpg then also finds .jpeg (and htm / html, tif / tiff, mpg / mpeg and a few more). " +
+                  "It works for the Content box too."
     };
     private readonly TextBox _name = new() { Padding = new Thickness(6, 4, 6, 4), VerticalContentAlignment = VerticalAlignment.Center };
+
+    // Content: words that must be inside the file. The box for all file types shows only while the Content box has text.
+    private readonly TextBox _content = new()
+    {
+        Padding = new Thickness(6, 4, 6, 4), VerticalContentAlignment = VerticalAlignment.Center,
+        ToolTip = "Words that must be inside the file, in any order and any case. OR (capitals) between words finds either, and quotes keep words together. " +
+                  "Text files only for now (a text file's letters å ä ö are found however they are coded, also as &aring; in HTML and XML). " +
+                  "A content search finds files only, and files over 50 MB are not read."
+    };
+    private readonly CheckBox _contentAllTypes = new()
+    {
+        Content = "Look in All File Types", Margin = new Thickness(0, 8, 0, 0), Visibility = Visibility.Collapsed,
+        ToolTip = "Without this, only known text file types are looked into (txt, md, log, cs, xml, html, json, csv, ini, srt, nfo and more).\n" +
+                  "With it every file that looks like text is read, which can take much longer.\n" +
+                  "If the Name box names a file type (*.log, *.m*, ext:log), that type is looked into whatever this says (not for *.*)."
+    };
     private readonly ComboBox _kinds = new();
     private readonly ComboBox _hidden = new();
     private readonly DatePicker _modFrom = new(), _modTo = new(), _creFrom = new(), _creTo = new();
@@ -133,10 +150,28 @@ public sealed class SearchWindow : Window
         var namePanel = new StackPanel { Margin = new Thickness(0, 18, 0, 0) };
         namePanel.Children.Add(_name);
         _name.ToolTip = "Every word must be in the name, in any order and in any case. A word with * or ? must fit the whole name (*.ico ends in .ico). " +
-                        "Use quotes for a phrase. OR (capitals) between words finds either (cat OR dog), and ext:jpg finds files with that extension (ext:jpg OR ext:png). Only names are searched, not what is inside the files.";
+                        "Use quotes for a phrase. OR (capitals) between words finds either (cat OR dog), and ext:jpg finds files with that extension (ext:jpg OR ext:png). Only names are searched here: use Content to look inside files.";
         namePanel.Children.Add(_approx);
         Put(namePanel, row, 1);
         row++;
+
+        // Content
+        NewRow();
+        var contentLabel = Label("Content:");
+        contentLabel.Margin = new Thickness(0, 16, 16, 0);
+        contentLabel.VerticalAlignment = VerticalAlignment.Top;
+        Put(contentLabel, row, 0);
+        var contentPanel = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
+        contentPanel.Children.Add(_content);
+        contentPanel.Children.Add(_contentAllTypes);
+        Put(contentPanel, row, 1);
+        row++;
+        _content.TextChanged += (_, _) =>
+        {
+            _contentAllTypes.Visibility = _content.Text.Trim().Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            UpdateSizeUi();   // a content search finds files only
+            SizeToContent = SizeToContent.WidthAndHeight;
+        };
 
         // Type and hidden
         NewRow();
@@ -245,6 +280,8 @@ public sealed class SearchWindow : Window
         if (_last != null)
         {
             _name.Text = _last.Text;
+            _contentAllTypes.IsChecked = _last.ContentAllTypes;
+            _content.Text = _last.Content;
             _subfolders.IsChecked = _last.Subfolders;
             _approx.IsChecked = _last.Approximate;
             _kinds.SelectedIndex = _lastKindsChoice;
@@ -351,17 +388,18 @@ public sealed class SearchWindow : Window
     {
         int mode = _sizeMode.SelectedIndex;
         bool on = mode > 0;
+        bool filesOnly = on || _content.Text.Trim().Length > 0;   // a size or a content search finds files only
         _size1.Visibility = _sizeUnit.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         _sizeAnd.Visibility = _size2.Visibility = mode == 3 ? Visibility.Visible : Visibility.Collapsed;
         if (_sizeNote != null) _sizeNote.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
 
-        if (on && _kinds.IsEnabled)
+        if (filesOnly && _kinds.IsEnabled)
         {
             _kindsBeforeSize = _kinds.SelectedIndex;
             _kinds.SelectedIndex = (int)SearchKinds.FilesOnly;
             _kinds.IsEnabled = false;
         }
-        else if (!on && !_kinds.IsEnabled)
+        else if (!filesOnly && !_kinds.IsEnabled)
         {
             _kinds.SelectedIndex = _kindsBeforeSize;
             _kinds.IsEnabled = true;
@@ -418,6 +456,8 @@ public sealed class SearchWindow : Window
         {
             Roots = roots,
             Text = _name.Text.Trim(),
+            Content = _content.Text.Trim(),
+            ContentAllTypes = _contentAllTypes.IsChecked == true,
             Subfolders = _subfolders.IsChecked == true,
             Approximate = _approx.IsChecked == true,
             Kinds = (SearchKinds)Math.Max(0, _kinds.SelectedIndex),
@@ -451,6 +491,7 @@ public sealed class SearchWindow : Window
             c.MaxBytes = hi;
             c.Kinds = SearchKinds.FilesOnly;
         }
+        if (c.Content.Length > 0) c.Kinds = SearchKinds.FilesOnly;
         // Stop After Finding: a whole number from 1 to the built-in limit.
         if (_stopAfter.IsChecked == true)
         {

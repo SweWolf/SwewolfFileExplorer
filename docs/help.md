@@ -287,9 +287,17 @@ above only works on the folder you are in.) The Search window asks:
   have it anywhere). Quotes (`"summer holiday"`) keep words together as a phrase. Only names are searched, not what is inside the files.
   *(New in version 1.2.0.)* As in Windows Explorer, **OR** (in capitals, on its own) finds names that fit either side: `cat OR dog`, and `big cat OR dog` means
   "big and cat" or "dog". **ext:** finds files with that extension (`ext:jpg`, also `ext:.jpg`), and folders never match it, so
-  `holiday ext:jpg OR ext:png` finds the pictures with holiday in the name. With Approximate Name Matching on, `ext:jpg` also finds `.jpeg`.
+  `holiday ext:jpg OR ext:png` finds the pictures with holiday in the name. With Approximate Matching on, `ext:jpg` also finds `.jpeg`.
   A lowercase `or`, or `OR` and `ext:` inside quotes, are ordinary text.
-- **Approximate Name Matching** (under the Name box): capitals, accents (å, ä, ö, é become a, a, o, e; the German ß becomes s), spaces, dots, underscores and other
+- **Content:** words that must be inside the file, in any order and in any case. **OR** and quotes work as in the Name box
+  (`cat OR dog`, `"summer holiday"`); `*` and `?` are ordinary characters here. A content search finds files only, so **Search for** is
+  locked to Files Only. For now it reads **text files**: without anything else only the known text types (txt, md, log, cs, xml, html, json, csv,
+  ini, srt, nfo and more) are looked into. Check **Look in All File Types** (it shows when the box has text) to read every file that looks like
+  text, or name the file type in the Name box: `*.mp3`, `*.m*` and `ext:log` all do (`*.*` does not, as it means every type). Letters like å, ä and ö are found however the file codes them: UTF-8,
+  UTF-16, old ANSI files, `&aring;` and `&#229;` in HTML and XML, `å` in JSON, and å written as a plus a ring. Files over 50 MB and cloud files that are not
+  on this computer are not read (the status line says how many). A search by content can take a long time on a big drive, so narrow it with a folder,
+  a file type or a date. Not searched yet: tags, comments, Office documents, PDF files and what is inside archives.
+- **Approximate Matching** (under the Name box, it also applies to Content): capitals, accents (å, ä, ö, é become a, a, o, e; the German ß becomes s), spaces, dots, underscores and other
   punctuation are ignored, and a letter written twice or more in a row counts once, so `shuter island` finds `Shutter Island (2010).mkv` and
   `svenska alvar` finds `Svenska Älvar.txt`. Digits count as they are. Only the name is compared, never the extension. A word with `*` or `?` still has to
   fit the whole name, but `*.jpg` then also finds `.jpeg` (and `htm` / `html`, `tif` / `tiff`, `mpg` / `mpeg`, `mid` / `midi`, `yml` / `yaml`,

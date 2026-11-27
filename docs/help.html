@@ -470,26 +470,46 @@ and <code>big cat OR dog</code> means “big and cat” or “dog”.
 <strong>ext:</strong> finds files with that extension
 (<code>ext:jpg</code>, also <code>ext:.jpg</code>), and folders never
 match it, so <code>holiday ext:jpg OR ext:png</code> finds the pictures
-with holiday in the name. With Approximate Name Matching on,
+with holiday in the name. With Approximate Matching on,
 <code>ext:jpg</code> also finds <code>.jpeg</code>. A lowercase
 <code>or</code>, or <code>OR</code> and <code>ext:</code> inside quotes,
 are ordinary text.</p></li>
-<li><p><strong>Approximate Name Matching</strong> (under the Name box):
-capitals, accents (å, ä, ö, é become a, a, o, e; the German ß becomes
-s), spaces, dots, underscores and other punctuation are ignored, and a
-letter written twice or more in a row counts once, so
-<code>shuter island</code> finds <code>Shutter Island (2010).mkv</code>
-and <code>svenska alvar</code> finds <code>Svenska Älvar.txt</code>.
-Digits count as they are. Only the name is compared, never the
-extension. A word with <code>*</code> or <code>?</code> still has to fit
-the whole name, but <code>*.jpg</code> then also finds
-<code>.jpeg</code> (and <code>htm</code> / <code>html</code>,
-<code>tif</code> / <code>tiff</code>, <code>mpg</code> /
-<code>mpeg</code>, <code>mid</code> / <code>midi</code>,
-<code>yml</code> / <code>yaml</code>, <code>aif</code> /
-<code>aiff</code>); so <code>mis *.jpg</code> means “approximately mis,
-and a JPEG”. Letters of other alphabets (Japanese, Cyrillic …) are not
-handled.</p></li>
+<li><p><strong>Content:</strong> words that must be inside the file, in
+any order and in any case. <strong>OR</strong> and quotes work as in the
+Name box (<code>cat OR dog</code>, <code>&quot;summer holiday&quot;</code>);
+<code>*</code> and <code>?</code> are ordinary characters here. A
+content search finds files only, so <strong>Search for</strong> is
+locked to Files Only. For now it reads <strong>text files</strong>:
+without anything else only the known text types (txt, md, log, cs, xml,
+html, json, csv, ini, srt, nfo and more) are looked into. Check
+<strong>Look in All File Types</strong> (it shows when the box has text)
+to read every file that looks like text, or name the file type in the
+Name box: <code>*.mp3</code>, <code>*.m*</code> and <code>ext:log</code>
+all do (<code>*.*</code> does not, as it means every type). Letters like
+å, ä and ö are found however the file codes them: UTF-8, UTF-16, old
+ANSI files, <code>&amp;aring;</code> and <code>&amp;#229;</code> in HTML
+and XML, <code>å</code> in JSON, and å written as a plus a ring. Files
+over 50 MB and cloud files that are not on this computer are not read
+(the status line says how many). A search by content can take a long
+time on a big drive, so narrow it with a folder, a file type or a date.
+Not searched yet: tags, comments, Office documents, PDF files and what
+is inside archives.</p></li>
+<li><p><strong>Approximate Matching</strong> (under the Name box, it
+also applies to Content): capitals, accents (å, ä, ö, é become a, a, o,
+e; the German ß becomes s), spaces, dots, underscores and other
+punctuation are ignored, and a letter written twice or more in a row
+counts once, so <code>shuter island</code> finds
+<code>Shutter Island (2010).mkv</code> and <code>svenska alvar</code>
+finds <code>Svenska Älvar.txt</code>. Digits count as they are. Only the
+name is compared, never the extension. A word with <code>*</code> or
+<code>?</code> still has to fit the whole name, but <code>*.jpg</code>
+then also finds <code>.jpeg</code> (and <code>htm</code> /
+<code>html</code>, <code>tif</code> / <code>tiff</code>,
+<code>mpg</code> / <code>mpeg</code>, <code>mid</code> /
+<code>midi</code>, <code>yml</code> / <code>yaml</code>,
+<code>aif</code> / <code>aiff</code>); so <code>mis *.jpg</code> means
+“approximately mis, and a JPEG”. Letters of other alphabets (Japanese,
+Cyrillic …) are not handled.</p></li>
 <li><p><strong>Search for:</strong> <strong>Files and Folders</strong>,
 <strong>Files Only</strong> or <strong>Folders Only</strong>; and
 <strong>Visible Items Only</strong>, <strong>Visible and Hidden
