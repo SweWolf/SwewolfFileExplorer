@@ -417,12 +417,35 @@
                                 <ComboBoxItem Content="Date Created"/>
                                 <ComboBoxItem Content="Date Modified"/>
                             </ComboBox>
-                            <ComboBox Width="74" Margin="0,1,0,1" FontSize="12"
-                                      ToolTip="Sort direction of the subfolders"
-                                      SelectedIndex="{Binding TreeSortDirectionIndex}">
-                                <ComboBoxItem Content="Asc"/>
-                                <ComboBoxItem Content="Desc"/>
-                            </ComboBox>
+                            <!-- One square button: the filled triangle (the same character as in the list's column headers) shows the present direction. -->
+                            <Button Width="32" Height="32" Margin="0,1,0,1" Padding="0" Click="TreeSortDirection_Click">
+                                <Button.ToolTip>
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="Sorted Ascending (click for Descending)"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding TreeSortDirectionIndex}" Value="1">
+                                                        <Setter Property="Text" Value="Sorted Descending (click for Ascending)"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button.ToolTip>
+                                <TextBlock FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="▲"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding TreeSortDirectionIndex}" Value="1">
+                                                    <Setter Property="Text" Value="▼"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button>
                         </WrapPanel>
 
                         <!-- Flat, and red under the mouse: a close button, as in Windows. -->

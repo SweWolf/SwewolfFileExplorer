@@ -138,7 +138,8 @@ Music and Videos) and **This PC**.
 
 - Click a folder to open it. The tree follows you when you open a folder in any other way.
 - **Sort By** sorts the subfolders of the folder you are in (Name, Date Created, Date Modified,
-  ascending or descending). The choice is remembered for each folder.
+  ascending or descending). The triangle button next to it turns the order around. The choice is
+  remembered for each folder.
 - Folders with the Hidden or System attribute are not listed. A line under the tree says "N hidden
   folders (click to show)".
 - Under the tree you see the **Status** of the folder (see

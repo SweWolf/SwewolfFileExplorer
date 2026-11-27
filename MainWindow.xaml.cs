@@ -292,6 +292,10 @@ public partial class MainWindow : Window
 
     private string[] _filterTerms = Array.Empty<string>();
 
+    /// <summary>The tree header's triangle button: ascending and descending take turns.</summary>
+    private void TreeSortDirection_Click(object sender, RoutedEventArgs e) =>
+        VM.TreeSortDirectionIndex = VM.TreeSortDirectionIndex == 0 ? 1 : 0;
+
     private void FilterToggle_Click(object sender, RoutedEventArgs e) => ShowFilterBar(FilterToggle.IsChecked == true);
 
     // Ctrl+F opens the bar, or, when it is open already, goes back to the text box and selects the text (it never closes the bar:
