@@ -19,6 +19,7 @@ namespace SwewolfFileExplorer.Helpers;
 //   2026-11-17  StopAfter (the user's limit; SearchSummary.StoppedAtLimit tells that it was that and not the built-in cap).
 //   2026-11-17  ExcludedFolders (full paths or plain names; counted in SearchSummary.ExcludedSkipped).
 //   2026-11-17  A term with * or ? must fit the whole name (anchored): *.ico no longer finds "MainWindow.IconView.cs".
+//   2026-11-27  NameMatcher(approximateWildcards): approximate matching also for words with * or ? (used by Find Folder; Search leaves it off).
 
 public enum SearchKinds { FilesAndFolders, FilesOnly, FoldersOnly }
 
@@ -113,7 +114,11 @@ public static class FileSearch
     /// accents or punctuation, doubled letters made one) before "is contained in" is asked. A word with * or ? is still exact, except that a
     /// plain <c>*.ext</c> also accepts the other spellings of the extension (jpg / jpeg, htm / html ...: <see cref="SameExtension"/>).
     /// </param>
-    public static Func<string, bool, bool> NameMatcher(string text, bool approximate = false)
+    /// <param name="approximateWildcards">
+    /// Approximate matching also for words with * or ? (Find Folder only; the Search window leaves it off): the whole name and the word's
+    /// letters are simplified first, so <c>lisato*</c> ("starts with") finds "Lisa Tonn" and <c>*tonn</c> ("ends with") too. A <c>?</c> is one letter.
+    /// </param>
+    public static Func<string, bool, bool> NameMatcher(string text, bool approximate = false, bool approximateWildcards = false)
     {
         // Groups of terms: every term of a group must fit (AND); a capital OR on its own starts the next group, and one group is enough (as in
         // Windows Explorer). A quoted OR is an ordinary word. A group with no usable term is dropped; no group at all matches everything.
@@ -121,7 +126,7 @@ public static class FileSearch
         foreach (var (term, quoted) in SplitTerms(text))
         {
             if (!quoted && term == "OR") { groups.Add(new()); continue; }
-            var one = BuildTerm(term, quoted, approximate);
+            var one = BuildTerm(term, quoted, approximate, approximateWildcards);
             if (one != null) groups[^1].Add(one);
         }
         groups.RemoveAll(g => g.Count == 0);
@@ -139,7 +144,7 @@ public static class FileSearch
     }
 
     /// <summary>One search word as a test, or null when there is nothing to look for in it (only punctuation, an empty <c>ext:</c>).</summary>
-    private static Func<string, bool, bool>? BuildTerm(string term, bool quoted, bool approximate)
+    private static Func<string, bool, bool>? BuildTerm(string term, bool quoted, bool approximate, bool approximateWildcards = false)
     {
         // ext:jpg (also ext:.jpg): files with that extension; a folder has none. Approximate matching accepts the other spellings (jpeg).
         if (!quoted && term.StartsWith("ext:", StringComparison.OrdinalIgnoreCase))
@@ -151,6 +156,24 @@ public static class FileSearch
         }
 
         {
+            if (approximate && approximateWildcards && term.IndexOfAny(new[] { '*', '?' }) >= 0)
+            {
+                // Both the name and the letters between the wildcards are simplified; the whole simplified name must fit.
+                var pattern = new StringBuilder("^");
+                var literal = new StringBuilder();
+                void FlushLiteral() { if (literal.Length > 0) { pattern.Append(Regex.Escape(Simplify(literal.ToString()))); literal.Clear(); } }
+                foreach (var ch in term)
+                {
+                    if (ch == '*') { FlushLiteral(); pattern.Append(".*"); }
+                    else if (ch == '?') { FlushLiteral(); pattern.Append('.'); }
+                    else literal.Append(ch);
+                }
+                FlushLiteral();
+                pattern.Append('$');
+                var simple = new Regex(pattern.ToString(), RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                return (name, isDir) => simple.IsMatch(Simplify(isDir ? name : Path.GetFileNameWithoutExtension(name)));
+            }
+
             if (term.IndexOfAny(new[] { '*', '?' }) >= 0)
             {
                 // With a wildcard the term must fit the WHOLE name, as in Windows: *.ico ends in .ico (it must not find "X.IconView.cs"),

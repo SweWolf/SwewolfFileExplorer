@@ -169,6 +169,9 @@ public class AppSettings
     /// <summary>The check box "Exclude Folders from the Search" of the Search window: remembered from one search to the next.</summary>
     public bool SearchSkipExcluded { get; set; } = false;
 
+    /// <summary>The check box "Keep This Window Open After Opening a Folder" of the Find Folder window (off by default: the window closes when a folder is opened).</summary>
+    public bool FindFolderKeepOpen { get; set; } = false;
+
     /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the
     /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
     public bool WarnHiddenNotSelected { get; set; } = true;

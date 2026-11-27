@@ -155,6 +155,34 @@ Music and Videos) and **This PC**.
 
 Typing a letter in the tree selects the next visible folder that starts with it.
 
+### Finding a Folder
+
+Click the magnifier button in the tree's header, or right-click a folder in the tree and choose
+**Find Folder**, to find a folder by its name. A small window opens beside the main window and
+starts reading the folders below the folder you are in (or the one you right-clicked). It keeps
+what it reads in memory only, and you can start typing at once.
+
+- **Name:** the grid shows the folders whose names fit, and gets shorter as you type. Several words
+  must all be in the name, in any order; quotes keep words together, and a capital OR between words
+  finds either. A word without a star is looked for anywhere in the name; `lisa*` finds names that
+  start with it, `*lisa` names that end with it, and `?` is any one letter. **Approximate Matching**
+  ignores capitals, accents and punctuation, also with a star (`lisato*` finds "Lisa Tonn").
+- **Look in:** the folder to look in. Type a folder and press Enter, or use the three dots. The
+  button next to it reads the folders again (F5).
+- **Open a folder:** double-click it, or press Enter (with nothing selected, Enter takes the first
+  folder in the grid). The tab you are in goes there and the tree follows. **Ctrl+Enter**, or
+  **Open in New Tab** in the right-click menu, opens it in a new tab. **Set as Tree Root** and **Open in New Tab as Tree Root**
+  (right-click menu) also make the folder the top of the tree. The window closes when the
+  folder opens; check **Keep This Window Open After Opening a Folder** (under the grid) if you want
+  to try another folder at once. Esc closes it.
+- **More Options:** whether hidden folders are shown, and a date range for the date a folder was
+  **created** or **modified**. The date columns show by themselves when you use a date; **Show Date
+  Columns** turns them on or off. A folder's modified date changes only when something directly inside it
+  is added, removed or renamed, so the created date is usually the more useful one.
+- Only real folders are found: not compressed files, playlists or anything inside them. Folders
+  you excluded in **Tools > Settings > Search** are skipped when that option is on. Click a column
+  header to sort the grid. At most 5,000 folders are shown; type more to narrow it down.
+
 ## This PC and Drives
 
 Click **This PC** in the tree to see your drives in a list of their own, as in Windows Explorer:

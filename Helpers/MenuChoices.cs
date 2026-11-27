@@ -46,6 +46,7 @@ public static class MenuChoices
     public static readonly Choice[] Tree =
     {
         new("Open in New Tab", "Open in New Tab"),
+        new("Find Folder", "Find Folder"),
         new("Open in Windows Explorer", "Open in Windows Explorer"),
         new("Send to", "Send to"),
         new("Add to Bookmarks", "Add to Bookmarks"),

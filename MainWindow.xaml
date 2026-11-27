@@ -410,7 +410,7 @@
 
                         <WrapPanel Grid.Column="0" VerticalAlignment="Center">
                             <TextBlock Text="Sort By" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <ComboBox Width="100" Margin="0,1,4,1" FontSize="12"
+                            <ComboBox Width="136" Margin="0,1,4,1" FontSize="12"
                                       ToolTip="Sort the subfolders of the current folder by"
                                       SelectedIndex="{Binding TreeSortIndex}">
                                 <ComboBoxItem Content="Name"/>
@@ -448,10 +448,18 @@
                             </Button>
                         </WrapPanel>
 
+                        <!-- To the right, next to the close button: Find Folder (a small window that finds a folder by its name below the folder shown) -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                        <Button Width="28" Height="28" Margin="6,1,0,0" Padding="0" Click="FindFolderButton_Click"
+                                ToolTip="Find a Folder by Name">
+                            <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+
                         <!-- Flat, and red under the mouse: a close button, as in Windows. -->
-                        <Button Grid.Column="1" Command="{Binding ToggleTreeCommand}"
+                        <Button Command="{Binding ToggleTreeCommand}"
                                 ToolTip="Hide the Folder Tree (F8)"
-                                Padding="8,3" Margin="6,1,0,0" VerticalAlignment="Top" Focusable="False">
+                                Padding="8,3" Margin="4,1,0,0" VerticalAlignment="Top" Focusable="False">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Box" Background="Transparent" CornerRadius="4"
@@ -471,6 +479,7 @@
                             </Button.Template>
                             <TextBlock Text="&#x2715;" FontSize="11" FontFamily="Segoe UI"/>
                         </Button>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -652,6 +661,8 @@
                         <ContextMenu x:Name="TreeContextMenu" Opened="TreeContextMenu_Opened" Closed="TreeContextMenu_Closed">
                             <MenuItem Header="Open"            Click="TreeCtxOpen_Click"/>
                             <MenuItem Header="Open in New Tab" Click="TreeCtxOpenInNewTab_Click"/>
+                            <MenuItem Header="Find Folder" Click="TreeCtxFindFolder_Click"
+                                      ToolTip="Find a folder by name below this folder"/>
                             <MenuItem Header="Open in Windows Explorer" Click="TreeCtxExplorer_Click"
                                       ToolTip="Open this folder in Windows' own File Explorer"/>
                             <MenuItem Header="Send to" x:Name="TreeSendToMenu" PreviewMouseRightButtonUp="TreeSendToMenu_RightClick"

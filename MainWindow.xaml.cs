@@ -5244,6 +5244,7 @@ public partial class MainWindow : Window
                 "Reset Tree Root"    => VM.HasTreeRoot,
                 "Send to"    => canChange || fileNode,
                 "Open in Windows Explorer" => realFolder || System.IO.File.Exists(path),   // a packed file is shown selected in its folder
+                "Find Folder" => realFolder,
                 "Add to Bookmarks" => realFolder || fileNode,   // not inside a compressed file
                 "Set Tags..." => canChange,   // a folder on the disk, not a drive
                 "Cut"        => canChange || fileNode,
