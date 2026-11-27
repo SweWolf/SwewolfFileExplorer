@@ -32,6 +32,7 @@
   <ItemGroup>
     <!-- Tags of music files (Artist, Title, Track Number columns). The same package and version as FileInfoViewer. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
     <PackageReference Include="Svg.Skia" Version="5.2.3" />
     <PackageReference Include="TagLibSharp" Version="2.3.0" />
   </ItemGroup>

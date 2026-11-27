@@ -27,6 +27,7 @@ namespace SwewolfFileExplorer.Helpers;
 // History
 //   2026-11-27  First version (text files).
 //   2026-11-27  Office / OpenDocument files and AI prompts.
+//   2026-11-27  PDF (the PdfPig package, 0.1.16, Apache 2.0, pure C#): text page by page + title / author / subject / keywords; no OCR.
 //   2026-11-27  Drawings (odg), OpenOffice 1.x (sxw sxc sxi ...), flat OpenDocument (fodt fods fodp fodg: one XML file) and RTF (own reader:
 //               \'hh in the file's code page, \u with its fallback, groups for fonts / styles / pictures / field codes / generator skipped).
 
@@ -100,7 +101,8 @@ public sealed class ContentMatcher
     {
         var ext = Path.GetExtension(name).TrimStart('.');
         return TextExtensions.Contains(ext) || OfficeExtensions.Contains(ext) || FlatXmlExtensions.Contains(ext)
-            || ext.Equals("rtf", StringComparison.OrdinalIgnoreCase) || ext.Equals("png", StringComparison.OrdinalIgnoreCase);
+            || ext.Equals("rtf", StringComparison.OrdinalIgnoreCase) || ext.Equals("pdf", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals("png", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Extensions whose text has XML / HTML entities in it.</summary>
@@ -133,6 +135,7 @@ public sealed class ContentMatcher
                     flat = ExtractXmlText(fs);
                 return Scan(new StringReader(flat), markup: false, json: false, found, ct) ? ContentResult.Match : ContentResult.NoMatch;
             }
+            if (ext == "pdf") return CheckPdf(path, found, ct) ? ContentResult.Match : ContentResult.NoMatch;
             if (ext == "rtf")
             {
                 var rtf = File.ReadAllBytes(path);
@@ -218,6 +221,36 @@ public sealed class ContentMatcher
             }
         }
         return sb.ToString();
+    }
+
+    // ---- PDF -----------------------------------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The text of a PDF (the PdfPig package: pure C#, reads the text the PDF holds, page by page, until the words are found) and its title, author,
+    /// subject and keywords. A line break in a PDF page is only where the line happened to end, so it counts as a space (a phrase can run over two lines).
+    /// A scanned PDF that is only pictures holds no text and is not found (no OCR); a password-protected PDF cannot be read.
+    /// </summary>
+    private bool CheckPdf(string path, bool[] found, CancellationToken ct)
+    {
+        using var doc = UglyToad.PdfPig.PdfDocument.Open(path, new UglyToad.PdfPig.ParsingOptions { UseLenientParsing = true, SkipMissingFonts = true });
+        var info = doc.Information;
+        var head = string.Join("\n", new[] { info.Title, info.Author, info.Subject, info.Keywords }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        if (head.Length > 0 && Scan(new StringReader(head), markup: false, json: false, found, ct)) return true;
+
+        foreach (var page in doc.GetPages())
+        {
+            if (ct.IsCancellationRequested) return false;
+            string text;
+            try { text = UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor.ContentOrderTextExtractor.GetText(page); }
+            catch
+            {
+                try { text = page.Text; }
+                catch { continue; }   // a page that cannot be read: the others are still looked at
+            }
+            text = text.Replace('\r', ' ').Replace('\n', ' ');
+            if (Scan(new StringReader(text), markup: false, json: false, found, ct)) return true;
+        }
+        return false;
     }
 
     // ---- RTF -----------------------------------------------------------------------------------------------------------------------------------
