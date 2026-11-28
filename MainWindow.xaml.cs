@@ -2025,6 +2025,16 @@ public partial class MainWindow : Window
             bool session = kind == StoreKind.Session;
             var dialog = new ChoiceDialog(
                 session ? "All your current tabs will be closed.\n\nDo you want to continue?" : "Do you want to close all current tabs first?",
+        // A session records every change to the tabs, so a workspace cannot be opened while one is on (it would add or close tabs in the
+        // session). The menu item stays enabled so the user gets this explanation (2026-11-28, the user's decision).
+        if (!atStartup && kind == StoreKind.Workspace && VM.Session.IsActive)
+        {
+            MessageBox.Show(this,
+                $"You cannot open a workspace while a session is on.\n\nThe session \"{VM.Session.Name}\" records every change to your tabs. Stop the session first (Session > Stop Session), then open the workspace.",
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
                 session ? new[] { "OK", "Cancel" } : new[] { "Yes", "No", "Cancel" },
                 0, session ? 1 : 2)
             {
