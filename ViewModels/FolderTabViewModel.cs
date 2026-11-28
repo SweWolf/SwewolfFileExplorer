@@ -579,6 +579,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     public TreeItemViewModel? BookmarksNode => _bookmarksNode != null && TreeItems.Contains(_bookmarksNode) ? _bookmarksNode : null;
     private int _bookmarkVersion;
     private string _bookmarkSnapshot = "";
+    private bool _bookmarksStateDecided;
 
     /// <summary>Reads the Bookmarks folder in the background and puts what is in it under the "Bookmarks" node of this tab's tree.</summary>
     public void ReloadBookmarks()
@@ -601,6 +602,15 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
                 // group, and the tree jumped to the Bookmarks node and opened it, e.g. after a paste into a group).
                 SyncBookmarkChildren(node, entries);
                 _bookmarkSnapshot = snapshot;
+
+                // The first time only: 5 or more bookmarks take too much room, so the node starts collapsed (fewer: expanded). Later
+                // reloads leave it as the user has it.
+                if (!_bookmarksStateDecided)
+                {
+                    _bookmarksStateDecided = true;
+                    bool expand = node.Children.Count < 5;
+                    if (node.IsExpanded != expand) Quietly(() => node.IsExpanded = expand);
+                }
 
                 // The selected node may have been one of the old bookmark nodes: the tree follows the folder again.
                 if (FindSelectedNode(TreeItems) == null && !string.IsNullOrEmpty(_currentPath)) SelectInTree(_currentPath);
