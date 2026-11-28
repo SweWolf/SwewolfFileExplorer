@@ -60,6 +60,8 @@ public sealed class FindFolderWindow : Window
     private CancellationTokenSource? _queryCts;
     private int _version;
     private bool _datesTouched;   // the user clicked the check box: the program stops switching it
+    private List<int> _order = new() { 0, 1, 2, 3 };   // the order of the columns (the ids), remembered in the settings
+    private bool _rebuilding;                          // the program is changing the columns: not the user dragging one
 
     public FindFolderWindow(Window? owner, string scope, Action<string, FindFolderTarget> go)
     {
@@ -67,8 +69,9 @@ public sealed class FindFolderWindow : Window
         Title = "Find Folder";
         Icon = IconHelper.GetStockIcon(IconHelper.SIID_FIND) ?? GlyphIcon.Make("");
         FontSize = 14;
-        Width = 760;
-        Height = 560;
+        // 50 % wider than at first (the user), but never wider than a small screen can show.
+        Width = Math.Min(1140, SystemParameters.WorkArea.Width - 60);
+        Height = Math.Min(560, SystemParameters.WorkArea.Height - 60);
         MinWidth = 520;
         MinHeight = 360;
         ShowInTaskbar = false;
@@ -90,10 +93,15 @@ public sealed class FindFolderWindow : Window
         _colCreated = new GridViewColumn { Header = ColumnTitles[2], Width = 130, DisplayMemberBinding = new Binding(nameof(FolderEntry.Created)) { StringFormat = "g" } };
         _colModified = new GridViewColumn { Header = ColumnTitles[3], Width = 130, DisplayMemberBinding = new Binding(nameof(FolderEntry.Modified)) { StringFormat = "g" } };
         _columnId[_colName] = 0; _columnId[_colLocation] = 1; _columnId[_colCreated] = 2; _columnId[_colModified] = 3;
-        _grid.Columns.Add(_colName);
-        _grid.Columns.Add(_colLocation);
+        _order = ParseOrder(AppSettingsStore.Current.FindFolderColumns);
         _list.View = _grid;
+        RebuildColumns();
         UpdateHeaders();
+        // A header dragged to another place is remembered (the same order the next time the window opens).
+        ((System.Collections.Specialized.INotifyCollectionChanged)_grid.Columns).CollectionChanged += (_, e) =>
+        {
+            if (!_rebuilding && e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Move) SaveOrder();
+        };
 
         var root = new Grid { Margin = new Thickness(16, 14, 16, 12) };
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -329,6 +337,7 @@ public sealed class FindFolderWindow : Window
         // The selected folder stays selected while the list changes under it.
         var keep = (_list.SelectedItem as FolderEntry)?.FullPath;
         _list.ItemsSource = result.Rows;
+        if (result.Rows.Count > 0) FitColumns(result.Rows);
         if (keep != null)
         {
             var again = result.Rows.FirstOrDefault(r => string.Equals(r.FullPath, keep, StringComparison.OrdinalIgnoreCase));
@@ -357,13 +366,61 @@ public sealed class FindFolderWindow : Window
     private void ApplyDateColumns()
     {
         bool show = _showDates.IsChecked == true;
-        if (show && !_grid.Columns.Contains(_colCreated)) { _grid.Columns.Add(_colCreated); _grid.Columns.Add(_colModified); }
-        if (!show && _grid.Columns.Contains(_colCreated))
+        bool shown = _grid.Columns.Contains(_colCreated);
+        if (show == shown) return;
+        RebuildColumns();
+        if (!show && _sortColumn >= 2) { _sortColumn = 0; _sortAscending = true; UpdateHeaders(); Requery(); }
+        if (show && _list.ItemsSource is List<FolderEntry> rows && rows.Count > 0) FitColumns(rows);
+    }
+
+    private GridViewColumn ColumnOf(int id) => id switch { 0 => _colName, 1 => _colLocation, 2 => _colCreated, _ => _colModified };
+
+    /// <summary>The shown columns, in the remembered order (the date columns only while they are on).</summary>
+    private void RebuildColumns()
+    {
+        _rebuilding = true;
+        try
         {
-            _grid.Columns.Remove(_colCreated);
-            _grid.Columns.Remove(_colModified);
-            if (_sortColumn >= 2) { _sortColumn = 0; _sortAscending = true; UpdateHeaders(); Requery(); }
+            _grid.Columns.Clear();
+            bool dates = _showDates.IsChecked == true;
+            foreach (var id in _order)
+                if (id < 2 || dates) _grid.Columns.Add(ColumnOf(id));
         }
+        finally { _rebuilding = false; }
+    }
+
+    /// <summary>The user moved a column: the shown ones are in their new order, the hidden ones keep their places after them.</summary>
+    private void SaveOrder()
+    {
+        var shown = _grid.Columns.Select(c => _columnId[c]).ToList();
+        _order = shown.Concat(_order.Where(id => !shown.Contains(id))).ToList();
+        AppSettingsStore.Current.FindFolderColumns = string.Join(",", _order);
+        AppSettingsStore.Save(AppSettingsStore.Current);
+    }
+
+    private static List<int> ParseOrder(string? text)
+    {
+        var ids = new List<int>();
+        foreach (var part in (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (int.TryParse(part, out var id) && id is >= 0 and <= 3 && !ids.Contains(id)) ids.Add(id);
+        foreach (var id in new[] { 0, 1, 2, 3 }) if (!ids.Contains(id)) ids.Add(id);   // a damaged value: what is missing is added
+        return ids;
+    }
+
+    /// <summary>Every column is as wide as its longest text (the 30 longest names and places are measured, as in the main list), the header too.</summary>
+    private void FitColumns(List<FolderEntry> rows)
+    {
+        var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var typeface = new Typeface(_list.FontFamily, _list.FontStyle, _list.FontWeight, _list.FontStretch);
+        double Width(string text) => new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, _list.FontSize, Brushes.Black, dpi).WidthIncludingTrailingWhitespace;
+        double Widest(IEnumerable<string> texts) => texts.Select(Width).DefaultIfEmpty(0).Max();
+
+        double header(int id) => Width(ColumnTitles[id] + " ▲") + 28;   // room for the triangle
+        _colName.Width = Math.Max(header(0), Widest(rows.Select(r => r.Name).OrderByDescending(n => n.Length).Take(30)) + IconHelper.ListIconSize + 6 + 18);
+        _colLocation.Width = Math.Max(header(1), Widest(rows.Select(r => r.Location).OrderByDescending(n => n.Length).Take(30)) + 18);
+        var sampleDate = new DateTime(2026, 12, 28, 23, 59, 0).ToString("g");
+        _colCreated.Width = Math.Max(header(2), Width(sampleDate) + 18);
+        _colModified.Width = Math.Max(header(3), Width(sampleDate) + 18);
     }
 
     private void HeaderClick(object sender, RoutedEventArgs e)

@@ -181,7 +181,9 @@ what it reads in memory only, and you can start typing at once.
   is added, removed or renamed, so the created date is usually the more useful one.
 - Only real folders are found: not compressed files, playlists or anything inside them. Folders
   you excluded in **Tools > Settings > Search** are skipped when that option is on. Click a column
-  header to sort the grid. At most 5,000 folders are shown; type more to narrow it down.
+  header to sort the grid. The columns are as wide as their longest text. Drag a column header to put the
+  columns in another order, for example **Location** first; the window remembers the order. At most 5,000
+  folders are shown; type more to narrow it down.
 
 ## This PC and Drives
 

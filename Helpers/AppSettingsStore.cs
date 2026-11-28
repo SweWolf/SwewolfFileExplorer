@@ -172,6 +172,9 @@ public class AppSettings
     /// <summary>The check box "Keep This Window Open After Opening a Folder" of the Find Folder window (off by default: the window closes when a folder is opened).</summary>
     public bool FindFolderKeepOpen { get; set; } = false;
 
+    /// <summary>The order of the columns of the Find Folder grid, as column numbers separated by commas (0 Name, 1 Location, 2 Date Created, 3 Date Modified); empty = the default order.</summary>
+    public string FindFolderColumns { get; set; } = "";
+
     /// <summary>Settings > Files > Hidden Files > "Warn When All Files Are Selected but Hidden Items Are Not" (on by default): a red warning in the
     /// info line while everything shown is selected and the folder has hidden items that are not shown (they are not copied or moved with the selection).</summary>
     public bool WarnHiddenNotSelected { get; set; } = true;
