@@ -2273,7 +2273,7 @@ public partial class MainWindow : Window
                          && (FilterBox.Text.Length > 0 || _ratingMode != RatingAny || _dateMode != DateAny);
         bool warn = AppSettingsStore.Current.WarnHiddenNotSelected && !filtering
                     && tab.HiddenItemCount > 0 && !tab.HiddenItemsShown
-                    && shown > 0 && FileListView.SelectedItems.Count == shown;
+                    && shown > 1 && FileListView.SelectedItems.Count == shown;   // one visible file clicked is no "select all" (2026-11-28)
 
         HiddenWarning.Visibility = warn ? Visibility.Visible : Visibility.Collapsed;
         if (warn) HiddenWarning.Text = $"Warning: {tab.HiddenItemCount} hidden {(tab.HiddenItemCount == 1 ? "item" : "items")} not selected";
