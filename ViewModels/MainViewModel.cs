@@ -26,6 +26,7 @@ public class MainViewModel : INotifyPropertyChanged
 
     public MainViewModel()
     {
+        _fullTree = _shared.Settings.StartWithFullTree;   // the switch above the tree starts as Tools > Settings says
         // The icons start at the size that goes with the saved font sizes, before any tab makes its first icon.
         IconHelper.ListIconSize = IconHelper.IconSizeForFont(_shared.Settings.ListFontSize);
         IconHelper.TreeIconSize = IconHelper.IconSizeForFont(_shared.Settings.TreeFontSize);
@@ -202,6 +203,7 @@ public class MainViewModel : INotifyPropertyChanged
     private FolderTabViewModel AddTab(string? path)
     {
         var tab = new FolderTabViewModel(_shared, path);
+        tab.HideParents = !_fullTree;
         tab.PropertyChanged += (s, e) =>
         {
             // Only what the active tab shows is of interest to the window.
@@ -520,6 +522,24 @@ public class MainViewModel : INotifyPropertyChanged
     {
         get => _activeTab.TreeSortDirectionIndex;
         set => _activeTab.TreeSortDirectionIndex = value;
+    }
+
+    private bool _fullTree = true;
+
+    /// <summary>
+    /// The switch above the tree. On (pressed): the full tree, as always. Off: "hide parents" mode, where the tree starts at the folder you opened
+    /// (Bookmarks and Quick Access stay). Applies to every tab; not saved (Tools > Settings > Folder Tree says how it starts).
+    /// </summary>
+    public bool FullTree
+    {
+        get => _fullTree;
+        set
+        {
+            if (_fullTree == value) return;
+            _fullTree = value;
+            foreach (var tab in Tabs) tab.HideParents = !value;
+            OnPropertyChanged();
+        }
     }
 
     private bool _showTree = true;

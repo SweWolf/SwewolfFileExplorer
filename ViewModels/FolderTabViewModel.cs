@@ -355,6 +355,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
 
         CurrentItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(FolderStatusLine));   // "Empty Folder"
         InitializeTree();
+        RegisterTab(this);
         if (startPath != null) Navigate(startPath);
         else ShowThisPc();
     }
@@ -366,6 +367,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     public void ShowThisPc()
     {
         if (_playlistDirty && !ConfirmLeavePlaylist()) return;   // Alt+Home while a playlist has unsaved changes
+        if (_autoRoot != null) ClearAutoRoot();   // This PC is in the full tree only
         ShowNoFolder("pc");
         _unavailable = false;
         FolderPath  = "";
@@ -399,13 +401,13 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         var bookmarks = _bookmarksNode = new TreeItemViewModel("Bookmarks", BookmarkStore.Folder, null, isVirtual: true, sortOf: _shared.GetTreeSort,
                                                                showHiddenOf: ShowsHiddenInTree) { IsBookmarksRoot = true, IconShape = "bookmark" };
         try { Directory.CreateDirectory(BookmarkStore.Folder); } catch { /* a click then says it is not there */ }
-        bookmarks.IsExpanded = true;
+        Quietly(() => bookmarks.IsExpanded = true);
         TreeItems.Add(bookmarks);
         ReloadBookmarks();
 
         // Quick Access
         var quickAccess = new TreeItemViewModel("Quick Access", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: ShowsHiddenInTree) { IconShape = "star" };
-        quickAccess.IsExpanded = true;
+        Quietly(() => quickAccess.IsExpanded = true);
         // The order of Explorer's Quick Access. Downloads is asked of Windows (it is often moved to another drive, and .NET
         // has no entry for it): the folder in the user profile does not have to exist.
         AddQuickAccessItem(quickAccess, "Desktop",   Environment.SpecialFolder.Desktop);
@@ -419,7 +421,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
 
         // This PC
         var thisPC = _thisPcNode = new TreeItemViewModel("This PC", "", null, isVirtual: true, sortOf: _shared.GetTreeSort, showHiddenOf: ShowsHiddenInTree) { IconShape = "pc" };
-        thisPC.IsExpanded = true;
+        Quietly(() => thisPC.IsExpanded = true);
 
         foreach (var drive in ReadDrives().Drives)
             thisPC.Children.Add(MakeDriveNode(drive));
@@ -921,6 +923,9 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         if (_pendingRoot != null && !IsSameOrSubPath(_pendingRoot, path))
             _pendingRoot = null;   // the user went somewhere else: the saved root is no longer wanted
 
+        // "Hide parents" mode: the tree starts at the folder opened (if its node is open) or at its parent.
+        if (_hideParents && RootPath == null && !web) ApplyAutoRoot(path);
+
         // A web folder is the top of the tree of its own: the address typed is the root (Up stops there; type a shorter address to go higher).
         if (web && RootPath == null)
         {
@@ -1047,6 +1052,13 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
             return rootNode == null ? null : WalkDown(rootNode, RootPath, path);
         }
 
+        // "Hide parents" mode: the tree is Bookmarks, Quick Access and the node of the top folder.
+        if (_autoRoot != null)
+        {
+            if (!IsSameOrSubPath(_autoRoot, path) || _autoRootNode == null) return null;
+            return WalkDown(_autoRootNode, _autoRoot, path);
+        }
+
         var root = Path.GetPathRoot(Path.GetFullPath(path));
         var node = _thisPcNode?.Children.FirstOrDefault(c => NodeIs(c, root!));
         if (node == null) return null;   // e.g. a network path
@@ -1070,7 +1082,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
             current = web ? WebFolder.Combine(current, segment) : Path.Combine(current, segment);
 
             node.EnsureChildrenLoaded();   // the children are needed at once (a click on the arrow loads them in the background)
-            node.IsExpanded = true;
+            Quietly(() => node.IsExpanded = true);
             var next = node.Children.FirstOrDefault(c => NodeIs(c, current));
 
             // A hidden folder (opened from the list, or typed in the address bar): the tree shows
@@ -1369,6 +1381,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
             return false;
         }
 
+        _autoRoot = null;   // a root the user set wins over the automatic one
         RootPath = root;
         RebuildTree();
         OnPropertyChanged(nameof(HasTreeRoot));
@@ -1382,6 +1395,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
     {
         if (RootPath == null) return;
         ClearTreeRoot();
+        if (_hideParents && Directory.Exists(_currentPath)) ApplyAutoRoot(_currentPath);   // back to the automatic top
         if (!string.IsNullOrEmpty(_currentPath)) SelectInTree(_currentPath);
         UpdateNavState();
     }
@@ -1403,8 +1417,164 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
         TreeItems.Clear();
         _thisPcNode = null;
 
-        if (RootPath == null) InitializeTree();
-        else                  TreeItems.Add(BuildRootNode(RootPath));
+        _autoRootNode = null;
+        if (RootPath != null) TreeItems.Add(BuildRootNode(RootPath));
+        else if (_autoRoot != null)
+        {
+            _autoRootNode = BuildRootNode(_autoRoot);   // Bookmarks, Quick Access and This PC are hidden too
+            TreeItems.Add(_autoRootNode);
+        }
+        else InitializeTree();
+    }
+
+    // ── "Hide parents" mode (2026-11-27, asked by the user; second version the same day) ───────────
+
+    private bool _hideParents;
+    private string? _autoRoot;               // the folder that is the top of the tree in this mode; null: the full tree
+    private TreeItemViewModel? _autoRootNode;
+
+    private static readonly List<WeakReference<FolderTabViewModel>> _allTabs = new();
+    private static bool _toggleHooked;
+
+    private static void RegisterTab(FolderTabViewModel tab)
+    {
+        lock (_allTabs)
+        {
+            _allTabs.RemoveAll(w => !w.TryGetTarget(out _));
+            _allTabs.Add(new WeakReference<FolderTabViewModel>(tab));
+        }
+        if (_toggleHooked) return;
+        _toggleHooked = true;
+        TreeItemViewModel.UserToggled += (node, expanded) =>
+        {
+            List<FolderTabViewModel> tabs;
+            lock (_allTabs) tabs = _allTabs.Select(w => w.TryGetTarget(out var t) ? t : null!).Where(t => t != null).ToList();
+            foreach (var t in tabs) t.OnTreeNodeToggled(node, expanded);
+        };
+    }
+
+    /// <summary>Runs <paramref name="action"/> without telling anybody that nodes were opened or closed: it is the program, not the user.</summary>
+    private static void Quietly(Action action)
+    {
+        TreeItemViewModel.QuietDepth++;
+        try { action(); } finally { TreeItemViewModel.QuietDepth--; }
+    }
+
+    /// <summary>
+    /// "Hide parents" mode: only the top of the tree and what is below it is shown (Bookmarks, Quick Access, This PC and the folders above are hidden).
+    /// The top is the folder you are in when you have opened it in the tree, else its parent (so the folder and its siblings show). Opening a folder
+    /// in the tree makes it the top; closing the top makes its parent the top. Off: the full tree, as always.
+    /// </summary>
+    public bool HideParents
+    {
+        get => _hideParents;
+        set
+        {
+            if (_hideParents == value) return;
+            _hideParents = value;
+            if (!value)
+            {
+                if (_autoRoot != null)
+                {
+                    ClearAutoRoot();
+                    if (!string.IsNullOrEmpty(_currentPath) && !_noFolderShown) SelectInTree(_currentPath);
+                }
+            }
+            else if (RootPath == null && !_noFolderShown && !string.IsNullOrEmpty(_currentPath) && Directory.Exists(_currentPath))
+            {
+                ApplyAutoRoot(_currentPath);
+                SelectInTree(_currentPath);
+            }
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>The top of the tree for a folder: the folder itself when its node is open in the tree now (or it is a drive), else its parent.</summary>
+    private string TopFor(string folder)
+    {
+        var parent = Directory.GetParent(folder)?.FullName;
+        if (parent == null) return folder;                       // a drive: nothing above it
+        var node = FindLoadedNode(TreeItems, folder);
+        return node is { IsExpanded: true } ? folder : parent;
+    }
+
+    private static TreeItemViewModel? FindLoadedNode(IEnumerable<TreeItemViewModel> nodes, string path)
+    {
+        foreach (var node in nodes)
+        {
+            if (NodeIs(node, path)) return node;
+            if (!string.IsNullOrEmpty(node.FullPath) && !IsSameOrSubPath(node.FullPath, path)) continue;   // another branch
+            var inChild = FindLoadedNode(node.Children, path);
+            if (inChild != null) return inChild;
+        }
+        return null;
+    }
+
+    private static bool TreeHolds(IEnumerable<TreeItemViewModel> nodes, TreeItemViewModel wanted)
+    {
+        foreach (var node in nodes)
+        {
+            if (ReferenceEquals(node, wanted) || TreeHolds(node.Children, wanted)) return true;
+        }
+        return false;
+    }
+
+    private void ApplyAutoRoot(string path)
+    {
+        if (!Directory.Exists(path))
+        {
+            // A packed file, a playlist or a missing folder: nothing to be the top. Outside the tree shown, the full tree is back.
+            if (_autoRoot != null && !IsSameOrSubPath(_autoRoot, path)) ClearAutoRoot();
+            return;
+        }
+        if (IsUnderBookmarks(path)) return;   // the Bookmarks folder is not a place of the tree in this mode
+
+        string full = Path.GetFullPath(path);
+        if (full.Length > 3) full = full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);   // C:\ keeps its slash
+
+        SetAutoRoot(TopFor(full));
+    }
+
+    private void SetAutoRoot(string top)
+    {
+        if (_autoRoot != null && IsSamePath(_autoRoot, top)) return;
+        _autoRoot = top;
+        RebuildTree();
+    }
+
+    private void ClearAutoRoot()
+    {
+        _autoRoot = null;
+        RebuildTree();
+    }
+
+    /// <summary>The user opened or closed a node of this tab's tree (not the program: see <see cref="Quietly"/>).</summary>
+    private void OnTreeNodeToggled(TreeItemViewModel node, bool expanded)
+    {
+        if (!_hideParents || RootPath != null || string.IsNullOrEmpty(node.FullPath) || !TreeHolds(TreeItems, node)) return;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+
+        dispatcher.BeginInvoke(() =>
+        {
+            if (!_hideParents || RootPath != null || !Directory.Exists(node.FullPath)) return;
+
+            string top;
+            if (expanded)
+            {
+                top = Path.GetFullPath(node.FullPath);
+                if (top.Length > 3) top = top.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            else
+            {
+                if (!ReferenceEquals(node, _autoRootNode)) return;   // only closing the top changes the tree
+                top = Directory.GetParent(node.FullPath)?.FullName ?? node.FullPath;
+            }
+            if (_autoRoot != null && IsSamePath(_autoRoot, top)) return;
+
+            SetAutoRoot(top);
+            if (!string.IsNullOrEmpty(_currentPath) && !_noFolderShown) SelectInTree(_currentPath);   // the folder shown stays selected, if it is under the new top
+        });
     }
 
     private TreeItemViewModel BuildRootNode(string path)
@@ -1443,7 +1613,7 @@ public partial class FolderTabViewModel : INotifyPropertyChanged
                                          isArchive: isArchive, inArchive: inArchive, showHiddenOf: ShowsHiddenInTree);
         node.InitializeLazyLoad();
         node.EnsureChildrenLoaded();
-        node.IsExpanded = true;   // its folders show at once
+        Quietly(() => node.IsExpanded = true);   // its folders show at once
         return node;
     }
 

@@ -389,8 +389,61 @@ public partial class MainWindow : Window
     /// Esc in the address bar: what was typed is dropped and the folder shown is back in the box, and the focus goes to the list (so the
     /// next Esc can close the filter bar). Enter navigates, as before (a key binding).
     /// </summary>
+    // Tab in the address bar suggests a folder, as in the Command Prompt: the first one that starts with the letters typed after the last backslash,
+    // and the next one at every Tab (Shift+Tab goes back). Only real folders. Any other change of the text starts again.
+    private List<string>? _tabMatches;
+    private int _tabIndex;
+    private string _tabText = "";     // what the box held after the last suggestion: the same text means "go on to the next"
+    private int _tabVersion;
+    private int _tabPending;          // Tab presses that came while the folders were being read
+
+    private async void AddressTab(bool backwards)
+    {
+        var typed = AddressBar.Text;
+        if (_tabMatches != null && typed == _tabText) { StepAddressSuggestion(backwards ? -1 : 1); return; }
+
+        if (_tabReading) { _tabPending += backwards ? -1 : 1; return; }   // a second press while the folders are read: the next one is shown when they are in
+        _tabReading = true;
+        int version = ++_tabVersion;
+        var current = VM.HasFolder && !VM.InArchive ? VM.CurrentPath : null;
+        List<string> matches;
+        try { matches = await Task.Run(() => FolderCompletion.Suggest(typed, current)); }
+        finally { _tabReading = false; }
+
+        int pending = _tabPending;
+        _tabPending = 0;
+        if (version != _tabVersion || AddressBar.Text != typed || matches.Count == 0) { _tabMatches = null; return; }
+
+        _tabMatches = matches;
+        _tabIndex = backwards ? matches.Count - 1 : 0;
+        ShowAddressSuggestion();
+        if (pending != 0) StepAddressSuggestion(pending);
+    }
+
+    private bool _tabReading;
+
+    private void StepAddressSuggestion(int steps)
+    {
+        if (_tabMatches == null || _tabMatches.Count == 0) return;
+        _tabIndex = ((_tabIndex + steps) % _tabMatches.Count + _tabMatches.Count) % _tabMatches.Count;
+        ShowAddressSuggestion();
+    }
+
+    private void ShowAddressSuggestion()
+    {
+        _tabText = _tabMatches![_tabIndex];
+        AddressBar.Text = _tabText;
+        AddressBar.CaretIndex = AddressBar.Text.Length;
+    }
+
     private void AddressBar_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Tab && Keyboard.Modifiers is ModifierKeys.None or ModifierKeys.Shift && AppSettingsStore.Current.TabSuggestsFolders)
+        {
+            e.Handled = true;
+            AddressTab(Keyboard.Modifiers == ModifierKeys.Shift);
+            return;
+        }
         if (e.Key is Key.Enter or Key.Return && Keyboard.Modifiers == ModifierKeys.Shift)
         {
             // Shift+Enter: only show the item (file or folder) in its folder, without opening or playing it.
@@ -1398,6 +1451,16 @@ public partial class MainWindow : Window
         // Alt+Up: up one level, from wherever the focus is (the tree, the list and a combo box would each take the key for themselves).
         // With Alt held WPF reports the key as Key.System and the real key as SystemKey.
         if ((e.Key == Key.System ? e.SystemKey : e.Key) == Key.Up && Keyboard.Modifiers == ModifierKeys.Alt)
+        {
+            if (VM.UpCommand.CanExecute(null)) VM.UpCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Backspace is the same as Alt+Up, from wherever the focus is, except where it deletes a letter (a text box, an editable combo box).
+        if (e.Key == Key.Back && Keyboard.Modifiers == ModifierKeys.None
+            && Keyboard.FocusedElement is not (System.Windows.Controls.Primitives.TextBoxBase or System.Windows.Controls.PasswordBox)
+            && !(Keyboard.FocusedElement is System.Windows.Controls.ComboBox { IsEditable: true }))
         {
             if (VM.UpCommand.CanExecute(null)) VM.UpCommand.Execute(null);
             e.Handled = true;

@@ -105,6 +105,13 @@ path copied from Windows Explorer as it is. You can also type:
 **Esc** in the address bar puts the folder shown back in the box and moves the focus to the list.
 **F6** moves the focus to the address bar and selects its text.
 
+**Tab** suggests a folder, as in the Command Prompt. Type the first letters of a folder name after the last
+backslash and press Tab: the box shows the first folder that starts with them. Press Tab again for the next
+one, **Shift+Tab** to go back; after the last one it starts again from the first. Only folders are suggested
+(not files, compressed files or playlists). Letters with no backslash are looked up in the folder you are in.
+Press **Enter** to go to the folder. If you would rather have Tab move to the next control, turn off
+**Tools > Settings > General > Address Bar > Use the Tab Key in the Address Bar to Suggest Folders**.
+
 ### Font Size
 
 Hold **Ctrl** and turn the mouse wheel over the list or over the tree to make its text bigger or
@@ -152,6 +159,16 @@ Music and Videos) and **This PC**.
 - **Set as Tree Root:** right-click a folder in the tree to make it the top of the tree (also
   possible for an archive). Up and Backspace then stop there. **Reset Tree Root** brings back the normal tree.
 - Press **F8**, or click **Tree** in the toolbar, to hide and show the tree.
+- **Hide parents:** the tree icon above the tree, next to the magnifier, is pressed by default: the tree shows
+  everything, as always. Click it to turn it off, and the tree shows only a few folders: the top of the
+  tree and what is below it. **Bookmarks**, **Quick Access**, **This PC** and the folders above the top are hidden.
+  The top is the folder you are in if you have opened it in the tree (its subfolders show), otherwise
+  its parent (so the folder and its siblings show). Open a folder in the tree (the arrow, the right arrow key or
+  a double-click) and it becomes the top; close the top and its parent becomes the top. Clicking a folder or
+  using the up and down arrow keys in the tree hides nothing. The **Up** button also shows the parent again, and
+  at the top of a drive it goes to This PC, which shows the full tree. Press the icon again to see everything.
+  **Tools > Settings > Menus > Folder Tree > Start with the Full Folder Tree** decides how the icon starts
+  the next time the program opens. A tree root you set yourself (**Set as Tree Root**) wins over this.
 
 Typing a letter in the tree selects the next visible folder that starts with it.
 

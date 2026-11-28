@@ -115,13 +115,24 @@ public class TreeItemViewModel : INotifyPropertyChanged
 
     public override string ToString() => Name;   // what accessibility tools read for the node
 
+    /// <summary>
+    /// Above zero while the program itself opens or closes nodes (following a folder, building a tree): <see cref="UserToggled"/> is not raised then.
+    /// (UI thread only.)
+    /// </summary>
+    public static int QuietDepth;
+
+    /// <summary>A node was opened or closed by the user (the arrow, a key, a double-click), not by the program. Raised on the UI thread.</summary>
+    public static event Action<TreeItemViewModel, bool>? UserToggled;
+
     public bool IsExpanded
     {
         get => _isExpanded;
         set
         {
+            bool changed = _isExpanded != value;
             _isExpanded = value;
             OnPropertyChanged();
+            if (changed && QuietDepth == 0) UserToggled?.Invoke(this, value);
             if (value && !_childrenLoaded && !string.IsNullOrEmpty(FullPath))
             {
                 // A click on the arrow: a real folder is read in the background, so a folder with a huge number of entries cannot

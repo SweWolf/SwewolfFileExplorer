@@ -87,6 +87,10 @@
                 <CheckBox x:Name="UnreadItalicBox" Content="Italic"/>
             </StackPanel>
         </GroupBox>
+        <GroupBox Header="Address Bar" Padding="8" Margin="0,8,0,0">
+            <CheckBox x:Name="TabSuggestsFoldersBox" Content="Use the Tab Key in the Address Bar to Suggest Folders"
+                      ToolTip="On: type the first letters of a folder name and press Tab to get the first folder that starts with them; press Tab again for the next one (Shift+Tab goes back), as in the Command Prompt. Only folders are suggested. Press Enter to go to the folder.&#10;Off: Tab moves to the next control, as everywhere in Windows."/>
+        </GroupBox>
         <GroupBox Header="Drag and Drop" Padding="8" Margin="0,8,0,0">
             <CheckBox x:Name="DisableDragDropBox" Content="Disable Internal Drag and Drop"
                       ToolTip="On: files cannot be copied or moved by dragging them onto the list or the tree, and dragging with the right mouse button is off. Dragging a picture in from a web browser, and dragging files out of the list to a web browser or another program with the left button, always work."/>
@@ -150,8 +154,12 @@
             <TabItem Header="Menus">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False"><StackPanel Margin="8">
         <GroupBox Header="Folder Tree" Padding="8" Margin="0,8,0,0">
-            <CheckBox x:Name="RightClickSelectsNodeBox" Content="Right-Clicking a Folder in the Tree Selects It"
-                      ToolTip="On: a right-click on a folder in the tree selects it first, so the list shows that folder, as a right-click on a file in the list selects the file. Off: the selected folder and the list stay as they are, and the folder you right-clicked gets an outline while its menu is open, as in Windows Explorer."/>
+            <StackPanel>
+                <CheckBox x:Name="RightClickSelectsNodeBox" Content="Right-Clicking a Folder in the Tree Selects It"
+                          ToolTip="On: a right-click on a folder in the tree selects it first, so the list shows that folder, as a right-click on a file in the list selects the file. Off: the selected folder and the list stay as they are, and the folder you right-clicked gets an outline while its menu is open, as in Windows Explorer."/>
+                <CheckBox x:Name="StartWithFullTreeBox" Content="Start with the Full Folder Tree" Margin="0,6,0,0"
+                          ToolTip="On: the tree shows all the parent folders, as it always has.&#10;Off: the tree starts at the folder you open and shows only a few folders: the top of the tree and what is below it (Bookmarks, Quick Access and This PC are hidden).&#10;This only sets how the tree switch above the tree starts. You can still switch it there at any time."/>
+            </StackPanel>
         </GroupBox>
         <GroupBox Header="Terminal Menu (Right-Click an Item to Open It as the Administrator)" Padding="8" Margin="0,8,0,0">
             <StackPanel>

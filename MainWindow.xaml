@@ -450,7 +450,20 @@
 
                         <!-- To the right, next to the close button: Find Folder (a small window that finds a folder by its name below the folder shown) -->
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                        <Button Width="28" Height="28" Margin="6,1,0,0" Padding="0" Click="FindFolderButton_Click"
+                        <!-- The full tree (pressed, as always) or "hide parents": the tree starts at the folder you open. Bookmarks and Quick Access stay. -->
+                        <ToggleButton Width="28" Height="28" Margin="6,1,0,0" Padding="0" Focusable="False"
+                                      IsChecked="{Binding FullTree, Mode=TwoWay}">
+                            <ToggleButton.ToolTip>
+                                <TextBlock MaxWidth="360" TextWrapping="Wrap"
+                                           Text="Show the full folder tree, with all the parent folders (pressed).&#10;Not pressed: only a few folders show: the top of the tree and what is below it. Bookmarks, Quick Access, This PC and the folders above are hidden. Open a folder in the tree to make it the top; the Up button shows the parent again.&#10;Clicking a folder or using the arrow keys in the tree hides nothing."/>
+                            </ToggleButton.ToolTip>
+                            <!-- A little tree: the top folder, and its subfolders indented under it. -->
+                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                  StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M2,3 H7 M5,3 V13 M5,7 H11 M5,13 H11 M9,10 H14 M9,10 V13"
+                                  Width="16" Height="16" Stretch="Uniform" SnapsToDevicePixels="True"/>
+                        </ToggleButton>
+                        <Button Width="28" Height="28" Margin="4,1,0,0" Padding="0" Click="FindFolderButton_Click"
                                 ToolTip="Find a Folder by Name">
                             <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>

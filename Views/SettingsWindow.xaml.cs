@@ -100,7 +100,9 @@ public partial class SettingsWindow : Window
         RegisteredTypeNamesBox.IsChecked   = current.UseRegisteredTypeNames;
         SuggestMoveBox.IsChecked           = current.SuggestMoveAfterSmartRename;
         RightClickSelectsNodeBox.IsChecked = current.RightClickSelectsTreeNode;
+        StartWithFullTreeBox.IsChecked = current.StartWithFullTree;
         DisableDragDropBox.IsChecked       = current.DisableInternalDragDrop;
+        TabSuggestsFoldersBox.IsChecked    = current.TabSuggestsFolders;
         PreloadPlayerBox.IsChecked         = current.PreloadMediaPlayer;
         CheckUpdatesBox.IsChecked          = current.CheckForUpdatesOnStartup;
         StartAgainBox.SelectedIndex        = StartAgainIndex(current.WhenStartedAgain);
@@ -307,7 +309,9 @@ public partial class SettingsWindow : Window
         IconHelper.UseRegisteredTypeNames = settings.UseRegisteredTypeNames;   // forgets the type names found so far
         settings.SuggestMoveAfterSmartRename = SuggestMoveBox.IsChecked == true;
         settings.RightClickSelectsTreeNode = RightClickSelectsNodeBox.IsChecked == true;
+        settings.StartWithFullTree = StartWithFullTreeBox.IsChecked == true;
         settings.DisableInternalDragDrop = DisableDragDropBox.IsChecked == true;
+        settings.TabSuggestsFolders = TabSuggestsFoldersBox.IsChecked == true;
         settings.PreloadMediaPlayer      = PreloadPlayerBox.IsChecked == true;
         settings.CheckForUpdatesOnStartup = CheckUpdatesBox.IsChecked == true;
         settings.WhenStartedAgain         = StartAgainValue(StartAgainBox.SelectedIndex);
