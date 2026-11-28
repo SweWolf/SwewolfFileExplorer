@@ -91,6 +91,10 @@
             <CheckBox x:Name="TabSuggestsFoldersBox" Content="Use the Tab Key in the Address Bar to Suggest Folders"
                       ToolTip="On: type the first letters of a folder name and press Tab to get the first folder that starts with them; press Tab again for the next one (Shift+Tab goes back), as in the Command Prompt. Only folders are suggested. Press Enter to go to the folder.&#10;Off: Tab moves to the next control, as everywhere in Windows."/>
         </GroupBox>
+        <GroupBox Header="File Buttons" Padding="8" Margin="0,8,0,0">
+            <CheckBox x:Name="ShowFileButtonsBox" Content="Show Cut, Copy, Paste, Rename, and Delete Buttons"
+                      ToolTip="On: five small icon buttons sit in the middle of the line under the file list.&#10;Off: the buttons are hidden. The same commands are in the right-click menu and on the keyboard."/>
+        </GroupBox>
         <GroupBox Header="Drag and Drop" Padding="8" Margin="0,8,0,0">
             <CheckBox x:Name="DisableDragDropBox" Content="Disable Internal Drag and Drop"
                       ToolTip="On: files cannot be copied or moved by dragging them onto the list or the tree, and dragging with the right mouse button is off. Dragging a picture in from a web browser, and dragging files out of the list to a web browser or another program with the left button, always work."/>

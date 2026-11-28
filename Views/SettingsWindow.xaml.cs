@@ -103,6 +103,7 @@ public partial class SettingsWindow : Window
         StartWithFullTreeBox.IsChecked = current.StartWithFullTree;
         DisableDragDropBox.IsChecked       = current.DisableInternalDragDrop;
         TabSuggestsFoldersBox.IsChecked    = current.TabSuggestsFolders;
+        ShowFileButtonsBox.IsChecked       = current.ShowFileButtons;
         PreloadPlayerBox.IsChecked         = current.PreloadMediaPlayer;
         CheckUpdatesBox.IsChecked          = current.CheckForUpdatesOnStartup;
         StartAgainBox.SelectedIndex        = StartAgainIndex(current.WhenStartedAgain);
@@ -312,6 +313,7 @@ public partial class SettingsWindow : Window
         settings.StartWithFullTree = StartWithFullTreeBox.IsChecked == true;
         settings.DisableInternalDragDrop = DisableDragDropBox.IsChecked == true;
         settings.TabSuggestsFolders = TabSuggestsFoldersBox.IsChecked == true;
+        settings.ShowFileButtons = ShowFileButtonsBox.IsChecked == true;
         settings.PreloadMediaPlayer      = PreloadPlayerBox.IsChecked == true;
         settings.CheckForUpdatesOnStartup = CheckUpdatesBox.IsChecked == true;
         settings.WhenStartedAgain         = StartAgainValue(StartAgainBox.SelectedIndex);

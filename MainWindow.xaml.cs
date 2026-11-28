@@ -1654,7 +1654,8 @@ public partial class MainWindow : Window
         if (new SettingsWindow { Owner = this }.ShowDialog() == true)
         {
             VM.RefreshCommand.Execute(null);
-            VM.FontFamilyChanged();         // the font of the list and the tree may have changed
+            UpdateFileButtons();
+            VM.FontFamilyChanged();       // the font of the list and the tree may have changed
             VM.ExtensionSettingChanged();   // "Hide Extensions for Known File Types" may have changed: every tab and the button follow
             VM.FileTypeIconsChanged();      // so may the file type definitions (names are worked out again just above, icons here)
             QueueInfoUpdate();              // so may the warning about hidden items that are not selected
@@ -2925,8 +2926,78 @@ public partial class MainWindow : Window
     /// is then only as high as the info line (and the Play bar when it is open), the dividers are not needed, and a small button at the
     /// right end of the info line brings the panel back with the height it had.
     /// </summary>
+    private void FileButtonRename_Click(object sender, RoutedEventArgs e)
+    {
+        if (!VM.InArchive && FileListView.SelectedItem is FileItemViewModel item)
+            ShowRenameDialog(item);
+    }
+
+    /// <summary>Cut / Copy / Paste / Rename / Delete icon buttons in the info line: shown unless the user turned them off in Settings.</summary>
+    private void UpdateFileButtons()
+    {
+        if (!_fileButtonMenusMade) MakeFileButtonMenus();
+        FileButtons.Visibility = AppSettingsStore.Current.ShowFileButtons ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private bool _fileButtonMenusMade;
+
+    /// <summary>Right-click menus of the five buttons, made in code: "Hide File Buttons" on all, "Open Recycle Bin" first on Delete,
+    /// "View Clipboard Contents..." first on Paste.</summary>
+    private void MakeFileButtonMenus()
+    {
+        _fileButtonMenusMade = true;
+        var buttons = FileButtons.Children.OfType<Button>().ToList();   // Cut, Copy, Paste, Rename, Delete
+        for (int i = 0; i < buttons.Count; i++)
+        {
+            // The menu inherits the button's icon font, so its text must name a normal font; it also opens on a disabled button.
+            var menu = new ContextMenu { FontFamily = SystemFonts.MessageFontFamily, FontSize = SystemFonts.MessageFontSize };
+            ContextMenuService.SetShowOnDisabled(buttons[i], true);
+            if (i == 2)
+            {
+                var view = new MenuItem { Header = "View Clipboard Contents..." };
+                view.Click += (_, _) => new ClipboardViewWindow(this).ShowDialog();
+                menu.Items.Add(view);
+                menu.Items.Add(new Separator());
+            }
+            else if (i == 4)
+            {
+                var bin = new MenuItem { Header = "Open Recycle Bin" };
+                bin.Click += (_, _) => OpenRecycleBin();
+                menu.Items.Add(bin);
+                menu.Items.Add(new Separator());
+            }
+            var hide = new MenuItem { Header = "Hide File Buttons" };
+            hide.Click += (_, _) => HideFileButtons();
+            menu.Items.Add(hide);
+            buttons[i].ContextMenu = menu;
+        }
+    }
+
+    private void HideFileButtons()
+    {
+        AppSettingsStore.Current.ShowFileButtons = false;
+        AppSettingsStore.Save(AppSettingsStore.Current);
+        UpdateFileButtons();
+        MessageBox.Show(this, "The Cut, Copy, Paste, Rename, and Delete buttons are hidden.\n\nTo show them again, go to Tools > Settings > General > File Buttons and check \"Show Cut, Copy, Paste, Rename, and Delete Buttons\".",
+                        AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>The Recycle Bin is the one place this program never lists: Windows' own Explorer shows it.</summary>
+    private void OpenRecycleBin()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", "shell:RecycleBinFolder") { UseShellExecute = true, WindowStyle = ProcessWindowStyle.Maximized });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"The Recycle Bin could not be opened:\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void UpdateInfoPanelVisibility()
     {
+        UpdateFileButtons();
         bool on = VM.ShowInfoPanel;
         InfoBody.Visibility            = on ? Visibility.Visible : Visibility.Collapsed;
         InfoPanelShowButton.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
@@ -4136,6 +4207,7 @@ public partial class MainWindow : Window
     private void InfoPanel_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         if (!VM.HasFolder) return;
+        if (e.OriginalSource is DependencyObject src && FileButtons.IsAncestorOf(src)) return;   // the five buttons have menus of their own
 
         // Only the info line (the strip with "File 6/7") counts; the details, picture, plot and boxes under it are as before.
         double lineBottom = InfoPanel.BorderThickness.Top + InfoPanel.Padding.Top + 24;

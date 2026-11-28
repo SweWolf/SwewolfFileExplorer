@@ -1644,6 +1644,20 @@
                         </Button>
                     </StackPanel>
 
+                    <!-- Cut, Copy, Paste, Rename and Delete as small icon buttons, centered in the info line (Settings > General > File Buttons) -->
+                    <StackPanel x:Name="FileButtons" Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top">
+                        <Button Content="&#xE8C6;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Height="20" MinHeight="0" MinWidth="30" Padding="6,0" Margin="0,0,3,0"
+                                Focusable="False" Command="{Binding CutCommand}" ToolTip="Cut (Ctrl+X)"/>
+                        <Button Content="&#xE8C8;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Height="20" MinHeight="0" MinWidth="30" Padding="6,0" Margin="0,0,3,0"
+                                Focusable="False" Command="{Binding CopyCommand}" ToolTip="Copy (Ctrl+C)"/>
+                        <Button Content="&#xE77F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Height="20" MinHeight="0" MinWidth="30" Padding="6,0" Margin="0,0,3,0"
+                                Focusable="False" Command="{Binding PasteKeyCommand}" ToolTip="Paste (Ctrl+V)"/>
+                        <Button Content="&#xE8AC;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Height="20" MinHeight="0" MinWidth="30" Padding="6,0" Margin="0,0,3,0"
+                                Focusable="False" Click="FileButtonRename_Click" ToolTip="Rename (F2)"/>
+                        <Button Content="&#xE74D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Height="20" MinHeight="0" MinWidth="30" Padding="6,0"
+                                Focusable="False" Command="{Binding DeleteCommand}" ToolTip="Delete (Del)"/>
+                    </StackPanel>
+
                     <!-- The Play bar, as TeraTool's box under the list, with one change: Play and Pause are one button. Under the info line,
                          above the preview picture; wraps onto a second line in a narrow window. Phase 1 plays pictures (see docs/slideshow-and-play-modes-plan.md). -->
                     <!-- Only there while the panel under this line is hidden: shows it again -->

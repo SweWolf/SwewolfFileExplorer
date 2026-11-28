@@ -119,6 +119,9 @@ public class AppSettings
     /// <summary>Tools > Settings > General > Address Bar (on by default): the Tab key in the address bar suggests a folder, as in the Command Prompt. Off: Tab moves to the next control.</summary>
     public bool TabSuggestsFolders { get; set; } = true;
 
+    /// <summary>Cut, Copy, Paste, Rename and Delete icon buttons in the info line under the list (Settings > General > File Buttons).</summary>
+    public bool ShowFileButtons { get; set; } = true;
+
     /// <summary>
     /// Settings > Drag and Drop > "Disable Internal Drag and Drop" (off by default). On: files dropped on the list or the tree are refused
     /// (copy / move by drag, with the left or the right button) and dragging with the right button does not start. A picture dragged in from
