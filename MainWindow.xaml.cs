@@ -2936,7 +2936,19 @@ public partial class MainWindow : Window
     private void UpdateFileButtons()
     {
         if (!_fileButtonMenusMade) MakeFileButtonMenus();
-        FileButtons.Visibility = AppSettingsStore.Current.ShowFileButtons ? Visibility.Visible : Visibility.Collapsed;
+        FileButtons.Visibility = AppSettingsStore.Current.ShowFileButtons && FileButtonsFit() ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>False when the window is so narrow that the centered buttons would touch what stands left of them in the info line
+    /// (position text, links, Undo, playlist buttons) or the J / N / scroll buttons on the right.</summary>
+    private bool FileButtonsFit()
+    {
+        if (FileButtons.Parent is not FrameworkElement parent || parent.ActualWidth <= 0) return true;
+        FileButtons.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double w = parent.ActualWidth, bw = FileButtons.DesiredSize.Width;
+        double left  = (w - bw) / 2;
+        double right = (w + bw) / 2;
+        return left >= InfoLineLeft.ActualWidth + 12 && right + 12 <= w - ScrollButtons.ActualWidth - 40;
     }
 
     private bool _fileButtonMenusMade;
@@ -2946,6 +2958,11 @@ public partial class MainWindow : Window
     private void MakeFileButtonMenus()
     {
         _fileButtonMenusMade = true;
+        // Fit again when the window, the left part of the info line or the right buttons change size.
+        void Refit(object? s, SizeChangedEventArgs e) => UpdateFileButtons();
+        InfoLineLeft.SizeChanged += Refit;
+        ScrollButtons.SizeChanged += Refit;
+        if (FileButtons.Parent is FrameworkElement p) p.SizeChanged += Refit;
         var buttons = FileButtons.Children.OfType<Button>().ToList();   // Cut, Copy, Paste, Rename, Delete
         for (int i = 0; i < buttons.Count; i++)
         {
